@@ -361,6 +361,49 @@ def test_a_tatweel_stretching_a_name_is_no_difference() -> None:
     assert given.outcome is Outcome.FOLDED
 
 
+@pytest.mark.parametrize("left, right", [
+    ("علی\u200c رضایی", "علی رضایی"),
+    ("\u200dعلی رضایی", "علی رضایی"),
+    ("Ali\u200c\u200d Rezaei", "Ali Rezaei"),
+    # a hyphen is an edge too, since the match folds a family name's
+    # halves apart (_family_words), and a given name's alike
+    ("Ali-\u200cReza Smith", "Ali-Reza Smith"),
+])
+def test_a_joiner_at_a_words_edge_is_no_difference(
+        left: str, right: str) -> None:
+    """#1335: `_normalize` strips a ZWNJ or ZWJ at a word's edge, so the
+    match's fold does too; otherwise the vocabulary would link the two
+    spellings as a listed one that no list holds, as the tatweel did."""
+    result = Parser().matching().check(left, right)
+    assert result.consistent
+    given = next(r for r in result.roles if r.role is Role.GIVEN)
+    assert given.outcome is Outcome.FOLDED
+
+
+def test_a_joiner_before_a_hyphen_folds_alike_whole_and_by_halves() -> None:
+    result = Parser().matching().check("John Smith\u200c-Jones",
+                                       "John Smith-Jones")
+    family = next(r for r in result.roles if r.role is Role.FAMILY)
+    assert family.outcome is Outcome.FOLDED
+    assert _fold("smith\u200c-jones").split("-") == [
+        _fold(h) for h in "smith\u200c-jones".split("-")]
+
+
+def test_a_familiar_form_typed_with_an_edge_joiner_is_still_one() -> None:
+    """The familiar-form index files a name under its folded forms
+    (`_lexicon._forms`), so the joiner must fold away there too."""
+    matcher = Parser().matching(
+        accept=Parser().matching().accept | {"familiar-form"})
+    result = matcher.check("Max\u200c Smith", "Maximilian Smith")
+    given = next(r for r in result.roles if r.role is Role.GIVEN)
+    assert given.outcome is Outcome.FAMILIAR_FORM
+
+
+def test_fold_drops_a_joiner_at_a_words_edge_and_keeps_one_inside() -> None:
+    assert _fold("\u200cAli\u200d Reza\u200c") == "ali reza"
+    assert _fold("آیت\u200cالله") == "آیت\u200cالله"
+
+
 def test_fold_drops_case_accents_and_periods_but_keeps_hyphens() -> None:
     assert _fold("J.-P. O'Mári\u0301a") == "j-p omaria"
     assert _fold("María") == _fold("Mari\u0301a") == "maria"
@@ -556,6 +599,22 @@ def test_the_armenian_ter_prefix_is_a_particle_set_aside() -> None:
         "պետրոսյան;լ", "տերպետրոսյան;լ", "տեր-պետրոսյան;լ"}
 
 
+@pytest.mark.parametrize("a, b, family", [
+    ("Piet Oude Luttikhuis", "Piet Oudeluttikhuis", Outcome.JOINED),
+    ("Piet Oude Luttikhuis", "Piet Luttikhuis", Outcome.PARTICLES_ASIDE),
+])
+def test_the_dutch_oude_is_a_particle_to_the_match(
+        a: str, b: str, family: Outcome) -> None:
+    # oude reads by default as the particle it is (#1455): written apart
+    # or run together with its surname the family joins, where 3.1.0 read
+    # a conflict, and set aside against the bare surname, where 3.1.0 read
+    # a middle name on one side; neither side then holds a middle name
+    for x, y in ((a, b), (b, a)):
+        r = m.check(x, y)
+        assert r.consistent and r["family"].outcome is family, (x, y)
+        assert r["middle"].outcome is Outcome.SAME, (x, y)
+
+
 @pytest.mark.parametrize("a, b", [
     ("Juan de la Vega", "Juan Marcos Vega"),
     ("Զավեն Տեր Եղիյան", "Զավեն Մարկոս Եղիյան"),
@@ -642,6 +701,21 @@ def test_a_burmese_letter_is_never_an_initial() -> None:
         is Outcome.INITIAL
 
 
+def test_a_thai_or_lao_letter_is_never_an_initial() -> None:
+    """Thai (#1256) and Lao (#1380) write no initials
+    (decisions/script-properties), so a letter of either, with or without its period, is a whole name that
+    conflicts with the name it would have stood for; 3.1.0 read the Lao
+    letter as an initial."""
+    for a, b in (("ส. ใจดี", "สมชาย ใจดี"), ("ສ. ໃຈດີ", "ສົມຊາຍ ໃຈດີ"),
+                 ("ສ ໃຈດີ", "ສົມຊາຍ ໃຈດີ")):
+        for x, y in ((a, b), (b, a)):
+            r = m.check(x, y)
+            assert not r.consistent, (x, y)
+            assert role(r, Role.GIVEN).outcome is Outcome.CONFLICT
+    r = m.check("ສົມຊາຍ ສ. ໃຈດີ", "ສົມຊາຍ ສີສະຫວາດ ໃຈດີ")
+    assert role(r, Role.MIDDLE).outcome is Outcome.CONFLICT
+
+
 def test_initials_written_apart_agree_with_the_same_initials_joined() -> None:
     base = parse("John Smith")
     r = m.check(base.replace(given="J.-P."), base.replace(given="J. P."))
@@ -669,6 +743,15 @@ def test_fold_keeps_a_mark_that_spells_an_indic_letter() -> None:
 def test_a_devanagari_vowel_sign_is_not_folded_away() -> None:
     r = m.check("कुमार सिंह", "कमार सिंह")
     assert not r.consistent and role(r, Role.GIVEN).outcome is Outcome.CONFLICT
+
+
+def test_an_arabic_letter_with_a_full_stop_is_no_initial() -> None:
+    # Arabic script writes no initials (#1149, decisions/script-properties):
+    # the letter is a word of its own, so it conflicts with the name it
+    # would have stood for, where a Latin initial is consistent with it
+    r = m.check("فؤاد علي", "ف. علي")
+    assert not r.consistent and role(r, Role.GIVEN).outcome is Outcome.CONFLICT
+    assert m.check("Fouad Ali", "F. Ali").consistent
 
 
 def test_a_devanagari_anusvara_is_not_folded_away() -> None:
@@ -1576,8 +1659,10 @@ def _choice(languages: set[str], strict: bool) -> Parser:
 
 # measured 2026-11-08: the mark follows the chosen vocabulary
 @pytest.mark.parametrize("languages, strict, named, jo, jas", [
-    (None, False, {"jas", "jo", "ma"}, False, False),
-    ({"fil"}, False, {"jas", "jo", "ma"}, False, False),
+    # `ab` joined the default's mark with #1178: ms.toml's Abdul written
+    # short beside nl.toml's Dutch name; a plain choice keeps both
+    (None, False, {"ab", "jas", "jo", "ma"}, False, False),
+    ({"fil"}, False, {"ab", "jas", "jo", "ma"}, False, False),
     ({"en", "fil"}, True, {"jo", "ma"}, False, True),
     ({"en", "pa"}, True, {"jas"}, False, False),
     # Filipino alone: Jo has no reading as a name of its own (ruling)
@@ -1773,9 +1858,123 @@ def test_a_pair_reads_whichever_way_the_source_wrote_it(
         assert matching.keys(a) & matching.keys(b)
 
 
+@pytest.mark.parametrize("a, b, key", [
+    # Wikidata's people named two ways, reviewed (decisions/
+    # name-matching, 2026-11-20 #1387): Hungarian, Czech, Polish and
+    # Russian familiar forms ORCID's holders did not evidence
+    ("Erzsi Nagy", "Erzsébet Nagy", "nagy;e"),
+    ("Jóska Kovács", "József Kovács", "kovacs;j"),
+    ("Zsuzsi Kiss", "Zsuzsanna Kiss", "kiss;z"),
+    ("Jára Novák", "Jaroslav Novák", "novak;j"),
+    ("Mietek Kowalski", "Mieczysław Kowalski", "kowalski;m"),
+    ("Женя Иванов", "Евгений Иванов", "иванов;е"),
+])
+def test_a_familiar_form_from_wikidata_is_consistent_where_accepted(
+        a: str, b: str, key: str) -> None:
+    r = _familiar.check(a, b)
+    assert r.consistent
+    assert role(r, Role.GIVEN).outcome is Outcome.FAMILIAR_FORM
+    assert key in _familiar.keys(a) & _familiar.keys(b)
+
+
+@pytest.mark.parametrize("a, b", [
+    # the review's translation (another language's form) and a pair
+    # its two readers split ship nowhere
+    ("Josef Novák", "József Novák"),
+    ("Bob Novák", "Bohumír Novák"),
+])
+def test_a_wikidata_pair_the_review_did_not_agree_on_is_no_familiar_form(
+        a: str, b: str) -> None:
+    assert not _familiar.check(a, b).consistent
+
+
+def test_a_wikidata_familiar_form_is_kept_by_its_languages_choice() -> None:
+    # a pair goes in the file of each language it was found in, so a
+    # strict choice of one of them keeps it (#1387's review once lost
+    # `vlado` from cs.toml when it merged two spellings of the pair)
+    from nameparser import locales, parser_for
+    czech = parser_for(locales.CS, strict=True).matching(
+        accept={"familiar-form"})
+    assert czech.check("Vlado Novák", "Vladimír Novák").consistent
+    # nor loses one the readers judged it in where the tool now finds
+    # fewer people (Slovak Zuzka)
+    slovak = parser_for(locales.SK, strict=True).matching(
+        accept={"familiar-form"})
+    assert slovak.check("Zuzka Nováková", "Zuzana Nováková").consistent
+
+
+def test_a_wikidata_pair_goes_only_in_the_languages_its_readers_judged() -> None:
+    # Алена / Елена, a Belarusian against a Russian form, was split;
+    # its fold-twin Алёна / Елена, judged a familiar form in Russian,
+    # takes no Belarusian placement from it
+    from nameparser._reading_index import index
+    assert {r.tag for r in index() if r.kind == "familiar"
+            and r.text == "алёна"} == {"ru"}
+
+
+def test_a_held_wikidata_spelling_ships_nowhere() -> None:
+    # the readers agreed Генадій / Геннадій is one Ukrainian name, but
+    # the spelling test that passed it kept no planted translation
+    # apart, so #1387's spellings are held until a pass can vouch for
+    # them (decisions/name-matching, 2026-11-20 #1387)
+    spelling = _with(Outcome.ALTERNATE_SPELLING)
+    assert not spelling.check("Генадій Петренко",
+                              "Геннадій Петренко").consistent
+
+
+@pytest.mark.parametrize("a, b, key", [
+    # Brazilian ballot names against the civil names they stand for,
+    # reviewed (decisions/name-matching, 2026-11-20 #1495), in each
+    # shape the match reads: given first, after a family comma, beside
+    # a second given name, in capitals, and without the accent the
+    # stored word carries (`tião`) or with one it lacks (`jose`)
+    ("Paulinho Silva", "Paulo Silva", "silva;p"),
+    ("Silva, Cida", "Aparecida Silva", "silva;a"),
+    ("Tião Alves", "Sebastião Alves", "alves;s"),
+    ("Tiao Alves", "Sebastião Alves", "alves;s"),
+    ("TIAO ALVES", "SEBASTIAO ALVES", "alves;s"),
+    ("Biu Ramos", "Severino Ramos", "ramos;s"),
+    ("Zé Carlos Pereira", "José Carlos Pereira", "pereira;j"),
+    ("Ze Pereira", "Jose Pereira", "pereira;j"),
+    ("Zezinho Lima", "José Lima", "lima;j"),
+    ("CARLINHOS SOUZA", "CARLOS SOUZA", "souza;c"),
+])
+def test_a_brazilian_familiar_form_is_consistent_where_accepted(
+        a: str, b: str, key: str) -> None:
+    r = _familiar.check(a, b)
+    assert r.consistent
+    assert role(r, Role.GIVEN).outcome is Outcome.FAMILIAR_FORM
+    assert key in _familiar.keys(a) & _familiar.keys(b)
+    # reported, not accepted, by default
+    assert not m.check(a, b).consistent
+
+
+@pytest.mark.parametrize("a, b", [
+    # the review's bynames and siblings ship nowhere: a form of address
+    # beside the name, two names of one root
+    ("Dona Silva", "Josefa Silva"),
+    ("Carmem Silva", "Carmo Silva"),
+    # never chained: Tiãozinho and Tião are each paired with Sebastião
+    ("Tiãozinho Alves", "Tião Alves"),
+])
+def test_a_brazilian_pair_the_review_did_not_ship_is_no_familiar_form(
+        a: str, b: str) -> None:
+    assert not _familiar.check(a, b).consistent
+
+
+def test_a_held_brazilian_spelling_ships_nowhere() -> None:
+    # the readers agreed Elizangela / Elisangela is one name spelled two
+    # ways; held (decisions/name-matching, 2026-11-20 #1495), it is no
+    # alternate spelling, as it would be shipped
+    spelling = _with(Outcome.ALTERNATE_SPELLING, Outcome.FAMILIAR_FORM)
+    assert not spelling.check("Elizangela Silva", "Elisangela Silva").consistent
+
+
 @pytest.mark.parametrize("a, b", [
     # never chained: each is paired with Max alone, not with each other
     ("Maximilian Smith", "Maxim Smith"),
+    # nor on Wikidata's pairs: Ivo and Ivica are each paired with Ivan
+    ("Ivo Horvat", "Ivica Horvat"),
     # pairs no source lists: Rickie is paired with Rick and Roderick,
     # Pancho with nothing
     ("Rickie Smith", "Richard Smith"),
@@ -2066,11 +2265,17 @@ def test_a_choice_of_languages_keeps_its_own_alternate_spellings() -> None:
         return {frozenset((r.text, n)) for r in index()
                 if r.kind == "spelling" and r.tag in tags
                 for n in r.props["spelling_of"]}
+    from nameparser._reading_index import is_native_script
     uk_only = pairs({"uk"}) - pairs({"en", "mul"})
-    assert uk_only
+    # a strict choice keeps a native-script word's readings whatever its
+    # file; uk.toml writes Latin spellings alone today, so `native` may
+    # be empty, and the Latin ones must be held to the choice
+    native = {p for p in uk_only if all(map(is_native_script, p))}
+    assert uk_only - native
     for a, b in map(sorted, uk_only):
         assert b in ukrainian._alternate_spellings(a)
-        assert b not in english._alternate_spellings(a)
+        assert (b in english._alternate_spellings(a)) == (
+            frozenset((a, b)) in native)
 
 
 def test_a_callers_spelling_extends_the_shipped_ones() -> None:
@@ -2598,9 +2803,32 @@ def test_a_remove_of_every_reading_of_a_word_keeps_the_pairs_other_words_hold() 
     # spelling ones among them; a pair another word holds with it is
     # that word's reading, and takes a remove of the kind (#1404)
     lexicon = _pairs("familiar", "short_for").add("zzbo", kind="title")
-    after = lexicon.remove("zzbo").remove("zzrobert")
+    # zzrobert holds no reading of its own, so the remove takes nothing
+    # and warns (#1535)
+    with pytest.warns(UserWarning,
+                      match="'zzrobert' holds no reading of its own"):
+        after = lexicon.remove("zzbo").remove("zzrobert")
     assert after.readings_of("zzbo") == ()
     assert after._familiar_forms("zzrobert") == {"zzrob"}
+
+
+@_pair_kinds
+def test_a_no_kind_remove_of_a_name_held_only_in_pairs_offers_the_pair_remove(
+        kind: str, prop: str, outcome: Outcome,
+        paired: Callable[..., frozenset[str]]) -> None:
+    # zzsho is the other name of a pair zzlong holds: a remove with no
+    # kind takes nothing, and the warning offers the remove that takes
+    # the pair, which this runs (#1535)
+    lexicon = _pairs(kind, prop)
+    with pytest.warns(UserWarning) as record:
+        lexicon.remove("zzsho")
+    message = str(record[0].message)
+    assert "'zzsho' holds no reading of its own" in message
+    offered = re.search(r"remove\('zzsho', kind='[a-z]+'\)", message)
+    assert offered is not None
+    taken = eval("lexicon." + offered.group(0))  # noqa: S307
+    assert paired(lexicon, "zzsho") == {"zzlong"}
+    assert paired(taken, "zzsho") == frozenset()
 
 
 @_pair_kinds
@@ -4269,6 +4497,58 @@ def test_the_default_keys_hold_no_maiden_word(name: str) -> None:
     # names agree, and they are keyed (#1264)
     without = name.split(" (")[0]
     assert m.keys(name) == m.keys(without)
+
+
+# -- Abdul written short (#1178) ----------------------------------------------
+
+#: `ab` is Abdul written short in ms.toml and a Dutch name of its own in
+#: nl.toml (SAME_AS_NAMED), so its link to Abdul is followed only where
+#: it is written with its period, as `jo`'s to José is.
+_ABDUL: tuple[tuple[str, str, Outcome], ...] = (
+    ("Ab. Rahman", "Abdul Rahman", Outcome.LISTED_SPELLING),
+    ("Rahman, Ab.", "Abdul Rahman", Outcome.LISTED_SPELLING),
+    ("AB. RAHMAN", "ABDUL RAHMAN", Outcome.LISTED_SPELLING),
+    ("Ab.Rahman", "Abdul Rahman", Outcome.LISTED_SPELLING),
+    # written bare it is the Dutch name too, which is not Abdul
+    ("Ab Rahman", "Abdul Rahman", Outcome.CONFLICT),
+    # Accepted: no familiar pair links the Dutch name to Abraham or
+    # Albert, its long forms
+    ("Ab Jansen", "Abraham Jansen", Outcome.CONFLICT),
+    # Accepted: Abdul joins the word after it (rules/P5) and `ab` does
+    # not, so the given names compared are `Ab.` and `Abdul Hamid`
+    ("Ab. Hamid Rahman", "Abdul Hamid Rahman", Outcome.CONFLICT),
+)
+
+
+@pytest.mark.parametrize("a, b, outcome", _ABDUL)
+def test_abdul_written_short_matches_abdul_with_its_period(
+        a: str, b: str, outcome: Outcome) -> None:
+    # Negative control (2026-11-21): on master 6ff048fe every row but the
+    # last reads `given-one-side`, `Ab` and `Ab.` read as a title (en.toml's
+    # Airman Basic, rules/H2's shape), and the last reads `conflict`; no
+    # row's two names share a key there
+    for x, y in ((a, b), (b, a)):
+        r = m.check(x, y)
+        assert r["given"].outcome is outcome, (x, y)
+        assert r.consistent is (outcome in m.accept), (x, y)
+        assert m.keys(x) & m.keys(y), (x, y)
+
+
+@pytest.mark.parametrize("tags, bare, dotted", [
+    # a strict Malay choice reads no nl.toml, so `ab` is Abdul written
+    # short alone and its link is followed written bare too
+    (("ms",), Outcome.LISTED_SPELLING, Outcome.LISTED_SPELLING),
+    # a strict Dutch choice reads no ms.toml: no link, and `Ab.` is a
+    # title by rules/H2's shape
+    (("nl",), Outcome.CONFLICT, Outcome.GIVEN_ONE_SIDE),
+])
+def test_abdul_written_short_under_a_strict_choice(
+        tags: tuple[str, ...], bare: Outcome, dotted: Outcome) -> None:
+    parser = _choice(set(tags), True)
+    assert "ab" not in parser.lexicon._same_as_named["given"]
+    matching = parser.matching()
+    for a, outcome in (("Ab Rahman", bare), ("Ab. Rahman", dotted)):
+        assert matching.check(a, "Abdul Rahman")["given"].outcome is outcome, a
 
 
 # -- Muhammad written short (#1383) -------------------------------------------

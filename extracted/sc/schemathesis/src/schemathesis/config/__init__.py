@@ -25,6 +25,7 @@ from schemathesis.config._checks import (
 )
 from schemathesis.config._dictionaries import DictionaryDefinition, parse_dictionaries
 from schemathesis.config._diff_base import DiffBase
+from schemathesis.config._env import resolve, resolve_nested
 from schemathesis.config._error import ConfigError
 from schemathesis.config._fuzz import FuzzConfig
 from schemathesis.config._generation import GenerationConfig
@@ -96,6 +97,8 @@ class SchemathesisConfig(DiffBase):
     _seed: int | None
     _config_path: str | None
     wait_for_schema: float | int | None
+    # In-process application to test, as `module:attribute`.
+    app: str | None
     max_failures: int | None
     max_time: int | None
     reports: ReportsConfig
@@ -103,6 +106,7 @@ class SchemathesisConfig(DiffBase):
     output: OutputConfig
     projects: ProjectsConfig
     dictionaries: dict[str, DictionaryDefinition]
+    extensions: dict[str, dict[str, object]]
     # Seed for configs without an explicit one, shared by all processes of a run (e.g. pytest-xdist workers)
     shared_seed: ClassVar[int | None] = None
 
@@ -113,6 +117,7 @@ class SchemathesisConfig(DiffBase):
         suppress_health_check: list[HealthCheck] | None = None,
         seed: int | None = None,
         wait_for_schema: float | int | None = None,
+        app: str | None = None,
         max_failures: int | None = None,
         max_time: int | None = None,
         reports: ReportsConfig | None = None,
@@ -120,6 +125,7 @@ class SchemathesisConfig(DiffBase):
         output: OutputConfig | None = None,
         projects: ProjectsConfig | None = None,
         dictionaries: dict[str, DictionaryDefinition] | None = None,
+        extensions: dict[str, dict[str, object]] | None = None,
     ):
         self.color = color
         self.suppress_health_check = suppress_health_check or []
@@ -128,6 +134,7 @@ class SchemathesisConfig(DiffBase):
             self._mark_source_keys(("seed",))
         self._config_path = None
         self.wait_for_schema = wait_for_schema
+        self.app = app
         self.max_failures = max_failures
         self.max_time = max_time
         self.reports = reports or ReportsConfig()
@@ -136,6 +143,7 @@ class SchemathesisConfig(DiffBase):
         self.projects = projects or ProjectsConfig()
         self.projects._set_parent(self)
         self.dictionaries = dictionaries or {}
+        self.extensions = extensions or {}
 
     @property
     def seed(self) -> int:
@@ -150,20 +158,12 @@ class SchemathesisConfig(DiffBase):
 
     @property
     def config_path(self) -> str | None:
-        """Filesystem path to the loaded configuration file, if any.
-
-        Returns None if using default configuration.
-        """
+        """Filesystem path to the loaded configuration file; `None` for the default configuration."""
         return self._config_path
 
     @classmethod
     def discover(cls) -> SchemathesisConfig:
-        """Discover the Schemathesis configuration file.
-
-        Search for 'schemathesis.toml' in the current directory and then in each parent directory,
-        stopping when a directory containing a '.git' folder is encountered or the filesystem root is reached.
-        If a config file is found, load it; otherwise, return a default configuration.
-        """
+        """Load the nearest `schemathesis.toml` up to the repository root or the root, or return the default config."""
         current_dir = os.getcwd()
         config_file = None
 
@@ -173,12 +173,10 @@ class SchemathesisConfig(DiffBase):
                 config_file = candidate
                 break
 
-            # Stop searching if we've reached a git repository root
-            git_dir = os.path.join(current_dir, ".git")
-            if os.path.isdir(git_dir):
+            # Worktrees and submodules have a `.git` file instead of a directory
+            if os.path.exists(os.path.join(current_dir, ".git")):
                 break
 
-            # Stop if we've reached the filesystem root
             parent = os.path.dirname(current_dir)
             if parent == current_dir:
                 break
@@ -195,6 +193,7 @@ class SchemathesisConfig(DiffBase):
         suppress_health_check: list[HealthCheck] | None = None,
         seed: int | None = None,
         wait_for_schema: float | int | None = None,
+        app: str | None = None,
         max_failures: int | None,
         max_time: int | None = None,
     ) -> None:
@@ -206,6 +205,7 @@ class SchemathesisConfig(DiffBase):
             color=color,
             suppress_health_check=suppress_health_check,
             wait_for_schema=wait_for_schema,
+            app=app,
             max_failures=max_failures,
             max_time=max_time,
         )
@@ -250,6 +250,7 @@ class SchemathesisConfig(DiffBase):
             suppress_health_check=[HealthCheck(name) for name in data.get("suppress-health-check", [])],
             seed=data.get("seed"),
             wait_for_schema=data.get("wait-for-schema"),
+            app=resolve(data.get("app")),
             max_failures=data.get("max-failures"),
             max_time=data.get("max-time"),
             reports=ReportsConfig.from_dict(data.get("reports", {})),
@@ -257,4 +258,5 @@ class SchemathesisConfig(DiffBase):
             output=OutputConfig.from_dict(data.get("output", {})),
             projects=projects,
             dictionaries=dictionaries,
+            extensions=resolve_nested(data.get("extensions", {})),
         )._mark_source_keys(data)

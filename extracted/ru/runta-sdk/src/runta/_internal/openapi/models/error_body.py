@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.public_error_code import PublicErrorCode
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ErrorBody")
 
@@ -17,16 +18,21 @@ class ErrorBody:
     Attributes:
         code (PublicErrorCode):
         message (str):
+        authorization_reason (str | Unset): Authorization refusal reason. Only required_scope_missing permits an OAuth
+            scope challenge.
     """
 
     code: PublicErrorCode
     message: str
+    authorization_reason: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         code = self.code.value
 
         message = self.message
+
+        authorization_reason = self.authorization_reason
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,6 +42,8 @@ class ErrorBody:
                 "message": message,
             }
         )
+        if authorization_reason is not UNSET:
+            field_dict["authorization_reason"] = authorization_reason
 
         return field_dict
 
@@ -46,9 +54,12 @@ class ErrorBody:
 
         message = d.pop("message")
 
+        authorization_reason = d.pop("authorization_reason", UNSET)
+
         error_body = cls(
             code=code,
             message=message,
+            authorization_reason=authorization_reason,
         )
 
         error_body.additional_properties = d

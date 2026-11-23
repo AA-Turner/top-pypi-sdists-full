@@ -45,7 +45,7 @@ WlanObj_init (WlanObject *self, PyObject *args, PyObject *kwds)
       = { "constellation", "code_rate", "window", "oversample", NULL };
   const char *constellation_str = "qam16";
   const char *code_rate_str     = "r12";
-  long long   window_raw        = 0;
+  long long   window_raw        = WLAN_WINDOW_STANDARD;
   long long   oversample_raw    = 1;
 
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "|ssLL", kwlist,
@@ -150,8 +150,7 @@ WlanObj_ppdu_max_out (WlanObject *self, PyObject *args)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromSize_t (
-      dp_wlan_ppdu_why_max_out (self->handle, (size_t)n_in));
+  return PyLong_FromSize_t (dp_wlan_ppdu_max_out (self->handle, (size_t)n_in));
 }
 
 static PyObject *
@@ -217,7 +216,7 @@ WlanObj_ppdu (WlanObject *self, PyObject *args, PyObject *kwds)
           PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
-      size_t _omax    = dp_wlan_ppdu_why_max_out (self->handle, x_len);
+      size_t _omax    = dp_wlan_ppdu_max_out (self->handle, x_len);
       size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
@@ -282,7 +281,7 @@ WlanObj_ppdu (WlanObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   size_t _need = x_len;
-  size_t _cap  = dp_wlan_ppdu_why_max_out (self->handle, x_len);
+  size_t _cap  = dp_wlan_ppdu_max_out (self->handle, x_len);
   (void)_need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
@@ -528,7 +527,7 @@ static PyMethodDef WlanObj_methods[] = {
     "scrambler_state : int\n"
     "    The scrambler register's initial state, 1 to 127.\n"
     "out : npt.NDArray[np.complex64] | None\n"
-    "    Receives dp_wlan_ppdu_why_max_out() samples.\n"
+    "    Receives dp_wlan_ppdu_max_out() samples.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -552,11 +551,12 @@ static PyMethodDef WlanObj_methods[] = {
     ">>> w = Wlan(constellation=\"qam16\", code_rate=\"r34\")  # 36 Mb/s\n"
     ">>> psdu = np.arange(100, dtype=np.uint8)\n"
     ">>> x = w.ppdu(psdu, 93)\n"
-    ">>> x.dtype, x.shape  # 160 + 160 + 80 + 80 * 6 samples\n"
-    "(dtype('complex64'), (880,))\n"
+    ">>> x.dtype, x.shape  # 160 + 160 + 80 + 80 * 6, plus the 2-sample "
+    "window\n"
+    "(dtype('complex64'), (882,))\n"
     ">>> w2 = Wlan(constellation=\"qam16\", code_rate=\"r34\", oversample=2)\n"
-    ">>> w2.ppdu(psdu, 93).shape\n"
-    "(1760,)\n"
+    ">>> w2.ppdu(psdu, 93).shape  # twice as fine, and a 4-sample window\n"
+    "(1764,)\n"
     ">>> w.ppdu(psdu, 0)\n"
     "Traceback (most recent call last):\n"
     "    ...\n"
@@ -665,14 +665,15 @@ static PyTypeObject WlanObjType = {
     "    The BCC rate: `r12` is 1/2, `r23` is 2/3, `r34` is 3/4 and `r56` is\n"
     "    5/6.\n"
     "    One of ``\"r12\"``, ``\"r23\"``, ``\"r34\"``, ``\"r56\"``.\n"
-    "window : int, default 0\n"
-    "    The window length in samples at the OUTPUT rate, 0 to 80 times\n"
-    "    `oversample`: the cross-fade at each OFDM symbol boundary of the "
-    "PPDUs\n"
-    "    `ppdu` renders. The standard's 100 ns transition is `2 * "
-    "oversample`\n"
-    "    samples; above the `16 * oversample` guard interval the cross-fade\n"
-    "    reaches into the symbol body.\n"
+    "window : int, default WLAN_WINDOW_STANDARD\n"
+    "    The default is the standard's 100 ns transition, `2 * oversample`\n"
+    "    samples; 0 is no window. Otherwise the window length in samples at "
+    "the\n"
+    "    OUTPUT rate, 0 to 80 times `oversample`: the cross-fade at each "
+    "OFDM\n"
+    "    symbol boundary of the PPDUs `ppdu` renders. Above the `16 *\n"
+    "    oversample` guard interval the cross-fade reaches into the symbol "
+    "body.\n"
     "oversample : int, default 1\n"
     "    `M`, 1 to 128: the output rate over the 20 MHz clock. The PPDU is\n"
     "    rendered by a transform `M` times longer, the same subcarriers, not\n"

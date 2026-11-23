@@ -138,16 +138,19 @@ class AnyString:
         (True, []),
         ({}, []),
         ({"type": "null"}, [0, 0.5, "true", "AAA"]),
-        # 0/1 coerce to booleans in lenient query/path parsers, so the numeric type violations
-        # are non-coercible values instead.
+        # Lenient query/path parsers read 0/1 as booleans, so the numeric negatives are non-coercible values.
         ({"type": "boolean"}, [2, 0.5, "null", "AAA", ["null", "null"]]),
         ({"type": ["boolean", "null"]}, [2, 0.5, "AAA"]),
-        # canonicalish drops `type` when `enum` is present; infer it from the values so type
-        # violations still appear alongside the enum violation. The enum-negative "AAA"
-        # collides with the type-negative "AAA" and dedupes to one entry.
+        # Canonicalization drops `type` beside `enum`; type violations come from the values, and the two "AAA" dedupe.
         ({"enum": [1, 2]}, ["AAA", 0.5, "true", "null", ["null", "null"]]),
         ({"enum": [1, 2, {}]}, ["AAA", 0.5, "true", "null", ["null", "null"]]),
         ({"enum": ["a", "b"]}, ["AAA", 0, 0.5, "true", "null", ["null", "null"]]),
+        # Enum entries outside the declared type are negatives; integers fit `number`, "true" reads as a boolean.
+        (
+            {"type": "number", "enum": [2.5, 1, "a", True]},
+            ["true", "null", "AAA", ["null", "null"], "", -58800, "a", True],
+        ),
+        ({"type": "boolean", "enum": ["true", True, "x"]}, [2, 0.5, "null", "AAA", ["null", "null"], -58800, "x"]),
         ({"multipleOf": 2}, lambda x: x % 2 != 0),
         ({"format": "date-time"}, [AnyString()]),
         ({"format": "hostname"}, [AnyString()]),
@@ -176,6 +179,85 @@ def test_negative_primitive_schemas(nctx, schema, expected):
     assert_not_conform(covered, schema)
 
 
+@pytest.mark.parametrize(
+    ("media_type", "schema", "expected"),
+    [
+        (
+            None,
+            {"type": "object", "properties": {"a": {"type": "integer"}, "b": {"type": "integer", "nullable": True}}},
+            [
+                0,
+                False,
+                None,
+                "AAA",
+                [None, None],
+                *({"a": value, "b": 0} for value in (2.5890419884777833e-42, False, None, "AAA", [None, None], {})),
+                *({"a": 0, "b": value} for value in (2.5890419884777833e-42, False, "AAA", [None, None], {})),
+            ],
+        ),
+        (("application", "xml"), {"type": ["object", "null"]}, [0, 0.5, True, [None, None]]),
+        (("application", "xml"), {"type": ["object", "string"]}, []),
+        (("application", "octet-stream"), {"type": "string", "format": "binary"}, []),
+        (("application", "octet-stream"), {"type": "string", "format": "byte"}, []),
+        (("application", "octet-stream"), {"type": "string"}, [0, False, None, [None, None], {}]),
+        (("application", "json"), {"type": "string", "format": "binary"}, [0, False, None, [None, None], {}]),
+    ],
+    ids=["nullable-sibling", "xml-nullable", "xml-string", "binary", "byte", "octet-string", "json-binary"],
+)
+def test_negative_type_body_values(ctx_factory, media_type, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY, media_type=media_type, generation_modes=[GenerationMode.NEGATIVE]
+    )
+    assert scenario_values(ctx, schema, CoverageScenario.INCORRECT_TYPE) == expected
+
+
+# Form and XML bodies send property values as text; a negative value whose text is still valid is dropped.
+@pytest.mark.parametrize(
+    ("media_type", "expected"),
+    [
+        (
+            ("application", "xml"),
+            [
+                0,
+                0.5,
+                True,
+                [None, None],
+                {"a": 0, "b": 0.0},
+                {"a": None, "b": 0.0},
+                {"a": "0", "b": 0.0},
+                *({"a": "00", "b": value} for value in (True, None, "AAA", [None, None], {}, 6)),
+                {"b": 0.0},
+                {"a": "00"},
+            ],
+        ),
+        (
+            ("application", "x-www-form-urlencoded"),
+            [{"a": "0", "b": 0.0}, *({"a": "00", "b": value} for value in (True, "AAA", 6)), {"b": 0.0}, {"a": "00"}],
+        ),
+        (
+            ("multipart", "form-data"),
+            [
+                {"a": "0", "b": 0.0},
+                *({"a": "00", "b": value} for value in (True, None, "AAA", [None, None], {}, 6)),
+                {"b": 0.0},
+                {"a": "00"},
+            ],
+        ),
+    ],
+    ids=["xml", "urlencoded", "multipart"],
+)
+def test_negative_properties_for_text_bodies(ctx_factory, media_type, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY, media_type=media_type, generation_modes=[GenerationMode.NEGATIVE]
+    )
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "minLength": 2}, "b": {"type": "number", "maximum": 5}},
+        "required": ["a", "b"],
+    }
+    assert cover_schema(ctx, schema) == expected
+
+
 def test_negative_const(ctx_factory):
     # `const` arrived in Draft 6; only dialects whose validator enforces it get the negation.
     nctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
@@ -185,8 +267,7 @@ def test_negative_const(ctx_factory):
 @pytest.mark.parametrize(
     "schema",
     [
-        # `default: null` — Python `None` after JSON load. Must round-trip through the `null`
-        # type branch and not be skipped as "absent". Sentinel-based read ensures that.
+        # `default: null` loads as `None` and must go through the `null` branch instead of reading as absent.
         {"type": ["string", "null"], "default": None},
         {"type": ["integer", "null"], "example": None},
     ],
@@ -259,9 +340,9 @@ def test_unexpected_parameters_control(ctx_factory, location, allow_extra_parame
         ({"type": "string", "minLength": 5, "maxLength": 10}, {5, 6, 9, 10}),
         ({"type": "string", "minLength": 5, "maxLength": 6}, {5, 6}),
         ({"type": "string", "minLength": 5, "maxLength": 5}, {5}),
+        ({"type": "string", "maxLength": 0}, {0}),
         ({"type": "string", "minLength": 0, "maxLength": 512, "pattern": r"^[\w\W]+$"}, {1}),
-        # Nullable string: union type must not leak into boundary generation,
-        # otherwise generation may pick null and skip both length variants.
+        # A nullable string's union type must not let generation pick null and skip both length variants.
         ({"type": ["string", "null"], "maxLength": 10}, {9, 10}),
         ({"type": ["string", "null"], "minLength": 5, "maxLength": 10}, {5, 6, 9, 10}),
         # Falsy `default`/`example` are still set: empty string must be exercised.
@@ -281,10 +362,18 @@ def test_positive_string(ctx_factory, schema, lengths):
     assert_conform(covered, schema)
 
 
+# An empty XML element reads back as null, so positive XML strings start at one character.
+def test_positive_xml_string_is_never_empty(ctx_factory):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY, media_type=("application", "xml"), generation_modes=[GenerationMode.POSITIVE]
+    )
+    assert cover_schema(ctx, {"type": "string", "maxLength": 3}) == ["0", "00", "000"]
+
+
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        # Too permissing - all values will be stringified anyway
+        # Too permissive: every value is stringified anyway.
         ({"type": "string"}, []),
         ({"type": "string", "minLength": 5}, [0, 0.5, "true", "null", ["null", "null"], "0000"]),
         ({"type": "string", "maxLength": 10}, ["00000000000"]),
@@ -298,6 +387,26 @@ def test_positive_string(ctx_factory, schema, lengths):
         ),
         ({"type": "string", "pattern": "^[0-9]"}, ["true", "null", ["null", "null"], AnyString()]),
         ({"type": "string", "format": "date-time"}, [0, 0.5, "true", "null", ["null", "null"], ""]),
+        (
+            {"type": "string", "minLength": 3, "enum": ["abc", "defg"]},
+            [0, 0.5, "true", "null", ["null", "null"], "00", "AAA"],
+        ),
+        ({"type": "string", "minLength": 3, "const": "abc"}, [0, "00"]),
+        (
+            {"type": "string", "maxLength": 3, "enum": ["abc", "ab"]},
+            [0, 0.5, "true", "null", ["null", "null"], "0000", "AAA"],
+        ),
+        ({"type": "string", "maxLength": 3, "const": "abc"}, ["true", "null", ["null", "null"], "0000"]),
+        ({"type": "integer", "maxLength": 3}, [0.5, "true", "null", "AAA", ["null", "null"], ""]),
+        (
+            {"type": "string", "pattern": "^a+$", "minLength": 3, "maxLength": 3},
+            [0, 0.5, "true", "null", ["null", "null"], "000", "aa", "aaaa"],
+        ),
+        ({"type": "string", "pattern": "^a+$", "maxLength": 0}, [0, 0.5, "true", "null", ["null", "null"], "", "a"]),
+        (
+            {"type": "string", "format": "uuid", "pattern": f"^{UUID_PATTERN}$"},
+            [0, 0.5, "true", "null", ["null", "null"], ""],
+        ),
     ],
 )
 def test_negative_string(nctx, schema, expected):
@@ -315,9 +424,7 @@ def test_negative_string_with_pattern(nctx):
 
 
 def test_negative_maxitems_when_unique_items_exhaust_enum(nctx):
-    # `uniqueItems: true` + `items.enum` of size `maxItems` makes a length-(max+1) unique
-    # array unsatisfiable. The maxItems negative is still meaningful (server may reject
-    # on length first), so emit one with duplicates from the enum domain.
+    # No longer unique array exists, yet servers may check length first, so the maxItems negative repeats enum values.
     schema = {
         "type": "array",
         "uniqueItems": True,
@@ -350,9 +457,55 @@ def test_negative_maxitems_sends_one_oversized_string(ctx_factory, items):
     assert copies == 1
 
 
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"type": "array", "maxItems": 2}, [None, None, None]),
+        ({"type": "array", "maxItems": 2, "items": {"type": "integer", "minimum": 5}}, [5, 5, 5]),
+        ({"type": "array", "maxItems": 2, "uniqueItems": True, "items": {"type": "integer"}}, [0, 1, -1]),
+        ({"type": "array", "maxItems": 2, "contains": {"const": 7}}, [7, None, None]),
+        (
+            {"type": "array", "maxItems": 2, "prefixItems": [{"const": "a"}], "items": {"type": "integer"}},
+            ["a", 0, 0],
+        ),
+        ({"type": "array", "maxItems": 20}, [None] * 21),
+        ({"type": "array", "maxItems": 20, "items": {"type": "boolean"}}, ([True, 0, False, None] * 6)[:21]),
+    ],
+    ids=["no-items", "items", "unique", "contains", "prefix-items", "large", "large-items"],
+)
+def test_negative_max_items_values(ctx_factory, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    assert scenario_values(ctx, schema, CoverageScenario.ARRAY_ABOVE_MAX_ITEMS) == [expected]
+
+
+@pytest.mark.parametrize(
+    ("location", "schema", "expected"),
+    [
+        (ParameterLocation.BODY, {"minItems": 3}, [[None, None]]),
+        (ParameterLocation.BODY, {"type": "array", "minItems": 3, "maxItems": 6}, [[None, None]]),
+        *(
+            (
+                ParameterLocation.BODY,
+                {"type": "array", "minItems": 3, "items": {"type": "integer"}, key: value},
+                [[0, 0]],
+            )
+            for key, value in (("example", [1, 2, 3]), ("examples", [[1, 2, 3]]), ("default", [1, 2, 3]))
+        ),
+        (ParameterLocation.PATH, {"type": "array", "minItems": 1}, []),
+    ],
+    ids=["untyped", "bounded", "example", "examples", "default", "empty-path"],
+)
+def test_negative_min_items_values(ctx_factory, location, schema, expected):
+    ctx = ctx_factory(location=location, generation_modes=[GenerationMode.NEGATIVE])
+    assert scenario_values(ctx, schema, CoverageScenario.ARRAY_BELOW_MIN_ITEMS) == expected
+
+
 def test_negative_pattern_for_header_with_permissive_pattern(ctx_factory):
-    # `^[A-Z0-9_]*$` accepts the empty string; the negative emitter must still find one
-    # header-safe value that violates the pattern.
+    # `^[A-Z0-9_]*$` accepts the empty string, yet a header-safe value violating it must still be found.
     ctx = ctx_factory(location=ParameterLocation.HEADER, generation_modes=[GenerationMode.NEGATIVE])
     schema = {"type": "string", "pattern": "^[A-Z0-9_]*$"}
     out = scenario_values(ctx, schema, CoverageScenario.INVALID_PATTERN)
@@ -364,9 +517,7 @@ def test_negative_pattern_for_header_with_permissive_pattern(ctx_factory):
 
 
 def test_negative_maxlength_emitted_with_unsatisfiable_pattern(nctx):
-    # An unsatisfiable `pattern` would block the length-violation generator; the maxLength
-    # rule is still server-side enforceable, so emit a too-long string even if it also
-    # violates the broken pattern.
+    # An unsatisfiable `pattern` must not block the maxLength violation, even if the string also breaks the pattern.
     schema = {"type": "string", "maxLength": 90, "minLength": 1, "pattern": r" ^[-\w\._\(\)]+[^\.]$"}
     above_max = scenario_values(nctx, schema, CoverageScenario.STRING_ABOVE_MAX_LENGTH)
     assert above_max, "Expected an above-maxLength negative case"
@@ -539,8 +690,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"foo": 2**63},
             ],
         ),
-        # Nested object declared with just `properties` (no `type: object`):
-        # per-property example must lift into the template, not just appear in per-property variants.
+        # A nested object with only `properties` lifts each property example into the template.
         (
             {
                 "type": "object",
@@ -829,8 +979,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 [2**63],
             ],
         ),
-        # Multi-branch items must be exercised individually; boundary-size arrays
-        # repeat one branch and miss the other.
+        # Multi-branch items need one array per branch; boundary-size arrays repeat a single branch.
         (
             {
                 "type": "array",
@@ -1240,6 +1389,65 @@ def test_positive_other(pctx, schema, expected):
                 },
             ],
         ),
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "null"}},
+                "required": ["a"],
+                "additionalProperties": {"type": "integer"},
+            },
+            [
+                0,
+                0.5,
+                "true",
+                "null",
+                "AAA",
+                ["null", "null"],
+                {"a": 0},
+                {"a": 0.5},
+                {"a": "true"},
+                {"a": "AAA"},
+                {},
+                *(
+                    {"a": None, "x-schemathesis-additional": value}
+                    for value in (0.5, "true", "null", "AAA", ["null", "null"])
+                ),
+            ],
+        ),
+        (
+            {"type": "object", "maxProperties": 0},
+            [0, 0.5, "true", "null", "AAA", ["null", "null"], {"x-schemathesis-additional": 42}],
+        ),
+        (
+            {"type": "object", "maxProperties": 2, "properties": {"a": {"type": "null"}}, "required": ["a"]},
+            [
+                0,
+                0.5,
+                "true",
+                "null",
+                "AAA",
+                ["null", "null"],
+                {"a": None, "x-schemathesis-additional": 42, "x-schemathesis-additional1": 42},
+                {"a": 0},
+                {"a": 0.5},
+                {"a": "true"},
+                {"a": "AAA"},
+                {},
+            ],
+        ),
+        (
+            {"type": "object", "maxProperties": 1, "additionalProperties": {"type": "integer"}},
+            [
+                0,
+                0.5,
+                "true",
+                "null",
+                "AAA",
+                ["null", "null"],
+                {"x-schemathesis-additional": 0, "x-schemathesis-additional1": 0},
+                *({"x-schemathesis-additional": value} for value in (0.5, "true", "null", "AAA", ["null", "null"])),
+            ],
+        ),
     ],
 )
 def test_negative_objects(nctx, schema, expected):
@@ -1449,21 +1657,13 @@ def test_positive_pattern(pctx):
 
 
 def test_positive_pattern_with_wildcard_prefix_and_digit_limit(pctx):
-    # Regression: https://github.com/schemathesis/schemathesis/issues/3154
-    # Pattern with `.*` prefix and bounded digit quantifier `{1,10}`.
-    # st.from_regex(pattern) without fullmatch=True allowed strings with a trailing \n
-    # (Python's `$` matches before \n; JSON Schema / ECMAScript `$` does not),
-    # producing values that fail the schema but passed the Python-side filter,
-    # causing the hook to see a schema-conformant value while the URL carried an
-    # invalid one.
+    # GH-3154: Python's `$` matches before a trailing newline and JSON Schema's does not, so values must fullmatch.
     schema = {"type": "string", "pattern": r"^.*Id,([0-9]{1,10})$"}
     assert cover_schema(pctx, schema) == ["Id,0"]
 
 
 def test_positive_pattern_with_char_class_and_min_length(pctx):
-    # Regression: update_quantifier can't encode minLength into patterns with bare
-    # character classes like [a-z] (IN opcode). The .filter() safety net ensures
-    # generated strings still respect minLength.
+    # Patterns with bare character classes cannot encode `minLength`; generated strings must still respect it.
     schema = {"pattern": r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "minLength": 3, "type": "string"}
     assert cover_schema(pctx, schema) == ["a-0", "a00", "a000"]
 
@@ -1572,8 +1772,7 @@ def test_positive_string_reaches_lengths_far_from_what_the_pattern_emits_natural
     ],
 )
 def test_positive_string_conforms_for_a_pattern_the_length_walk_cannot_pin(pctx, pattern, length):
-    # Back-references, possessive runs and gapped repeats resist the rewrite, so the length is drawn
-    # for rather than spelled out - and every length here sits above what the pattern emits on its own.
+    # These patterns resist the length rewrite, so lengths are drawn, each above what the pattern emits on its own.
     schema = {"type": "string", "pattern": pattern, "minLength": length, "maxLength": length}
     values = cover_schema(pctx, schema)
     assert values
@@ -1586,10 +1785,33 @@ def test_positive_string_conforms_for_a_pattern_the_length_walk_cannot_pin(pctx,
     ids=["atomic", "lookahead"],
 )
 def test_positive_string_absent_where_a_length_bound_meets_a_shape_neither_path_handles(pctx, pattern):
-    # Both patterns generate freely on their own; adding a length the rewrite cannot spell out leaves
-    # only drawing and discarding, which never lands.
+    # Both patterns generate alone; a length the rewrite cannot spell leaves only draw-and-discard, which never lands.
     assert cover_schema(pctx, {"type": "string", "pattern": pattern}) != []
     assert cover_schema(pctx, {"type": "string", "pattern": pattern, "minLength": 8, "maxLength": 8}) == []
+
+
+@pytest.mark.parametrize(
+    ("pattern", "min_length", "max_length"),
+    [
+        ("", 1, None),
+        ("a", 2, None),
+        ("^a", 2, None),
+        ("a$", 2, None),
+        ("a", 3, 5),
+        ("a|^bc$", 4, None),
+        ("^(?! )", 1, None),
+        ("^(?=a)", 1, None),
+        (r"^(?=.*\S)", 1, None),
+    ],
+)
+def test_positive_string_extends_past_an_unanchored_pattern_match(pctx, pattern, min_length, max_length):
+    # `pattern` is a search, so a match shorter than `minLength` still fits inside a longer string.
+    schema = {"type": "string", "pattern": pattern, "minLength": min_length}
+    if max_length is not None:
+        schema["maxLength"] = max_length
+    values = cover_schema(pctx, schema)
+    assert values
+    assert_conform(values, schema)
 
 
 def test_positive_string_skips_a_window_no_length_can_satisfy(pctx):
@@ -1925,6 +2147,389 @@ def test_negative_prefix_items_locations(ctx_factory):
     }
 
 
+# Scenario, description and location are what failure reports show for a generated value.
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "array", "minItems": 1, "maxItems": 2},
+            {
+                (CoverageScenario.ARRAY_ABOVE_MAX_ITEMS, "Array with more items than allowed by maxItems", "/maxItems"),
+                (
+                    CoverageScenario.ARRAY_BELOW_MIN_ITEMS,
+                    "Array with fewer items than allowed by minItems",
+                    "/minItems",
+                ),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+            },
+        ),
+        (
+            {"type": "array", "minItems": 3, "maxItems": 200, "uniqueItems": True, "items": {"type": "integer"}},
+            {
+                (CoverageScenario.ARRAY_ABOVE_MAX_ITEMS, "Array with more items than allowed by maxItems", "/maxItems"),
+                (
+                    CoverageScenario.ARRAY_BELOW_MIN_ITEMS,
+                    "Array with fewer items than allowed by minItems",
+                    "/minItems",
+                ),
+                (CoverageScenario.INCORRECT_TYPE, "Array with invalid items: Incorrect type", "/items/type"),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.NON_UNIQUE_ITEMS, "Non-unique items", "/uniqueItems"),
+            },
+        ),
+        (
+            {"type": "string", "minLength": 1, "maxLength": 4},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.STRING_ABOVE_MAX_LENGTH, "String larger than maxLength", "/maxLength"),
+                (CoverageScenario.STRING_BELOW_MIN_LENGTH, "String smaller than minLength", "/minLength"),
+            },
+        ),
+        (
+            {"type": "string", "minLength": 3, "pattern": "^a+$"},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INVALID_PATTERN, "Value not matching the '^a+$' pattern", "/pattern"),
+                (CoverageScenario.STRING_BELOW_MIN_LENGTH, "String smaller than minLength", "/minLength"),
+            },
+        ),
+        (
+            {"type": "number", "minimum": 1, "maximum": 10, "multipleOf": 0.5},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.NOT_MULTIPLE_OF, "Non-multiple of 0.5", "/multipleOf"),
+                (CoverageScenario.VALUE_ABOVE_MAXIMUM, "Value greater than maximum", "/maximum"),
+                (CoverageScenario.VALUE_BELOW_MINIMUM, "Value smaller than minimum", "/minimum"),
+            },
+        ),
+        (
+            {"type": "number", "exclusiveMinimum": 1, "exclusiveMaximum": 10},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.VALUE_ABOVE_MAXIMUM, "Value greater than maximum", "/exclusiveMaximum"),
+                (CoverageScenario.VALUE_BELOW_MINIMUM, "Value smaller than minimum", "/exclusiveMinimum"),
+            },
+        ),
+        (
+            {"type": "string", "enum": ["a", 1]},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Enum value with type mismatching the declared 'type'", "/enum"),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INVALID_ENUM_VALUE, "Invalid enum value", "/enum"),
+            },
+        ),
+        (
+            {"type": "object", "patternProperties": {"^x": {"type": "integer"}}, "propertyNames": {"maxLength": 3}},
+            {
+                (
+                    CoverageScenario.INCORRECT_TYPE,
+                    "Object with invalid pattern key 'x' ('^x') value: Incorrect type",
+                    "/patternProperties/^x/type",
+                ),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (
+                    CoverageScenario.OBJECT_INVALID_PROPERTY_NAME,
+                    "Object with property name violating propertyNames: String larger than maxLength",
+                    "/propertyNames/maxLength",
+                ),
+            },
+        ),
+        (
+            {"type": "string", "format": "date"},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INVALID_FORMAT, "Value not matching the 'date' format", "/format"),
+            },
+        ),
+        (
+            {"type": "string", "pattern": "^a+$"},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INVALID_PATTERN, "Value not matching the '^a+$' pattern", "/pattern"),
+            },
+        ),
+        (
+            {"type": "integer", "items": {"type": "string"}},
+            {
+                (
+                    CoverageScenario.INCORRECT_TYPE,
+                    "Array value for a schema whose declared type forbids arrays",
+                    "/items",
+                ),
+                (CoverageScenario.INCORRECT_TYPE, "Array with invalid items: Incorrect type", "/items/type"),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+            },
+        ),
+        (
+            {"type": "string", "properties": {"a": {"type": "string"}}},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INCORRECT_TYPE, "Object body where non-object type expected", "/properties"),
+                (CoverageScenario.INCORRECT_TYPE, "a: Incorrect type", "/properties/a/type"),
+            },
+        ),
+        (
+            {"type": "object", "minProperties": 2, "properties": {"a": {"type": "string"}}},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INCORRECT_TYPE, "a: Incorrect type", "/properties/a/type"),
+                (
+                    CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES,
+                    "Object with fewer properties than allowed by minProperties",
+                    "/minProperties",
+                ),
+            },
+        ),
+        (
+            {"type": "object", "maxProperties": 1},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (
+                    CoverageScenario.OBJECT_ABOVE_MAX_PROPERTIES,
+                    "Object with more properties than allowed by maxProperties",
+                    "/maxProperties",
+                ),
+            },
+        ),
+        (
+            {"type": "object", "properties": {"a": {"type": "string"}}, "additionalProperties": False},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INCORRECT_TYPE, "a: Incorrect type", "/properties/a/type"),
+                (
+                    CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES,
+                    "Object with unexpected properties",
+                    "/additionalProperties",
+                ),
+            },
+        ),
+        (
+            {"type": "array", "items": {"type": "string", "minLength": 2}},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Array with invalid items: Incorrect type", "/items/type"),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (
+                    CoverageScenario.STRING_BELOW_MIN_LENGTH,
+                    "Array with invalid items: String smaller than minLength",
+                    "/items/minLength",
+                ),
+            },
+        ),
+        (
+            {"type": "integer", "uniqueItems": True},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.NON_UNIQUE_ITEMS, "Non-unique items", "/uniqueItems"),
+                (CoverageScenario.UNIQUE_ITEMS_ARRAY, "Unique items array", "/uniqueItems"),
+            },
+        ),
+        (
+            {"type": "object", "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}}},
+            {
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+                (CoverageScenario.INCORRECT_TYPE, "a: Incorrect type", "/properties/a/type"),
+                (CoverageScenario.INCORRECT_TYPE, "b: Incorrect type", "/properties/b/type"),
+            },
+        ),
+        (
+            {"type": "array", "prefixItems": [{"type": "string"}]},
+            {
+                (
+                    CoverageScenario.INCORRECT_TYPE,
+                    "Array with invalid item at index 0: Incorrect type",
+                    "/prefixItems/0/type",
+                ),
+                (CoverageScenario.INCORRECT_TYPE, "Incorrect type", "/type"),
+            },
+        ),
+    ],
+    ids=[
+        "array-bounds",
+        "unique-integer-array",
+        "string-length",
+        "string-pattern-and-min-length",
+        "number-bounds-and-multiple-of",
+        "number-exclusive-bounds",
+        "enum-type-mismatch",
+        "pattern-properties-and-names",
+        "format",
+        "pattern",
+        "items-on-non-array",
+        "properties-on-non-object",
+        "min-properties",
+        "max-properties",
+        "no-additional-properties",
+        "invalid-items",
+        "unique-items-on-non-array",
+        "two-properties",
+        "prefix-items",
+    ],
+)
+def test_negative_value_scenario_description_and_location(ctx_factory, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    assert {(value.scenario, value.description, value.location) for value in cover_schema_iter(ctx, schema)} == expected
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "boolean"}},
+            {
+                (CoverageScenario.MAXIMUM_ITEMS_ARRAY, "Maximum items array"),
+                (CoverageScenario.NEAR_BOUNDARY_ITEMS_ARRAY, "Near-boundary items array"),
+                (CoverageScenario.VALID_ARRAY, "Single-item array: Valid boolean value"),
+                (CoverageScenario.VALID_ARRAY, "Valid array"),
+            },
+        ),
+        (
+            {"type": "array", "items": {"enum": ["a", "b"]}},
+            {
+                (CoverageScenario.ENUM_VALUE_ITEMS_ARRAY, "Enum value from available for items array"),
+                (CoverageScenario.VALID_ARRAY, "Valid array"),
+            },
+        ),
+        (
+            {"type": "array", "minItems": 2, "maxItems": 5, "items": {"type": "integer"}},
+            {
+                (CoverageScenario.MAXIMUM_ITEMS_ARRAY, "Maximum items array"),
+                (CoverageScenario.NEAR_BOUNDARY_ITEMS_ARRAY, "Near-boundary items array"),
+                (CoverageScenario.VALID_ARRAY, "Valid array"),
+            },
+        ),
+        (
+            {"type": "string", "minLength": 2, "maxLength": 5},
+            {
+                (CoverageScenario.MAXIMUM_LENGTH_STRING, "Maximum length string"),
+                (CoverageScenario.MINIMUM_LENGTH_STRING, "Minimum length string"),
+                (CoverageScenario.NEAR_BOUNDARY_LENGTH_STRING, "Near-boundary length string"),
+            },
+        ),
+        (
+            {"type": "number", "minimum": 1, "maximum": 10},
+            {
+                (CoverageScenario.MAXIMUM_VALUE, "Maximum value"),
+                (CoverageScenario.MINIMUM_VALUE, "Minimum value"),
+                (CoverageScenario.NEAR_BOUNDARY_NUMBER, "Near-boundary number"),
+            },
+        ),
+        (
+            {"type": "integer", "exclusiveMinimum": 1, "exclusiveMaximum": 10},
+            {
+                (CoverageScenario.MAXIMUM_VALUE, "Maximum value"),
+                (CoverageScenario.MINIMUM_VALUE, "Minimum value"),
+                (CoverageScenario.NEAR_BOUNDARY_NUMBER, "Near-boundary number"),
+            },
+        ),
+        (
+            {"type": "object", "required": ["a"], "properties": {"a": {"type": "boolean"}, "b": {"type": "null"}}},
+            {
+                (CoverageScenario.OBJECT_ONLY_REQUIRED, "Object with only required properties"),
+                (CoverageScenario.VALID_OBJECT, "Object with valid 'a' value: Valid boolean value"),
+                (CoverageScenario.VALID_OBJECT, "Valid object"),
+            },
+        ),
+        (
+            {"type": "object", "properties": {"a": {"type": "boolean"}}, "additionalProperties": {"type": "boolean"}},
+            {
+                (CoverageScenario.OBJECT_ADDITIONAL_PROPERTY, "Object with additional property: Valid boolean value"),
+                (CoverageScenario.OBJECT_ONLY_REQUIRED, "Object with only required properties"),
+                (CoverageScenario.VALID_OBJECT, "Object with valid 'a' value: Valid boolean value"),
+                (CoverageScenario.VALID_OBJECT, "Valid object"),
+            },
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "boolean"}},
+                "example": {"a": True},
+                "default": {"a": False},
+            },
+            {
+                (CoverageScenario.DEFAULT_VALUE, "Default value"),
+                (CoverageScenario.EXAMPLE_VALUE, "Example value"),
+                (CoverageScenario.OBJECT_ONLY_REQUIRED, "Object with only required properties"),
+                (CoverageScenario.VALID_OBJECT, "Object with valid 'a' value: Valid boolean value"),
+            },
+        ),
+        (
+            {"type": "string", "examples": ["x", "y"], "default": "z"},
+            {
+                (CoverageScenario.DEFAULT_VALUE, "Default value"),
+                (CoverageScenario.EXAMPLE_VALUE, "Example value"),
+                (CoverageScenario.OVERSIZED_STRING, "String longer than common implicit limits"),
+            },
+        ),
+        (
+            {"type": "string", "example": "e"},
+            {
+                (CoverageScenario.EXAMPLE_VALUE, "Example value"),
+                (CoverageScenario.OVERSIZED_STRING, "String longer than common implicit limits"),
+            },
+        ),
+        ({"const": 5}, {(CoverageScenario.CONST_VALUE, "Const value")}),
+        ({"enum": [1, 2]}, {(CoverageScenario.ENUM_VALUE, "Enum value")}),
+        ({"type": "boolean"}, {(CoverageScenario.VALID_BOOLEAN, "Valid boolean value")}),
+        (
+            {"type": "string"},
+            {
+                (CoverageScenario.OVERSIZED_STRING, "String longer than common implicit limits"),
+                (CoverageScenario.VALID_STRING, "Valid string"),
+            },
+        ),
+        (
+            {"type": "number"},
+            {
+                (CoverageScenario.LARGE_NUMBER, "Number beyond common integer widths"),
+                (CoverageScenario.VALID_NUMBER, "Valid number"),
+            },
+        ),
+        (
+            {"type": "string", "minLength": 2, "maxLength": 3},
+            {
+                (CoverageScenario.MINIMUM_LENGTH_STRING, "Minimum length string"),
+                (CoverageScenario.NEAR_BOUNDARY_LENGTH_STRING, "Near-boundary length string"),
+            },
+        ),
+    ],
+    ids=[
+        "array-bounds-with-single-item",
+        "enum-items",
+        "array-bounds",
+        "string-length",
+        "number-bounds",
+        "integer-exclusive-bounds",
+        "required-property",
+        "additional-properties",
+        "object-example-and-default",
+        "string-examples-and-default",
+        "string-example",
+        "const",
+        "enum",
+        "boolean",
+        "string",
+        "number",
+        "adjacent-length-bounds",
+    ],
+)
+def test_positive_value_scenario_and_description(ctx_factory, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    assert {(value.scenario, value.description) for value in cover_schema_iter(ctx, schema)} == expected
+
+
+def test_positive_null_scenario(ctx_factory):
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    assert [value.scenario for value in cover_schema_iter(ctx, {"type": "null"})] == [CoverageScenario.NULL_VALUE]
+
+
 @pytest.mark.parametrize(
     "ctx, expected",
     (
@@ -1987,8 +2592,7 @@ def test_generate_very_large_string(nctx):
 
 
 def test_oversized_string_still_matches_an_ambiguous_pattern(nctx):
-    # A group spanning two lengths has no quantifier range that pins one, so the length has to be
-    # worked into the pattern rather than padded on after generating a shorter match.
+    # A group spanning two lengths has no quantifier range to pin, so the rewrite works the length into the pattern.
     pattern = "^([a-z]{2}|[a-z]{3})+$"
     schema = {"type": "string", "pattern": pattern, "maxLength": 10}
     values = scenario_values(nctx, schema, CoverageScenario.STRING_ABOVE_MAX_LENGTH)
@@ -2284,12 +2888,10 @@ def test_large_arrays_nested(nctx):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        # Basic $ref to simple type in $defs
         (
             {"$defs": {"SimpleString": {"type": "string", "minLength": 2}}, "$ref": "#/$defs/SimpleString"},
             ["00", "000"],
         ),
-        # $ref in object properties
         (
             {
                 "$defs": {"UserId": {"type": "integer", "minimum": 1}},
@@ -2299,7 +2901,6 @@ def test_large_arrays_nested(nctx):
             },
             [{"id": 1}, {"id": 2}, {"id": 2**63}],
         ),
-        # $ref in array items
         (
             {
                 "$defs": {"Tag": {"type": "string", "enum": ["red", "blue"]}},
@@ -2308,7 +2909,6 @@ def test_large_arrays_nested(nctx):
             },
             [["red"], [], ["blue"]],
         ),
-        # Nested $refs - reference pointing to another reference
         (
             {
                 "$defs": {
@@ -2319,7 +2919,6 @@ def test_large_arrays_nested(nctx):
             },
             ["000", "00"],
         ),
-        # $ref in combinators
         (
             {
                 "$defs": {
@@ -2333,7 +2932,6 @@ def test_large_arrays_nested(nctx):
             },
             [1, 2, 2**63, -1, -2],
         ),
-        # $ref to boolean schema
         (
             {
                 "$defs": {"Anything": True},
@@ -2364,12 +2962,10 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        # Basic $ref negative case
         (
             {"$defs": {"PositiveInt": {"type": "integer", "minimum": 1}}, "$ref": "#/$defs/PositiveInt"},
             [0.5, "true", "null", "AAA", ["null", "null"], "", 0],
         ),
-        # $ref in object properties - missing required property
         (
             {
                 "$defs": {"RequiredString": {"type": "string", "minLength": 3}},
@@ -2389,7 +2985,6 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
                 {},
             ],
         ),
-        # $ref with complex validation
         (
             {
                 "$defs": {"Email": {"type": "string", "format": "email", "maxLength": 10}},
@@ -2439,18 +3034,11 @@ def test_negative_bundled_schema_refs(nctx, schema, expected):
 @pytest.mark.parametrize(
     ("schema", "min_expected_negative_count", "should_have_positive"),
     [
-        # "not" schema: anything except strings with maxLength=10
-        # Negative cases are values that MATCH the inner schema (strings ≤10 chars)
+        # Negatives are values that match the inner schema
         ({"not": {"type": "string", "maxLength": 10}}, 1, True),
-        # "not" schema: anything except null
-        # Negative case is null (matches inner schema)
         ({"not": {"type": "null"}}, 1, True),
-        # "not" schema with empty inner schema (nothing is valid)
-        # All values match the empty schema, so all are negative for "not"
-        # No positive cases possible (can't violate an empty schema)
+        # Everything matches `{}`, so every value is negative and no positive exists
         ({"not": {}}, 1, False),
-        # "not" schema with type constraint
-        # Negative case is an integer (matches inner schema)
         ({"not": {"type": "integer"}}, 1, True),
     ],
     ids=["maxLength", "null", "empty", "integer"],
@@ -2458,25 +3046,21 @@ def test_negative_bundled_schema_refs(nctx, schema, expected):
 def test_not_schema_generation_modes_consistency(
     ctx_factory, schema, min_expected_negative_count, should_have_positive
 ):
-    # Test with NEGATIVE mode only
     nctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE])
     negative_mode_values = list(cover_schema_iter(nctx, schema))
 
     negative_only_negative = [v for v in negative_mode_values if v.generation_mode == GenerationMode.NEGATIVE]
     negative_only_positive = [v for v in negative_mode_values if v.generation_mode == GenerationMode.POSITIVE]
 
-    # Test with ALL modes (both POSITIVE and NEGATIVE)
     all_ctx = ctx_factory(generation_modes=[GenerationMode.POSITIVE, GenerationMode.NEGATIVE])
     all_mode_values = list(cover_schema_iter(all_ctx, schema))
 
     all_negative = [v for v in all_mode_values if v.generation_mode == GenerationMode.NEGATIVE]
     all_positive = [v for v in all_mode_values if v.generation_mode == GenerationMode.POSITIVE]
 
-    # NEGATIVE mode should generate the same negative cases as ALL mode
     negative_only_count = len(negative_only_negative)
     all_negative_count = len(all_negative)
 
-    # Both should have at least the minimum expected negative count
     assert negative_only_count >= min_expected_negative_count, (
         f"Expected at least {min_expected_negative_count} negative cases in negative mode, "
         f"but got {negative_only_count}"
@@ -2485,17 +3069,14 @@ def test_not_schema_generation_modes_consistency(
         f"Expected at least {min_expected_negative_count} negative cases in all mode, but got {all_negative_count}"
     )
 
-    # The number of negative cases should be equal (the main bug we're testing)
     assert negative_only_count == all_negative_count, (
         f"Negative mode generated {negative_only_count} negative cases, "
         f"but all mode generated {all_negative_count} negative cases. "
     )
 
-    # ALL mode should have additional positive cases when expected
     if should_have_positive:
         assert len(all_positive) > 0, "All mode should generate positive cases for 'not' schemas"
 
-    # NEGATIVE mode should not generate positive cases when only negative mode is requested
     assert len(negative_only_positive) == 0, (
         f"Negative mode should not generate positive cases, but got {len(negative_only_positive)}"
     )
@@ -2559,8 +3140,7 @@ def test_generate_from_schema_reflects_bundle_mutations(ctx_factory):
 
 
 def test_generate_from_schema_caches_unsatisfiable_verdict(pctx):
-    # JS-style `/.../`-wrapped pattern can never match; the second call must still raise
-    # Unsatisfiable, served from the cached sentinel rather than re-running Hypothesis.
+    # A JS-style `/.../` pattern never matches; the second call raises Unsatisfiable from the cached sentinel.
     schema = {"type": "string", "pattern": "/^x$/", "format": "date-time"}
     with pytest.raises(Unsatisfiable):
         pctx.generate_from_schema(schema)
@@ -2569,7 +3149,7 @@ def test_generate_from_schema_caches_unsatisfiable_verdict(pctx):
 
 
 def test_generate_from_schema_serves_cached_value(pctx):
-    # Two calls on identical schema/context: second must equal the first, served from cache.
+    # The second identical call comes from the cache.
     assert pctx.generate_from_schema({"type": "string"}) == pctx.generate_from_schema({"type": "string"})
 
 
@@ -2625,8 +3205,7 @@ def test_bounded_format_pattern_keeps_exact_length(ctx_factory, update_pattern, 
     ],
 )
 def test_bounded_format_candidate_rejected_by_pattern_uses_regex(pctx, schema, expected):
-    # The length-aware email generator uses a one-character local part, so the
-    # literal pattern must still get a chance to supply its only valid value.
+    # With a one-character email local part, the literal pattern must still supply its only valid value.
     assert pctx.generate_from_schema(schema) == expected
 
 
@@ -2637,8 +3216,7 @@ def test_bounded_pattern_does_not_use_builtin_for_custom_format(pctx):
 
 
 def test_positive_string_skips_infeasible_boundary_lengths(pctx):
-    # Pattern minimum match is ~30 chars; minLength=1 boundary variant (exact len=1) is
-    # structurally impossible and must be skipped instead of timing out in Hypothesis.
+    # The pattern's shortest match is ~30 chars, so the length-1 boundary must be skipped without a Hypothesis timeout.
     schema = {
         "type": "string",
         "pattern": "arn:aws:kinesisvideo:[a-z0-9-]+:[0-9]+:[a-z]+/[a-zA-Z0-9_.-]+/[0-9]+",
@@ -2679,7 +3257,7 @@ def test_header_pattern_requiring_non_alnum_skips_positive_string(ctx_factory, l
 
 
 def test_header_alnum_pattern_still_generates(ctx_factory):
-    # A purely alphanumeric pattern is compatible with the header restriction — values must still be produced.
+    # A purely alphanumeric pattern fits the header restriction, so values must still appear.
     ctx = ctx_factory(location=ParameterLocation.HEADER, generation_modes=[GenerationMode.POSITIVE])
     schema = {"type": "string", "pattern": "[A-Za-z0-9]+", "minLength": 1, "maxLength": 16}
     covered = list(_positive_string(ctx, schema))
@@ -2722,10 +3300,9 @@ def test_negative_prefix_items(nctx):
     covered = cover_schema(nctx, schema)
     assert_unique(covered)
     assert_not_conform(covered, schema)
-    # Should have negative cases for each position
     arrays = [v for v in covered if isinstance(v, list)]
     assert len(arrays) > 0
-    # Each array should have exactly 2 items (matching prefixItems length)
+    # Arrays keep the length of the `items` tuple.
     for arr in arrays:
         assert len(arr) == 2
 
@@ -2750,7 +3327,6 @@ def test_anyof_oneof_with_items_as_list(nctx, keyword):
 
 
 def test_negative_binary_string_type_violation(ctx_factory):
-    # Binary format strings should still generate non-string type violations
     ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
     schema = {
         "type": "object",
@@ -2762,7 +3338,6 @@ def test_negative_binary_string_type_violation(ctx_factory):
     }
     covered = cover_schema(ctx, schema)
     assert_unique(covered)
-    # Check that we generate non-string values for the binary property
     non_string_values = [
         v for v in covered if isinstance(v, dict) and "value" in v and not isinstance(v["value"], ((str, bytes)))
     ]
@@ -2833,7 +3408,7 @@ def test_merge_with_parent_context_bool_subschema(pctx):
 
 
 def test_merge_with_parent_context_merges_required_lists(pctx):
-    # Parent has `required` AND sub has `required` - the two lists get merged
+    # Parent and sub `required` lists merge.
     schema = {
         "type": "object",
         "required": ["type"],
@@ -2847,7 +3422,6 @@ def test_merge_with_parent_context_merges_required_lists(pctx):
     }
     covered = cover_schema(pctx, schema)
     assert_conform(covered, schema)
-    # The merged sub inherits "type" from parent and adds "name" from sub
     assert all("type" in v and "name" in v for v in covered if isinstance(v, dict))
 
 
@@ -2876,14 +3450,13 @@ def test_inline_sub_with_own_properties_is_folded_with_parent(pctx):
 
 
 def test_with_effective_required_break_when_no_extra_fields(pctx):
-    # break fires when the first dict sub-schema with `required` contributes no extra fields
-    # because all its required fields are already in the parent's required list
+    # Iteration stops at the first sub-schema whose `required` adds nothing beyond the parent's.
     schema = {
         "type": "object",
         "required": ["name"],
         "anyOf": [
-            {"required": ["name"]},  # "name" already required by parent -> extra=[] -> break
-            {"required": ["id"]},  # never reached due to break above
+            {"required": ["name"]},
+            {"required": ["id"]},
         ],
         "properties": {
             "name": {"type": "string"},
@@ -2892,14 +3465,12 @@ def test_with_effective_required_break_when_no_extra_fields(pctx):
     }
     covered = cover_schema(pctx, schema)
     assert_conform(covered, schema)
-    # All positive values must include "name" (always required by parent)
     assert all("name" in v for v in covered if isinstance(v, dict))
 
 
 def test_no_property_nesting_with_ref_oneof(ctx_factory):
     # See GH-3584
-    # Generated values for a schema with oneOf $ref sub-schemas
-    # must not produce nested objects like {config: {config: {...}}}.
+    # `oneOf` `$ref` branches must not nest objects like {config: {config: {...}}}.
     schema = {
         "type": "object",
         "properties": {
@@ -2927,7 +3498,6 @@ def test_no_property_nesting_with_ref_oneof(ctx_factory):
     ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
     covered = cover_schema(ctx, schema)
     assert_conform(covered, schema)
-    # Each oneOf branch generates its own type; no config key inside config values
     assert covered == [
         {"config": {"value": 0}},
         {"config": {"value": 2**63}},
@@ -2962,8 +3532,7 @@ def test_ref_with_sibling_keywords_does_not_inherit_parent_properties(ctx_factor
     ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
     covered = cover_schema(ctx, schema)
     assert_conform(covered, schema)
-    # Sibling keywords on $ref (description) don't affect resolution — schema1 generated directly
-    # Parent properties (extra) appear at the outer object level, not injected inside config
+    # A sibling `description` on `$ref` does not affect resolution; parent properties stay at the outer level.
     assert covered == [
         {"config": {"value": 0}, "extra": ""},
         {"config": {"value": 0}},
@@ -2973,10 +3542,7 @@ def test_ref_with_sibling_keywords_does_not_inherit_parent_properties(ctx_factor
 
 
 def test_ref_to_additive_schema_inherits_parent_properties(ctx_factory):
-    # A $ref sub-schema that resolves to a schema with NO properties of its own
-    # (additive constraint only) SHOULD still inherit parent properties so the
-    # generator knows the field definitions for required fields.
-    # anyOf has two branches so parent-generated {"name": ""} satisfies the first branch.
+    # A property-less `$ref` branch inherits parent properties; `{"name": ""}` fits the first of the two anyOf branches.
     schema = {
         "type": "object",
         "properties": {
@@ -2995,7 +3561,6 @@ def test_ref_to_additive_schema_inherits_parent_properties(ctx_factory):
     ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
     covered = cover_schema(ctx, schema)
     assert_conform(covered, schema)
-    # Additive $ref (no properties) merges parent context — both name and id appear
     assert covered == [
         {"name": "", "id": 0},
         {"name": ""},
@@ -3024,10 +3589,8 @@ def test_array_with_unique_items_enum_not_violated(pctx):
         "maxItems": 3,
     }
     covered = cover_schema(pctx, schema)
-    # All generated arrays must be valid (no duplicate elements)
     assert_conform(covered, schema)
-    # Each enum variant must appear as the first element in at least one array,
-    # so every variant gets coverage
+    # Every enum variant leads at least one array.
     first_elements = {arr[0] for arr in covered if arr}
     assert first_elements == {"A", "B", "C"}
 
@@ -3147,8 +3710,7 @@ def test_minitems_one_yields_empty_array_negative_with_unresolvable_items(nctx):
     ],
 )
 def test_negative_properties_baseline_emission(ctx_factory, schema, expects_baseline):
-    # Outer `type` excludes object -> emit a bare template alongside per-leaf negatives;
-    # `type` includes object -> positive path already emits it, no double-counting.
+    # Without object in the outer `type`, a bare template joins per-leaf negatives; with it, the positive path has one.
     nctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
     inner_validator = jsonschema_rs.Draft7Validator(
         {
@@ -3176,8 +3738,7 @@ def test_negative_properties_baseline_emission(ctx_factory, schema, expects_base
     ids=["patternProperties", "propertyNames"],
 )
 def test_negative_object_keyword_baseline_emission(ctx_factory, schema):
-    # `_negative_type` already emits `{}` for `type: array`; the new baseline path emits a
-    # second `{}`. Counting both guards against a regression in the baseline branch.
+    # The type negative and the baseline each emit `{}` for `type: array`; counting both guards the baseline.
     nctx = ctx_factory(
         location=ParameterLocation.BODY,
         generation_modes=[GenerationMode.NEGATIVE],
@@ -3451,8 +4012,8 @@ def test_positive_object_omits_optional_property_whose_schema_requires_an_undecl
 # A float32-parsing server narrows the value; the boundary negative must still fall outside after narrowing.
 @pytest.mark.parametrize(
     ("keyword", "bound"),
-    [("maximum", 1e10), ("minimum", -1e10), ("maximum", 10000000000)],
-    ids=["maximum", "minimum", "integer-spelled-maximum"],
+    [("maximum", 1e10), ("minimum", -1e10), ("maximum", 10000000000), ("maximum", 20000000.0)],
+    ids=["maximum", "minimum", "integer-spelled-maximum", "float32-spacing-two"],
 )
 def test_negative_float_boundary_survives_float32_narrowing(nctx, keyword, bound):
     schema = {"type": "number", "format": "float", keyword: bound}
@@ -3462,6 +4023,25 @@ def test_negative_float_boundary_survives_float32_narrowing(nctx, keyword, bound
     for value in values:
         narrowed = to_float32(float(value))
         assert narrowed > to_float32(bound) if keyword == "maximum" else narrowed < to_float32(bound), value
+
+
+# Integer bounds step to the next integer inside the type; no value lies past the largest finite float.
+@pytest.mark.parametrize(
+    ("schema", "above", "below"),
+    [
+        ({"type": ["integer", "null"], "maximum": 5.5, "minimum": 1.5}, [6], [1]),
+        ({"type": "integer", "maximum": 5.5, "minimum": 1.5}, [6], [1]),
+        ({"type": "number", "maximum": 2.5, "minimum": 0.5}, [3.5], [-0.5]),
+        ({"type": "number", "format": "float", "maximum": 1e10, "minimum": -1e10}, [10000001024.0], [-10000001024.0]),
+        ({"type": "number", "format": "float", "minimum": -3.4028234663852886e38}, [], []),
+        ({"type": "number", "minimum": -1.7976931348623157e308, "maximum": 1.7976931348623157e308}, [], []),
+    ],
+    ids=["integer-union", "integer", "number", "float32", "float32-lowest", "float64-extremes"],
+)
+def test_negative_numeric_bound_values(ctx_factory, schema, above, below):
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    assert scenario_values(ctx, schema, CoverageScenario.VALUE_ABOVE_MAXIMUM) == above
+    assert scenario_values(ctx, schema, CoverageScenario.VALUE_BELOW_MINIMUM) == below
 
 
 # `minProperties` only constrains objects; a negative built without pinning the type may be a valid non-object.
@@ -3618,8 +4198,9 @@ def test_positive_flipped_from_not_is_judged_by_the_operation_draft(pctx):
         {"type": "number", "minimum": 1e30, "multipleOf": 3.0},
         {"type": "number", "exclusiveMinimum": 1e30, "multipleOf": 0.5},
         {"type": "number", "exclusiveMaximum": -1e30, "multipleOf": 0.3},
+        {"type": "number", "minimum": 2**60, "maximum": 2**61, "multipleOf": 1 / 3},
     ],
-    ids=["maximum", "minimum", "exclusive-minimum-half-step", "exclusive-maximum-decimal-step"],
+    ids=["maximum", "minimum", "exclusive-minimum-half-step", "exclusive-maximum-decimal-step", "no-float-nearby"],
 )
 def test_positive_number_multiples_past_decimal_precision(ctx_factory, schema):
     ctx = ctx_factory(validator_cls=jsonschema_rs.Draft202012Validator, generation_modes=[GenerationMode.POSITIVE])
@@ -3721,8 +4302,9 @@ QUANTIFIERS_PAST_THE_BUFFER = pytest.mark.parametrize(
         {"type": "string", "pattern": "^[a-z]{100000,200000}$"},
         {"type": "string", "pattern": "^(a{40000})?$"},
         {"type": "object", "patternProperties": {"^a{40000}$": {"type": "integer"}}},
+        {"type": "string", "pattern": "^a{100000}$", "format": "date"},
     ],
-    ids=["quantifier", "optional-group", "pattern-properties"],
+    ids=["quantifier", "optional-group", "pattern-properties", "with-format"],
 )
 
 
@@ -3744,6 +4326,18 @@ def test_positive_number_multiples_past_float_precision_are_exact(pctx):
     assert cover_schema(pctx, schema) == [9996036847180749, 9996036847180752, 2**63 + 1]
 
 
+@pytest.mark.parametrize(
+    ("branch", "scenario"),
+    [
+        ({"type": "array", "maxItems": 40}, CoverageScenario.ARRAY_ABOVE_MAX_ITEMS),
+        ({"type": "integer", "multipleOf": 2}, CoverageScenario.NOT_MULTIPLE_OF),
+    ],
+    ids=["max-items", "multiple-of"],
+)
+def test_negative_shared_by_any_of_branches_is_emitted_once(nctx, branch, scenario):
+    assert len(scenario_values(nctx, {"anyOf": [branch, branch]}, scenario)) == 1
+
+
 def test_negative_boundary_past_the_largest_float_is_skipped(nctx):
     schema = {"maximum": 1.7976931348623157e308}
     assert inf not in cover_schema(nctx, schema)
@@ -3760,7 +4354,7 @@ def test_positive_object_drops_optional_string_with_an_empty_length_window(pctx)
 
 @pytest.mark.parametrize("location", [ParameterLocation.QUERY, ParameterLocation.PATH])
 def test_negative_boolean_not_coercible_wire_value(ctx_factory, location):
-    # Lenient parsers coerce 0/1/true/false to booleans, so those wire values are not type violations for a boolean parameter
+    # Lenient parsers read 0/1/true/false as booleans, so those wire values are no type violations.
     nctx = ctx_factory(location=location, generation_modes=[GenerationMode.NEGATIVE])
     schema = {"type": "boolean", "default": False}
     values = scenario_values(nctx, schema, CoverageScenario.INCORRECT_TYPE)
@@ -3792,15 +4386,13 @@ def test_hostname_negative_format_respects_validator_draft(ctx_factory, validato
 
 
 def test_negative_format_serves_cached_value(nctx):
-    # Random strings almost never look like IPv4, so the violation filter accepts and the
-    # strategy returns immediately. The second call must yield the same value, served from cache.
+    # Random strings rarely look like IPv4, so the filter accepts at once; the second call returns the cached value.
     schema = {"type": "string", "format": "ipv4"}
     assert next(_negative_format(nctx, schema, "ipv4")).value == next(_negative_format(nctx, schema, "ipv4")).value
 
 
 def test_negative_format_serves_cached_unsatisfiable(nctx):
-    # Lowercase-letter strings are valid single-label hostnames, so the violation filter
-    # rejects every draw. The second call must raise from the cached sentinel.
+    # Lowercase strings are valid hostnames, so the filter rejects every draw; the second call raises from the cache.
     schema = {"type": "string", "format": "hostname", "pattern": "^[a-z]+$"}
     with pytest.raises(Unsatisfiable):
         next(_negative_format(nctx, schema, "hostname"))
@@ -3825,8 +4417,7 @@ def test_multi_type_union_yields_numeric_branch(ctx_factory, types, expected_kin
 
 
 def test_anyof_null_branch_filtered_when_allof_sibling_requires_object(ctx_factory):
-    # A nullable-derived anyOf branch must not yield null when an allOf sibling pins `type: object`,
-    # even when the merged schema holds nested bundled refs the parent validator must resolve.
+    # A nullable-derived anyOf branch must not yield null beside an allOf `type: object`, even with nested bundled refs.
     root_schema = {
         "x-bundled": {
             "request": {
@@ -3854,8 +4445,7 @@ def test_anyof_null_branch_filtered_when_allof_sibling_requires_object(ctx_facto
 
 
 def test_not_schema_flipped_values_respect_outer_type_with_bundled_refs(ctx_factory):
-    # Flipped `not`-violations must satisfy the outer `type`, also when nested bundled refs
-    # make the outer schema unverifiable without the bundle.
+    # Flipped `not` violations must satisfy the outer `type`, even when nested bundled refs need the bundle to check it.
     root_schema = {"x-bundled": {"name": {"type": "string"}}}
     ctx = ctx_factory(
         root_schema=root_schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE]
@@ -3871,7 +4461,7 @@ def test_not_schema_flipped_values_respect_outer_type_with_bundled_refs(ctx_fact
 
 
 def test_cover_schema_iter_does_not_mutate_root_schema(ctx_factory):
-    # A self-recursive `allOf` $ref used to grow the shared root document until cloning hit its recursion limit.
+    # A self-recursive `allOf` `$ref` must not grow the shared root document until cloning hits its recursion limit.
     root_schema = {
         "components": {
             "schemas": {
@@ -3965,7 +4555,7 @@ def test_float_format_representable_example_still_emitted(pctx):
     ids=["two-patterns", "three-patterns", "outer-properties"],
 )
 def test_satisfiable_allof_without_a_flat_form_still_emits_positive_values(pctx, schema):
-    # Two `pattern`s have no single spelling, which used to drop the whole schema from coverage.
+    # Two `pattern`s have no single spelling, yet the schema must stay in coverage.
     values = cover_schema(pctx, schema)
     assert values, schema
     validator = make_validator_for(schema)
@@ -3982,8 +4572,7 @@ def test_satisfiable_allof_without_a_flat_form_still_emits_positive_values(pctx,
     ids=["then", "then-else"],
 )
 def test_negative_format_around_a_conditional_the_engine_cannot_follow(ctx_factory, conditional):
-    # `\p{L}` has no Python spelling, so the guarded branch cannot drive a draw; dropping the guard
-    # leaves a wider schema that can, with the validator ruling out what it over-admits.
+    # `\p{L}` has no Python spelling; without the guard a wider schema drives draws and the validator drops the excess.
     schema = {"type": "string", "format": "date", "minLength": 1, **conditional}
     ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
     scenarios = {value.scenario for value in cover_schema_iter(ctx, schema)}
@@ -4125,8 +4714,7 @@ def test_malformed_all_of_covers_only_what_parses(pctx, schema, expected):
     ids=["plain", "with-not"],
 )
 def test_negative_format_without_a_buildable_base(ctx_factory, extra):
-    # Stripping `format` leaves a pattern with no Python spelling, so no violation can be drawn from
-    # it - and widening past the `not` does not bring one back.
+    # Without `format` the pattern has no Python spelling, so no violation is drawn, and widening past `not` adds none.
     schema = {"type": "string", "format": "date", "pattern": "\\p{Tibetan}", **extra}
     ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
     scenarios = {value.scenario for value in cover_schema_iter(ctx, schema)}
@@ -4186,7 +4774,7 @@ def test_closing_reference_generator_after_module_globals_are_cleared(ctx_factor
 
 
 def test_boundary_length_string_at_the_drawable_limit(pctx):
-    # An off-by-one in the guard silently drops the maximum-length case for the whole band.
+    # An off-by-one in the guard drops the maximum-length case for the whole band.
     schema = {"type": "string", "pattern": "^[a-z]+$", "maxLength": MAX_GENERATED_PATTERN_LENGTH}
 
     assert MAX_GENERATED_PATTERN_LENGTH in {len(value.value) for value in cover_schema_iter(pctx, schema)}
@@ -4233,6 +4821,125 @@ def test_repeated_object_elements_are_independent(pctx):
     for array in arrays:
         array[0]["name"] = "edited"
         assert array[1]["name"] != "edited", array[:2]
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"type": "array", "contains": {"const": 1}, "minContains": 2}, [[1, 1], [1, 1, None]]),
+        ({"type": "array", "contains": {"const": 1}}, [[1]]),
+        ({"type": "array", "maxItems": 1}, [[], [None]]),
+        ({"type": "array", "maxItems": 2}, [[], [None, None], [None]]),
+        ({"type": "array", "minItems": 1, "maxItems": 2}, [[None], [None, None]]),
+        (
+            {"type": "array", "uniqueItems": True, "maxItems": 2, "items": {"enum": ["a", "b", "c"]}},
+            [["a"], [], ["a", "b"], ["b"], ["c"]],
+        ),
+        (
+            {"type": "array", "prefixItems": [{"const": "a"}], "items": {"type": "boolean"}, "maxItems": 2},
+            [["a", True], [], ["a", False], ["a"]],
+        ),
+    ],
+    ids=["min-contains", "contains", "max-one", "max-two", "min-max", "unique-enum", "prefix-items"],
+)
+def test_positive_array_values(ctx_factory, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    assert cover_schema(ctx, schema) == expected
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "null"}, "b": {"type": "null"}, "c": {"type": "null"}},
+                "minProperties": 1,
+            },
+            [{"a": None, "b": None, "c": None}, {"a": None}, {"b": None}, {"c": None}, {"a": None, "b": None}],
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"b": {"type": "boolean"}, "a": {"type": "boolean"}},
+                "required": ["a"],
+                "maxProperties": 1,
+            },
+            [{"a": False}, {"a": True}],
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "boolean"}},
+                "examples": [{"a": True}],
+                "default": {"a": True},
+            },
+            [{"a": True}, {}, {"a": False}],
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "boolean"}},
+                "required": ["a"],
+                "maxProperties": 1,
+                "additionalProperties": {"type": "null"},
+            },
+            [{"a": False}, {"a": True}],
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"b": {"type": "boolean"}, "a": {"type": "boolean"}},
+                "propertyNames": {"pattern": "^a$"},
+            },
+            [{}, {"a": True}, {"a": False}],
+        ),
+    ],
+    ids=["min-properties", "max-properties", "default-among-examples", "no-room-for-additional", "property-names"],
+)
+def test_positive_object_values(ctx_factory, schema, expected):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    assert cover_schema(ctx, schema) == expected
+
+
+# A property's hints seed the object template only when they satisfy the property's own format.
+@pytest.mark.parametrize(
+    ("property_schema", "expected"),
+    [
+        ({"type": "string", "example": "ex", "default": "d"}, "ex"),
+        ({"type": "string", "default": "d"}, "d"),
+        ({"type": "string", "examples": ["e1", "e2"]}, "e1"),
+        ({"type": "string", "format": "date", "default": "nope", "examples": ["bad", "2020-01-02"]}, "2020-01-02"),
+        ({"type": "string", "format": "date", "example": "nope"}, "2000-01-01"),
+        ({"type": "string", "format": "date", "default": "nope"}, "2000-01-01"),
+        ({"type": "string", "format": "date", "examples": ["nope"]}, "2000-01-01"),
+        ({"type": "object", "properties": {"b": {"type": "integer"}}}, {"b": 0}),
+        ({"properties": {"b": {"type": "integer"}, "c": {"not": {}}}}, {"b": 0}),
+    ],
+    ids=[
+        "example",
+        "default",
+        "examples",
+        "valid-example-among-invalid",
+        "invalid-example",
+        "invalid-default",
+        "invalid-examples",
+        "nested-object",
+        "implied-object",
+    ],
+)
+def test_positive_object_template_from_property_hints(ctx_factory, property_schema, expected):
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    schema = {"type": "object", "properties": {"a": property_schema}, "required": ["a"]}
+    assert next(cover_schema_iter(ctx, schema)).value == {"a": expected}
 
 
 def test_unique_items_array_is_not_filled_by_repetition(pctx):
@@ -4455,9 +5162,7 @@ def test_positive_array_items_covering_keeps_item_required(ctx_factory):
 
 @pytest.mark.parametrize("sibling", [{}, {"not": {"required": ["missing"]}}], ids=["no-sibling", "sibling-not"])
 def test_positive_one_of_branch_fully_subsumed_by_sibling_covers_its_property_as_negative(ctx_factory, sibling):
-    # `TokenRequest` has no `additionalProperties: false`, so any value satisfying the `mac`
-    # branch also satisfies `TokenRequest` — that branch can never win `oneOf` exclusivity. The
-    # whole body is invalid either way, but `mac`'s own `type` keyword still deserves coverage.
+    # `TokenRequest` admits every `mac` value, so `mac` never wins `oneOf`; its own `type` still deserves coverage.
     schema = {
         "oneOf": [
             {"$ref": "#/x-bundled/TokenRequest"},

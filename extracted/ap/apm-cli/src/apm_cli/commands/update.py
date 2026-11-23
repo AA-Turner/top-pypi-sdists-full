@@ -72,6 +72,7 @@ from apm_cli.core.scope import manifest_file
 
 from ..core.auth import AuthResolver
 from ..core.command_logger import InstallLogger
+from ..core.deprecations import UPDATE_REFRESHES_DEPENDENCIES, deprecation_message
 from ..core.target_catalog import target_help_fragment
 from ..core.target_detection import TargetParamType
 from ..deps.github_downloader import GitHubPackageDownloader
@@ -99,6 +100,7 @@ from ..utils.console import _rich_echo, _rich_error, _rich_info, _rich_success, 
 from ._helpers import (
     UnknownPackageError,
     _find_apm_yml,
+    explicit_policy_option,
     resolve_requested_packages,
     trust_transitive_mcp_option,
 )
@@ -394,7 +396,7 @@ def _run_mcp_lsp_integration(
     from apm_cli.core.scope import InstallScope, get_modules_dir
     from apm_cli.install.lsp import run_lsp_integration
     from apm_cli.install.lsp.integration import lsp_target_config, prepare_lsp_integration
-    from apm_cli.install.mcp import run_mcp_integration
+    from apm_cli.install.mcp import journal_mcp_writes, run_mcp_integration
     from apm_cli.models.apm_package import APMPackage, clear_apm_yml_cache
     from apm_cli.policy.install_preflight import PolicyBlockError
 
@@ -433,28 +435,29 @@ def _run_mcp_lsp_integration(
     prepared_lsp.require_capable_target()
 
     try:
-        _mcp_count, _mcp_apm_config = run_mcp_integration(
-            apm_package=apm_package,
-            mcp_deps=apm_package.get_all_mcp_dependencies(),
-            apm_modules_path=apm_modules_path,
-            lock_path=lock_path,
-            old_mcp_servers=old_mcp_servers,
-            old_mcp_configs=old_mcp_configs,
-            old_mcp_provenance=old_mcp_provenance,
-            old_mcp_target_servers=old_mcp_target_servers,
-            trust_transitive_mcp=trust_transitive_mcp,
-            project_root=project_root,
-            user_scope=user_scope,
-            should_install=True,
-            logger=logger,
-            diagnostics=diagnostics,
-            verbose=verbose,
-            explicit_target=effective_target,
-            target_decision=target_decision,
-            scope=scope,
-            executable_context=(effective_allow_executables, effective_allow_resolved),
-            pre_install_lock=existing_lock,
-        )
+        with journal_mcp_writes(project_root, user_scope=user_scope, logger=logger):
+            _mcp_count, _mcp_apm_config = run_mcp_integration(
+                apm_package=apm_package,
+                mcp_deps=apm_package.get_all_mcp_dependencies(),
+                apm_modules_path=apm_modules_path,
+                lock_path=lock_path,
+                old_mcp_servers=old_mcp_servers,
+                old_mcp_configs=old_mcp_configs,
+                old_mcp_provenance=old_mcp_provenance,
+                old_mcp_target_servers=old_mcp_target_servers,
+                trust_transitive_mcp=trust_transitive_mcp,
+                project_root=project_root,
+                user_scope=user_scope,
+                should_install=True,
+                logger=logger,
+                diagnostics=diagnostics,
+                verbose=verbose,
+                explicit_target=effective_target,
+                target_decision=target_decision,
+                scope=scope,
+                executable_context=(effective_allow_executables, effective_allow_resolved),
+                pre_install_lock=existing_lock,
+            )
     except PolicyBlockError:
         logger.refusal("MCP server(s) blocked by org policy. MCP configs were NOT written.")
         logger.render_summary()
@@ -511,6 +514,11 @@ def _handle_service_only_update(
     """Reconcile service-only manifests and return whether update is complete."""
     if apm_package.has_any_apm_dependencies():
         return False
+    from apm_cli.policy.explicit_source import explicit_source_needs_standalone_check
+
+    if explicit_source_needs_standalone_check(apm_package):
+        # No dependency gate runs here; a named --policy must still load (#1925).
+        _enforce_policy_without_changes(apm_package, scope, logger, dry_run)
 
     from apm_cli.core.scope import InstallScope, get_apm_dir, get_deploy_root
     from apm_cli.core.target_detection import resolve_package_target_decision
@@ -605,8 +613,11 @@ def _no_ref_change_summary(exec_reconciled: bool, provenance_restored: bool) -> 
     return "Restored dependency cache without changing refs."
 
 
-def _reverified_lock(lockfile, lock_path: Path, logger, *, dry_run: bool):
+def _reverified_lock(lockfile, lock_path: Path, logger, *, dry_run: bool, marketplaces=None):
     """Re-verify locked marketplace provenance before planning; fail closed (#4228).
+
+    *marketplaces* is the root project's ``marketplaces:`` map (``None`` at user
+    scope): its names resolve through apm.yml, not a registration (#2903).
 
     Returns ``(lockfile, restored)``: the lockfile with restored rows applied
     in memory, and their provenance for the lockfile phase. The update's one
@@ -616,6 +627,7 @@ def _reverified_lock(lockfile, lock_path: Path, logger, *, dry_run: bool):
     from apm_cli.marketplace.catalog_origin import locked_provenance, reverify_locked_provenance
     from apm_cli.marketplace.client import catalog_cache_writes_on_success
     from apm_cli.marketplace.errors import MarketplaceError
+    from apm_cli.marketplace.project_marketplaces import bind_project_marketplaces
 
     rows = lockfile.dependencies if lockfile is not None else {}
     before = {key: locked_provenance(dep) for key, dep in rows.items()}
@@ -623,7 +635,10 @@ def _reverified_lock(lockfile, lock_path: Path, logger, *, dry_run: bool):
         # A refused re-verification leaves the catalog cache unchanged; a
         # completed one persists what it fetched, validators included, and a
         # dry run persists nothing (#4484).
-        with catalog_cache_writes_on_success(commit=not dry_run):
+        with (
+            bind_project_marketplaces(marketplaces),
+            catalog_cache_writes_on_success(commit=not dry_run),
+        ):
             restored = reverify_locked_provenance(lockfile, manifest_file(lock_path.parent))
     except MarketplaceError as exc:
         _rich_error(str(exc), symbol="error")
@@ -721,6 +736,7 @@ def _reverified_lock(lockfile, lock_path: Path, logger, *, dry_run: bool):
     ),
 )
 @trust_transitive_mcp_option
+@explicit_policy_option
 @click.pass_context
 @serialized_lifecycle
 def update(
@@ -745,6 +761,7 @@ def update(
         apm update --yes                # Skip the prompt (CI-safe)
         apm update org/pkg-a org/pkg-b  # Refresh only the named packages
         apm update -g                   # Refresh user-scope deps (~/.apm/)
+        apm update --policy ./org-policy.yml  # Also enforce a vendored policy
     """
     from apm_cli.core.scope import InstallScope, get_manifest_path
     from apm_cli.integration.targets import should_use_legacy_skill_paths
@@ -781,11 +798,7 @@ def update(
                     f"(no apm.yml found). {CLI_BINARY_OUTDATED.sentence()}",
                     symbol="warning",
                 )
-            _rich_warning(
-                "'apm update' refreshes APM dependencies. "
-                f"{CLI_BINARY_OUTDATED.sentence()} Forwarding for back-compat (deprecated).",
-                symbol="warning",
-            )
+            _rich_warning(deprecation_message("update-self-updater"), symbol="warning")
             ctx.invoke(_self_update_cmd, check=check_only)
             return
 
@@ -798,13 +811,7 @@ def update(
                     "Use 'apm update --dry-run' to preview dependency changes.",
                     symbol="warning",
                 )
-            _rich_warning(
-                "'apm update --check' is the deprecated self-updater shim. "
-                "Use 'apm update --dry-run' to preview dependency changes, "
-                "or 'apm self-update --check' to check for a new CLI binary. "
-                "Forwarding for back-compat (deprecated).",
-                symbol="warning",
-            )
+            _rich_warning(deprecation_message("update-check"), symbol="warning")
             ctx.invoke(_self_update_cmd, check=True)
             return
 
@@ -906,7 +913,7 @@ def _run_dep_update_locked(
     # the CLI binary.
     if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
         _rich_info(
-            f"'apm update' refreshes APM dependencies. {CLI_BINARY_OUTDATED.sentence()}",
+            f"{UPDATE_REFRESHES_DEPENDENCIES} {CLI_BINARY_OUTDATED.sentence()}",
             symbol="info",
         )
 
@@ -1081,7 +1088,13 @@ def _run_dep_update_locked(
     _mcp_lsp_project_root = get_deploy_root(scope)
     _lock_path = get_lockfile_path(_apm_dir)
     _existing_lock, _restored_provenance = _reverified_lock(
-        LockFile.read(_lock_path), _lock_path, logger, dry_run=dry_run
+        LockFile.read(_lock_path),
+        _lock_path,
+        logger,
+        dry_run=dry_run,
+        marketplaces=None
+        if scope is InstallScope.USER
+        else getattr(apm_package, "marketplaces", None),
     )
     _cache_rehydration_required = _module_cache_needs_rehydration(
         _existing_lock,

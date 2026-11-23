@@ -78,12 +78,11 @@ def _type_parameter_reference(node: ast.AST, context: PythonFileContext) -> bool
 
 
 _COMMENT_CODES = frozenset({"SARJ016", "SARJ089"})
-_WALRUS_CODES = frozenset({"SARJ081", "SARJ432"})
+_WALRUS_CODES = frozenset({"SARJ081", "SARJ432", "SARJ589"})
 _JWT_POSITIONAL_PREFIX_ARGUMENTS = 3
 _STREAM_MIN_BODY_LENGTH = 3
 _CONSTANT_TRUE_DEPTH_LIMIT = 32
 _INERT_DEFAULT_NODE_LIMIT: Final = 128
-# Bound accepted revisions; each rule still owns its work and replacement size.
 _MAX_FIX_PASSES: Final = 256
 _TRIPLE_QUOTE_LENGTH: Final = 3
 _PURE_STRING_TRANSFORMS: Final[dict[str, str]] = {
@@ -207,8 +206,7 @@ def _at(node: _Located, diagnostic: Diagnostic) -> bool:
 
 
 def _comment_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
-    token = source.comments.get(diagnostic.line)
-    if token is None:
+    if (token := source.comments.get(diagnostic.line)) is None:
         return []
     body = token.string.removeprefix("#").strip()
     if (
@@ -422,8 +420,7 @@ def _regex_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
             continue
         if _SIMPLE_VALIDATION_PATTERN.fullmatch(pattern.value) is None or not _literal_without_newline(subject):
             continue
-        replacement = _strict_end_literal(source.segment(pattern))
-        if replacement is not None:
+        if (replacement := _strict_end_literal(source.segment(pattern))) is not None:
             return [source.replace(pattern, replacement)]
     return []
 
@@ -609,15 +606,16 @@ def _exception_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
 def _exception_types(
     node: ast.expr | None, context: PythonFileContext, provenance: ResourceProvenance
 ) -> list[ast.Name]:
-    if (
-        isinstance(node, ast.Name)
-        and not _type_parameter_reference(node, context)
-        and exception_rule.is_builtin_exception_type(node, context, provenance)
-    ):
-        return [node]
-    if isinstance(node, ast.Tuple):
-        members = [_exception_types(element, context, provenance) for element in node.elts]
-        return [name for member in members for name in member] if all(members) else []
+    match node:
+        case ast.Name() if not _type_parameter_reference(node, context) and exception_rule.is_builtin_exception_type(
+            node, context, provenance
+        ):
+            return [node]
+        case ast.Tuple():
+            members = [_exception_types(element, context, provenance) for element in node.elts]
+            return [name for member in members for name in member] if all(members) else []
+        case _:
+            pass
     return []
 
 
@@ -755,18 +753,18 @@ def _disjoint_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
     for expression in source.context.nodes(ast.BinOp, ast.Call):
         if not _at(expression, diagnostic) or source.comments_between(expression.lineno, _last_line(expression)):
             continue
-        if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitAnd):
-            left, right = expression.left, expression.right
-        elif (
-            isinstance(expression, ast.Call)
-            and isinstance(expression.func, ast.Attribute)
-            and expression.func.attr == "intersection"
-            and len(expression.args) == 1
-            and not expression.keywords
-        ):
-            left, right = expression.func.value, expression.args[0]
-        else:
-            continue
+        match expression:
+            case ast.BinOp() if isinstance(expression.op, ast.BitAnd):
+                left, right = expression.left, expression.right
+            case ast.Call() if (
+                isinstance(expression.func, ast.Attribute)
+                and expression.func.attr == "intersection"
+                and len(expression.args) == 1
+                and not expression.keywords
+            ):
+                left, right = expression.func.value, expression.args[0]
+            case _:
+                continue
         if _primitive_set(left) and _primitive_set(right):
             return [source.replace(expression, f"(not ({source.segment(left)}).isdisjoint({source.segment(right)}))")]
     return []
@@ -787,8 +785,10 @@ def _dispatch_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
             continue
         type_dispatch = diagnostic.code == "SARJ080"
         roots = _dispatch_roots(root, source.context) if type_dispatch else [root]
-        if source.comments_between(root.lineno, _last_line(roots[-1])) or (
-            len(roots) > 1 and any(source.full_statement(branch) is None for branch in roots)
+        if (
+            not _fixable_ladder(root, type_dispatch=type_dispatch)
+            or source.comments_between(root.lineno, _last_line(roots[-1]))
+            or (len(roots) > 1 and any(source.full_statement(branch) is None for branch in roots))
         ):
             continue
         matched = _dispatch_match(roots, source.context, type_dispatch=type_dispatch)
@@ -805,6 +805,14 @@ def _dispatch_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
             )
         ]
     return []
+
+
+def _fixable_ladder(root: ast.If, *, type_dispatch: bool) -> bool:
+    if type_dispatch:
+        return True
+    while len(root.orelse) == 1 and isinstance(root.orelse[0], ast.If):
+        root = root.orelse[0]
+    return bool(root.orelse)
 
 
 def _dispatch_roots(root: ast.If, context: PythonFileContext) -> list[ast.If]:
@@ -829,6 +837,12 @@ def _dispatch_roots(root: ast.If, context: PythonFileContext) -> list[ast.If]:
 
 
 def _dispatch_match(roots: Sequence[ast.If], context: PythonFileContext, *, type_dispatch: bool) -> ast.Match | None:
+    if not type_dispatch:
+        match roots:
+            case [ast.If(orelse=[ast.If()])]:
+                pass
+            case _:
+                return None
     cases: list[ast.match_case] = []
     pending = list(reversed(roots))
     subject: ast.Name | None = None
@@ -979,8 +993,7 @@ def _self_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
         if source.comments_between(annotation.lineno, _last_line(annotation)):
             continue
         shadowed = _type_parameter_names(method, source.context)
-        alias = next((name for name in aliases if name not in shadowed), None)
-        if alias is not None:
+        if (alias := next((name for name in aliases if name not in shadowed), None)) is not None:
             return [source.replace(annotation, alias)]
     return []
 
@@ -993,8 +1006,7 @@ def _jwt_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
         qualified = source.context.imports.resolved_qualified_name(call.func)
         if qualified is None or not provenance.imported(call.func, qualified):
             continue
-        option = next((keyword for keyword in call.keywords if keyword.arg == "options"), None)
-        if option is None:
+        if (option := next((keyword for keyword in call.keywords if keyword.arg == "options"), None)) is None:
             added = ast.keyword(
                 arg="options",
                 value=ast.Dict(
@@ -1029,14 +1041,12 @@ def _jwt_options(options: ast.expr) -> ast.Dict | None:
         names.append(key.value)
     if len(names) != len(set(names)):
         return None
-    required_index = next((index for index, name in enumerate(names) if name == "require"), None)
-    if required_index is None:
+    if (required_index := next((index for index, name in enumerate(names) if name == "require"), None)) is None:
         return ast.Dict(
             keys=[*options.keys, ast.Constant(value="require")],
             values=[*options.values, ast.List(elts=[ast.Constant(value="exp")], ctx=ast.Load())],
         )
-    sequence = _jwt_required_sequence(options.values[required_index])
-    if sequence is None:
+    if (sequence := _jwt_required_sequence(options.values[required_index])) is None:
         return None
     values = list(options.values)
     values[required_index] = sequence
@@ -1113,8 +1123,7 @@ def _printf_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
             continue
         if source.comments_between(message.lineno, _last_line(message)):
             continue
-        template = _printf_template(message.value, call.args[index + 1 :], source.context)
-        if template is not None:
+        if (template := _printf_template(message.value, call.args[index + 1 :], source.context)) is not None:
             return [source.replace(message, repr(template))]
     return []
 
@@ -1206,8 +1215,7 @@ def _literal_collection_scope(
                 return False
             if not isinstance(loop.iter, (ast.List, ast.Tuple)) or len(loop.body) != 1 or loop.orelse:
                 return False
-            names = _literal_iteration_names(loop.target, loop.iter.elts)
-            if names is None:
+            if (names := _literal_iteration_names(loop.target, loop.iter.elts)) is None:
                 return False
             return _literal_collection_mutation(name, value, loop.body[0], names, source)
         case _:
@@ -1236,8 +1244,7 @@ def _literal_iteration_names(target: ast.expr, values: list[ast.expr]) -> frozen
         sequences.append(value)
     names: set[str] = set()
     for index, item in enumerate(target.elts):
-        bound = _literal_iteration_names(item, [sequence.elts[index] for sequence in sequences])
-        if bound is None:
+        if (bound := _literal_iteration_names(item, [sequence.elts[index] for sequence in sequences])) is None:
             return None
         names.update(bound)
     return frozenset(names)
@@ -1500,7 +1507,6 @@ def fix_source(path: Path, source: str, *, rule_ids: Sequence[str] | None = None
     if any(character in source for character in "\v\f\x1c\x1d\x1e\x85\u2028\u2029") or "\r" in source.replace(
         "\r\n", ""
     ):
-        # These contract-backed builders use aligned physical-line buffers and token coordinates.
         rules = [rule for rule in rules if rule.code in {"SARJ531", "SARJ567"}]
     seen: set[bytes] = set()
     applied_codes: set[str] = set()
@@ -1513,7 +1519,6 @@ def fix_source(path: Path, source: str, *, rule_ids: Sequence[str] | None = None
         candidates = _candidate_edits(context, diagnostics)
         if not candidates:
             return current
-        # Batch independent candidates; overlapping candidates get fresh offsets on the next pass.
         selected_pass = _coherent_edits(candidates)
         updated = _apply_validated_edits(path, current, selected_pass.edits)
         if updated == current:

@@ -11,7 +11,9 @@ import html
 import json
 from argparse import Namespace
 from datetime import datetime, timezone
+from http import HTTPStatus, client
 from io import StringIO
+from itertools import product
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 from weakref import ref
@@ -262,6 +264,8 @@ class TestTextOutput(OutputTestBase):
         codepoints = (
             0x00AD,
             0x061C,
+            *range(0x115F, 0x1161),
+            0x180E,
             0x200B,
             0x200E,
             0x200F,
@@ -286,7 +290,10 @@ class TestTextOutput(OutputTestBase):
             0x206D,
             0x206E,
             0x206F,
+            0x3164,
             0xFEFF,
+            0xFFA0,
+            *range(0xFFF9, 0xFFFC),
         )
         for codepoint in codepoints:
             with self.subTest(codepoint=f"U+{codepoint:04X}"):
@@ -294,6 +301,14 @@ class TestTextOutput(OutputTestBase):
                     format_for_stream(chr(codepoint), TTYStringIO()),
                     f"\\u{codepoint:04x}",
                 )
+
+    def test_unicode_tags_are_visible_on_terminals(self) -> None:
+        """Render supplementary tag code points with eight-digit escapes."""
+        value = "\U000e0000\U000e0061\U000e007f"
+        self.assertEqual(
+            format_for_stream(value, TTYStringIO()), r"\U000e0000\U000e0061\U000e007f"
+        )
+        self.assertEqual(format_for_stream(value, StringIO()), value)
 
     def test_format_for_stream_preserves_non_terminal_unicode(self) -> None:
         """Data streams and ordinary RTL text should preserve Unicode."""
@@ -306,6 +321,45 @@ class TestTextOutput(OutputTestBase):
         )
         joining_text = "می\u200cروم 👩\u200d💻"
         self.assertEqual(format_for_stream(joining_text, TTYStringIO()), joining_text)
+
+    def test_surrogates_are_rendered_before_terminal_encoding(self) -> None:
+        """Interactive output must be encodable even with unpaired surrogates."""
+        rendered = format_for_stream("\ud800\udc80\udfff", TTYStringIO())
+        self.assertEqual(
+            rendered.encode("utf-8", "surrogateescape"), rb"\ud800\udc80\udfff"
+        )
+
+    def test_debug_response_reason(self) -> None:
+        """Render response and failure records for the CLI's stderr stream."""
+        url = "http://127.0.0.1:8000/api/projects/"
+        reason = "Server\x1btest"
+        for status, tty in product((200, 500), (True, False)):
+            with (
+                self.subTest(status=status, tty=tty),
+                patch.dict(client.responses, {status: reason}),
+            ):
+                responses.replace(
+                    responses.GET,
+                    url,
+                    status=status,
+                    json={"results": [], "next": None},
+                )
+                output = self.execute(
+                    ["--debug", "list-projects"],
+                    expected=int(status == HTTPStatus.INTERNAL_SERVER_ERROR),
+                    tty=tty,
+                )
+                rendered = r"Server\x1btest" if tty else reason
+                self.assertIn(
+                    f"DEBUG:wlc:HTTP response GET {url} -> {status} {rendered}\n",
+                    output,
+                )
+                if status == HTTPStatus.INTERNAL_SERVER_ERROR:
+                    self.assertIn(
+                        f"DEBUG:wlc:HTTP failure GET {url} -> "
+                        f"500 Server Error: {rendered} for url: {url}\n",
+                        output,
+                    )
 
     def test_stderr_escapes_unicode_display_controls(self) -> None:
         """Interactive error output should visibly render Unicode controls."""

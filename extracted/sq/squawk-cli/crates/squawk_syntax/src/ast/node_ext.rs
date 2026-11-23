@@ -24,16 +24,20 @@
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+use std::borrow::Cow;
+
 use either::Either;
 #[cfg(test)]
-use insta::assert_snapshot;
+use insta::{assert_debug_snapshot, assert_snapshot};
 use num_bigint::BigUint;
-use rowan::{GreenNodeData, GreenTokenData, NodeOrToken, TextRange, TextSize};
+use smallvec::SmallVec;
+use smol_str::SmolStr;
 use squawk_line_index::{LineEnding, find_newline};
+use squawk_rowan::{GreenNodeRef, GreenTokenRef, Language, NodeOrToken, TextRange, TextSize};
 
 #[cfg(test)]
 use crate::SourceFile;
-use rowan::Direction;
+use squawk_rowan::Direction;
 
 use crate::ast;
 use crate::ast::{AstNode, NameLike};
@@ -42,6 +46,7 @@ use crate::quote::{
     dollar_quote_tag, strip_dollar_quotes, strip_prefixed_quotes, strip_quotes,
     strip_unicode_esc_prefix,
 };
+use crate::syntax_node::Sql;
 use crate::unescape::{
     decode_esc_string, decode_plain_string, decode_unicode_esc_string, escape_unicode_esc_str,
     uescape_char,
@@ -127,6 +132,36 @@ pub enum SqlValueFunction {
     User,
 }
 
+impl SqlValueFunction {
+    pub fn keyword(self) -> &'static str {
+        match self {
+            SqlValueFunction::CurrentCatalog => "current_catalog",
+            SqlValueFunction::CurrentDate => "current_date",
+            SqlValueFunction::CurrentRole => "current_role",
+            SqlValueFunction::CurrentSchema => "current_schema",
+            SqlValueFunction::CurrentTime => "current_time",
+            SqlValueFunction::CurrentTimestamp => "current_timestamp",
+            SqlValueFunction::CurrentUser => "current_user",
+            SqlValueFunction::Localtime => "localtime",
+            SqlValueFunction::Localtimestamp => "localtimestamp",
+            SqlValueFunction::SessionUser => "session_user",
+            SqlValueFunction::SystemUser => "system_user",
+            SqlValueFunction::User => "user",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionLikeKeyword {
+    Coalesce,
+    Greatest,
+    Grouping,
+    Least,
+    MergeAction,
+    Nullif,
+    XmlConcat,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RangeBoundKeyword {
     MinValue,
@@ -154,6 +189,24 @@ impl IntegerRadix {
             Self::Decimal => 10,
             Self::Hexadecimal => 16,
             Self::Octal => 8,
+        }
+    }
+
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Self::Binary => "0b",
+            Self::Decimal => "",
+            Self::Hexadecimal => "0x",
+            Self::Octal => "0o",
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Binary => "binary",
+            Self::Decimal => "decimal",
+            Self::Hexadecimal => "hexadecimal",
+            Self::Octal => "octal",
         }
     }
 }
@@ -233,11 +286,37 @@ impl ast::Type {
             ast::Type::CharacterType(ty) => ty.arg_list(),
             ast::Type::PathType(ty) => ty.arg_list(),
             ast::Type::VarcharType(ty) => ty.arg_list(),
+            ast::Type::SetofType(ty) => ty.ty()?.arg_list(),
             ast::Type::ArrayType(_)
             | ast::Type::DoubleType(_)
             | ast::Type::IntervalType(_)
             | ast::Type::TimeType(_)
             | ast::Type::TimestampType(_) => None,
+        }
+    }
+
+    pub fn setof_token(&self) -> Option<SyntaxToken> {
+        match self {
+            ast::Type::SetofType(ty) => ty.setof_token(),
+            ast::Type::ArrayType(_)
+            | ast::Type::BitType(_)
+            | ast::Type::BitVaryingType(_)
+            | ast::Type::CharacterType(_)
+            | ast::Type::DoubleType(_)
+            | ast::Type::IntervalType(_)
+            | ast::Type::PathType(_)
+            | ast::Type::TimeType(_)
+            | ast::Type::TimestampType(_)
+            | ast::Type::VarcharType(_) => None,
+        }
+    }
+}
+
+impl ast::FuncType {
+    pub fn setof_token(&self) -> Option<SyntaxToken> {
+        match self {
+            ast::FuncType::PercentType(ty) => ty.setof_token(),
+            ast::FuncType::Type(ty) => ty.setof_token(),
         }
     }
 }
@@ -248,6 +327,10 @@ impl ast::FuncArgExpr {
             ast::FuncArgExpr::Expr(expr) => Some(expr.clone()),
             ast::FuncArgExpr::NamedArg(named_arg) => named_arg.expr(),
         }
+    }
+
+    pub fn is_unknown_literal(&self) -> bool {
+        self.expr().is_some_and(|expr| expr.is_unknown_literal())
     }
 }
 
@@ -280,6 +363,50 @@ impl ast::Expr {
     pub fn as_field_expr(&self) -> Option<ast::FieldExpr> {
         match self {
             ast::Expr::FieldExpr(field_expr) => Some(field_expr.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn is_default(&self) -> bool {
+        match self {
+            ast::Expr::Literal(literal) => matches!(literal.kind(), Some(LitKind::Default(_))),
+            _ => false,
+        }
+    }
+
+    pub fn is_unknown_literal(&self) -> bool {
+        let Some(literal) = self.unparen().as_literal() else {
+            return false;
+        };
+        matches!(
+            literal.kind(),
+            Some(
+                LitKind::String(_)
+                    | LitKind::DollarQuotedString(_)
+                    | LitKind::EscString(_)
+                    | LitKind::UnicodeEscString(_)
+                    | LitKind::Null(_)
+            )
+        )
+    }
+
+    pub fn binds_tighter_than_cast(&self) -> bool {
+        matches!(
+            self,
+            ast::Expr::Literal(_)
+                | ast::Expr::NameRef(_)
+                | ast::Expr::FieldExpr(_)
+                | ast::Expr::CallExpr(_)
+                | ast::Expr::ParenExpr(_)
+                | ast::Expr::CastExpr(_)
+                | ast::Expr::ArrayExpr(_)
+                | ast::Expr::IndexExpr(_)
+        )
+    }
+
+    pub fn row_width(&self) -> Option<usize> {
+        match self {
+            ast::Expr::TupleExpr(tuple) => Some(tuple.exprs().count()),
             _ => None,
         }
     }
@@ -412,6 +539,30 @@ enum StringDecoding {
 }
 
 impl ast::Literal {
+    pub fn type_name(&self) -> Option<&'static str> {
+        let name = match self.kind()? {
+            ast::LitKind::IntNumber(_) => match self.integer_value_u64() {
+                Some(value) if i32::try_from(value).is_ok() => "int4",
+                Some(value) if i64::try_from(value).is_ok() => "int8",
+                Some(_) | None => "numeric",
+            },
+            ast::LitKind::NumericNumber(_) => "numeric",
+            ast::LitKind::String(_)
+            | ast::LitKind::DollarQuotedString(_)
+            | ast::LitKind::EscString(_)
+            | ast::LitKind::NationalString(_)
+            | ast::LitKind::UnicodeEscString(_) => "text",
+            ast::LitKind::BitString(_) | ast::LitKind::ByteString(_) => "bit",
+            ast::LitKind::True(_) | ast::LitKind::False(_) => "bool",
+            ast::LitKind::Default(_)
+            | ast::LitKind::Null(_)
+            | ast::LitKind::Off(_)
+            | ast::LitKind::On(_)
+            | ast::LitKind::PositionalParam(_) => return None,
+        };
+        Some(name)
+    }
+
     pub fn is_string(&self) -> bool {
         self.kind().is_some_and(|kind| kind.is_string())
     }
@@ -515,6 +666,200 @@ impl ast::Literal {
     }
 }
 
+impl ast::BinOp {
+    pub fn precedence(&self) -> Option<u8> {
+        match self {
+            ast::BinOp::Or(_) => Some(1),
+            ast::BinOp::And(_) => Some(2),
+            ast::BinOp::Is(_)
+            | ast::BinOp::IsNot(_)
+            | ast::BinOp::IsDistinctFrom(_)
+            | ast::BinOp::IsNotDistinctFrom(_) => Some(4),
+            ast::BinOp::Eq(_)
+            | ast::BinOp::Gteq(_)
+            | ast::BinOp::LAngle(_)
+            | ast::BinOp::Lteq(_)
+            | ast::BinOp::Neq(_)
+            | ast::BinOp::Neqb(_)
+            | ast::BinOp::RAngle(_) => Some(5),
+            ast::BinOp::In(_)
+            | ast::BinOp::NotIn(_)
+            | ast::BinOp::Like(_)
+            | ast::BinOp::NotLike(_)
+            | ast::BinOp::Ilike(_)
+            | ast::BinOp::NotIlike(_)
+            | ast::BinOp::SimilarTo(_)
+            | ast::BinOp::NotSimilarTo(_) => Some(6),
+            ast::BinOp::CustomOp(_)
+            | ast::BinOp::OperatorCall(_)
+            | ast::BinOp::Overlaps(_)
+            | ast::BinOp::Escape(_) => Some(7),
+            ast::BinOp::Plus(_) | ast::BinOp::Minus(_) => Some(8),
+            ast::BinOp::Star(_) | ast::BinOp::Slash(_) | ast::BinOp::Percent(_) => Some(9),
+            ast::BinOp::Caret(_) => Some(10),
+            ast::BinOp::AtTimeZone(_) => Some(11),
+            ast::BinOp::ColonColon(_) => Some(15),
+            ast::BinOp::ColonEq(_) | ast::BinOp::FatArrow(_) => None,
+        }
+    }
+
+    pub fn is_comparison(&self) -> bool {
+        match self {
+            ast::BinOp::Eq(_)
+            | ast::BinOp::Neq(_)
+            | ast::BinOp::Neqb(_)
+            | ast::BinOp::LAngle(_)
+            | ast::BinOp::RAngle(_)
+            | ast::BinOp::Lteq(_)
+            | ast::BinOp::Gteq(_)
+            | ast::BinOp::IsDistinctFrom(_)
+            | ast::BinOp::IsNotDistinctFrom(_)
+            | ast::BinOp::In(_)
+            | ast::BinOp::NotIn(_) => true,
+            ast::BinOp::And(_)
+            | ast::BinOp::AtTimeZone(_)
+            | ast::BinOp::Caret(_)
+            | ast::BinOp::ColonColon(_)
+            | ast::BinOp::ColonEq(_)
+            | ast::BinOp::CustomOp(_)
+            | ast::BinOp::Escape(_)
+            | ast::BinOp::FatArrow(_)
+            | ast::BinOp::Ilike(_)
+            | ast::BinOp::Is(_)
+            | ast::BinOp::IsNot(_)
+            | ast::BinOp::Like(_)
+            | ast::BinOp::Minus(_)
+            | ast::BinOp::NotIlike(_)
+            | ast::BinOp::NotLike(_)
+            | ast::BinOp::NotSimilarTo(_)
+            | ast::BinOp::OperatorCall(_)
+            | ast::BinOp::Or(_)
+            | ast::BinOp::Overlaps(_)
+            | ast::BinOp::Percent(_)
+            | ast::BinOp::Plus(_)
+            | ast::BinOp::SimilarTo(_)
+            | ast::BinOp::Slash(_)
+            | ast::BinOp::Star(_) => false,
+        }
+    }
+}
+
+impl ast::CallExpr {
+    pub fn function_like_keyword(&self) -> Option<ast::FunctionLikeKeyword> {
+        match self.expr()? {
+            ast::Expr::NameRef(name_ref) => name_ref.function_like_keyword(),
+            ast::Expr::ArrayExpr(_)
+            | ast::Expr::BetweenExpr(_)
+            | ast::Expr::BinExpr(_)
+            | ast::Expr::CallExpr(_)
+            | ast::Expr::CaseExpr(_)
+            | ast::Expr::CastExpr(_)
+            | ast::Expr::Collate(_)
+            | ast::Expr::FieldExpr(_)
+            | ast::Expr::IndexExpr(_)
+            | ast::Expr::Literal(_)
+            | ast::Expr::ParenExpr(_)
+            | ast::Expr::PostfixExpr(_)
+            | ast::Expr::PrefixExpr(_)
+            | ast::Expr::SliceExpr(_)
+            | ast::Expr::TupleExpr(_) => None,
+        }
+    }
+
+    pub fn as_unnest(&self) -> Option<UnnestCall> {
+        let name_ref = self.expr()?.as_name_ref()?;
+        if name_ref.text() != "unnest"
+            || self.over_clause().is_some()
+            || self.filter_clause().is_some()
+            || self.within_clause().is_some()
+            || self.null_treatment().is_some()
+        {
+            return None;
+        }
+        let arg_list = self.arg_list()?;
+        if arg_list.star_token().is_some()
+            || matches!(
+                arg_list.all_or_distinct(),
+                Some(ast::AllOrDistinct::Distinct(_))
+            )
+        {
+            return None;
+        }
+        let mut has_args = false;
+        for arg in arg_list.args() {
+            if arg.variadic_token().is_some()
+                || arg.order_by_clause().is_some()
+                || matches!(arg.func_arg_expr(), Some(ast::FuncArgExpr::NamedArg(_)))
+            {
+                return None;
+            }
+            has_args = true;
+        }
+        has_args.then(|| UnnestCall {
+            name_ref,
+            args: arg_list.args(),
+        })
+    }
+}
+
+pub struct UnnestCall {
+    pub name_ref: ast::NameRef,
+    pub args: ast::AstChildren<ast::Arg>,
+}
+
+impl ast::LikeClause {
+    pub fn includes_indexes(&self) -> bool {
+        let mut includes = false;
+        for option in self.like_options() {
+            let (property, including) = match option {
+                ast::LikeOption::IncludingProperty(property) => (property.table_property(), true),
+                ast::LikeOption::ExcludingProperty(property) => (property.table_property(), false),
+            };
+            match property {
+                Some(
+                    ast::TableProperty::PropertyAll(_) | ast::TableProperty::PropertyIndexes(_),
+                ) => {
+                    includes = including;
+                }
+                Some(
+                    ast::TableProperty::PropertyComments(_)
+                    | ast::TableProperty::PropertyCompression(_)
+                    | ast::TableProperty::PropertyConstraints(_)
+                    | ast::TableProperty::PropertyDefaults(_)
+                    | ast::TableProperty::PropertyGenerated(_)
+                    | ast::TableProperty::PropertyIdentity(_)
+                    | ast::TableProperty::PropertyStatistics(_)
+                    | ast::TableProperty::PropertyStorage(_),
+                )
+                | None => {}
+            }
+        }
+        includes
+    }
+}
+
+impl ast::ConstraintOption {
+    pub fn is_deferrable(&self) -> bool {
+        match self {
+            ast::ConstraintOption::DeferrableConstraintOption(_)
+            | ast::ConstraintOption::InitiallyDeferredConstraintOption(_) => true,
+            ast::ConstraintOption::NotDeferrableConstraintOption(_)
+            | ast::ConstraintOption::InitiallyImmediateConstraintOption(_)
+            | ast::ConstraintOption::NotValid(_)
+            | ast::ConstraintOption::NoInherit(_)
+            | ast::ConstraintOption::Inherit(_)
+            | ast::ConstraintOption::NotEnforced(_)
+            | ast::ConstraintOption::Enforced(_) => false,
+        }
+    }
+}
+
+impl ast::RoleNameRef {
+    pub fn is_public(&self) -> bool {
+        self.text() == "public"
+    }
+}
+
 impl ast::Constraint {
     #[inline]
     pub fn constraint_name(&self) -> Option<ast::ConstraintName> {
@@ -536,6 +881,24 @@ impl ast::Constraint {
             ast::Constraint::ReferencesConstraint(it) => it.constraint_options(),
             ast::Constraint::UniqueConstraint(it) => it.constraint_options(),
         }
+    }
+
+    pub fn is_no_inherit(&self) -> bool {
+        let options = match self {
+            ast::Constraint::CheckConstraint(it) => it.constraint_options(),
+            ast::Constraint::NotNullConstraint(it) => it.constraint_options(),
+            ast::Constraint::DefaultConstraint(_)
+            | ast::Constraint::ExcludeConstraint(_)
+            | ast::Constraint::ForeignKeyConstraint(_)
+            | ast::Constraint::GeneratedConstraint(_)
+            | ast::Constraint::NullConstraint(_)
+            | ast::Constraint::PrimaryKeyConstraint(_)
+            | ast::Constraint::ReferencesConstraint(_)
+            | ast::Constraint::UniqueConstraint(_) => return false,
+        };
+        options
+            .into_iter()
+            .any(|option| matches!(option, ast::ConstraintOption::NoInherit(_)))
     }
 
     pub fn is_not_valid(&self) -> bool {
@@ -742,7 +1105,42 @@ pub enum PrefixOp {
     Plus(SyntaxToken),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InList {
+    Single(ast::Expr),
+    Tuple(ast::TupleExpr),
+}
+
+impl InList {
+    pub fn exprs(&self) -> impl Iterator<Item = ast::Expr> + '_ {
+        let (single, tuple) = match self {
+            InList::Single(expr) => (Some(expr.clone()), None),
+            InList::Tuple(tuple) => (None, Some(tuple)),
+        };
+        single
+            .into_iter()
+            .chain(tuple.into_iter().flat_map(ast::TupleExpr::exprs))
+    }
+}
+
 impl ast::BinExpr {
+    pub fn in_list(&self) -> Option<InList> {
+        if !matches!(self.op(), Some(BinOp::In(_) | BinOp::NotIn(_))) {
+            return None;
+        }
+        let rhs = self.rhs()?;
+        if let ast::Expr::TupleExpr(tuple) = rhs {
+            return Some(InList::Tuple(tuple));
+        }
+        if let ast::Expr::ParenExpr(paren) = rhs
+            && paren.select_variant().is_none()
+            && let Some(expr) = paren.expr()
+        {
+            return Some(InList::Single(expr));
+        }
+        None
+    }
+
     #[inline]
     pub fn lhs(&self) -> Option<ast::Expr> {
         support::children(self.syntax()).next()
@@ -1209,7 +1607,7 @@ impl ast::CompoundSelect {
 
 impl ast::NameRef {
     #[inline]
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 
@@ -1249,18 +1647,18 @@ impl ast::NameRef {
         }
     }
 
-    pub fn is_function_like_keyword(&self) -> bool {
-        matches!(
-            self.first_token_kind(),
-            Some(
-                SyntaxKind::COALESCE_KW
-                    | SyntaxKind::GREATEST_KW
-                    | SyntaxKind::GROUPING_KW
-                    | SyntaxKind::LEAST_KW
-                    | SyntaxKind::MERGE_ACTION_KW
-                    | SyntaxKind::NULLIF_KW
-            )
-        )
+    pub fn function_like_keyword(&self) -> Option<FunctionLikeKeyword> {
+        let keyword = match self.first_token_kind()? {
+            SyntaxKind::COALESCE_KW => FunctionLikeKeyword::Coalesce,
+            SyntaxKind::GREATEST_KW => FunctionLikeKeyword::Greatest,
+            SyntaxKind::GROUPING_KW => FunctionLikeKeyword::Grouping,
+            SyntaxKind::LEAST_KW => FunctionLikeKeyword::Least,
+            SyntaxKind::MERGE_ACTION_KW => FunctionLikeKeyword::MergeAction,
+            SyntaxKind::NULLIF_KW => FunctionLikeKeyword::Nullif,
+            SyntaxKind::XMLCONCAT_KW => FunctionLikeKeyword::XmlConcat,
+            _ => return None,
+        };
+        Some(keyword)
     }
 }
 
@@ -1327,7 +1725,7 @@ impl ast::VertexOrEdge {
 
 impl ast::ColumnName {
     #[inline]
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 
@@ -1339,7 +1737,7 @@ impl ast::ColumnName {
 
 impl ast::PathSegment {
     #[inline]
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 
@@ -1351,7 +1749,7 @@ impl ast::PathSegment {
 
 impl ast::PathSegmentRef {
     #[inline]
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 
@@ -1384,7 +1782,7 @@ pub fn is_quoted_name_node(node: &SyntaxNode) -> bool {
 }
 
 pub struct LanguageName {
-    pub name: String,
+    pub name: SmolStr,
     pub range: TextRange,
 }
 
@@ -1394,14 +1792,14 @@ fn language_name(
 ) -> Option<LanguageName> {
     if let Some(language_ref) = language_ref {
         return Some(LanguageName {
-            name: normalize_name_node(language_ref.syntax()),
+            name: SmolStr::new(normalize_name_node(language_ref.syntax())),
             range: language_ref.syntax().text_range(),
         });
     }
 
     let literal = literal?;
     Some(LanguageName {
-        name: literal.string_value()?,
+        name: SmolStr::new(literal.decoded_value()?.text()),
         range: literal.syntax().text_range(),
     })
 }
@@ -1419,20 +1817,23 @@ impl ast::DoLanguage {
 }
 
 // TODO: return a NewType wrapper around String?
-pub fn normalize_name_node(node: &SyntaxNode) -> String {
+pub fn normalize_name_node(node: &SyntaxNode) -> Cow<'_, str> {
     let mut tokens = node
-        .children_with_tokens()
-        .filter_map(|el| el.into_token())
-        .filter(|t| !t.kind().is_trivia());
+        .green()
+        .children()
+        .filter_map(NodeOrToken::into_token)
+        .filter(|t| !Sql::kind_from_raw(t.kind()).is_trivia());
 
     let Some(mut ident_token) = tokens.next() else {
-        return String::new();
+        return Cow::Borrowed("");
     };
     // Support some deprecated syntax where you can plop a `group` keyword
     // before a role name.
-    if node.kind() == SyntaxKind::ROLE_REF && ident_token.kind() == SyntaxKind::GROUP_KW {
+    if node.kind() == SyntaxKind::ROLE_REF
+        && Sql::kind_from_raw(ident_token.kind()) == SyntaxKind::GROUP_KW
+    {
         let Some(role_name) = tokens.next() else {
-            return String::new();
+            return Cow::Borrowed("");
         };
         ident_token = role_name;
     }
@@ -1446,32 +1847,45 @@ pub fn normalize_name_node(node: &SyntaxNode) -> String {
     if let Some(inner) = unicode_inner {
         let mut escape_char = '\\';
         if let Some(uesc) = tokens.next()
-            && uesc.kind() == SyntaxKind::UESCAPE_KW
+            && Sql::kind_from_raw(uesc.kind()) == SyntaxKind::UESCAPE_KW
             && let Some(token) = tokens.next()
             && let Some(ch) = uescape_char(token.text())
         {
             escape_char = ch;
         }
 
-        let inner = inner.replace(r#""""#, "\"");
+        let inner = unescape_quoted_ident(inner);
         let mut result = String::with_capacity(inner.len());
         escape_unicode_esc_str(&inner, escape_char, |_range, r| {
             if let Ok(ch) = r {
                 result.push(ch);
             }
         });
-        return result;
+        return Cow::Owned(result);
     }
 
-    raw.strip_prefix('"')
-        .and_then(|t| t.strip_suffix('"'))
-        .map(|x| x.replace(r#""""#, "\""))
-        .unwrap_or_else(|| raw.to_ascii_lowercase())
+    if let Some(inner) = raw.strip_prefix('"').and_then(|t| t.strip_suffix('"')) {
+        return unescape_quoted_ident(inner);
+    }
+
+    if raw.bytes().any(|b| b.is_ascii_uppercase()) {
+        Cow::Owned(raw.to_ascii_lowercase())
+    } else {
+        Cow::Borrowed(raw)
+    }
+}
+
+fn unescape_quoted_ident(inner: &str) -> Cow<'_, str> {
+    if inner.contains(r#""""#) {
+        Cow::Owned(inner.replace(r#""""#, "\""))
+    } else {
+        Cow::Borrowed(inner)
+    }
 }
 
 impl ast::PlpgsqlOptionValue {
     #[inline]
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 }
@@ -1535,6 +1949,16 @@ fn option_bool_value(token: &SyntaxToken) -> Option<bool> {
     }
 }
 
+impl ast::Path {
+    pub fn segments(&self) -> impl Iterator<Item = ast::AnyName> + use<> {
+        self.qualifier()
+            .into_iter()
+            .flat_map(|qualifier| qualifier.segments())
+            .map(ast::AnyName::PathSegmentRef)
+            .chain(self.segment().map(ast::AnyName::PathSegment))
+    }
+}
+
 impl ast::PathRef {
     pub fn unqualified_segment(&self) -> Option<ast::PathSegmentRef> {
         if self.qualifier().is_some() {
@@ -1542,9 +1966,33 @@ impl ast::PathRef {
         }
         self.segment()
     }
+
+    pub fn segments(&self) -> impl Iterator<Item = ast::PathSegmentRef> + use<> {
+        let last = self.syntax().clone();
+        let mut first = self.clone();
+        while let Some(qualifier) = first.qualifier() {
+            first = qualifier;
+        }
+        std::iter::successors(Some(first), move |path| {
+            if path.syntax() == &last {
+                None
+            } else {
+                path.syntax().parent().and_then(ast::PathRef::cast)
+            }
+        })
+        .filter_map(|path| path.segment())
+    }
 }
 
 impl ast::Type {
+    pub fn element_type(&self) -> Option<ast::Type> {
+        let mut ty = self.clone();
+        while let ast::Type::ArrayType(array_type) = ty {
+            ty = array_type.ty()?;
+        }
+        Some(ty)
+    }
+
     pub fn path_ref(&self) -> Option<ast::PathRef> {
         match self {
             ast::Type::PathType(path_type) => path_type.path_ref(),
@@ -1552,9 +2000,30 @@ impl ast::Type {
         }
     }
 
+    pub fn builtin_type_name(&self) -> Option<&'static str> {
+        match self {
+            ast::Type::ArrayType(_) | ast::Type::SetofType(_) => None,
+            ast::Type::PathType(path_type) => path_type.keyword_type_name(),
+            ast::Type::BitType(_) => Some("bit"),
+            ast::Type::BitVaryingType(_) => Some("varbit"),
+            ast::Type::CharacterType(_) => Some("bpchar"),
+            ast::Type::DoubleType(_) => Some("float8"),
+            ast::Type::IntervalType(_) => Some("interval"),
+            ast::Type::TimeType(time) => match time.timezone() {
+                Some(ast::Timezone::WithTimezone(_)) => Some("timetz"),
+                Some(ast::Timezone::WithoutTimezone(_)) | None => Some("time"),
+            },
+            ast::Type::TimestampType(timestamp) => match timestamp.timezone() {
+                Some(ast::Timezone::WithTimezone(_)) => Some("timestamptz"),
+                Some(ast::Timezone::WithoutTimezone(_)) | None => Some("timestamp"),
+            },
+            ast::Type::VarcharType(_) => Some("varchar"),
+        }
+    }
+
     pub fn serial_type_name(&self) -> Option<&'static str> {
         let segment = self.path_ref()?.unqualified_segment()?;
-        match segment.text().as_str() {
+        match segment.text().as_ref() {
             "smallserial" | "serial2" => Some("int2"),
             "serial" | "serial4" => Some("int4"),
             "bigserial" | "serial8" => Some("int8"),
@@ -1574,7 +2043,7 @@ impl ast::PathType {
         if segment.ident_token().is_some() {
             return None;
         }
-        let name = match segment.text().as_str() {
+        let name = match segment.text().as_ref() {
             "int" | "integer" => "int4",
             "smallint" => "int2",
             "bigint" => "int8",
@@ -1598,6 +2067,31 @@ impl ast::PathType {
             _ => return None,
         };
         Some(name)
+    }
+}
+
+impl ast::PathPattern {
+    pub fn primaries(&self) -> impl Iterator<Item = ast::PathPrimary> + use<> {
+        let mut stack = SmallVec::<[ast::AstChildren<ast::PathFactor>; 1]>::new();
+        stack.push(self.path_factors());
+        std::iter::from_fn(move || {
+            loop {
+                let factors = stack.last_mut()?;
+                let Some(factor) = factors.next() else {
+                    stack.pop();
+                    continue;
+                };
+                let Some(primary) = factor.path_primary() else {
+                    continue;
+                };
+                if let ast::PathPrimary::ParenGraphPattern(paren) = &primary
+                    && let Some(inner) = paren.path_pattern()
+                {
+                    stack.push(inner.path_factors());
+                }
+                return Some(primary);
+            }
+        })
     }
 }
 
@@ -1626,7 +2120,7 @@ impl ast::ExplainMode {
             ast::ExplainMode::ExplainOptionList(list) => list.explain_options().any(|option| {
                 option
                     .explain_option_name()
-                    .is_some_and(|name| matches!(name.text().as_str(), "analyze" | "analyse"))
+                    .is_some_and(|name| matches!(name.text().as_ref(), "analyze" | "analyse"))
                     && option
                         .explain_option_value()
                         .is_none_or(|value| value.bool_value() != Some(false))
@@ -1662,15 +2156,25 @@ impl ast::ReindexTarget {
 
 impl ast::Reindex {
     pub fn is_concurrently(&self) -> bool {
-        self.reindex_target()
-            .is_some_and(|target| target.concurrently_token().is_some())
-            || self.reindex_option_list().is_some_and(|options| {
-                options.reindex_options().any(|option| match option {
-                    ast::ReindexOption::ReindexOptionConcurrently(option) => option
-                        .literal()
-                        .is_none_or(|literal| literal.bool_value() != Some(false)),
-                    _ => false,
-                })
+        self.concurrently_range().is_some()
+    }
+
+    pub fn concurrently_range(&self) -> Option<TextRange> {
+        if let Some(token) = self
+            .reindex_target()
+            .and_then(|target| target.concurrently_token())
+        {
+            return Some(token.text_range());
+        }
+        self.reindex_option_list()?
+            .reindex_options()
+            .find_map(|option| match option {
+                ast::ReindexOption::ReindexOptionConcurrently(option) => option
+                    .literal()
+                    .is_none_or(|literal| literal.bool_value() != Some(false))
+                    .then(|| option.syntax().text_range()),
+                ast::ReindexOption::ReindexOptionTablespace(_)
+                | ast::ReindexOption::ReindexOptionVerbose(_) => None,
             })
     }
 }
@@ -1741,15 +2245,32 @@ impl ast::OpSig {
     }
 }
 
-fn operator_text(tokens: impl Iterator<Item = SyntaxToken>) -> String {
-    let mut text = String::new();
-    for token in tokens.filter(|token| !token.kind().is_trivia()) {
-        text.push_str(token.text());
+fn operator_text(
+    node: &SyntaxNode,
+    range: TextRange,
+    tokens: impl Iterator<Item = SyntaxToken>,
+) -> Cow<'_, str> {
+    let text = &node.green().text()[range - node.text_range().start()];
+    let mut owned: Option<String> = None;
+    for token in tokens {
+        if token.kind().is_trivia() {
+            if owned.is_none() {
+                let end = token.text_range().start() - range.start();
+                owned = Some(text[..usize::from(end)].to_owned());
+            }
+        } else if let Some(owned) = &mut owned {
+            owned.push_str(token.text());
+        }
     }
+    let text = match owned {
+        Some(owned) => Cow::Owned(owned),
+        None => Cow::Borrowed(text),
+    };
     if text == "!=" {
-        text.replace_range(.., "<>");
+        Cow::Borrowed("<>")
+    } else {
+        text
     }
-    text
 }
 
 impl ast::Op {
@@ -1761,9 +2282,11 @@ impl ast::Op {
         }
     }
 
-    pub fn operator_text(&self) -> String {
+    pub fn operator_text(&self) -> Cow<'_, str> {
         let range = self.operator_range();
         operator_text(
+            self.syntax(),
+            range,
             self.syntax()
                 .descendants_with_tokens()
                 .filter_map(|element| element.into_token())
@@ -1773,14 +2296,16 @@ impl ast::Op {
 }
 
 impl ast::CustomOp {
-    pub fn operator_text(&self) -> String {
-        operator_text(self.tokens())
+    pub fn operator_text(&self) -> Cow<'_, str> {
+        operator_text(self.syntax(), self.syntax().text_range(), self.tokens())
     }
 }
 
 impl ast::AttributeValue {
-    pub fn operator_text(&self) -> String {
+    pub fn operator_text(&self) -> Cow<'_, str> {
         operator_text(
+            self.syntax(),
+            self.syntax().text_range(),
             self.syntax()
                 .descendants_with_tokens()
                 .filter_map(|element| element.into_token()),
@@ -1839,7 +2364,7 @@ impl ast::CreateConversion {
 }
 
 impl ast::ExtractFieldName {
-    pub fn text(&self) -> String {
+    pub fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 }
@@ -2128,7 +2653,7 @@ impl ast::TableConstraint {
 }
 
 pub(crate) fn text_of_first_token(node: &SyntaxNode) -> &str {
-    fn first_token(green_ref: &GreenNodeData) -> &GreenTokenData {
+    fn first_token(green_ref: GreenNodeRef<'_>) -> GreenTokenRef<'_> {
         green_ref
             .children()
             .next()
@@ -2157,6 +2682,24 @@ impl ast::CreateTableAsQuery {
 }
 
 impl ast::SelectVariant {
+    pub fn nth_output_expr(&self, position: usize) -> Option<ast::Expr> {
+        match self {
+            ast::SelectVariant::Select(select) => select
+                .select_clause()?
+                .target_list()?
+                .targets()
+                .nth(position)?
+                .expr(),
+            ast::SelectVariant::Values(values) => {
+                values.row_list()?.rows().next()?.exprs().nth(position)
+            }
+            ast::SelectVariant::ParenSelect(paren) => paren.select()?.nth_output_expr(position),
+            ast::SelectVariant::CompoundSelect(_)
+            | ast::SelectVariant::SelectInto(_)
+            | ast::SelectVariant::Table(_) => None,
+        }
+    }
+
     #[inline]
     pub fn target_list(&self) -> Option<ast::TargetList> {
         match self {
@@ -2216,7 +2759,7 @@ where
     ast::AnyName: From<T>,
 {
     #[inline]
-    fn text(&self) -> String {
+    fn text(&self) -> Cow<'_, str> {
         normalize_name_node(self.syntax())
     }
 
@@ -2301,7 +2844,7 @@ fn name() {
             .unwrap()
             .name()
             .unwrap();
-        name.text()
+        name.text().into_owned()
     }
 }
 
@@ -2332,7 +2875,7 @@ fn name_ref() {
         let ast::Expr::NameRef(name_ref) = target.expr().unwrap() else {
             unreachable!()
         };
-        name_ref.text()
+        name_ref.text().into_owned()
     }
 }
 
@@ -2923,6 +3466,20 @@ fn decoded_value_maps_string_continuation() {
 }
 
 #[test]
+fn binary_operator_precedence() {
+    let parsed = ast::SourceFile::parse("select a or b and c = d + e * f;");
+    assert!(parsed.errors().is_empty());
+    let precedences: Vec<_> = parsed
+        .tree()
+        .syntax()
+        .descendants()
+        .filter_map(ast::BinExpr::cast)
+        .map(|expr| expr.op().unwrap().precedence())
+        .collect();
+    assert_eq!(precedences, [Some(1), Some(2), Some(5), Some(8), Some(9)]);
+}
+
+#[test]
 fn decoded_value_maps_dollar_quoted() {
     assert_snapshot!(decode_literal("select $tag$ab$tag$;"), @r#"
     "ab"
@@ -2930,4 +3487,128 @@ fn decoded_value_maps_dollar_quoted() {
       1 -> 13 Some('b')
       2 -> 14 Some('$')
     "#);
+}
+
+#[test]
+fn in_list() {
+    let parsed = ast::SourceFile::parse(
+        "select x in (1);
+select x not in (1, 2);
+select x in ((1));
+select x in (select y from t);
+select x = (1, 2);",
+    );
+    assert!(parsed.errors().is_empty());
+    let lists: Vec<_> = parsed
+        .tree()
+        .syntax()
+        .descendants()
+        .filter_map(ast::BinExpr::cast)
+        .map(|bin| {
+            bin.in_list().map(|list| {
+                list.exprs()
+                    .map(|expr| expr.syntax().text().to_string())
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    assert_debug_snapshot!(lists, @r#"
+    [
+        Some(
+            [
+                "1",
+            ],
+        ),
+        Some(
+            [
+                "1",
+                "2",
+            ],
+        ),
+        Some(
+            [
+                "(1)",
+            ],
+        ),
+        None,
+        None,
+    ]
+    "#);
+}
+
+#[test]
+fn path_pattern_primaries() {
+    let parsed = ast::SourceFile::parse(
+        "select *
+from graph_table(g match (a)-[e]->((b)-[f]->(c))-[h]->(d) columns (a.id));",
+    );
+    assert!(parsed.errors().is_empty());
+    let pattern = parsed
+        .tree()
+        .syntax()
+        .descendants()
+        .find_map(ast::PathPattern::cast)
+        .unwrap();
+    let primaries: Vec<_> = pattern
+        .primaries()
+        .map(|primary| primary.syntax().text().to_string())
+        .collect();
+    assert_debug_snapshot!(primaries, @r#"
+    [
+        "(a)",
+        "-[e]->",
+        "((b)-[f]->(c))",
+        "(b)",
+        "-[f]->",
+        "(c)",
+        "-[h]->",
+        "(d)",
+    ]
+    "#);
+}
+
+#[test]
+fn path_segments() {
+    let parsed = ast::SourceFile::parse(
+        "create table a.b.c (id int);
+create table t (id int);",
+    );
+    assert!(parsed.errors().is_empty());
+    let segments: Vec<_> = parsed
+        .tree()
+        .syntax()
+        .descendants()
+        .filter_map(ast::Path::cast)
+        .map(|path| {
+            path.segments()
+                .map(|segment| segment.text().into_owned())
+                .collect::<Vec<_>>()
+                .join(".")
+        })
+        .collect();
+    assert_debug_snapshot!(segments, @r#"
+    [
+        "a.b.c",
+        "t",
+    ]
+    "#);
+}
+
+#[test]
+fn path_ref_segments() {
+    let parsed = ast::SourceFile::parse("alter table a.b.c rename to d;");
+    assert!(parsed.errors().is_empty());
+    let segments: Vec<_> = parsed
+        .tree()
+        .syntax()
+        .descendants()
+        .filter_map(ast::PathRef::cast)
+        .map(|path| {
+            path.segments()
+                .map(|segment| segment.text().into_owned())
+                .collect::<Vec<_>>()
+                .join(".")
+        })
+        .collect();
+    assert_eq!(segments, ["a.b.c", "a.b", "a"]);
 }

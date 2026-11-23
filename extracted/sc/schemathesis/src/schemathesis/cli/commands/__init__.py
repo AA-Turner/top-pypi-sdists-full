@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from tomllib import TOMLDecodeError
 from typing import Any
@@ -14,10 +15,11 @@ from schemathesis.cli.commands.run import run as run_command
 from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ExitCode
 from schemathesis.cli.core import get_terminal_width
 from schemathesis.cli.ext.groups import CommandWithGroupedOptions, GroupedOption, StyledGroup, should_use_color
-from schemathesis.cli.output import display_header
+from schemathesis.cli.output import degrade_unencodable_glyphs, display_header
 from schemathesis.config import ConfigError, SchemathesisConfig
 from schemathesis.core.errors import HookError, format_exception
 from schemathesis.core.version import SCHEMATHESIS_VERSION
+from schemathesis.hooks import set_extension_listener
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 ROOT_CONTEXT_SETTINGS: dict[str, Any] = {"help_option_names": []}
@@ -68,8 +70,12 @@ def _show_help(ctx: click.Context, param: click.Parameter, value: bool) -> None:
 )
 def schemathesis(ctx: click.Context, config_file: str | None) -> None:
     """Property-based API testing for OpenAPI, GraphQL, and gRPC."""
+    degrade_unencodable_glyphs(sys.stdout)
     # grpc's native logs repeat errors the report shows. grpc reads this on import, which hooks loaded below may do.
     os.environ.setdefault("GRPC_VERBOSITY", "NONE")
+    # A command creates its extensions itself, also when it runs inside a pytest session
+    listener = set_extension_listener(None)
+    ctx.call_on_close(lambda: set_extension_listener(listener))
     try:
         if config_file is not None:
             config = SchemathesisConfig.from_path(config_file)
@@ -107,7 +113,7 @@ def schemathesis(ctx: click.Context, config_file: str | None) -> None:
         click.echo(f"\n{detail}\n\n{exc}")
         ctx.exit(ExitCode.ERROR)
     except HookError as exc:
-        click.secho("Unable to load Schemathesis extension hooks", fg="red", bold=True)
+        click.secho("Unable to load Schemathesis hooks", fg="red", bold=True)
         formatted_module_name = click.style(f"'{exc.module_path}'", bold=True)
         cause = exc.__cause__
         assert isinstance(cause, Exception)

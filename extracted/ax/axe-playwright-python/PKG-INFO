@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: axe-playwright-python
-Version: 0.1.8
+Version: 0.1.9
 Summary: Automated web accessibility testing using axe-core engine and Playwright.
 Keywords: accessibility,axe,axe-core,playwright
 Author-email: Pamela Fox <pamela.fox@gmail.com>

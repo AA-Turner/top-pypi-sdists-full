@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: postmarker
-Version: 3.0
+Version: 4.0.1
 Summary: Python client library for Postmark API
 Project-URL: Documentation, https://postmarker.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/Stranger6667/postmarker/blob/master/CHANGELOG.md
@@ -150,6 +150,9 @@ try:
 except ClientError as exc:
     print(exc.error_code)  # For example, 406 for an inactive recipient
 ```
+
+A request without a usable Postmark response, e.g. a network error, a timeout or an HTML 502 from a proxy, raises `TransportError`, the same in the sync and async clients.
+`status_code` is the HTTP status when there was a response, and the original `requests` or `httpx2` exception is in `__cause__`.
 
 ## Async
 

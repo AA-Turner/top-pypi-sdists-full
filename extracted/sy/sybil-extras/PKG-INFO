@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.10.9
+Version: 2026.11.23
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -16,16 +16,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: beartype>=0.22.9
+Requires-Dist: beartype>=0.23.0
 Requires-Dist: markdown-it-py>=3.0.0
-Requires-Dist: myst-parser>=5.0.0
+Requires-Dist: myst-parser>=5.2.0
 Requires-Dist: sybil>=9.3.0
 Requires-Dist: typing-extensions>=4.4.0
 Provides-Extra: karva
-Requires-Dist: karva==0.0.1a12; extra == "karva"
+Requires-Dist: karva==0.0.1a13; extra == "karva"
 Dynamic: license-file
 
 |Build Status| |PyPI|
@@ -246,7 +247,7 @@ ThreadSafeSkipParser
 ^^^^^^^^^^^^^^^^^^^^
 
 The ``ThreadSafeSkipParser`` is a thread-safe drop-in replacement for the standard skip parser.
-Use it when examples from a single document may be evaluated concurrently (e.g. dispatched across a thread pool).
+Use it when examples from one document may be evaluated concurrently (e.g. dispatched across a thread pool).
 
 The upstream ``sybil.evaluators.skip.Skipper`` mutates per-document state as examples are evaluated, so concurrent evaluation can race and produce non-deterministic skip decisions (see `simplistix/sybil#166 <https://github.com/simplistix/sybil/issues/166>`_).
 ``ThreadSafeSkipParser`` resolves each non-skip example to its governing skip directive at parse time, and caches conditional ``if`` decisions per directive so concurrent evaluators all see the same result.
@@ -330,12 +331,13 @@ GroupedSourceParser
         # code blocks in the group.
         item.evaluate()
 
-This makes Sybil act as though all of the code blocks within a group are a single code block, to be evaluated with the ``evaluator`` given to ``GroupedSourceParser``.
+This makes Sybil act as though all of the code blocks within a group form one code block, to be evaluated with the ``evaluator`` given to ``GroupedSourceParser``.
 
 Only code blocks parsed by another parser in the same Sybil instance will be grouped.
 
 The ``GroupedSourceParser`` must be registered **after** any code block parsers in the ``Sybil(parsers=[...])`` list.
-At parse time, it counts code blocks by examining ``document.examples()``, which only contains examples from parsers that have already run.
+The parser counts the code blocks returned by ``document.examples()``.
+That method includes examples only from completed parsers.
 
 A group is defined by a pair of comments, ``group: start`` and ``group: end``.
 The ``group: end`` example is expanded to include the contents of the code blocks in the group.
@@ -424,7 +426,7 @@ GroupAllParser
         # code blocks in the document.
         item.evaluate()
 
-This makes Sybil act as though all of the code blocks in a document are a single code block, to be evaluated with the ``evaluator`` given to ``GroupAllParser``.
+This makes Sybil act as though all of the code blocks in a document form one code block, to be evaluated with the ``evaluator`` given to ``GroupAllParser``.
 
 Unlike ``GroupedSourceParser``, this parser does not require any special markup directives like ``group: start`` and ``group: end``.
 All code blocks in the document are automatically grouped together.
@@ -432,7 +434,8 @@ All code blocks in the document are automatically grouped together.
 Only code blocks parsed by another parser in the same Sybil instance will be grouped.
 
 The ``GroupAllParser`` must be registered **after** any code block parsers in the ``Sybil(parsers=[...])`` list.
-At parse time, it counts code blocks by examining ``document.examples()``, which only contains examples from parsers that have already run.
+The parser counts the code blocks returned by ``document.examples()``.
+That method includes examples only from completed parsers.
 
 AttributeGroupedSourceParser
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -489,7 +492,7 @@ This is useful for MDX documentation where code blocks with the same group attri
         # code blocks in the same group.
         item.evaluate()
 
-This makes Sybil act as though all code blocks with the same ``group`` attribute value are a single code block, to be evaluated with the ``evaluator`` given to ``AttributeGroupedSourceParser``.
+This makes Sybil act as though all code blocks with the same ``group`` attribute value form one code block, to be evaluated with the ``evaluator`` given to ``AttributeGroupedSourceParser``.
 
 An MDX example:
 

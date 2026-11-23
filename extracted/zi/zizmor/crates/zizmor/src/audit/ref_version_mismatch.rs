@@ -17,6 +17,7 @@ use crate::{
         version::RawVersion,
         workflow::{ReusableWorkflowCallJob, Step},
     },
+    utils::once::debug_once,
 };
 
 pub(crate) struct RefVersionMismatch {
@@ -270,8 +271,13 @@ impl Audit for RefVersionMismatch {
         // If we have a lockfile and this step's workflow is present in it,
         // then there are no possible mismatches.
         if let Some(lock) = group.lock()
-            && lock.is_locked(step)
+            && lock.is_locked(step.as_ref())
         {
+            debug_once!(
+                "{input} is covered by a lockfile, no ref-version-mismatch checks needed",
+                input = step.as_ref()
+            );
+
             return Ok(vec![]);
         }
 

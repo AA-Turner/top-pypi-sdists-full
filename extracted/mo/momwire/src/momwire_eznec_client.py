@@ -51,7 +51,7 @@ import time as _time
 import momwire_serve_client as _mech
 
 # momwire#528/#643: the basis rides on the client's own filename —
-# ``momwire-eznec-client-razor-nec5`` (or a renamed copy of the frozen exe)
+# ``momwire-eznec-client-razor2p`` (or a renamed copy of the frozen exe)
 # selects the twin; the ``client`` segment itself selects nothing.
 _FILENAME_MARKER = "eznec-"
 _CLIENT_SEGMENT = "client"
@@ -61,7 +61,7 @@ _DROPIN_MARKER = "dropin-"
 # momwire#1239: the SimNEC spelling. SimNEC picks its engine CLASS, and so
 # the deck syntax it writes, from a substring of the engine's path: `nec2c`
 # -> NEC-2 decks, `nec5` -> NEC-5 decks. A NEC-5 command therefore has to
-# carry `nec5` in its name, which `momwire-eznec-client-razor-2p` does not.
+# carry `nec5` in its name, which `momwire-eznec-client-razor2p` does not.
 # `momwire-nec5[-<basis>]` is the family SimNEC's NEC command setting points
 # at; the basis rides past this marker exactly as it rides past `eznec-`.
 _NEC5_MARKER = "nec5-"
@@ -107,6 +107,9 @@ def config_key(basis: str | None, idle_timeout: float, dialect: str = "nec5") ->
         *_mech.interpreter_identity(),
         f"{idle_timeout!r}",
         _mech.WIRE,
+        # The advisories frame (momwire#1673 reversed): a launcher that asks
+        # for it must never reach a server that would solve the request line.
+        _mech.ADVISORIES_WIRE,
     ]
     if dialect != "nec5":
         elements.append(f"dialect={dialect}")
@@ -254,7 +257,7 @@ def probe_version(prog: str = "momwire-eznec-client") -> str:
 
     :func:`momwire_serve_client.version_line` (momwire#1606): the slot's
     dialect, the launcher's name, its interface modes and the full version,
-    e.g. ``NEC5 momwire-nec5-razor-2p [sb] 0.82.0``.  The name is the one
+    e.g. ``NEC5 momwire-nec5-razor2p [sb] 0.82.0``.  The name is the one
     the launcher answers to, rebuilt from what its own name selects
     (:func:`launcher_name`), so a renamed copy still names itself as one of
     ours.  Read through :func:`momwire_serve_client.momwire_version` (a frozen
@@ -309,6 +312,16 @@ def _stream(basis: str | None, dialect: str = "nec5") -> int:
             f"MOMWIRE ENGINE UNAVAILABLE - {type(exc).__name__}: {exc}", file=sys.stderr
         )
         return 2
+
+
+def _write_advisories(raw: bytes) -> None:
+    """A served deck's advisories frame on this launcher's stderr. A stderr
+    that cannot take them loses them: the printout is already written."""
+    try:
+        sys.stderr.write(_mech.advisories_text(raw))
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
 
 
 def _report_times(line: bytes | None, started: float, wrote: float) -> None:
@@ -387,16 +400,24 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     timed = _mech.times_requested()
+    advised = _mech.advisories_on()
     try:
         started = _time.perf_counter()
         with open(deck_path, "rb") as handle:
             deck_bytes = handle.read()
         if en_optional:
             deck_bytes = _mech.EN_OPTIONAL_REQUEST + deck_bytes
+        if advised:
+            # The deck's advisories, raised in the server's process, come
+            # back framed to this one's stderr.
+            deck_bytes = _mech.ADVISORIES_REQUEST + deck_bytes
         if timed:
             deck_bytes = _mech.TIMES_REQUEST + deck_bytes
         answer = _served_bytes(deck_bytes, basis, DEFAULT_IDLE_TIMEOUT, dialect)
         line, answer = _mech.split_times(answer)
+        shown, answer = _mech.split_advisories(answer)
+        if not answer:
+            raise ConnectionError("the resident engine answered no printout")
         gmo, printout = _mech.split_answer(answer)
         wrote = _time.perf_counter()
         if gmo is not None:
@@ -404,6 +425,9 @@ def main(argv: list[str] | None = None) -> int:
                 handle.write(gmo)
         with open(printout_path, "wb") as handle:
             handle.write(printout)
+        if shown:
+            # Already within one process's cap: the server capped it.
+            _write_advisories(shown)
         if timed:
             _report_times(line, started, wrote)
         return 0

@@ -1,4 +1,4 @@
-"""The NEC-5 seam's structure half for razor-2p in C++ (`_nec5_razor_seam_core`,
+"""The NEC-5 seam's structure half for razor2p in C++ (`_nec5_razor_seam_core`,
 unit 2b of the standalone executable) is the Python seam's, deck by deck.
 
 Each hand-written deck below first asserts where the PYTHON seam lands (so a
@@ -310,8 +310,18 @@ CASES = {
         + "GE 0,-1\nFR 0,1,0,0,30.\nEX 0,1,5,0,1.,0.\n"
         + RP
         + "EN\n",
+        # refused until momwire#2093 joined the T: the node is now a junction
+        "served",
+        "",
+    ),
+    "interior_node_on_overlapping_wires": (
+        HEAD
+        + "GW 1,10,0.,-2.5,5.,0.,2.5,5.,.001\nGW 2,4,0.,0.,5.,0.,2.,5.,.001\n"
+        + "GE 0,-1\nFR 0,1,0,0,30.\nEX 0,1,6,0,1.,0.\n"
+        + RP
+        + "EN\n",
         "refused",
-        "addresses a node INSIDE wire 1 where 1 more element ends meet",
+        "addresses a node INSIDE wire 1 where 2 more element ends meet",
     ),
     "grounded_junction": (
         HEAD
@@ -517,6 +527,37 @@ CASES = {
         + "EN\n",
         "served",
         "",
+    ),
+    # momwire#2093: a crossing, a T and a card at the stem end (#2094) are
+    # junctions; two cards on the two branches of one joined node refuse
+    "joins_a_crossing_at_interior_nodes": (
+        HEAD
+        + "GW 1,20,0.,-5.,10.,0.,5.,10.,.001\nGW 2,20,-5.,0.,10.,5.,0.,10.,.001\n"
+        + "GE 0,-1\nFR 0,1,0,0,14.\nEX 0,1,5,0,1.,0.\n"
+        + RP
+        + "EN\n",
+        "served",
+        "",
+    ),
+    "joins_a_tee_named_at_the_stem_end": (
+        HEAD
+        + "GW 1,20,0.,-5.,10.,0.,5.,10.,.001\nGW 2,8,0.,0.,10.,0.,0.,6.,.001\n"
+        + "GE 0,-1\nFR 0,1,0,0,14.\nEX 0,2,-1,0,1.,0.\n"
+        + RP
+        + "EN\n",
+        "served",
+        "",
+    ),
+    "joins_a_tee_named_through_both_branches": (
+        HEAD
+        + "GW 1,24,0.,-5.,10.,0.,7.,10.,.001\nGW 2,8,0.,0.,10.,0.,0.,6.,.001\n"
+        + "GW 9,11,4.,-5.,10.,4.,5.,10.,.001\n"
+        + "GE 0,-1\nFR 0,1,0,0,14.\nEX 0,1,11,1,1.,0.\n"
+        + "TL 1,10,9,5,50.,4.,0.,0.,0.,0.\n"
+        + RP
+        + "EN\n",
+        "refused",
+        "through both of its segments (10 and 11)",
     ),
     "serves_a_near_field_over_gd": (
         HEAD

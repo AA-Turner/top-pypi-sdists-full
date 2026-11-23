@@ -287,7 +287,7 @@ def get_daemon_fix(reason: "str | None") -> str:
 
 
 def _get_notice_words(session_state: "str | None", *, is_manual: bool = False) -> str:
-    """The notice's state words: `on (daemon)` for a stored `daemon`, else `on (inline)` (its caller knows no more),
+    """The notice's state words: `on` for a stored `daemon`, else `on (inline)` (its caller knows no more),
     tagged `manual` as the status line tags them (`is_manual`: the person sets this chat's switch)."""
     state = STATE_FULL if session_state not in (STATE_DAEMON, STATE_FULL) else session_state
     return get_state_words(state, Reader.DAEMON if state == STATE_DAEMON else Reader.INLINE, is_manual=is_manual)

@@ -9,12 +9,17 @@ if TYPE_CHECKING:
     from justhtml.serializer import HTMLContext
 
 
-def _to_text_collect(node: NodeType, parts: list[str], strip: bool) -> None:
+def _to_text_collect(
+    node: NodeType, parts: list[str], strip: bool, *, omit_tags: frozenset[str] = frozenset()
+) -> None:
     # Iterative traversal avoids recursion overhead on large documents.
     stack: list[NodeType] = [node]
     while stack:
         current = stack.pop()
         name: str = current.name
+
+        if omit_tags and name.lower() in omit_tags:
+            continue
 
         if name == "#text":
             data = current.data if isinstance(current.data, str) else None
@@ -202,6 +207,10 @@ class Node:
             if current is node:
                 raise ValueError("Cannot insert an ancestor into its descendant")
             current = current.parent
+
+        # Splicing a template's content moves its children, not the owned fragment.
+        if isinstance(old_parent, Template) and old_parent.template_content is node:
+            return old_parent, None
 
         old_children = old_parent.children if old_parent is not None else None
         old_index: int | None = None

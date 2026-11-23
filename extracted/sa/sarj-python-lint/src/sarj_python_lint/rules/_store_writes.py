@@ -280,17 +280,20 @@ def read_pair(owner: ast.ClassDef, imports: ImportIndex, bulk_name: str) -> _Met
 
 def _read_scalar(annotation: ast.expr | None, imports: ImportIndex) -> ast.expr | None:
     annotation = AnnotationSemantics.parse(annotation)
-    if isinstance(annotation, ast.Subscript) and imports.resolved_qualified_name(annotation.value) in {
-        "typing.Optional",
-        "typing_extensions.Optional",
-    }:
-        return annotation.slice if not isinstance(annotation.slice, ast.Tuple) else None
-    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-        match bit_or_members(annotation):
-            case [value, ast.Constant(value=None)] | [ast.Constant(value=None), value]:
-                return None if isinstance(value, ast.Constant) and value.value is None else value
-            case _:
-                return None
+    match annotation:
+        case ast.Subscript() if imports.resolved_qualified_name(annotation.value) in {
+            "typing.Optional",
+            "typing_extensions.Optional",
+        }:
+            return annotation.slice if not isinstance(annotation.slice, ast.Tuple) else None
+        case ast.BinOp() if isinstance(annotation.op, ast.BitOr):
+            match bit_or_members(annotation):
+                case [value, ast.Constant(value=None)] | [ast.Constant(value=None), value]:
+                    return None if isinstance(value, ast.Constant) and value.value is None else value
+                case _:
+                    return None
+        case _:
+            pass
     return None if isinstance(annotation, ast.Constant) and annotation.value is None else annotation
 
 
@@ -511,8 +514,6 @@ class _ReceiverAliases:
         preceding = sorted(
             (binding for binding in bindings if self._precedes_read(binding, expression)), key=_source_position
         )
-        # A definite local overwrite discards earlier possible objects; conditional
-        # writes retain all possible origins until another definite overwrite.
         start = 0
         for index, binding in enumerate(preceding):
             statement = self.context.parents.get(binding)

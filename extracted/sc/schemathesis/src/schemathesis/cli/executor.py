@@ -20,17 +20,19 @@ from schemathesis.cli.commands.run.handlers.ndjson import NdjsonHandler
 from schemathesis.cli.commands.run.handlers.output import OutputHandler
 from schemathesis.cli.commands.run.handlers.vcr import VcrHandler
 from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL, ExitCode
-from schemathesis.cli.ext.fs import load_baseline, open_file, prepare_directory
+from schemathesis.cli.ext.fs import display_path, load_baseline, open_file, prepare_directory
 from schemathesis.cli.ext.handlers import CUSTOM_HANDLERS
 from schemathesis.cli.json_report import JsonReportHandler
 from schemathesis.cli.pytest_report import PytestReportHandler
 from schemathesis.cli.wfc_report import WfcReportHandler
-from schemathesis.config import DEFAULT_REPORT_DIRECTORY, ReportFormat
+from schemathesis.config import DEFAULT_REPORT_DIRECTORY, ConfigError, ReportFormat
 from schemathesis.core.errors import format_exception
+from schemathesis.hooks import bind_extensions, unbind_extensions
 
 if TYPE_CHECKING:
     from schemathesis.cli.context import BaseExecutionContext
-    from schemathesis.config import ProjectConfig
+    from schemathesis.config import ProjectConfig, ReportsConfig
+    from schemathesis.engine import events
     from schemathesis.engine.events import EventGenerator
 
 
@@ -72,14 +74,33 @@ def _report_option(config: ProjectConfig, params: dict[str, Any], format: Report
     return None
 
 
+def _validate_report_file_paths(reports: ReportsConfig) -> None:
+    seen: dict[Path, ReportFormat] = {}
+    for report_format in ReportFormat:
+        if report_format.is_directory or not reports.get(report_format).enabled:
+            continue
+        path = reports.get_path(report_format)
+        try:
+            destination = path.resolve()
+        except (OSError, RuntimeError, ValueError):
+            # Invalid or unreadable paths are reported when the report file is opened, naming the option that set them.
+            continue
+        if other := seen.get(destination):
+            raise click.UsageError(
+                f"{other.display_name} and {report_format.display_name} reports share an output file "
+                f"'{display_path(path)}'. Choose separate output paths."
+            )
+        seen[destination] = report_format
+
+
 def initialize_report_handlers(
     *,
     config: ProjectConfig,
     args: list[str],
     params: dict[str, Any],
 ) -> list[EventHandler]:
-    """Initialize built-in report handlers and custom handlers."""
     handlers: list[EventHandler] = []
+    _validate_report_file_paths(config.reports)
     # Checked before any report file is created.
     if config.reports.allure.enabled and importlib.util.find_spec("allure_commons") is None:
         raise click.ClickException("Allure reports require the `allure` extra: `pip install schemathesis[allure]`")
@@ -133,7 +154,6 @@ def initialize_report_handlers(
 
 
 def display_handler_error(handler: EventHandler, exc: Exception, config: ProjectConfig) -> None:
-    """Display an error that occurred within an event handler."""
     report_format = _REPORT_HANDLER_FORMATS.get(type(handler))
     if report_format is not None and isinstance(exc, OSError):
         path = config.reports.get_path(report_format)
@@ -152,13 +172,32 @@ def display_handler_error(handler: EventHandler, exc: Exception, config: Project
         )
     else:
         title = "CLI Handler Error"
-        intro = f"\nAn error occurred within your custom CLI handler `{click.style(handler.__class__.__name__, bold=True)}`."
+        if isinstance(handler, ExtensionHandler):
+            owner = f"the `{click.style(handler.name, bold=True)}` extension's event handler"
+        else:
+            owner = f"your custom CLI handler `{click.style(handler.__class__.__name__, bold=True)}`"
+        intro = f"\nAn error occurred within {owner}."
         message = format_exception(exc, with_traceback=True, skip_frames=1)
-        footer = f"\nFor more information on implementing extensions for Schemathesis CLI, visit {EXTENSIONS_DOCUMENTATION_URL}"
+        footer = f"\nFor more information on implementing CLI event handlers, visit {EXTENSIONS_DOCUMENTATION_URL}"
     click.secho(title, fg="red", bold=True)
     click.echo(intro)
     click.secho(f"\n{message}", fg="red")
     click.echo(footer)
+
+
+class ExtensionStartupError(click.ClickException):
+    exit_code = ExitCode.ERROR
+
+
+class ExtensionHandler(EventHandler):
+    """Passes CLI events to an extension's `handle_event`."""
+
+    def __init__(self, name: str, handle_event: Callable[[BaseExecutionContext, events.EngineEvent], None]) -> None:
+        self.name = name
+        self._handle_event = handle_event
+
+    def handle_event(self, ctx: BaseExecutionContext, event: events.EngineEvent) -> None:
+        self._handle_event(ctx, event)
 
 
 def execute_event_loop(
@@ -170,13 +209,39 @@ def execute_event_loop(
     output_handler: EventHandler,
     context_factory: Callable[[ProjectConfig], BaseExecutionContext],
 ) -> None:
+    try:
+        extensions = bind_extensions(config.extensions)
+    except ConfigError as exc:
+        raise ExtensionStartupError(str(exc)) from None
+    try:
+        load_baseline(config)
+        handlers = [
+            *initialize_report_handlers(config=config, args=args, params=params),
+            # Ahead of the terminal output, so summary lines and reports added when the run finishes still show
+            *(
+                ExtensionHandler(name, extension.handle_event)
+                for name, extension in extensions.items()
+                if hasattr(extension, "handle_event")
+            ),
+            output_handler,
+        ]
+        _execute_event_loop(event_stream, config=config, handlers=handlers, context_factory=context_factory)
+    finally:
+        unbind_extensions(extensions)
+
+
+def _execute_event_loop(
+    event_stream: EventGenerator,
+    *,
+    config: ProjectConfig,
+    handlers: list[EventHandler],
+    context_factory: Callable[[ProjectConfig], BaseExecutionContext],
+) -> None:
     from rich.text import Text
 
     # Warm Rich's lazy emoji-codes import on the main thread; it is not concurrency-safe.
     Text.from_markup("")
 
-    load_baseline(config)
-    handlers = [*initialize_report_handlers(config=config, args=args, params=params), output_handler]
     ctx: BaseExecutionContext | None = None
     # Set when the loop ends abnormally; the process and the reports use it instead of the run's verdict.
     abnormal_exit_code: int | None = None
@@ -186,8 +251,7 @@ def execute_event_loop(
             if abnormal_exit_code is not None:
                 ctx.exit_code = abnormal_exit_code
             for h in handlers:
-                # The exit code is the API's verdict; a reporter failing at shutdown must not mask it,
-                # unlike a mid-run handler error, which aborts.
+                # A reporter failing at shutdown must not mask the exit code; mid-run handler errors abort instead.
                 try:
                     h.shutdown(ctx)
                 except Exception as exc:

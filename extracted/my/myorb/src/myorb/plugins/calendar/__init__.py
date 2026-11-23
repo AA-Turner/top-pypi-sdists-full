@@ -100,6 +100,8 @@ def parse_event(
         "end": ends,
         "all_day": all_day,
         "location": event.get("location"),
+        # Read for when to leave, if the user set it there (commute.py).
+        "description": event.get("description") or "",
         "video_url": video,
         "url": event.get("htmlLink"),
         "calendar": None if calendar.get("primary") else calendar.get("summary"),
@@ -298,7 +300,13 @@ def trip_line(trip: dict[str, Any]) -> str:
     return (
         f"Leave at {trip['start']:%H:%M} for {event['title']} ({event['start']:%H:%M}, "
         f"{event['location']}): {trip['length']} {trip['by']} from {trip['origin']}{traffic}"
-        + (", arriving 90 minutes before the flight" if trip["flight"] else "")
+        + (
+            ", as the event's description says"
+            if trip.get("noted")
+            else ", arriving 90 minutes before the flight"
+            if trip["flight"]
+            else ""
+        )
     )
 
 
@@ -584,7 +592,8 @@ class CalendarPlugin(Plugin):
                 rows.append(
                     Row(
                         title=f"Leave for {event['event']['title']}",
-                        subtitle=f"{event['length']} {event['by']} from {event['origin']}",
+                        subtitle=f"{event['length']} {event['by']} from {event['origin']}"
+                        + (", as you noted" if event.get("noted") else ""),
                         badge=f"{event['start']:%H:%M}",
                         tone="warn" if soon else "info",
                         tags=("today", "travel"),

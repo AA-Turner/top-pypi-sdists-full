@@ -2,6 +2,7 @@ from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.transforms import deepclone
 from schemathesis.specs.openapi.negative.mutations import (
     MAX_WALK_DEPTH,
+    MutationTargetDescriptor,
     WalkStep,
     compute_mutation_targets,
 )
@@ -81,16 +82,13 @@ def test_compute_does_not_mutate_input():
 
 
 def test_external_ref_yields_no_descriptor():
-    # External `$ref` wrappers have no mutable content — operators can't negate
-    # `$ref` itself, so emitting a descriptor here would waste a primary slot.
+    # Operators cannot negate an external `$ref`, so a descriptor there would waste a primary slot.
     schema = {"$ref": "https://example.com/Schema.json"}
     assert compute_mutation_targets(schema) == ()
 
 
 def test_ref_with_sibling_constraints_yields_wrapper_descriptor():
-    # OpenAPI 3.1 / JSON Schema 2019-09+ allow `$ref` with sibling keywords; the
-    # wrapper's own constraints must be mutable, otherwise schemas like
-    # `{"$ref": ..., "minLength": 3}` regress to ignoring the sibling.
+    # OpenAPI 3.1 allows keywords beside `$ref`; constraints like `minLength` there must stay mutable.
     schema = {
         "$ref": "#/x-bundled/inner",
         "minLength": 3,
@@ -102,9 +100,7 @@ def test_ref_with_sibling_constraints_yields_wrapper_descriptor():
 
 
 def test_cycle_protection_via_ancestor_stack():
-    # Cycle terminates the walk; the wrapper at the cycle point yields no
-    # descriptor (only `$ref`, nothing mutable). The reachable target above the
-    # cycle still yields its own descriptors.
+    # The cycle ends the walk: its `$ref`-only wrapper yields no descriptor, while the target above it does.
     schema = {
         "$ref": "#/x-bundled/node",
         BUNDLE_STORAGE_KEY: {
@@ -114,13 +110,11 @@ def test_cycle_protection_via_ancestor_stack():
     descriptors = compute_mutation_targets(schema)
     walks = {d.walk for d in descriptors}
     assert (WalkStep("$ref", "node"),) in walks
-    # The cyclic descent does NOT emit a descriptor at the wrapper.
     assert (WalkStep("$ref", "node"), WalkStep("properties", "child")) not in walks
 
 
 def test_walk_terminates_at_max_depth():
-    # Adversarial input: a chain longer than MAX_WALK_DEPTH must terminate cleanly without
-    # RecursionError, and walks must never reach a depth exceeding the cap.
+    # A chain longer than MAX_WALK_DEPTH must stop at the cap without a RecursionError.
     schema: dict = {"type": "object"}
     leaf = schema
     chain_length = MAX_WALK_DEPTH + 5
@@ -130,4 +124,26 @@ def test_walk_terminates_at_max_depth():
         leaf = child
     descriptors = compute_mutation_targets(schema)
     deepest = max(len(d.walk) for d in descriptors)
-    assert deepest <= MAX_WALK_DEPTH, f"walk reached depth {deepest}, exceeding cap {MAX_WALK_DEPTH}"
+    assert deepest == MAX_WALK_DEPTH
+
+
+def test_self_referencing_schema_yields_one_descriptor():
+    schema: dict = {"type": "object", "properties": {}}
+    schema["properties"]["self"] = schema
+    assert compute_mutation_targets(schema) == (MutationTargetDescriptor(walk=()),)
+
+
+def test_tuple_items_and_any_of_branches_become_descriptors():
+    schema = {"type": "array", "items": [{"type": "string"}, {"type": "integer"}], "anyOf": [{"minItems": 1}]}
+    assert compute_mutation_targets(schema) == (
+        MutationTargetDescriptor(walk=()),
+        MutationTargetDescriptor(walk=(WalkStep("items", 0),)),
+        MutationTargetDescriptor(walk=(WalkStep("items", 1),)),
+        MutationTargetDescriptor(walk=(WalkStep("anyOf", 0),)),
+    )
+
+
+def test_bundled_ref_without_bundle_keeps_wrapper_descriptor():
+    assert compute_mutation_targets({"$ref": "#/x-bundled/missing", "minLength": 1}) == (
+        MutationTargetDescriptor(walk=()),
+    )

@@ -84,13 +84,22 @@ from ..maps import (
 from ..authoring.validator import ValidationReport, validate_document
 from ..serve_bind import check_port
 from .forms import field_present, parse_int_list, parse_params
+from .form_values import float_field, int_field
 from .gate_fields import (
     GATE_CONSISTENCY_FIELDS,
     GATE_FIELDS,
     GATE_ITEM_FIELD,
     GateField,
 )
+from .naming import unique_entity_id
 from .naming import unused_name as _unused_name
+from .revisions import (
+    WRITER_DRAFTS,
+    WRITER_HISTORY,
+    WriterHistory,
+    form_revision,
+    is_current,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -139,6 +148,30 @@ def default_export_dir() -> Path:
 
 class EditorError(Exception):
     """Raised when a request asks for something the document cannot do."""
+
+
+class StaleDraftError(Exception):
+    """Raised when a form was rendered from an older copy of the draft.
+
+    Every inspector form posts all of its fields, so applying one rendered
+    before another tab (or window) changed the draft would put back what that
+    tab changed.  Not an :class:`EditorError`: nothing in the form is wrong,
+    the page is out of date, and the fix is to reload it (#2345).
+
+    Attributes:
+        draft_id: The draft the form was for.
+    """
+
+    def __init__(self, message: str, draft_id: str) -> None:
+        super().__init__(message)
+        self.draft_id = draft_id
+
+
+#: How many of a draft's latest saves, and of drafts, the editor remembers the
+#: writers of: the checked editor.revisions's (#2355).  _WRITER_DRAFTS is read
+#: at each save, _WRITER_HISTORY when the service is built.
+_WRITER_HISTORY = WRITER_HISTORY
+_WRITER_DRAFTS = WRITER_DRAFTS
 
 
 class EditorStorageError(Exception):
@@ -287,6 +320,11 @@ class EditorService:
             weakref.WeakValueDictionary()
         )
         self._locks_guard = threading.Lock()
+        # Who wrote each of a draft's latest revisions: see check_revision().
+        # In memory only, so after a restart a form one save behind is refused
+        # rather than trusted.  Most recently saved last, and bounded by
+        # _WRITER_DRAFTS, so it does not grow with every draft ever touched.
+        self._writers = WriterHistory(_WRITER_HISTORY)
 
     def _lock(self, key: str) -> threading.Lock:
         """Return the lock for *key*, creating it on first use.
@@ -505,16 +543,91 @@ class EditorService:
             raise EditorError(f"No draft named {draft_id!r}.")
         return draft
 
-    def save(self, draft: Draft) -> Draft:
+    @staticmethod
+    def content(draft: Draft) -> tuple[str, dict[str, Any]]:
+        """What a save of *draft* stores, less its stamp and revision."""
+        return draft.document.title or draft.title, draft.document.to_yaml_dict()
+
+    def save(
+        self,
+        draft: Draft,
+        client: str = "",
+        *,
+        unless_same_as: Optional[tuple[str, dict[str, Any]]] = None,
+    ) -> Draft:
         """Normalise the layout and persist *draft*.
+
+        Args:
+            draft: The draft to write.
+            client: The page that asked for the write (the ``X-Editor-Client``
+                header ``editor.js`` sends), or ``""`` when unknown; remembered
+                as the writer of the new revision for :meth:`check_revision`.
+            unless_same_as: The :meth:`content` of *draft* as it was read.
+                When the write would store exactly that, nothing is written
+                and the revision stays: a save that changes nothing must not
+                make the forms showing the draft stale (#2348).
 
         Raises:
             EditorStorageError: If the drafts directory refused the write.  The
                 stored draft is untouched.
         """
         draft.document.sync_layout()
+        if unless_same_as is not None and self.content(draft) == unless_same_as:
+            return draft
         with _storage_errors(self.store):
-            return self.store.save(draft)
+            saved = self.store.save(draft)
+        with self._locks_guard:
+            self._writers.record(draft.id, saved.revision, client, _WRITER_DRAFTS)
+        return saved
+
+    def check_revision(
+        self, draft: Draft, revision: Any, client: str = "", *, strict: bool = False
+    ) -> None:
+        """Refuse a form rendered from a revision of *draft* that is stale.
+
+        *revision* is the ``draft_revision`` the form was rendered with.  It
+        is current when it is the draft's revision.  It is also current when
+        every save since it was made by *client*, the page posting the form:
+        that page has a post in flight while it is still rendering the answer
+        to the one before -- an edit lands before the swap that would number
+        the form afresh -- and its own forms hold its own latest values.  Any
+        save in between by another page, or by one that is not known, makes
+        it stale.
+
+        With *strict*, only the draft's revision is current, whoever made the
+        saves since.  That is for a button that names a row by its index or
+        posts a whole order -- delete a phase, move it, reorder the actors:
+        any save since it was rendered may have moved the rows, its own
+        page's included, so a second quick click acts on what the first one
+        left, not on what it shows (#2348).
+
+        Call it inside :meth:`editing`, on the draft read there.
+
+        Raises:
+            StaleDraftError: If the form is out of date.
+        """
+        base = form_revision(str(revision))
+        writers: list[tuple[int, str]] = []
+        if not strict and 0 <= base < draft.revision and client:
+            with self._locks_guard:
+                writers = self._writers.writers(draft.id)
+        if is_current(base, draft.revision, writers, client, strict):
+            return
+        if strict:
+            raise StaleDraftError(
+                "This draft was changed since this button was shown -- in another "
+                "tab, or by an edit of this page's own still on its way -- so it "
+                "was not applied: the rows it points at may have moved. Reload "
+                "the page to see the draft as it is now, then try again.",
+                draft.id,
+            )
+        raise StaleDraftError(
+            "This draft was changed elsewhere -- in another tab or window -- "
+            "since this page was shown, so this edit was not applied: it would "
+            "have put back what was changed there. Reload the page to see the "
+            "draft as it is now, then make the edit again.",
+            draft.id,
+        )
 
     def delete_draft(self, draft_id: str) -> bool:
         """Delete a draft and its staged wheelhouse.  Returns whether anything
@@ -538,12 +651,17 @@ class EditorService:
                         deleted = self.store.delete(draft_id)
                     if deleted:
                         shutil.rmtree(self._archive_dir(draft_id), ignore_errors=True)
+                        with self._locks_guard:
+                            self._writers.forget(draft_id)
                     return deleted
             except ValueError as exc:
                 raise EditorError(str(exc)) from exc
 
     def run_map_operation(
-        self, draft_id: str, operation: Callable[[ScenarioDocument], Any]
+        self,
+        draft_id: str,
+        operation: Callable[[ScenarioDocument], Any],
+        client: str = "",
     ) -> tuple[Draft, Any]:
         """Run a slow map *operation* without losing edits made while it runs.
 
@@ -559,6 +677,8 @@ class EditorService:
         this is, or one the operation also set -- the result describes a map
         that is no longer the one chosen, so nothing is applied and the
         operation is refused, for the user to run again.
+
+        *client* is the page that asked, as for :meth:`save`.
 
         Returns:
             The saved draft and whatever *operation* returned.
@@ -589,7 +709,7 @@ class EditorService:
                 )
             for f in changed:
                 setattr(current, f, getattr(after, f))
-            return self.save(draft), result
+            return self.save(draft, client), result
 
     def validate(self, draft: Draft) -> ValidationReport:
         """Return the validation report for a draft's document."""
@@ -1941,30 +2061,25 @@ def _signal_controller_uses(document: ScenarioDocument) -> "list[tuple[str, Any]
 
 
 def _as_float(raw: Any, label: str, fallback: float) -> float:
-    """Return *raw* as a float, or raise a user-facing error."""
-    text = str(raw).strip()
-    if not text:
-        return fallback
+    """Return *raw* as a float, or raise a user-facing error.
+
+    The parsing and its messages are the checked editor.form_values' (#2386).
+    """
     try:
-        number = float(text)
+        return float_field(str(raw).strip(), repr(raw), label, fallback)
     except ValueError as exc:
-        raise EditorError(f"{label} must be a number, got {raw!r}.") from exc
-    # "nan" and "inf" parse, but no field of the editor means them: a NaN
-    # timeout never fires, a NaN offset places nothing.
-    if not math.isfinite(number):
-        raise EditorError(f"{label} must be a finite number, got {raw!r}.")
-    return number
+        raise EditorError(str(exc)) from exc
 
 
 def as_int(raw: Any, label: str, fallback: int) -> int:
-    """Return *raw* as an int, or raise a user-facing error."""
-    text = str(raw).strip()
-    if not text:
-        return fallback
+    """Return *raw* as an int, or raise a user-facing error.
+
+    The parsing and its message are the checked editor.form_values' (#2386).
+    """
     try:
-        return int(text)
+        return int_field(str(raw).strip(), repr(raw), label, fallback)
     except ValueError as exc:
-        raise EditorError(f"{label} must be a whole number, got {raw!r}.") from exc
+        raise EditorError(str(exc)) from exc
 
 
 def as_port(raw: Any, label: str, fallback: int) -> int:
@@ -1995,19 +2110,9 @@ def _as_int_list(raw: Any, label: str) -> Any:
 
 
 def _unique_entity_id(document: ScenarioDocument, stem: str) -> str:
-    """Return an entity id based on *stem* that nothing else uses.
-
-    Non-ego entities are always numbered (``npc1``, ``npc2``, ...) so that ids
-    line up with the ``npc<N>`` CARLA role names the compiler assigns.
-    """
-    taken = {e.id for e in document.entities}
-    if stem == "ego":
-        if stem not in taken:
-            return stem
-    index = 1
-    while f"{stem}{index}" in taken:
-        index += 1
-    return f"{stem}{index}"
+    """Return an entity id based on *stem* that nothing else uses (the checked
+    :func:`.naming.unique_entity_id`)."""
+    return unique_entity_id({e.id for e in document.entities}, stem)
 
 
 def route_yaml(document: ScenarioDocument) -> str:

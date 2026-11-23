@@ -10,6 +10,7 @@ from flask import jsonify, redirect, request
 from hypothesis import Phase, given, settings
 
 import schemathesis
+from schemathesis.config._auth import AuthConfig
 from schemathesis.core.failures import AuthScenario, FailureGroup, IgnoredAuth
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
@@ -22,6 +23,7 @@ from schemathesis.schemas import BaseSchema
 from schemathesis.specs.openapi._auth_retry import build_retry_transport_kwargs
 from schemathesis.specs.openapi.adapter.security import SecurityParameter
 from schemathesis.specs.openapi.checks import AuthKind, _contains_auth, ignored_auth, remove_auth
+from test.apps.catalog.openapi import basic
 from test.utils import EventStream, check_context, run_given
 
 
@@ -52,10 +54,8 @@ def test_auth_is_not_checked(ctx, with_generated):
     kwargs = {}
     if not with_generated:
         kwargs["with_security_parameters"] = False
-    # When auth is present
-    # And endpoint declares auth as a requirement but doesn't actually require it
+    # The endpoint declares auth but does not check it
     event = run(api.schema_url, **kwargs)
-    # Then it is a failure
     recorder = event.recorder
     case = list(recorder.cases.values())[-1].value
     check = recorder.checks[case.id][-1]
@@ -73,18 +73,13 @@ def test_auth_is_not_checked(ctx, with_generated):
 
 def test_auth_is_checked(ctx):
     api = ctx.openapi.apps.basic()
-    # When auth is present (generated)
-    # And endpoint declares auth as a requirement and checks it
     event = run(api.schema_url, headers={"Authorization": "Basic dGVzdDp0ZXN0"})
-    # Then there is no failure
     assert event.status == Status.SUCCESS
 
 
 def test_no_failure(ctx):
     api = ctx.openapi.apps.success()
-    # When there is no auth
     event = run(api.schema_url)
-    # Then there is no failure
     assert event.status == Status.SUCCESS
 
 
@@ -336,11 +331,11 @@ def test_remove_auth_from_case(ctx, key, parameters):
 @pytest.mark.parametrize(
     ("cookie_header", "param_name", "expected_cookie_header"),
     [
-        # Single cookie that is the security param — Cookie header removed entirely.
+        # A lone security cookie removes the Cookie header
         ("session=abc", "session", None),
-        # Multiple cookies — only the security param is stripped; others remain.
+        # Other cookies stay; only the security one is stripped
         ("session=abc; other=xyz", "session", "other=xyz"),
-        # Unparsable header — dropped wholesale so the retried request carries no auth cookie.
+        # An unparsable header is dropped, so the retry carries no auth cookie
         ("session=a; $=b", "session", None),
     ],
     ids=["only-param", "mixed", "unparsable"],
@@ -534,6 +529,69 @@ def test_enforced_auth_is_probed_once_per_operation(ctx, app_runner):
 
     assert len(queries) > 1
     assert probes == [None, "Bearer SCHEMATHESIS-INVALID-VALUE"]
+
+
+OAUTH2_SCHEME = {
+    "type": "oauth2",
+    "flows": {"clientCredentials": {"tokenUrl": "https://example.com/token", "scopes": {}}},
+}
+OPENID_CONNECT_SCHEME = {
+    "type": "openIdConnect",
+    "openIdConnectUrl": "https://example.com/.well-known/openid-configuration",
+}
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    ("scheme", "security", "enforces_auth", "expected"),
+    [
+        pytest.param(OAUTH2_SCHEME, [{"token": []}, {"session": []}], True, [], id="oauth2-beside-cookie"),
+        pytest.param(
+            OPENID_CONNECT_SCHEME, [{"token": []}, {"session": []}], True, [], id="openid-connect-beside-cookie"
+        ),
+        pytest.param(OAUTH2_SCHEME, [{"token": []}], True, [], id="oauth2-enforced"),
+        pytest.param(
+            OAUTH2_SCHEME,
+            [{"token": []}],
+            False,
+            ["API accepts requests without authentication\n\nExpected 401 or 403, got `200 OK` for `GET /items`"],
+            id="oauth2-ignored",
+        ),
+    ],
+)
+def test_configured_bearer_token_for_token_schemes(ctx, app_runner, scheme, security, enforces_auth, expected):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "security": security,
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={
+            "securitySchemes": {"token": scheme, "session": {"type": "apiKey", "in": "cookie", "name": "session"}}
+        },
+    )
+
+    @app.route("/items")
+    def items():
+        if enforces_auth and request.headers.get("Authorization") != "Bearer good-token":
+            return jsonify({"detail": "Unauthorized"}), 401
+        return jsonify([])
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    schema.config.auth = AuthConfig.from_dict({"openapi": {"token": {"bearer": "good-token"}}})
+    failures = []
+
+    @run_given(case=schema["/items"]["GET"].as_strategy(), max_examples=1)
+    def test(case):
+        try:
+            case.call_and_validate(checks=[ignored_auth])
+        except FailureGroup as exc:
+            failures.extend(str(failure) for failure in exc.exceptions)
+
+    assert failures == expected
 
 
 def test_server_error_without_auth_is_reported():
@@ -814,14 +872,105 @@ async def data(api_key: str = Depends(get_api_key)):
         """
 
 
-def test_explicit_auth_tuple_in_call_and_validate():
-    # GH-3386: `auth` kwarg passed to `call_and_validate` is not forwarded to CheckContext
+def _session_with_auth(auth):
+    session = requests.Session()
+    session.auth = auth
+    return session
+
+
+def _call_and_validate_with_auth(case, auth):
+    case.call_and_validate(auth=auth, checks=[ignored_auth])
+
+
+def _call_and_validate_with_session_auth(case, auth):
+    case.call_and_validate(session=_session_with_auth(auth), checks=[ignored_auth])
+
+
+def _validate_call_with_auth(case, auth):
+    case.validate_response(case.call(auth=auth), checks=[ignored_auth])
+
+
+def _validate_call_with_session_auth(case, auth):
+    case.validate_response(case.call(session=_session_with_auth(auth)), checks=[ignored_auth])
+
+
+SEND_WITH_AUTH = pytest.mark.parametrize(
+    "send",
+    [
+        _call_and_validate_with_auth,
+        _call_and_validate_with_session_auth,
+        _validate_call_with_auth,
+        _validate_call_with_session_auth,
+    ],
+    ids=["call-and-validate-auth", "call-and-validate-session-auth", "call-auth", "call-session-auth"],
+)
+
+
+def _load_over_network(ctx, app):
+    return schemathesis.openapi.from_url(ctx.openapi.serve(app).schema_url)
+
+
+def _load_wsgi(ctx, app):
+    return schemathesis.openapi.from_wsgi("/openapi.json", app.server)
+
+
+ENFORCEMENT = pytest.mark.parametrize(
+    ("factory", "expected"),
+    [
+        (basic.basic, []),
+        (
+            basic.ignored_auth,
+            [
+                "API accepts requests without authentication\n\nExpected 401 or 403, got `200 OK` for `GET /api/ignored_auth`"
+            ],
+        ),
+    ],
+    ids=["enforces-auth", "ignores-auth"],
+)
+
+
+@SEND_WITH_AUTH
+@pytest.mark.parametrize("load", [_load_over_network, _load_wsgi], ids=["network", "wsgi"])
+@ENFORCEMENT
+def test_credentials_passed_at_send_time(ctx, factory, expected, load, send):
+    app = factory()
+    schema = load(ctx, app)
+    (path,) = app.spec["paths"]
+    failures = []
+
+    @run_given(schema[path]["GET"].as_strategy(), max_examples=1)
+    def test(case):
+        try:
+            send(case, ("test", "test"))
+        except FailureGroup as exc:
+            failures.extend(str(error) for error in exc.exceptions)
+
+    assert failures == expected
+
+
+@ENFORCEMENT
+def test_credentials_in_session_of_validated_response(ctx, factory, expected):
+    api = ctx.openapi.serve(factory())
+    (path,) = api.spec["paths"]
+    case = schemathesis.openapi.from_url(api.schema_url)[path]["GET"].Case()
+    session = _session_with_auth(("test", "test"))
+    response = session.get(f"{api.base_url}{path}")
+    failures = []
+    try:
+        case.validate_response(response, checks=[ignored_auth], transport_kwargs={"session": session})
+    except FailureGroup as exc:
+        failures.extend(str(error) for error in exc.exceptions)
+    assert failures == expected
+
+
+@pytest.mark.parametrize(
+    "auth", [("test", "test"), requests.auth.HTTPBasicAuth("test", "test")], ids=["tuple", "auth-object"]
+)
+@SEND_WITH_AUTH
+def test_credentials_passed_at_send_time_asgi(send, auth):
     app = _api_with_basic_auth()
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
-    case = schema["/"]["GET"].Case()
-    client = ASGIClient(app)
-    # Valid auth passed as tuple - should NOT raise IgnoredAuth
-    case.call_and_validate(session=client, auth=("test", "test"), checks=[ignored_auth])
+    send(schema["/"]["GET"].Case(), auth)
 
 
 @pytest.mark.parametrize("location", ["query", "cookie", "header"])

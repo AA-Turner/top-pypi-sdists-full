@@ -234,7 +234,7 @@ def test_replay_base_url_override(cli, app_runner, ctx, crash_factory, tmp_path,
         body='{"error": "broken"}',
     )
 
-    assert cli.main("replay", str(tmp_path), "--url", base) == snapshot_cli
+    assert cli.main("replay", str(tmp_path), "--url", base.replace("http://", "http://user:secret@")) == snapshot_cli
 
 
 def test_replay_uses_recorded_base_url_without_override(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli):
@@ -301,9 +301,35 @@ def test_replay_missing_path_is_errored_not_crash(cli, app_runner, ctx, crash_fa
     assert cli.main("replay", str(crash_file)) == snapshot_cli
 
 
+def test_replay_removed_method_is_resent_via_sibling_operation(
+    cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli
+):
+    # The recorded method is no longer declared, but another operation on the same path still is.
+    app, _ = ctx.openapi.make_flask_app({"/users": {"post": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/users", methods=["GET", "POST"])
+    def users():
+        if request.method == "GET":
+            return jsonify({"error": "still broken"}), 500
+        return jsonify({})
+
+    schema_url = app_runner.openapi_url(app)
+    crash_file = _write_crash(
+        tmp_path,
+        crash_factory,
+        url=f"{schema_url.rsplit('/', 1)[0]}/users",
+        schema_location=schema_url,
+        path_template="/users",
+        status=500,
+        body='{"error": "still broken"}',
+    )
+
+    assert cli.main("replay", str(crash_file)) == snapshot_cli
+    assert crash_file.exists()
+
+
 def test_replay_corrupt_meta_is_errored_not_crash(cli, app_runner, ctx, tmp_path, snapshot_cli):
-    # A crash file on disk that loads fine but carries metadata the current format can't decode is reported
-    # errored and kept, rather than aborting the whole run with a traceback.
+    # A crash file whose metadata no longer decodes is reported errored and kept, without a traceback.
     schema_url, base = _users_app(ctx, app_runner)
     crash_dir = crash_cache_dir(tmp_path)
     crash_dir.mkdir(parents=True, exist_ok=True)
@@ -443,6 +469,50 @@ def test_replay_by_case_id_without_aliases(cli, app_runner, ctx, crash_factory, 
     assert (result.exit_code, crash_file.exists()) == (0, False), result.output
 
 
+def _passing_failure_route(ctx, app_runner):
+    # Another API with the same `GET /api/failure` label, where the operation passes.
+    app, _ = ctx.openapi.make_flask_app({"/api/failure": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/failure")
+    def failure():
+        return jsonify({})
+
+    return app_runner.openapi_url(app)
+
+
+@pytest.mark.parametrize(
+    "other_api",
+    [
+        lambda ctx, app_runner: ctx.openapi.apps.success().schema_url,
+        _passing_failure_route,
+    ],
+    ids=["different-operations", "same-operation-passing"],
+)
+def test_replay_case_after_run_against_another_api(cli, app_runner, ctx, snapshot_cli, other_api):
+    run = cli.run(ctx.openapi.apps.failure().schema_url, "--max-examples=1", "--phases=fuzzing")
+    case_id = re.search(r"st replay (\S+)", run.stdout).group(1)
+    cli.run(other_api(ctx, app_runner), "--max-examples=1", "--phases=fuzzing")
+
+    assert cli.main("replay", case_id, "--keep") == snapshot_cli
+
+
+def test_replay_file_schema_of_a_moved_project_from_another_directory(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.failure()
+    (tmp_path / "openapi.json").write_text(json.dumps(api.spec))
+    cli.run("openapi.json", f"--url={api.base_url}", "--max-examples=1", "--phases=fuzzing")
+    moved = tmp_path / "moved"
+    moved.mkdir()
+    for name in ("openapi.json", ".schemathesis"):
+        (tmp_path / name).rename(moved / name)
+
+    result = cli.main("replay", str(crash_cache_dir(moved)), "--keep")
+
+    assert (result.exit_code, re.findall(r"^  ([+x!] [A-Z]+) (.+)$", result.stdout, re.MULTILINE)) == (
+        1,
+        [("x FAILED", "GET /api/failure")],
+    ), result.output
+
+
 def test_replay_applies_per_operation_headers(cli, app_runner, ctx, crash_factory, tmp_path):
     received = []
 
@@ -498,7 +568,7 @@ def test_build_case_drops_stale_cookie_header(ctx, crash_factory):
 
 
 def _list_crash_files(directory: Path) -> list[Path]:
-    return sorted(f for f in directory.glob("*.json") if f.name != MANIFEST_FILENAME)
+    return sorted(f for f in directory.rglob("*.json") if f.name != MANIFEST_FILENAME)
 
 
 def test_replay_applies_terminal_step_link(cli, app_runner, ctx, tmp_path, crash_factory):
@@ -890,7 +960,7 @@ def test_timing_only_failure_not_recorded_or_hinted(cli, ctx, tmp_path):
 def test_replay_kitchen_sink_at_scale(cli, ctx, tmp_path):
     api = ctx.openapi.serve(openapi_basic.kitchen_sink())
 
-    # /api/flaky is non-deterministic by design; sanitization would mask the `key` body field, so replay can't restore it.
+    # /api/flaky is non-deterministic; sanitization would mask the `key` body field, which replay cannot restore.
     cli.run(
         api.schema_url,
         "--max-examples=2",
@@ -916,7 +986,7 @@ def test_replay_kitchen_sink_at_scale(cli, ctx, tmp_path):
 def test_replay_stateful_chain(cli, ctx, tmp_path):
     api = ctx.openapi.apps.stateful_users(IndependentInternalError())
 
-    # Enough examples to reliably build a multi-step linked failing scenario.
+    # Enough examples to build a multi-step linked failing scenario.
     cli.run(api.schema_url, "--max-examples=30", "--phases=stateful")
 
     crash_files = _list_crash_files(crash_cache_dir(tmp_path))
@@ -1395,8 +1465,7 @@ def _capture_render(
     duration_ms: int = 142,
     removal_count: int = 0,
 ) -> str:
-    # Capture both the Rich console and the `click.echo` failure output into one buffer, in order,
-    # so the snapshot mirrors what the terminal actually shows.
+    # One buffer captures Rich and `click.echo` output in order, so the snapshot mirrors the terminal.
     buffer = io.StringIO()
     console = make_console(file=buffer)
     with contextlib.redirect_stdout(buffer):
@@ -1517,7 +1586,7 @@ def test_replay_unrunnable_check_is_not_deleted(cli, app_runner, ctx, tmp_path, 
     writer.write(crash)
     crash_path = crash_dir / crash.filename()
 
-    # An unrunnable check is reported as errored, not silently treated as fixed.
+    # An unrunnable check is reported as errored, not as fixed.
     assert cli.main("replay") == snapshot_cli
     assert crash_path.exists(), "A check we cannot re-run must never be auto-deleted"
 
@@ -1529,8 +1598,8 @@ def test_replay_without_schema_bails(cli, app_runner, ctx, tmp_path, crash_facto
     crash_dir = crash_cache_dir(tmp_path)
     crash_dir.mkdir(parents=True, exist_ok=True)
     writer = CrashWriter(directory=crash_dir)
-    # Point the schema location at a URL that serves non-schema content.
-    writer.open(schema_location=f"{base}/users", base_url=base)
+    # Point the schema location at a URL that serves non-schema content; older versions recorded its credentials.
+    writer.open(schema_location=f"{base}/users".replace("http://", "http://user:secret@"), base_url=base)
     crash = crash_factory.single(
         path="/users",
         status=500,
@@ -2047,7 +2116,7 @@ def _write_partially_fixed_crash(app_runner, ctx, crash_factory, tmp_path, **ste
 
 
 def test_replay_partial_fix_shows_per_check_breakdown(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli):
-    # With only some checks now passing, the case stays failed, the breakdown marks fixed ones, only those removed.
+    # When some checks pass, the case stays failed; the breakdown marks the fixed checks, and only those are removed.
     crash_dir = _write_partially_fixed_crash(app_runner, ctx, crash_factory, tmp_path)
 
     assert cli.main("replay") == snapshot_cli
@@ -2066,8 +2135,7 @@ def test_replay_partial_fix_without_masked_credentials_keeps_every_file(
 
 
 def test_sanitized_crash_is_never_removed(cli, app_runner, ctx, crash_factory, tmp_path):
-    # The stored request carries `[Filtered]` instead of the credential, so a `fixed` verdict from
-    # replaying it is meaningless - the file must survive.
+    # The stored request has `[Filtered]` in place of the credential, so a `fixed` replay proves nothing; keep the file.
     schema_url, base = _users_app(ctx, app_runner)
     crash_file = _write_crash(
         tmp_path,
@@ -2199,7 +2267,7 @@ def test_replay_names_every_masked_value_not_supplied(cli, app_runner, ctx, cras
         path_template="/users",
         status=500,
         body='{"error": "was broken"}',
-        request_headers={"Authorization": "[Filtered]"},
+        request_headers={"Authorization": "[Filtered]", "Cookie": "sid=[Filtered]; theme=dark"},
         query={"api_key": "[Filtered]"},
         cookies={"session": "[Filtered]"},
     )
@@ -2208,7 +2276,23 @@ def test_replay_names_every_masked_value_not_supplied(cli, app_runner, ctx, cras
     assert crash_file.exists()
 
 
-def test_replay_removes_fixed_crash_once_masked_credentials_are_supplied(cli, app_runner, ctx, crash_factory, tmp_path):
+@pytest.mark.parametrize(
+    ("masked", "header"),
+    [
+        ({"request_headers": {"Authorization": "[Filtered]"}}, f"Authorization: Bearer {VALID_TOKEN}"),
+        (
+            {
+                "request_headers": {"Cookie": "session=[Filtered]; lang=en"},
+                "cookies": {"session": "[Filtered]", "lang": "en"},
+            },
+            f"Cookie: session={VALID_TOKEN}",
+        ),
+    ],
+    ids=["header", "cookie"],
+)
+def test_replay_removes_fixed_crash_once_masked_credentials_are_supplied(
+    cli, app_runner, ctx, crash_factory, tmp_path, masked, header
+):
     schema_url, base = _users_app(ctx, app_runner)
     crash_file = _write_crash(
         tmp_path,
@@ -2218,10 +2302,10 @@ def test_replay_removes_fixed_crash_once_masked_credentials_are_supplied(cli, ap
         path_template="/users",
         status=500,
         body='{"error": "was broken"}',
-        request_headers={"Authorization": "[Filtered]"},
+        **masked,
     )
 
-    result = cli.main("replay", str(crash_file), "-H", f"Authorization: Bearer {VALID_TOKEN}")
+    result = cli.main("replay", str(crash_file), "-H", header)
 
     assert result.exit_code == 0, result.output
     assert not crash_file.exists()
@@ -2652,3 +2736,28 @@ def test_replay_attempts_rejected_for_credentials_do_not_count_as_passes(
     assert result.exit_code == exit_code, result.output
     assert verdict in result.output
     assert crash_file.exists()
+
+
+def test_replay_failure_of_in_process_app(ctx, cli, snapshot_cli):
+    schema = ctx.openapi.build_schema({"/api/crash": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    module = ctx.write_pymodule(
+        f"""
+from flask import Flask, jsonify
+
+app = Flask("crashing")
+
+@app.route("/openapi.json")
+def spec():
+    return jsonify({schema!r})
+
+@app.route("/api/crash")
+def crash():
+    raise RuntimeError("boom in handler")
+""",
+        filename="crashing_app",
+    )
+    run = cli.run(
+        "/openapi.json", f"--app={module}:app", "--max-examples=1", "--phases=fuzzing", "-c", "not_a_server_error"
+    )
+    case_id = re.search(r"st replay (\S+)", run.stdout).group(1)
+    assert cli.main("replay", case_id, f"--app={module}:app") == snapshot_cli

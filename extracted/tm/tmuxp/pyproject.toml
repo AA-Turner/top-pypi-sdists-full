@@ -1,6 +1,6 @@
 [project]
 name = "tmuxp"
-version = "1.78.0"
+version = "1.81.0"
 description = "Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files."
 requires-python = ">=3.11,<4.0"
 authors = [
@@ -38,7 +38,7 @@ include = [
   { path = "conftest.py", format = "sdist" },
 ]
 dependencies = [
-  "libtmux~=0.64.0",
+  "libtmux~=0.67.1",
   "PyYAML>=6.0"
 ]
 

@@ -1,21 +1,79 @@
+---
+
 - job:
-    name: etcd3gw-py312-functional
-    parent: openstack-tox-py312
+    name: etcd3gw-py314-functional
+    parent: openstack-tox-py314
     vars:
-      tox_envlist: py312-etcd
+      tox_envlist: py314-etcd
+    pre-run:
+      - playbooks/stop-etcd.yaml
+
+- job:
+    name: etcd3gw-oslo.cache-functional
+    parent: oslo.cache-functional-etcd3gw
+    vars:
+      zuul_work_dir: src/opendev.org/openstack/oslo.cache
+    required-projects:
+      - openstack/etcd3gw
+      - openstack/oslo.cache
+    irrelevant-files: &irrelevant-files
+      - ^\.gitignore$
+      - ^\.gitreview$
+      - ^.*\.rst$
+      - ^doc/.*$
+      - LICENSE
+      - ^releasenotes/.*$
+      - ^\.pre-commit-config\.yaml$
+      - ^etcd3gw/tests/.*$
+      - ^test-requirements\.txt$
+      - ^\.coveragerc$
+      - ^\.mailmap$
+      - ^\.stestr\.conf$
+
+- job:
+    name: etcd3gw-taskflow-functional
+    parent: taskflow-functional-etcd
+    vars:
+      zuul_work_dir: src/opendev.org/openstack/taskflow
+    required-projects:
+      - openstack/etcd3gw
+      - openstack/taskflow
+    irrelevant-files: *irrelevant-files
+
+- job:
+    name: etcd3gw-tooz-tox-py3
+    parent: tooz-tox-py3-etcd3gw
+    vars:
+      zuul_work_dir: src/opendev.org/openstack/tooz
+    required-projects:
+      - openstack/etcd3gw
+      - openstack/tooz
+    irrelevant-files: *irrelevant-files
 
 - project:
     templates:
       - check-requirements
       - lib-forward-testing-python3
-      - openstack-cover-jobs
       - openstack-python3-jobs
+      - openstack-python3-next-jobs
       - periodic-stable-jobs
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
     check:
       jobs:
-        - etcd3gw-py312-functional
+        - openstack-tox-cover:
+            pre-run:
+              - playbooks/stop-etcd.yaml
+        - etcd3gw-py314-functional
+        - etcd3gw-oslo.cache-functional
+        - etcd3gw-taskflow-functional
+        - etcd3gw-tooz-tox-py3
     gate:
       jobs:
-        - etcd3gw-py312-functional
+        - openstack-tox-cover:
+            pre-run:
+              - playbooks/stop-etcd.yaml
+        - etcd3gw-py314-functional
+        - etcd3gw-oslo.cache-functional
+        - etcd3gw-taskflow-functional
+        - etcd3gw-tooz-tox-py3

@@ -14,7 +14,6 @@ on:
     branches: [ 'master', 'main', 'develop', 'actions_docs' ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ 'master', 'main', 'develop' ]
 
 concurrency:
   # Cancel superseded runs on the same ref to cut CI backlog on heavy
@@ -70,7 +69,7 @@ jobs:
         git rev-parse HEAD > dev/gitrevision.txt
         echo "Git revision: $(cat dev/gitrevision.txt)"
     
-    - uses: actions/cache@v5
+    - uses: actions/cache@v6
       if: ${{ !env.ACT }} # skip during local actions testing
       id: cached-props # steps.cached-props.outputs.cache-hit != 'true'
       with:
@@ -81,7 +80,8 @@ jobs:
           ./Web/fluid_properties/Incompressibles_mole-based-fluids.csv
           ./Web/fluid_properties/Incompressibles_volume-based-fluids.csv
           ./Web/fluid_properties/Incompressibles_pure-fluids.csv
-          ./Web/scripts/incompressibles_consistency
+          ./Web/_static/fluid_properties/incompressibles_consistency.jpg
+          ./Web/_static/fluid_properties/incompressibles_consistency.pdf
         # Key depends on the fluid list so adding/removing a fluid invalidates
         # the cache and triggers a consistency-plot refresh for the new fluid.
         # The restore-keys fallback still seeds the directory with prior plots
@@ -100,7 +100,7 @@ jobs:
     # partial restore could seed a surface that is stale w.r.t. an EOS/algorithm
     # change the opthash cannot see.  Exact key only => any relevant change
     # triggers a clean cold rebuild; otherwise surfaces load in ~80 ms.
-    - uses: actions/cache@v5
+    - uses: actions/cache@v6
       if: ${{ !env.ACT }}
       with:
         path: .svdtables-cache
@@ -122,7 +122,7 @@ jobs:
     # from default-branch runs; this is defense-in-depth and also keeps PR churn
     # from evicting the mainline cache.)  Hence the cache/restore + conditional
     # cache/save split instead of the combined actions/cache action.
-    - uses: actions/cache/restore@v5
+    - uses: actions/cache/restore@v6
       if: ${{ !env.ACT }}
       with:
         path: .ccache
@@ -158,10 +158,14 @@ jobs:
         source activate docs
         # Ensure the gitrevision.txt is used for the build
         python dev/generate_headers.py
-        # Build and install the wheel
-        pip -vv wheel .
-        pip install -vvv --force-reinstall --ignore-installed --upgrade --no-index `ls *.whl`
-        # sphinx-design, plotly and joblib are in conda_environment.yml, but that
+        # Build and install the wheel.  --no-deps keeps pip from also saving and
+        # installing CoolProp's dependencies (the newest numpy from PyPI), which would
+        # replace the numpy that conda solved for this image with one scipy rejects.
+        pip -vv wheel --no-deps .
+        # The install below takes every *.whl, so fail unless exactly one was built
+        test "$(ls *.whl | wc -l)" = 1
+        pip install -vvv --no-deps --force-reinstall --ignore-installed --upgrade --no-index ./*.whl
+        # sphinx-design, sphinxcontrib-mermaid, plotly and joblib are in conda_environment.yml, but that
         # env is baked into the prebuilt docs container; the image isn't rebuilt
         # for PRs, so install them at runtime here (same escape hatch as the
         # packages above) to unblock the build until the next docs image rebuild
@@ -169,7 +173,7 @@ jobs:
         # notebooks (SVDSBTLValidation, SVDSBTLHeatExchangerDemo); without them
         # nbconvert --allow-errors silently renders those pages as import-error
         # tracebacks.
-        pip install pydata-sphinx-theme tqdm ninja sphinx-design plotly joblib
+        pip install pydata-sphinx-theme tqdm ninja sphinx-design sphinxcontrib-mermaid plotly joblib
         
     - name: Test the installed CoolProp version
       shell: bash
@@ -197,8 +201,10 @@ jobs:
       shell: bash
       run: |
         source activate docs
+        mkdir -p "$GITHUB_WORKSPACE/ci-logs"
         echo "Calling: python -u __init__.py ${{ env.COOLPROP_EXPENSIVE }}"
-        python -u __init__.py ${{ env.COOLPROP_EXPENSIVE }}
+        # tee keeps a copy for the warning counts in the link-check summary
+        python -u __init__.py ${{ env.COOLPROP_EXPENSIVE }} 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/homepage.log"
 
     # Save the ccache populated by the wrapper-example builds above — but only
     # on a trusted event and only if the build SUCCEEDED.  An explicit `if:`
@@ -210,7 +216,7 @@ jobs:
     # through and poison the trusted cache.  Placed right after the homepage
     # build (the only ccache writer) so a later doxygen/sphinx failure doesn't
     # discard a cache from an otherwise-good wrapper build.
-    - uses: actions/cache/save@v5
+    - uses: actions/cache/save@v6
       if: ${{ success() && !env.ACT && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
       with:
         path: .ccache
@@ -228,20 +234,47 @@ jobs:
       shell: bash
       run: |
         source activate docs
+        mkdir -p "$GITHUB_WORKSPACE/ci-logs"
         sphinx-apidoc -T -f -e -o apidoc ../wrappers/Python/CoolProp
-        make html
+        # tee keeps a copy for the warning counts in the link-check summary
+        make html 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/sphinx.log"
 
     - name: Check documentation links (non-blocking)
       working-directory: ./Web
       shell: bash
       # Reports dead/broken URLs in the docs.  Non-blocking: external sites flap
       # and a hard gate would cause spurious CI failures, so this never fails the
-      # build — review the step output (and the linkcheck output file) for broken
-      # links.  See linkcheck_ignore in conf.py for the curated allowlist.
+      # build.  Sphinx runs with -q so the log holds only warnings; the broken
+      # and timed-out links are then listed from _build/linkcheck/output.txt,
+      # which is also uploaded as an artifact.  linkcheck_summary.py then prints
+      # the counts and sorts output.txt by type.  See linkcheck_ignore and
+      # linkcheck_request_headers in conf.py.
       continue-on-error: true
       run: |
         source activate docs
-        make linkcheck
+        rc=0
+        make linkcheck SPHINXOPTS=-q || rc=$?
+        echo "::group::Broken or timed-out links"
+        if [ -f _build/linkcheck/output.txt ]; then
+          grep -E '\[(broken|timeout)\]' _build/linkcheck/output.txt \
+            || { [ $rc -eq 0 ] && echo "(none)" || echo "(no entries; linkcheck exited with status $rc, so the list may be incomplete)"; }
+        else
+          echo "linkcheck produced no output.txt (the build itself failed)"
+        fi
+        echo "::endgroup::"
+        python "$GITHUB_WORKSPACE/dev/ci/linkcheck_summary.py" _build/linkcheck/output.txt \
+          "$GITHUB_WORKSPACE/ci-logs/homepage.log" "$GITHUB_WORKSPACE/ci-logs/sphinx.log" || true
+        exit $rc
+
+    - name: Upload linkcheck results
+      if: ${{ !cancelled() && !env.ACT }} # skip during local actions testing
+      uses: actions/upload-artifact@v7
+      with:
+        name: linkcheck
+        path: |
+          Web/_build/linkcheck/output.txt
+          Web/_build/linkcheck/output.json
+        if-no-files-found: warn
 
     - name: Upload GitHub Pages artifact
       if: ${{ !env.ACT }} # skip during local actions testing

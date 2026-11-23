@@ -302,6 +302,7 @@ def _validate_callable_source(
     # skip signal — an instance-method source forwarding to a staticmethod would still leak ``self``
     # across classes, so that case must keep raising.
     _guard_target = _unwrap_descriptor_target(target)
+    # run the guard only for a plain callable target (not a class) on a non-static source
     if callable(_guard_target) and not inspect.isclass(_guard_target) and not is_static:
         _check_cross_class_method_target(source, _guard_target)
     # A ``staticmethod`` source never receives the class, so it has nothing to hand a ``classmethod`` target as its
@@ -451,14 +452,14 @@ def _wrapper_kind(source: Callable) -> _WrapperKind:
     return _WrapperKind.FUNCTION
 
 
-def _sync_call_path(ctx: _WrapperContext) -> Callable[..., Any]:
+def _function_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
     """Return the call path the plain function wrapper runs: ``skip_if``, the fast path, the planned call.
 
     A call that ``skip_if`` skips runs the source unchanged; so does a call that warns nothing and needs no rewrite
     (:func:`~deprecate._dispatch._skips_call_plan`, for example a ``TargetMode.NOTIFY`` call after the warn budget is
     spent); any other call enters the target-chain cycle guard, builds the call plan and invokes it, and leaves the
-    guard before it returns. Only :func:`_function_wrapper` uses this closure. The generator wrappers repeat the
-    ``skip_if`` and fast-path checks themselves and then run :func:`_guarded_first_step` /
+    guard before it returns. The generator wrappers repeat the ``skip_if`` and fast-path checks themselves and then
+    run :func:`_guarded_first_step` /
     :func:`_guarded_first_async_step`, which deliberately hold the guard across creating the inner generator and
     taking its first item; this closure releases the guard as soon as the call returns, so routing them through it
     would lose generator-cycle detection.
@@ -471,7 +472,9 @@ def _sync_call_path(ctx: _WrapperContext) -> Callable[..., Any]:
 
     """
 
+    @wraps(ctx.source)
     def wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        """Run the source unchanged when skipped, otherwise warn, rewrite the call and forward it."""
         if _eval_skip_if(ctx.skip_if):
             return ctx.source(*args, **kwargs)
         if _skips_call_plan(ctx, args, kwargs):
@@ -480,21 +483,17 @@ def _sync_call_path(ctx: _WrapperContext) -> Callable[..., Any]:
         try:
             return _invoke_sync(ctx, _build_call_plan(ctx, args, kwargs), args)
         finally:
-            _exit_cycle_guard(ctx, handle)
+            _exit_cycle_guard(handle)
 
     return wrapped_fn
 
 
-def _function_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
-    """Build the plain ``def`` wrapper: the sync call path itself, with the source's ``functools.wraps`` metadata."""
-    return wraps(ctx.source)(_sync_call_path(ctx))
-
-
 def _coroutine_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
-    """Build the ``async def`` wrapper, whose call path matches :func:`_sync_call_path` but awaits the source."""
+    """Build the ``async def`` wrapper, whose call path matches :func:`_function_wrapper` but awaits the source."""
 
     @wraps(ctx.source)
     async def async_wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        """Awaiting twin of ``wrapped_fn``: skip, or warn, rewrite and await the forwarded call."""
         if _eval_skip_if(ctx.skip_if):
             return await ctx.source(*args, **kwargs)
         if _skips_call_plan(ctx, args, kwargs):
@@ -503,7 +502,7 @@ def _coroutine_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
         try:
             return await _invoke_async(ctx, _build_call_plan(ctx, args, kwargs), args)
         finally:
-            _exit_cycle_guard(ctx, handle)
+            _exit_cycle_guard(handle)
 
     return async_wrapped_fn
 
@@ -531,7 +530,7 @@ def _guarded_first_step(
         except StopIteration as stop:
             return inner, None, stop
     finally:
-        _exit_cycle_guard(ctx, handle)
+        _exit_cycle_guard(handle)
 
 
 def _resume_generator(inner: Iterator[Any], item: Any) -> Generator[Any, Any, Any]:  # noqa: ANN401
@@ -591,6 +590,7 @@ def _generator_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
 
     @wraps(ctx.source)
     def generator_wrapped_fn(*args: Any, **kwargs: Any) -> Generator[Any, Any, Any]:  # noqa: ANN401
+        """Delegate to the source when skipped, otherwise warn on the first step and yield the target's items."""
         if _eval_skip_if(ctx.skip_if) or _skips_call_plan(ctx, args, kwargs):
             return (yield from ctx.source(*args, **kwargs))
         inner, item, stop = _guarded_first_step(ctx, args, kwargs)
@@ -662,7 +662,7 @@ async def _guarded_first_async_step(
         item, done = await _await_step(inner.__anext__)
         return inner, item, done
     finally:
-        _exit_cycle_guard(ctx, handle)
+        _exit_cycle_guard(handle)
 
 
 async def _open_async_generator(
@@ -697,6 +697,7 @@ def _async_generator_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
 
     @wraps(ctx.source)
     async def async_generator_wrapped_fn(*args: Any, **kwargs: Any) -> AsyncGenerator[Any, Any]:  # noqa: ANN401
+        """Async twin of ``generator_wrapped_fn``: warn on the first step, then drive the inner async iterator."""
         inner, item, done = await _open_async_generator(ctx, args, kwargs)
         step: Callable[[], Awaitable[Any]]
         while not done:
@@ -736,7 +737,7 @@ def _make_wrapper(ctx: _WrapperContext, *, kind: _WrapperKind, update_docstring:
     """Build the ``@deprecated`` wrapper around ``ctx.source`` and attach its deprecation metadata.
 
     ``kind`` selects the wrapper shape so the wrapper reports the same ``inspect`` flags as the source: a plain
-    function and a coroutine function run the call path (:func:`_sync_call_path` or its awaiting twin) on every call,
+    function and a coroutine function run the call path (:func:`_function_wrapper` or its awaiting twin) on every call,
     while a generator and an async generator function run the same steps on their first step, under a cycle guard held
     across that step, and then drive the inner (async) generator the planned call returned. The wrapper carries the
     ``functools.wraps`` metadata of the source (``__wrapped__`` included), ``__deprecation_config__`` (``ctx.cfg``),
@@ -965,6 +966,7 @@ def deprecated_callable(
         source: Union[Callable, classmethod, staticmethod, property, cached_property],
         _is_static: bool = False,
     ) -> Union[Callable, classmethod, staticmethod, property, cached_property]:
+        """Validate ``source`` and return its deprecation wrapper; descriptors are unwrapped and re-enter here."""
         # A descriptor is unwrapped and its function re-enters ``packing``, which validates that function; the
         # source guards have nothing to reject on the descriptor object itself.  The ``isinstance`` check also
         # narrows ``source`` to a plain callable for everything below.
@@ -985,6 +987,7 @@ def deprecated_callable(
         # Skip for legacy sentinels: _normalize_target already fired a FutureWarning;
         # re-running the guard here would report the wrong migration path.
         _function_misconfigured = False
+        # only explicit TargetMode values are validated here; legacy sentinels were handled above
         if isinstance(_target, TargetMode) and isinstance(target, TargetMode):
             _function_misconfigured = _validate_callable_mode(
                 _target, source.__name__, args_mapping=args_mapping, args_extra=args_extra
@@ -1007,8 +1010,8 @@ def deprecated_callable(
         )
         # One context per wrapper; its ``state`` is the very object ``_make_wrapper`` installs as ``wrapper._state``,
         # so counter resets through the wrapper reach the call path.  Which source defaults a forwarded call must
-        # drop depends only on the target and the (copied) mapping, so it is derived once here; ``None`` (unreadable
-        # target signature) defers it to call time.
+        # drop depends only on the target and the (copied) mapping, so it is derived once here. A failed signature
+        # read defers to the call path, which raises the stored error or retries when only the defaults read failed.
         ctx = _WrapperContext(
             source=source,
             raw_target=target,
@@ -1024,10 +1027,12 @@ def deprecated_callable(
         )
         # The wrapper kind follows the source's own ``inspect`` flags.  Known false-negatives of
         # ``inspect.iscoroutinefunction`` — these sources silently receive the plain sync wrapper, meaning
-        # ``await wrapper(...)`` will fail or return a bare coroutine:
+        # ``inspect.iscoroutinefunction(wrapper)`` is ``False`` and the warning fires at the call, not the ``await``:
         #   • async function wrapped by a decorator that does NOT propagate ``__wrapped__`` / use
         #     ``functools.wraps`` (``inspect.iscoroutinefunction`` walks ``__wrapped__``, not ``__call__``).
-        #   • callable objects whose ``__call__`` is ``async def`` — use ``async def`` thin wrapper instead.
+        #   • callable objects whose ``__call__`` is ``async def`` — ``await wrapper(...)`` still works (the call
+        #     returns the bare coroutine), but frameworks dispatching on
+        #     ``iscoroutinefunction`` see a sync callable; use an ``async def`` thin wrapper instead.
         # Workaround for both: wrap the callable in a plain ``async def my_wrapper(*a, **kw): return
         # await callable(*a, **kw)`` before applying ``@deprecated``.
         return _make_wrapper(ctx, kind=_wrapper_kind(source), update_docstring=update_docstring)

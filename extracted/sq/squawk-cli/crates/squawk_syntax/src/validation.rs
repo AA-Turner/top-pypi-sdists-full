@@ -13,21 +13,15 @@ use crate::unescape::{UnicodeEscError, escape_unicode_esc_str, uescape_char};
 use crate::{
     SyntaxNode, SyntaxToken, ast, match_ast, sql_body::SqlBody, syntax_error::SyntaxError,
 };
-use rowan::{TextRange, TextSize, WalkEvent};
 use squawk_parser::{
     SyntaxKind::*, is_col_name_keyword, is_reserved_keyword, is_type_func_name_keyword,
 };
+use squawk_rowan::{TextRange, TextSize, WalkEvent};
 pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
-    for element in root.descendants_with_tokens() {
-        let node = match element {
-            rowan::NodeOrToken::Node(node) => node,
-            rowan::NodeOrToken::Token(token) => {
-                if token.kind() == IDENT {
-                    validate_unicode_esc_ident(&token, errors);
-                }
-                continue;
-            }
-        };
+    for token in root.descendant_tokens_of_kind(IDENT) {
+        validate_unicode_esc_ident(&token, errors);
+    }
+    for node in root.descendants() {
         match_ast! {
             match node {
                 ast::Aggregate(it) => validate_aggregate_params(it.param_list(), errors),
@@ -162,7 +156,7 @@ fn validate_hash_partition_bounds(it: &ast::PartitionForValuesWith, acc: &mut Ve
             continue;
         };
         let actual = ast::normalize_name_node(bound.syntax());
-        match actual.as_str() {
+        match actual.as_ref() {
             "modulus" if !seen_modulus => seen_modulus = true,
             "remainder" if !seen_remainder => seen_remainder = true,
             "modulus" | "remainder" => {
@@ -231,6 +225,9 @@ fn validate_table_name(table_name: &ast::TableName, acc: &mut Vec<SyntaxError>) 
 
 fn validate_call_expr(call_expr: &ast::CallExpr, acc: &mut Vec<SyntaxError>) {
     validate_sub_type_fn(call_expr, acc);
+    if let Some(arg_list) = call_expr.arg_list() {
+        validate_variadic_arg_last(&arg_list, acc);
+    }
     let Some(name_ref) = call_expr.expr().and_then(|expr| expr.as_name_ref()) else {
         return;
     };
@@ -262,6 +259,20 @@ fn validate_call_expr(call_expr: &ast::CallExpr, acc: &mut Vec<SyntaxError>) {
         _ => format!("`{}` is not a valid function name", token.text()),
     };
     acc.push(SyntaxError::new(message, token.text_range()));
+}
+
+fn validate_variadic_arg_last(arg_list: &ast::ArgList, acc: &mut Vec<SyntaxError>) {
+    let mut args = arg_list.args().peekable();
+    while let Some(arg) = args.next() {
+        if args.peek().is_some()
+            && let Some(variadic) = arg.variadic_token()
+        {
+            acc.push(SyntaxError::new(
+                "`variadic` argument must be last",
+                variadic.text_range(),
+            ));
+        }
+    }
 }
 
 fn validate_sub_type_fn(call_expr: &ast::CallExpr, acc: &mut Vec<SyntaxError>) {
@@ -823,11 +834,11 @@ fn validate_literal(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
     // literals or missing new lines.
     for e in lit.syntax().children_with_tokens() {
         match e {
-            rowan::NodeOrToken::Node(_) => {
+            squawk_rowan::NodeOrToken::Node(_) => {
                 // not sure when this would occur
                 state = LookingFor::OpenString;
             }
-            rowan::NodeOrToken::Token(token) => {
+            squawk_rowan::NodeOrToken::Token(token) => {
                 match state {
                     LookingFor::OpenString => {
                         if matches!(
@@ -1239,7 +1250,7 @@ fn validate_array_expr(array_expr: &ast::ArrayExpr, acc: &mut Vec<SyntaxError>) 
         let range = TextRange::new(expr_range.start(), expr_range.start());
         acc.push(SyntaxError::new("array missing `array` keyword", range));
     }
-    if array_expr.l_paren_token().is_some() && !has_select_variant(array_expr.syntax()) {
+    if array_expr.l_paren_token().is_some() && !array_has_select_variant(array_expr) {
         let range = match array_expr.exprs().next() {
             Some(expr) => expr.syntax().text_range(),
             None => array_expr.syntax().text_range(),
@@ -1248,19 +1259,20 @@ fn validate_array_expr(array_expr: &ast::ArrayExpr, acc: &mut Vec<SyntaxError>) 
     }
 }
 
-fn has_select_variant(node: &SyntaxNode) -> bool {
-    node.children().any(|child| {
-        ast::SelectVariant::can_cast(child.kind())
-            || (child.kind() == PAREN_EXPR && has_select_variant(&child))
-    })
+fn array_has_select_variant(array_expr: &ast::ArrayExpr) -> bool {
+    array_expr.select_variant().is_some()
+        || array_expr.exprs().any(
+            |expr| matches!(expr, ast::Expr::ParenExpr(paren) if paren_has_select_variant(&paren)),
+        )
+}
+
+fn paren_has_select_variant(paren_expr: &ast::ParenExpr) -> bool {
+    paren_expr.select_variant().is_some()
+        || matches!(paren_expr.expr(), Some(ast::Expr::ParenExpr(paren)) if paren_has_select_variant(&paren))
 }
 
 fn validate_prefix_expr(prefix_expr: &ast::PrefixExpr, acc: &mut Vec<SyntaxError>) {
-    let Some(op) = prefix_expr
-        .syntax()
-        .children()
-        .find_map(ast::CustomOp::cast)
-    else {
+    let Some(ast::PrefixOp::CustomOp(op)) = prefix_expr.op() else {
         return;
     };
     validate_custom_op(&op, acc);
@@ -1281,8 +1293,8 @@ fn validate_custom_op(op: &ast::CustomOp, acc: &mut Vec<SyntaxError>) {
     let mut found = 0;
     for node_or_token in op.syntax().children_with_tokens() {
         match node_or_token {
-            rowan::NodeOrToken::Node(_) => (),
-            rowan::NodeOrToken::Token(_) => {
+            squawk_rowan::NodeOrToken::Node(_) => (),
+            squawk_rowan::NodeOrToken::Token(_) => {
                 found += 1;
             }
         }
@@ -1291,8 +1303,8 @@ fn validate_custom_op(op: &ast::CustomOp, acc: &mut Vec<SyntaxError>) {
         }
     }
     let token = op.syntax().children_with_tokens().find_map(|x| match x {
-        rowan::NodeOrToken::Node(_) => None,
-        rowan::NodeOrToken::Token(tk) => Some(tk.kind()),
+        squawk_rowan::NodeOrToken::Node(_) => None,
+        squawk_rowan::NodeOrToken::Token(tk) => Some(tk.kind()),
     });
     if let Some(STAR | SLASH | L_ANGLE | R_ANGLE | EQ | PERCENT | CARET) = token {
         acc.push(SyntaxError::new(

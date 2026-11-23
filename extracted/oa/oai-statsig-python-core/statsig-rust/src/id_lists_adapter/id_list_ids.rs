@@ -2,8 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
-use super::shared_id_list_delta::MappedDelta;
-use super::shared_id_list_format::{IdListImage, stable_hash};
+use super::shared_id_list_format::IdListImage;
 
 /// Exact membership, with a bounded cumulative delta for immutable bases.
 #[derive(Clone, Default)]
@@ -15,10 +14,6 @@ pub struct IdListIds {
 enum Storage {
     Owned(OwnedIds),
     Image(Arc<IdListImage>),
-    Overlay {
-        base: Arc<IdListIds>,
-        delta: Arc<MappedDelta>,
-    },
     Pending(PendingDelta),
 }
 impl Default for Storage {
@@ -56,18 +51,11 @@ impl OwnedIds {
 }
 
 #[derive(Clone, Default)]
-pub(super) struct DeltaChanges {
+struct DeltaChanges {
     inline: HashMap<[u8; 8], bool, ahash::RandomState>,
     other: HashMap<String, bool, ahash::RandomState>,
 }
 impl DeltaChanges {
-    pub(super) fn image_keys(&self) -> (Vec<[u8; 8]>, Vec<&str>) {
-        (
-            self.inline.keys().copied().collect(),
-            self.other.keys().map(String::as_str).collect(),
-        )
-    }
-
     fn get(&self, key: &str) -> Option<bool> {
         match <[u8; 8]>::try_from(key.as_bytes()) {
             Ok(k) => self.inline.get(&k),
@@ -92,10 +80,10 @@ impl DeltaChanges {
         }
         .is_some()
     }
-    pub(super) fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.inline.len() + self.other.len()
     }
-    pub(super) fn iter(&self) -> impl Iterator<Item = (&str, bool)> {
+    fn iter(&self) -> impl Iterator<Item = (&str, bool)> {
         self.inline
             .iter()
             .map(|(key, op)| {
@@ -110,9 +98,9 @@ impl DeltaChanges {
 
 #[derive(Clone)]
 pub(super) struct PendingDelta {
-    pub(super) base: Arc<IdListIds>,
-    pub(super) changes: DeltaChanges,
-    pub(super) counts: (usize, usize),
+    base: Arc<IdListImage>,
+    changes: DeltaChanges,
+    counts: (usize, usize),
     // Once a batch crosses the compaction threshold, reversing an edit
     // cannot cancel the full-base rebuild.
     pub(super) requires_full_base: bool,
@@ -124,10 +112,10 @@ pub(super) enum CompactionPolicy {
     Batch,
 }
 
-pub(super) const BATCH_DELTA_DIVISOR: usize = 16;
-pub(super) const BATCH_SCRATCH_DIVISOR: usize = 8;
+const BATCH_DELTA_DIVISOR: usize = 16;
+const BATCH_SCRATCH_DIVISOR: usize = 8;
 
-pub(super) fn batch_compaction_limits(base_memberships: usize) -> (usize, usize) {
+fn batch_compaction_limits(base_memberships: usize) -> (usize, usize) {
     (
         (base_memberships / 8)
             .clamp(1024, 65_536)
@@ -144,22 +132,10 @@ impl IdListIds {
         match &self.storage {
             Storage::Owned(ids) => ids.contains(value),
             Storage::Image(image) => image.contains(value),
-            Storage::Overlay { base, delta } => {
-                let hash = stable_hash(value.as_bytes());
-                delta
-                    .get_hashed(value, hash)
-                    .unwrap_or_else(|| base.contains_hashed(value, hash))
-            }
             Storage::Pending(p) => p
                 .changes
                 .get(value)
                 .unwrap_or_else(|| p.base.contains(value)),
-        }
-    }
-    fn contains_hashed(&self, value: &str, hash: u64) -> bool {
-        match &self.storage {
-            Storage::Image(image) => image.contains_hashed(value, hash),
-            _ => self.contains(value),
         }
     }
     pub fn insert(&mut self, value: String) -> bool {
@@ -221,29 +197,14 @@ impl IdListIds {
         true
     }
     fn make_pending(&mut self) {
-        let pending = match &self.storage {
-            Storage::Image(_) => PendingDelta {
-                base: Arc::new(self.clone()),
+        if let Storage::Image(base) = &self.storage {
+            self.storage = Storage::Pending(PendingDelta {
+                base: Arc::clone(base),
                 changes: DeltaChanges::default(),
-                counts: self.partition_counts(),
+                counts: base.partition_counts(),
                 requires_full_base: false,
-            },
-            Storage::Overlay { base, delta } => {
-                let mut changes = DeltaChanges::default();
-                let mut cursor = 0;
-                while let Some((key, op)) = delta.next(&mut cursor) {
-                    changes.set(key, op);
-                }
-                PendingDelta {
-                    base: Arc::clone(base),
-                    changes,
-                    counts: delta.counts(),
-                    requires_full_base: false,
-                }
-            }
-            _ => return,
-        };
-        self.storage = Storage::Pending(pending);
+            });
+        }
     }
     fn materialize(&mut self) {
         let (inline, other) = self.partition_counts();
@@ -263,12 +224,7 @@ impl IdListIds {
     }
     #[cfg(test)]
     pub(super) fn has_compact_base(&self) -> bool {
-        match &self.storage {
-            Storage::Image(image) => image.is_compact(),
-            Storage::Overlay { base, .. } => base.has_compact_base(),
-            Storage::Pending(p) => p.base.has_compact_base(),
-            Storage::Owned(_) => false,
-        }
+        self.base_image().is_some_and(|image| image.is_compact())
     }
     pub fn len(&self) -> usize {
         if let Storage::Image(image) = &self.storage {
@@ -284,7 +240,6 @@ impl IdListIds {
         match &self.storage {
             Storage::Owned(ids) => (ids.inline.len(), ids.other.len()),
             Storage::Image(image) => image.partition_counts(),
-            Storage::Overlay { delta, .. } => delta.counts(),
             Storage::Pending(p) => p.counts,
         }
     }
@@ -327,7 +282,7 @@ impl IdListIds {
             }
             Storage::Image(image) => image.all_image_keys(inline, other),
             Storage::Pending(p) => {
-                let base_matches = p.base.delta_base_image().all_image_keys(
+                let base_matches = p.base.all_image_keys(
                     |key| p.changes.inline.get(&key) == Some(&false) || inline(key),
                     |key| p.changes.other.get(key) == Some(&false) || other(key),
                 );
@@ -341,45 +296,21 @@ impl IdListIds {
                         .iter()
                         .all(|(key, present)| !*present || other(key))
             }
-            Storage::Overlay { base, delta } => {
-                let base_matches = base.delta_base_image().all_image_keys(
-                    |key| {
-                        delta.get(std::str::from_utf8(&key).expect("valid inline key"))
-                            == Some(false)
-                            || inline(key)
-                    },
-                    |key| delta.get(key) == Some(false) || other(key),
-                );
-                base_matches
-                    && delta
-                        .additions()
-                        .all(|key| match key.as_bytes().try_into() {
-                            Ok(raw) => inline(raw),
-                            Err(_) => other(key),
-                        })
-            }
         }
     }
 
-    fn delta_base_image(&self) -> &IdListImage {
-        let Storage::Image(image) = &self.storage else {
-            unreachable!("deltas have a flat immutable base")
-        };
-        image
+    fn base_image(&self) -> Option<&Arc<IdListImage>> {
+        match &self.storage {
+            Storage::Image(image) => Some(image),
+            Storage::Pending(p) => Some(&p.base),
+            Storage::Owned(_) => None,
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &str> {
         let iter: Box<dyn Iterator<Item = &str> + '_> = match &self.storage {
             Storage::Owned(ids) => Box::new(ids.iter()),
-            Storage::Image(image) => {
-                let mut cursor = 0;
-                Box::new(std::iter::from_fn(move || image.next(&mut cursor)))
-            }
-            Storage::Overlay { base, delta } => Box::new(
-                base.iter()
-                    .filter(move |key| delta.get(key) != Some(false))
-                    .chain(delta.additions()),
-            ),
+            Storage::Image(image) => Box::new(image.iter()),
             Storage::Pending(p) => Box::new(
                 p.base
                     .iter()
@@ -395,17 +326,16 @@ impl IdListIds {
             return;
         }
         match &self.storage {
-            Storage::Image(image) if !image.needs_private_copy() => return,
-            Storage::Pending(p)
-                if !p.requires_full_base && !p.base.delta_base_image().needs_private_copy() =>
-            {
+            Storage::Image(_) => return,
+            Storage::Pending(p) if !p.requires_full_base => {
                 if p.changes.len() == 0 {
-                    *self = Arc::clone(&p.base);
+                    let base = Arc::clone(&p.base);
+                    Arc::make_mut(self).storage = Storage::Image(base);
                 }
                 return;
             }
-            Storage::Pending(p) if p.requires_full_base && p.changes.other.is_empty() => {
-                if let Some(image) = p.base.delta_base_image().try_merge_heap(
+            Storage::Pending(p) if p.changes.other.is_empty() => {
+                if let Some(image) = p.base.try_merge_heap(
                     name,
                     p.counts.0,
                     p.changes.inline.iter().map(|(key, &op)| (key, op)),
@@ -416,8 +346,7 @@ impl IdListIds {
             }
             _ => {}
         }
-        // Initial load, dense compaction, or the first private update after a
-        // shared snapshot. An unencodable set keeps its exact current storage.
+        // Keep current storage if encoding fails.
         if let Ok(image) = IdListImage::build_heap(&[0; 32], name, self) {
             *Arc::make_mut(self) = Self::from_image(image);
         }
@@ -427,15 +356,7 @@ impl IdListIds {
             storage: Storage::Image(Arc::new(image)),
         }
     }
-    pub(super) fn from_overlay(base: Arc<Self>, delta: MappedDelta) -> Self {
-        debug_assert!(matches!(base.storage, Storage::Image(_)));
-        Self {
-            storage: Storage::Overlay {
-                base,
-                delta: Arc::new(delta),
-            },
-        }
-    }
+    #[cfg(test)]
     pub(super) fn pending(&self) -> Option<&PendingDelta> {
         if let Storage::Pending(p) = &self.storage {
             Some(p)
@@ -443,22 +364,11 @@ impl IdListIds {
             None
         }
     }
-    pub(super) fn base_view(&self) -> Option<&Arc<IdListIds>> {
-        match &self.storage {
-            Storage::Overlay { base, .. } => Some(base),
-            Storage::Pending(p) => Some(&p.base),
-            _ => None,
-        }
-    }
-    pub(super) fn base_file(&self) -> Option<String> {
-        match &self.storage {
-            Storage::Image(view) if view.is_mapped() => {
-                Some(format!("list-{}.ids", view.content_digest()))
-            }
-            Storage::Overlay { base, .. } => base.base_file(),
-            Storage::Pending(p) => p.base.base_file(),
-            _ => None,
-        }
+    #[cfg(test)]
+    pub(super) fn base_digest(&self) -> Option<[u8; 32]> {
+        self.base_image()
+            .filter(|image| image.is_mapped())
+            .map(|image| image.content_digest())
     }
     pub(super) fn packed_ef_section(&self) -> Option<&[u8]> {
         match &self.storage {
@@ -467,29 +377,12 @@ impl IdListIds {
         }
     }
     pub(crate) fn mapped_bytes(&self) -> usize {
-        match &self.storage {
-            Storage::Owned(_) => 0,
-            Storage::Image(m) => m.mapped_bytes(),
-            Storage::Overlay { base, delta } => base.mapped_bytes() + delta.mapped_bytes(),
-            Storage::Pending(p) => p.base.mapped_bytes(),
-        }
+        self.base_image().map_or(0, |image| image.mapped_bytes())
     }
     pub(crate) fn is_mapped(&self) -> bool {
-        match &self.storage {
-            Storage::Image(image) => image.is_mapped(),
-            Storage::Overlay { .. } => true,
-            Storage::Pending(p) => {
-                let image = p.base.delta_base_image();
-                image.is_mapped() && !image.needs_private_copy()
-            }
-            Storage::Owned(_) => false,
-        }
+        self.mapped_bytes() > 0
     }
-    // Compatibility diagnostics for baseline tests. No lease retains a seed.
-    #[cfg(test)]
-    pub(crate) fn owned_build_seed(ids: &Arc<Self>) -> Option<Arc<Self>> {
-        matches!(ids.storage, Storage::Owned(_)).then(|| Arc::clone(ids))
-    }
+
     #[cfg(test)]
     pub(crate) fn owned_capacities_for_test(&self) -> Option<(usize, usize)> {
         if let Storage::Owned(ids) = &self.storage {
@@ -499,19 +392,8 @@ impl IdListIds {
         }
     }
     #[cfg(test)]
-    pub(super) fn pending_capacities_for_test(&self) -> Option<(usize, usize)> {
-        self.pending().map(|pending| {
-            (
-                pending.changes.inline.capacity(),
-                pending.changes.other.capacity(),
-            )
-        })
-    }
-
-    #[cfg(test)]
     pub(super) fn delta_len_for_test(&self) -> usize {
         match &self.storage {
-            Storage::Overlay { delta, .. } => delta.len(),
             Storage::Pending(p) => p.changes.len(),
             _ => 0,
         }

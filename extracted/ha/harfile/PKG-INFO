@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: harfile
-Version: 0.7.0
+Version: 0.7.1
 Summary: Writer for HTTP Archive (HAR) files
 Project-URL: Changelog, https://github.com/schemathesis/harfile/blob/main/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/harfile

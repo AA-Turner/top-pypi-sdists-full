@@ -11,18 +11,15 @@ use std::{
     task::{Context, Poll},
 };
 
-use arrow::{array::BooleanArray, compute::filter_record_batch};
 use arrow_array::RecordBatch;
 use datafusion::{
-    common::{
-        ColumnStatistics, HashMap, Statistics, error::DataFusionErrorBuilder, stats::Precision,
-    },
+    common::{ColumnStatistics, Statistics, error::DataFusionErrorBuilder, stats::Precision},
     error::DataFusionError,
     scalar::ScalarValue,
 };
 use delta_kernel::{
-    Engine, ExpressionRef,
-    engine::{arrow_conversion::TryIntoArrow, arrow_data::ArrowEngineData},
+    Engine, ExpressionRef, FileMeta,
+    engine::arrow_data::ArrowEngineData,
     engine_data::FilteredEngineData,
     expressions::{Scalar, StructData},
     scan::{
@@ -78,7 +75,7 @@ pin_project! {
 
         file_selection: Option<&'a HashSet<String>>,
 
-        pub(crate) dv_stream: ReceiverStreamBuilder<(Url, Option<Vec<bool>>, Option<u64>)>,
+        pub(crate) dv_stream: ReceiverStreamBuilder<(Url, Option<Vec<bool>>, Option<u64>, i64)>,
 
         #[pin]
         stream: S,
@@ -95,7 +92,7 @@ impl<'a, S> ScanFileStream<'a, S> {
     ) -> Self {
         Self {
             metrics: ReplayStats::new(),
-            dv_stream: ReceiverStreamBuilder::<(Url, Option<Vec<bool>>, Option<u64>)>::new(100),
+            dv_stream: ReceiverStreamBuilder::new(100),
             engine,
             table_root: scan.table_root().clone(),
             kernel_scan: scan.inner().clone(),
@@ -114,16 +111,6 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        let physical_arrow = this
-            .kernel_scan
-            .physical_schema()
-            .as_ref()
-            .try_into_arrow()
-            .map_err(DeltaTableError::from);
-        let physical_arrow = match physical_arrow {
-            Ok(schema) => schema,
-            Err(err) => return Poll::Ready(Some(Err(err))),
-        };
         match this.stream.poll_next(cx) {
             Poll::Ready(Some(Ok(scan_data))) => {
                 let scan_data = if let Some(selection) = this.file_selection {
@@ -144,29 +131,46 @@ where
                     Err(err) => return Poll::Ready(Some(Err(err.into()))),
                 };
 
-                let (data, selection_vector) = scan_data.scan_files.into_parts();
-                let batch = ArrowEngineData::try_from_engine_data(data)?.into();
-                let scan_files =
-                    filter_record_batch(&batch, &BooleanArray::from(selection_vector))?;
+                let scan_files: RecordBatch = ArrowEngineData::try_from_engine_data(
+                    scan_data.scan_files.apply_selection_vector()?,
+                )?
+                .into();
+                // `zip` would silently truncate mismatched inputs.
+                if scan_files.num_rows() != ctx.files.len() {
+                    return Poll::Ready(Some(Err(DeltaTableError::generic(format!(
+                        "Invariant violation: scan metadata has {} selected rows but {} file contexts",
+                        scan_files.num_rows(),
+                        ctx.files.len()
+                    )))));
+                }
 
                 // Spawn tasks to read the deletion vectors from disk.
                 for (index, file) in ctx.files.iter().enumerate() {
                     if file.dv_info.has_vector() {
                         let engine = this.engine.clone();
                         let dv_info = file.dv_info.clone();
-                        let file_url = file.file_url.clone();
+                        let file_url = file.meta.location.clone();
                         // Kernel's visitor reads JSON stats. Recover counts from structured stats.
                         let num_records = file.num_records.or_else(|| {
                             LogicalFileView::new(scan_files.clone(), index)
                                 .num_records()
                                 .map(|count| count as u64)
                         });
+                        let cardinality = LogicalFileView::new(scan_files.clone(), index)
+                            .deletion_vector_descriptor()
+                            .map(|descriptor| descriptor.cardinality);
+                        let Some(cardinality) = cardinality else {
+                            return Poll::Ready(Some(Err(DeltaTableError::generic(format!(
+                                "DV file {} has no descriptor in scan metadata",
+                                super::super::redact_url_for_error(&file_url)
+                            )))));
+                        };
                         let table_root = this.table_root.clone();
                         let tx = this.dv_stream.tx();
 
                         let load_dv = move || {
                             let dv = dv_info.get_selection_vector(engine.as_ref(), &table_root)?;
-                            let _ = tx.blocking_send(Ok((file_url, dv, num_records)));
+                            let _ = tx.blocking_send(Ok((file_url, dv, num_records, cardinality)));
                             Ok(())
                         };
                         this.dv_stream.spawn_blocking(load_dv);
@@ -189,22 +193,17 @@ where
                 let parsed_stats =
                     parse_stats_column_with_schema(snapshot.as_ref(), &scan_files, stats_schema)?;
 
-                let mut file_statistics = extract_file_statistics(
+                let file_statistics = extract_file_statistics(
                     this.kernel_scan,
                     this.scan_config,
                     parsed_stats,
                     &stats_projection,
                 );
-
                 Poll::Ready(Some(Ok(ctx
                     .files
                     .into_iter()
-                    .map(|ctx| {
-                        let (stats, partitions) = file_statistics
-                            .remove(&ctx.file_url)
-                            .unwrap_or_else(|| (Statistics::new_unknown(&physical_arrow), None));
-                        ScanFileContext::new(ctx, stats, partitions)
-                    })
+                    .zip(file_statistics)
+                    .map(|(ctx, (stats, partitions))| ScanFileContext::new(ctx, stats, partitions))
                     .collect_vec())))
             }
             Poll::Ready(None) => Poll::Ready(None),
@@ -230,16 +229,16 @@ where
 ///
 /// # Returns
 ///
-/// A map from file URL to DataFusion statistics and optional partition values.
+/// DataFusion statistics and optional partition values for each `parsed_stats` row, in row order.
 fn extract_file_statistics(
     scan: &KernelScan,
     scan_config: &DeltaScanConfig,
     parsed_stats: RecordBatch,
     stats_projection: &StatsProjection,
-) -> HashMap<Url, (Statistics, Option<StructData>)> {
+) -> impl Iterator<Item = (Statistics, Option<StructData>)> {
     (0..parsed_stats.num_rows())
         .map(move |idx| LogicalFileView::new(parsed_stats.clone(), idx))
-        .filter_map(|view| {
+        .map(move |view| {
             let num_rows = view
                 .num_records()
                 .map(Precision::Exact)
@@ -250,70 +249,75 @@ fn extract_file_statistics(
             let max_values = extract_struct(view.max_values());
             let min_values = extract_struct(view.min_values());
 
-            let column_statistics = scan
-                .physical_schema()
-                .fields()
-                .map(|f| {
-                    let should_extract_stats =
-                        stats_projection.emits_top_level_column_stats(f.name());
+            // No predicate to prune on (#4522): every column entry would be `Absent`, so skip
+            // the full-width vector. num_rows/total_byte_size below are still kept.
+            let column_statistics = if !stats_projection.emits_any_column_stats() {
+                Vec::new()
+            } else {
+                scan.physical_schema()
+                    .fields()
+                    .map(|f| {
+                        let should_extract_stats =
+                            stats_projection.emits_top_level_column_stats(f.name());
 
-                    if !should_extract_stats {
-                        // Return unknown statistics for non-predicate columns
-                        return ColumnStatistics {
-                            null_count: Precision::Absent,
-                            max_value: Precision::Absent,
-                            min_value: Precision::Absent,
+                        if !should_extract_stats {
+                            // Return unknown statistics for non-predicate columns
+                            return ColumnStatistics {
+                                null_count: Precision::Absent,
+                                max_value: Precision::Absent,
+                                min_value: Precision::Absent,
+                                sum_value: Precision::Absent,
+                                distinct_count: Precision::Absent,
+                                byte_size: Precision::Absent,
+                            };
+                        }
+
+                        // Extract statistics for predicate columns
+                        let null_count = if let Some(field_index) =
+                            null_counts.as_ref().and_then(|v| v.index_of(f.name()))
+                        {
+                            null_counts
+                                .as_ref()
+                                .map(|v| match v.values()[field_index] {
+                                    Scalar::Integer(int_val) => Precision::Exact(int_val as usize),
+                                    Scalar::Long(long_val) => Precision::Exact(long_val as usize),
+                                    _ => Precision::Absent,
+                                })
+                                .unwrap_or_default()
+                        } else {
+                            Precision::Absent
+                        };
+
+                        let max_value = physical_precision(
+                            extract_precision(&max_values, f.name()),
+                            scan_config,
+                        );
+                        let min_value = physical_precision(
+                            extract_precision(&min_values, f.name()),
+                            scan_config,
+                        );
+
+                        ColumnStatistics {
+                            null_count,
+                            max_value,
+                            min_value,
                             sum_value: Precision::Absent,
                             distinct_count: Precision::Absent,
                             byte_size: Precision::Absent,
-                        };
-                    }
+                        }
+                    })
+                    .collect_vec()
+            };
 
-                    // Extract statistics for predicate columns
-                    let null_count = if let Some(field_index) =
-                        null_counts.as_ref().and_then(|v| v.index_of(f.name()))
-                    {
-                        null_counts
-                            .as_ref()
-                            .map(|v| match v.values()[field_index] {
-                                Scalar::Integer(int_val) => Precision::Exact(int_val as usize),
-                                Scalar::Long(long_val) => Precision::Exact(long_val as usize),
-                                _ => Precision::Absent,
-                            })
-                            .unwrap_or_default()
-                    } else {
-                        Precision::Absent
-                    };
-
-                    let max_value =
-                        physical_precision(extract_precision(&max_values, f.name()), scan_config);
-                    let min_value =
-                        physical_precision(extract_precision(&min_values, f.name()), scan_config);
-
-                    ColumnStatistics {
-                        null_count,
-                        max_value,
-                        min_value,
-                        sum_value: Precision::Absent,
-                        distinct_count: Precision::Absent,
-                        byte_size: Precision::Absent,
-                    }
-                })
-                .collect_vec();
-
-            Some((
-                parse_path(scan.snapshot().table_root(), view.path_raw()).ok()?,
-                (
-                    Statistics {
-                        num_rows,
-                        total_byte_size,
-                        column_statistics,
-                    },
-                    view.partition_values(),
-                ),
-            ))
+            (
+                Statistics {
+                    num_rows,
+                    total_byte_size,
+                    column_statistics,
+                },
+                view.partition_values(),
+            )
         })
-        .collect()
 }
 
 #[inline]
@@ -356,8 +360,8 @@ fn extract_struct(scalar: Option<Scalar>) -> Option<StructData> {
 ///
 /// # Fields
 ///
-/// - [`file_url`](Self::file_url): Complete URL for reading the file from object storage
-/// - [`size`](Self::size): File size in bytes for I/O planning
+/// - [`meta`](Self::meta): Complete URL for reading the file from object storage, its size in
+///   bytes for I/O planning, and its modification time
 /// - [`transform`](Self::transform): Expression to apply partition values and column mapping
 /// - [`stats`](Self::stats): File-level statistics for predicate pushdown and pruning
 /// - [`partitions`](Self::partitions): Partition column values to materialize
@@ -365,16 +369,16 @@ fn extract_struct(scalar: Option<Scalar>) -> Option<StructData> {
 /// These contexts are created during the scan replay phase and consumed by execution plans.
 #[derive(Debug)]
 pub(crate) struct ScanFileContext {
-    /// Fully qualified URL of the file.
-    pub file_url: Url,
-    /// Size of the file on disk.
-    pub size: u64,
+    /// The file's fully qualified URL, size, and modification time.
+    pub meta: FileMeta,
     /// Transformations to apply to the data in the file.
     pub transform: Option<ExpressionRef>,
     /// Statistics about the data in the file.
     ///
     /// The query engine may choose to use these statistics to further optimize the scan.
     pub stats: Statistics,
+    /// Physical row count from the Delta log, if present.
+    pub num_records: Option<u64>,
     /// Partition values for the file.
     pub partitions: Option<StructData>,
 }
@@ -383,10 +387,10 @@ impl ScanFileContext {
     /// Create a new `ScanFileContext` with the given file URL, size, and statistics.
     fn new(inner: ScanFileContextInner, stats: Statistics, partitions: Option<StructData>) -> Self {
         Self {
-            file_url: inner.file_url,
-            size: inner.size,
+            meta: inner.meta,
             transform: inner.transform,
             stats,
+            num_records: inner.num_records,
             partitions,
         }
     }
@@ -395,10 +399,8 @@ impl ScanFileContext {
 /// Metadata to read a data file from object storage.
 #[derive(Debug)]
 struct ScanFileContextInner {
-    /// Fully qualified URL of the file.
-    pub file_url: Url,
-    /// Size of the file on disk.
-    pub size: u64,
+    /// The file's fully qualified URL, size, and modification time.
+    pub meta: FileMeta,
     /// Transformations to apply to the data in the file.
     pub transform: Option<ExpressionRef>,
     /// Number of records in the file from Add-file stats.
@@ -495,8 +497,11 @@ fn visit_scan_file(ctx: &mut ScanContext, scan_file: ScanFile) {
     ctx.files.push(ScanFileContextInner {
         dv_info: scan_file.dv_info,
         transform: scan_file.transform,
-        file_url,
-        size: scan_file.size as u64,
+        meta: FileMeta {
+            location: file_url,
+            last_modified: scan_file.modification_time,
+            size: scan_file.size as u64,
+        },
         num_records: scan_file.stats.map(|stats| stats.num_records),
     });
     ctx.count += 1;
@@ -505,11 +510,24 @@ fn visit_scan_file(ctx: &mut ScanContext, scan_file: ScanFile) {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::sync::Arc;
 
+    use datafusion::common::stats::Precision;
+    use delta_kernel::Engine;
+    use delta_kernel::engine_data::FilteredEngineData;
+    use delta_kernel::scan::ScanMetadata;
     use delta_kernel::scan::state::{DvInfo, ScanFile};
+    use futures::{TryStreamExt, stream};
     use url::Url;
 
-    use super::{ScanContext, visit_scan_file};
+    use super::super::plan::KernelScanPlan;
+    use super::{ScanContext, ScanFileContext, ScanFileStream, visit_scan_file};
+    use crate::DeltaResult;
+    use crate::delta_datafusion::{
+        DeltaScanConfig, engine::DataFusionEngine, session::create_session,
+    };
+    use crate::kernel::Snapshot;
+    use crate::test_utils::{TestResult, open_fs_path};
 
     fn scan_file(path: impl Into<String>) -> ScanFile {
         ScanFile {
@@ -538,8 +556,101 @@ mod tests {
         let ctx = ctx.error_or().unwrap();
         assert_eq!(ctx.files.len(), 1);
         assert_eq!(
-            ctx.files[0].file_url.as_str(),
+            ctx.files[0].meta.location.as_str(),
             "file:///tmp/delta/part-000.parquet"
+        );
+    }
+
+    /// Replays `table_with_column_mapping` (2 files: 4 and 1 rows), applying `edit` to each batch.
+    async fn replay_two_file_table(
+        edit: impl Fn(ScanMetadata) -> DeltaResult<ScanMetadata>,
+    ) -> TestResult<Vec<ScanFileContext>> {
+        let log_store = open_fs_path("../test/tests/data/table_with_column_mapping").log_store();
+        let snapshot = Snapshot::try_new(&log_store, None).await?;
+        let scan_plan =
+            KernelScanPlan::try_new(&snapshot, None, &[], &DeltaScanConfig::default(), None)?;
+        let session = create_session().into_inner();
+        let engine: Arc<dyn Engine> = DataFusionEngine::new_from_session(&session.state());
+        let metadata: Vec<ScanMetadata> = scan_plan
+            .scan
+            .scan_metadata(engine.clone())
+            .try_collect()
+            .await?;
+        let replayed: Vec<Vec<ScanFileContext>> = ScanFileStream::new(
+            engine,
+            &scan_plan.scan,
+            DeltaScanConfig::default(),
+            None,
+            stream::iter(metadata.into_iter().map(edit)),
+        )
+        .try_collect()
+        .await?;
+        Ok(replayed.into_iter().flatten().collect())
+    }
+
+    /// Drops trailing `true` entries. Missing entries are implicitly true,
+    /// so the same rows stay selected with a shorter vector.
+    fn with_short_selection_vector(metadata: ScanMetadata) -> DeltaResult<ScanMetadata> {
+        let (data, mut selection_vector) = metadata.scan_files.into_parts();
+        while selection_vector.pop_if(|selected| *selected).is_some() {}
+        Ok(ScanMetadata {
+            scan_files: FilteredEngineData::try_new(data, selection_vector)?,
+            ..metadata
+        })
+    }
+
+    /// Selects non-file metadata rows too, triggering the row-count check.
+    fn with_all_rows_selected(metadata: ScanMetadata) -> DeltaResult<ScanMetadata> {
+        let (data, _) = metadata.scan_files.into_parts();
+        Ok(ScanMetadata {
+            scan_files: FilteredEngineData::with_all_rows_selected(data),
+            ..metadata
+        })
+    }
+
+    fn row_counts_by_file(files: &[ScanFileContext]) -> Vec<(String, Precision<usize>)> {
+        let mut row_counts = files
+            .iter()
+            .map(|file| {
+                let name = file.meta.location.path().rsplit('/').next().unwrap();
+                (name.to_string(), file.stats.num_rows)
+            })
+            .collect::<Vec<_>>();
+        row_counts.sort_by(|left, right| left.0.cmp(&right.0));
+        row_counts
+    }
+
+    #[tokio::test]
+    async fn test_replay_pairs_each_file_with_its_statistics() -> TestResult {
+        let expected = vec![
+            (
+                "part-00000-4d6e745c-8e04-48d9-aa60-438228358f1a.c000.zstd.parquet".to_string(),
+                Precision::Exact(4),
+            ),
+            (
+                "part-00001-69b4a452-aeac-4ffa-bf5c-a0c2833d05eb.c000.zstd.parquet".to_string(),
+                Precision::Exact(1),
+            ),
+        ];
+        let explicit = replay_two_file_table(Ok).await?;
+        let implicit = replay_two_file_table(with_short_selection_vector).await?;
+
+        assert_eq!(row_counts_by_file(&explicit), expected);
+        assert_eq!(
+            row_counts_by_file(&implicit),
+            expected,
+            "short selection vector"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_replay_rejects_selected_rows_without_file_context() {
+        let result = replay_two_file_table(with_all_rows_selected).await;
+        let err = result.expect_err("row count mismatch").to_string();
+        assert!(
+            err.contains("Invariant violation: scan metadata has"),
+            "{err}"
         );
     }
 }

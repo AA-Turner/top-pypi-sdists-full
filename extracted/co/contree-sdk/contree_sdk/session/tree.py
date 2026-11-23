@@ -6,6 +6,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, cast
 
+from contree_client.models import InstanceResourcesLimits
+
 from contree_sdk.files import StagedFile
 from contree_sdk.session.models import HistoryEntry
 from contree_sdk.store import JSONValue, Node
@@ -31,6 +33,13 @@ def entry_from_node(session_id: str, node: Node) -> HistoryEntry:
         attachments=tuple(StagedFile(**item) for item in data.get("attachments", ())),
         applied_files=tuple(data.get("applied_files", ())),
         data=data.get("user", {}),
+        cwd=data.get("cwd"),
+        env=dict(data.get("env", {})),
+        network_enabled=data.get("network_enabled", True),
+        network_policy_uuids=tuple(data.get("network_policy_uuids", ())),
+        resources_limits=InstanceResourcesLimits.from_dict(data["resources_limits"])
+        if data.get("resources_limits") is not None
+        else None,
     )
 
 
@@ -49,6 +58,9 @@ def entry_node(  # noqa: PLR0913 - encodes the existing SDK history fields
     user: dict[str, JSONValue] | None = None,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
+    network_enabled: bool = True,
+    network_policy_uuids: tuple[str, ...] = (),
+    resources_limits: InstanceResourcesLimits | None = None,
     node_id: str | None = None,
     payload: dict[str, JSONValue] | None = None,
 ) -> Node:
@@ -64,6 +76,9 @@ def entry_node(  # noqa: PLR0913 - encodes the existing SDK history fields
         "user": user or {},
         "cwd": cwd,
         "env": dict(env or {}),
+        "network_enabled": network_enabled,
+        "network_policy_uuids": list(network_policy_uuids),
+        "resources_limits": resources_limits.to_dict() if resources_limits is not None else None,
     }
     data.update(payload or {})
     return Node(id=node_id if node_id is not None else new_node_id(), parent_id=parent_id, kind=kind, data=data)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pymammotion"
-version = "0.10.21"
+version = "0.11.0"
 description = ""
 authors = [
     { name = "Michael Arthur", email = "michael@jumblesoft.co.nz" },
@@ -80,7 +80,7 @@ include = ["pymammotion"]
 include = ["pymammotion"]
 
 [tool.bumpver]
-current_version = "0.10.21"
+current_version = "0.11.0"
 version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message  = "Bump version {old_version} -> {new_version}"
 commit          = true
@@ -412,6 +412,10 @@ faulthandler_timeout = 120
 markers = [
     "live: tests that hit a real Mammotion device (skipped by default; requires MAMMOTION_EMAIL/PASSWORD env vars)",
     "regression: pins a specific defect; see docs/testing.md section 7 for the contract",
+]
+filterwarnings = [
+    # Third-party: the Aliyun Tea client signs requests with datetime.utcnow().
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:alibabacloud_tea_util.client",
 ]
 
 [tool.ruff]

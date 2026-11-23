@@ -17,6 +17,7 @@ from fastcore.apisurface import snake, sanitized_params, mk_sig, mk_doc, mk_grou
 
 from .spec import OpSpec, SpecParser
 from fasttransport.core import AsyncTransport,SyncTransport
+from fasttransport.errors import APIError
 
 
 # %% ../nbs/04_oapi.ipynb #6b2f1057
@@ -212,7 +213,7 @@ def _upload(self:OpFunc, media, media_type, *, headers, query, route, body):
     if hasattr(media, 'read'): media = media.read()
     ctype = media_type or mimetypes.guess_type(fname or '')[0] or 'application/octet-stream'
     url = _path(self.media_url, route_params=route)
-    return then(self.client.request('POST', url, headers={**headers, 'X-Upload-Content-Type': ctype}, params={**query, 'uploadType': 'resumable'}, json=body, raw=True),
+    return then(self.client.request(self.verb, url, headers={**headers, 'X-Upload-Content-Type': ctype}, params={**query, 'uploadType': 'resumable'}, json=body, raw=True),
         ~Self.headers['location'], partial(self.client.request, 'PUT', headers={'Content-Type': ctype}, content=media), dict2obj)
 
 # %% ../nbs/04_oapi.ipynb #a45f810a

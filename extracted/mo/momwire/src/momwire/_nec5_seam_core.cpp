@@ -2,7 +2,7 @@
 // Each function names the Python it is a copy of (`eznec/_serve.py` unless
 // said otherwise); its sentences are that Python's, byte for byte, and so is
 // the order in which it asks its questions. What a basis decides is its
-// `SeamEngine`'s (razor-2p: `_nec5_razor_seam_core.cpp`).
+// `SeamEngine`'s (razor2p: `_nec5_razor_seam_core.cpp`).
 #include "_nec5_seam_core.h"
 
 // MSVC builds every TU /fp:fast (setup.py); this one replays numpy's and
@@ -685,6 +685,14 @@ std::string scope_refusal(const Deck &d, std::string &declined) {
     return "";
 }
 
+std::string duplicate_wire_refusal(const SeamMesh &mesh, std::size_t copy, std::size_t twin, const std::string &why) {
+    const Int &first = mesh.pieces.at(twin).tag, &dup = mesh.pieces.at(copy).tag;
+    const std::string named = first != dup ? "tags " + first.str() + " and " + dup.str() : "tag " + first.str();
+    return "the GW wires of " + named + " are one wire listed twice, and " + why +
+           ", so they cannot be merged into one conductor: delete the copy (tag " + dup.str() +
+           "), or make the two copies identical - momwire#1042";
+}
+
 std::string internal_error_reason(const std::string &error_kind, const std::string &message) {
     return "INTERNAL ERROR IN MOMWIRE ENGINE - " + error_kind + ": " + message;
 }
@@ -1111,6 +1119,91 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
     // a repeated tag's addresses are its FIRST wire's (`_serve.build_mesh`,
     // momwire#1695): only that wire takes the tag's cuts and (tag, node) entries
     std::set<Int> owned;
+    // `_junction_cuts` (momwire#2093): the nodes inside a wire where another
+    // wire's node lands -- an interior node's degree above its own two --
+    // except where either of the wire's own elements there is another wire's
+    // too (overlapping metal, meshed as before)
+    std::vector<std::vector<long long>> joins(d.wires.size());
+    std::set<std::pair<Int, long long>, PairLess> joined;
+    {
+        std::vector<std::vector<long long>> candidates(d.wires.size());
+        bool any = false;
+        for (size_t i = 0; i < d.wires.size(); i++) {
+            const Wire &w = d.wires[i];
+            if (is_phantom(w.tag)) continue;
+            for (long long k = 1; k < nseg[i]; k++) {
+                grid_point(w, nseg[i], k, pt);
+                const auto dg = degree.find(node_key(pt));
+                if (dg != degree.end() && dg->second > 2) {
+                    candidates[i].push_back(k);
+                    any = true;
+                }
+            }
+        }
+        if (any) {
+            const auto wire_keys = [&](size_t i) {
+                std::vector<NodeKey> keys;
+                for (long long k = 0; k <= nseg[i]; k++) {
+                    grid_point(d.wires[i], nseg[i], k, pt);
+                    keys.push_back(node_key(pt));
+                }
+                return keys;
+            };
+            const auto element = [](const NodeKey &a, const NodeKey &b) {
+                return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
+            };
+            // element (its two node keys, unordered) -> the wires carrying it
+            std::map<std::pair<NodeKey, NodeKey>, std::set<size_t>> carriers;
+            std::vector<std::vector<NodeKey>> keys(d.wires.size());
+            for (size_t i = 0; i < d.wires.size(); i++) {
+                if (is_phantom(d.wires[i].tag)) continue;
+                keys[i] = wire_keys(i);
+                for (size_t k = 0; k + 1 < keys[i].size(); k++)
+                    carriers[element(keys[i][k], keys[i][k + 1])].insert(i);
+            }
+            const auto shared = [&](size_t i, const NodeKey &a, const NodeKey &b) {
+                const std::set<size_t> &c = carriers[element(a, b)];
+                return c.size() > (c.count(i) ? 1u : 0u);
+            };
+            for (size_t i = 0; i < d.wires.size(); i++)
+                for (long long k : candidates[i]) {
+                    const auto &ks = keys[i];
+                    const size_t q = static_cast<size_t>(k);
+                    if (shared(i, ks[q - 1], ks[q]) || shared(i, ks[q], ks[q + 1])) continue;
+                    joins[i].push_back(k);
+                    joined.insert({d.wires[i].tag, k});
+                }
+        }
+    }
+    // `_join_branches`: the piece end a card at a junction cut names, by the
+    // segment it names (an explicit end 1 names segment node + 1)
+    std::map<std::pair<Int, long long>, End, PairLess> branches;
+    if (!joined.empty()) {
+        std::vector<std::pair<Node, bool>> named;  // (address, names segment node + 1)
+        for (const Source &s : d.sources) named.emplace_back(s.at, s.end_code == Int(1));
+        for (const Load &l : d.loads) named.emplace_back(l.at, l.end_code == Int(1));
+        for (const TransmissionLine &t : d.transmission_lines) {
+            named.emplace_back(t.end_a, false);
+            named.emplace_back(t.end_b, false);
+        }
+        for (const Network &n : d.networks) {
+            named.emplace_back(n.end_a, false);
+            named.emplace_back(n.end_b, false);
+        }
+        for (const auto &nm : named) {
+            const long long node = nm.first.node.i64();
+            const std::pair<Int, long long> key{nm.first.tag, node};
+            if (!joined.count(key)) continue;
+            const End which = nm.second ? End::start : End::end;
+            const auto ins = branches.emplace(key, which);
+            if (ins.first->second != which)
+                throw Refusal{"cards address node " + std::to_string(node) + " of tag " + nm.first.tag.str() +
+                              " through both of its segments (" + std::to_string(node) + " and " +
+                              std::to_string(node + 1) + "); another wire joins wire " + nm.first.tag.str() +
+                              " at that node, so the two name different branches of one junction, and "
+                              "this seam serves one branch per address"};
+        }
+    }
     for (size_t i = 0; i < d.wires.size(); i++) {
         const Wire &w = d.wires[i];
         const long long last = nseg[i];
@@ -1143,9 +1236,12 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
             r.cut_start = r.cut_end = false;
             return r;
         };
-        // `bounds = [0, *addressed_inside, last] if cut else [0, last]`
+        // `bounds = [0, *addressed_inside, last] if cut else [0, last]`, and
+        // every junction cut
         std::set<long long> bounds{0, last};
         if (cut) bounds.insert(inside_nodes.begin(), inside_nodes.end());
+        bounds.insert(joins[i].begin(), joins[i].end());
+        std::map<long long, long long> ending_at;  // junction cut -> the piece ending there
         if (c == nullptr) {
             std::vector<long long> v(bounds.begin(), bounds.end());
             for (size_t q = 0; q + 1 < v.size(); q++) runs.push_back(plain(v[q], v[q + 1]));
@@ -1201,8 +1297,10 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
             piece.cut_end = r.cut_end;
             mesh.pieces.push_back(piece);
             if (owner && !r.cut_start) piece_of_node[{w.tag, r.a}] = {index, End::start};
-            if (owner && !r.cut_end)
+            if (owner && !r.cut_end) {
                 piece_of_node.emplace(std::make_pair(w.tag, r.b), std::make_pair(index, End::end));
+                ending_at[r.b] = index;
+            }
             for (long long k : inside_nodes)
                 if (r.a < k && k < r.b) {
                     double pk[3];
@@ -1239,6 +1337,13 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
             }
             for (long long k = 0; k < r.b - r.a; k++) mesh.element_of.emplace_back(index, k);
         }
+        if (owner)
+            for (long long k : joins[i]) {
+                const auto br = branches.find({w.tag, k});
+                const auto ea = ending_at.find(k);
+                if ((br == branches.end() || br->second == End::end) && ea != ending_at.end())
+                    piece_of_node[{w.tag, k}] = {ea->second, End::end};
+            }
     }
     junctions_of(mesh);
 

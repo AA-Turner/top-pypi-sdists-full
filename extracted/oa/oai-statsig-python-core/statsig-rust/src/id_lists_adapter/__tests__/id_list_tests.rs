@@ -11,43 +11,44 @@ fn metadata() -> IdListMetadata {
 }
 
 #[test]
-fn cloned_list_copies_ids_only_when_updated() {
-    let mut original = IdList::new(metadata());
-    original.apply_update(IdListUpdate {
-        raw_changeset: Some("+alice".to_string()),
+fn cloned_hash_list_shares_ids_until_an_edit_changes_membership() {
+    let update = |body: &str| IdListUpdate {
+        raw_changeset: Some(body.to_owned()),
         new_metadata: metadata(),
-    });
+    };
+    let mut original = IdList::new(metadata());
+    original.apply_update(update("+alice\n"));
 
     let mut updated = original.clone();
+    let no_changes = "+alice\n-missing\n";
+    updated.apply_update(update(no_changes));
     assert!(Arc::ptr_eq(&original.ids, &updated.ids));
+    assert_eq!(
+        updated.metadata.size,
+        original.metadata.size + no_changes.len() as u64
+    );
 
-    updated.apply_update(IdListUpdate {
-        raw_changeset: Some("+bob".to_string()),
-        new_metadata: metadata(),
-    });
+    updated.apply_update(update("+alice\n+bob\n-alice\n+alice\n+carol\n"));
 
     assert!(!Arc::ptr_eq(&original.ids, &updated.ids));
     assert!(original.ids.contains("alice"));
     assert!(!original.ids.contains("bob"));
     assert!(updated.ids.contains("alice"));
     assert!(updated.ids.contains("bob"));
+    assert!(updated.ids.contains("carol"));
 }
 
 #[test]
-fn update_modes_preserve_id_whitespace_and_consume_ignored_lines() {
+fn encodings_preserve_id_whitespace_and_consume_ignored_lines() {
     let body = "+  member  \r\n+member\n-member\n+\t\n-\u{2003}\n +ignored\nλignored\n+é \n";
-    for mode in [
-        UpdateMode::Private(IdListEncoding::Hash),
-        UpdateMode::Private(IdListEncoding::EliasFano),
-        UpdateMode::SharedPublisher,
-    ] {
+    for encoding in [IdListEncoding::Hash, IdListEncoding::EliasFano] {
         let mut list = IdList::new(metadata());
-        list.apply_update_inner(
+        list.apply_update_with_encoding(
+            encoding,
             IdListUpdate {
                 raw_changeset: Some(body.into()),
                 new_metadata: metadata(),
             },
-            mode,
         );
         assert_eq!(list.metadata.size, body.len() as u64);
         assert_eq!(list.ids.len(), 2);

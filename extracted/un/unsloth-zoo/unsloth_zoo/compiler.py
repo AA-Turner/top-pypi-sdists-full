@@ -788,7 +788,7 @@ from unsloth_zoo.loss_utils import (
     fused_linear_cross_entropy,
     unsloth_fused_ce_loss,
 )
-from unsloth_zoo.fused_losses.forward_adapter import lm_head_fake_quantize, unsloth_fused_lm_head_loss
+from unsloth_zoo.fused_losses.forward_adapter import lm_head_fake_quantize, lm_head_needs_module_forward, unsloth_fused_lm_head_loss
 from unsloth_zoo.fused_losses.forward_install import _can_fuse_loss
 from unsloth_zoo.compiler import lm_head_on_old_cuda_arch
 from unsloth_zoo.fused_losses.cross_entropy_loss import unsloth_count_aware_cross_entropy, unsloth_loss_count_kwargs, unsloth_fsdp_unshard
@@ -1182,7 +1182,8 @@ def replace_sdpa_with_amd_aiter(source):
 
 
 def _temp_compile_folder_is_ours(location):
-    """A real directory (not a link) owned by this user that others cannot write."""
+    """A real directory (not a link) owned by this user that no group member or other user can write.
+    A group-writable one (an older 0775 umask-002 folder) falls back to the 0700 `_<uid>` folder."""
     try:
         st = os.lstat(location)
     except OSError:
@@ -1190,7 +1191,7 @@ def _temp_compile_folder_is_ours(location):
     return (
         stat.S_ISDIR(st.st_mode)
         and st.st_uid == os.geteuid()
-        and not (st.st_mode & 0o002)
+        and not (st.st_mode & 0o022)
     )
 
 
@@ -2514,6 +2515,8 @@ def create_new_function(
         imports += "from unsloth_zoo.temporary_patches.utils import torch_compile_with_fallback\n"
     if "torch_compiler_disable_unless_decode" in new_source:
         imports += "from unsloth_zoo.temporary_patches.utils import torch_compiler_disable_unless_decode\n"
+    if "inkling2_residual_eager_unless_decode" in new_source:
+        imports += "from unsloth_zoo.temporary_patches.inkling2 import inkling2_residual_eager_unless_decode\n"
     # mHC helpers come from the zoo: they are set on the modeling module only at runtime.
     for helper in _MHC_INJECTED_HELPERS:
         if re.search(rf"\b{helper}\b", new_source):
@@ -3372,7 +3375,11 @@ def create_standalone_class(
         compile = (
             f"@torch_compile_with_fallback(fullgraph = {fullgraph}, dynamic = True, options = torch_compile_options)"
             if not disable
-            else "@torch_compiler_disable_unless_decode"
+            else (
+                "@inkling2_residual_eager_unless_decode"
+                if any(module.endswith(x) for x in DISABLE_COMPILE_EAGER_OP_MODULES)
+                else "@torch_compiler_disable_unless_decode"
+            )
         )
     else:
         compile = ""
@@ -3766,7 +3773,7 @@ elif labels is None:
         logits = logits / (\\4)
         logits = torch.tanh(logits)
         logits = logits * (\\4)
-elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE and HAS_CUT_CROSS_ENTROPY) and not lm_head_on_old_cuda_arch(self.lm_head.weight) and NOT_RETURN_LOGITS and _can_fuse_loss(self.loss_function) and labels is not None and not requires_grad_ and getattr(self.lm_head, "bias", None) is None:
+elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE and HAS_CUT_CROSS_ENTROPY) and not lm_head_on_old_cuda_arch(self.lm_head.weight) and NOT_RETURN_LOGITS and _can_fuse_loss(self.loss_function) and labels is not None and not requires_grad_ and not lm_head_needs_module_forward(self.lm_head) and getattr(self.lm_head, "bias", None) is None:
     _hidden_states, lm_head_weight = lm_head_fake_quantize(self.lm_head, hidden_states\\1)
     loss = fused_linear_cross_entropy(
         hidden_states      = _hidden_states,
@@ -3793,6 +3800,7 @@ else:
         scaling              = getattr(self, "accelerator_scaler", None),
         target_gb            = None,
         torch_compile        = not UNSLOTH_COMPILE_DISABLE and not lm_head_on_old_cuda_arch(lm_head_weight),
+        lm_head_module       = self.lm_head,
         logit_scale_multiply = (\\2) if (\\2) != () else 0,
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) != () else 0,
@@ -3867,7 +3875,7 @@ elif labels is None:
         logits = logits / (\\4)
         logits = torch.tanh(logits)
         logits = logits * (\\4)
-elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE and HAS_CUT_CROSS_ENTROPY) and not lm_head_on_old_cuda_arch(self.lm_head.weight) and NOT_RETURN_LOGITS and _can_fuse_loss(self.loss_function) and labels is not None and not requires_grad_ and explicit_shift_labels is None and getattr(self.lm_head, "bias", None) is None:
+elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE and HAS_CUT_CROSS_ENTROPY) and not lm_head_on_old_cuda_arch(self.lm_head.weight) and NOT_RETURN_LOGITS and _can_fuse_loss(self.loss_function) and labels is not None and not requires_grad_ and not lm_head_needs_module_forward(self.lm_head) and explicit_shift_labels is None and getattr(self.lm_head, "bias", None) is None:
     _hidden_states, lm_head_weight = lm_head_fake_quantize(self.lm_head, hidden_states\\1)
     loss = fused_linear_cross_entropy(
         hidden_states      = _hidden_states,
@@ -3895,6 +3903,7 @@ elif _can_fuse_loss(self.loss_function) and labels is not None and NOT_RETURN_LO
         scaling              = getattr(self, "accelerator_scaler", None),
         target_gb            = None,
         torch_compile        = not UNSLOTH_COMPILE_DISABLE and not lm_head_on_old_cuda_arch(lm_head_weight),
+        lm_head_module       = self.lm_head,
         logit_scale_multiply = (\\2) if (\\2) != () else 0,
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) != () else 0,
@@ -4018,6 +4027,7 @@ else:
         scaling              = getattr(self, "accelerator_scaler", None),
         target_gb            = None,
         torch_compile        = not UNSLOTH_COMPILE_DISABLE and not lm_head_on_old_cuda_arch(lm_head_weight),
+        lm_head_module       = self.lm_head,
         logit_scale_multiply = (\\2) if (\\2) != () else 0,
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) != () else 0,
@@ -5714,9 +5724,23 @@ def _count_aware_ce_fallback(source, module = None, module_class = None):
 
 def fused_lm_head_forward(module, module_class, modeling_module_name, source):
     """Fused-CE rewrite of one forward: (new_source, "regex" | "ast" | None, supports_return_hidden_states)."""
+    out = _fused_lm_head_forward(module, module_class, modeling_module_name, source, True)
+    if out[1] is None:
+        # Nothing fused: keep the softcap module call as written.
+        return _fused_lm_head_forward(module, module_class, modeling_module_name, source, False)
+    # The materialised branches call the softcap module as upstream does (forward hooks run).
+    from unsloth_zoo.fused_losses.ast_rewriter import restore_softcap_modules
+    return (restore_softcap_modules(out[0], module_class), *out[1:])
+
+
+def _fused_lm_head_forward(module, module_class, modeling_module_name, source, inline_softcap):
     # Fix some arguments up like for Gemma 3N
     new_source = fixup_fused_lm_head(source)
     new_source = fixup_dropped_logit_scale(new_source, module)
+    if inline_softcap:
+        # Inkling 2's final softcap is a module call; the fused kernel takes it as logit_softcapping.
+        from unsloth_zoo.fused_losses.ast_rewriter import inline_softcap_modules
+        new_source = inline_softcap_modules(new_source, module_class)
     # Fused CE reads lm_head.weight, which Roberta-style composite heads lack.
     from unsloth_zoo.fused_losses.forward_install import _head_built_as_linear
     # Only classes defined here: an imported one (4.x Blenderbot) lacks its base classes.
@@ -6090,6 +6114,17 @@ DISABLE_COMPILE_MODULES = [
     "DeepseekV41HyperConnection",
     # GLM-5.3-Flash: same Sinkhorn mixer. Its HyperHead is an unweighted mean and stays compiled.
     "Glm5NextTextHyperConnection",
+    # Inkling 2 block attention residuals: compiled alone (dynamic = True, CUDA), the one-query form over 3+ stacked
+    # blocks returns correct values but wrong input grads (8-34% relative); the LoRA grads of every layer drift.
+    "Inkling2BlockAttentionResidual",
+    "Inkling2LoopBlockAttentionResidual",
+]
+
+# Disabled modules that stay eager inside an enclosing compiled graph through an opaque custom op (eager forward and
+# backward) instead of a graph break, which fullgraph = True refuses.
+DISABLE_COMPILE_EAGER_OP_MODULES = [
+    "Inkling2BlockAttentionResidual",
+    "Inkling2LoopBlockAttentionResidual",
 ]
 
 FIX_GC_LAYER_CALLER_MODULES = [

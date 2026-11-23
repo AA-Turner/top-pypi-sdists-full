@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import math
 import os
 from collections import deque
 from collections.abc import Callable, Iterable, Sequence
@@ -65,6 +66,7 @@ from .stream import (
     FinalSizeError,
     QuicStream,
     StreamFinishedError,
+    TooManyRangesError,
 )
 
 logger = logging.getLogger("quic")
@@ -168,14 +170,20 @@ def get_transport_parameters(
 
 def stream_is_client_initiated(stream_id: int) -> bool:
     """
-    Returns True if the stream is client initiated.
+    Return `True` if the stream ID designates a client-initiated stream,
+    `False` if it designates a server-initiated one.
+
+    :param stream_id: A stream ID.
     """
     return not (stream_id & 1)
 
 
 def stream_is_unidirectional(stream_id: int) -> bool:
     """
-    Returns True if the stream is unidirectional.
+    Return `True` if the stream ID designates a unidirectional stream, `False`
+    if it designates a bidirectional one.
+
+    :param stream_id: A stream ID.
     """
     return bool(stream_id & 2)
 
@@ -337,6 +345,16 @@ class QuicConnection:
                 "The smallest allowed maximum datagram size is "
                 f"{SMALLEST_MAX_DATAGRAM_SIZE} bytes"
             )
+        # The idle timeout is advertised in milliseconds, and an advertised 0
+        # would tell the peer we have no idle timeout (RFC 9000 section 18.2).
+        if not (
+            math.isfinite(configuration.idle_timeout)
+            and 1 <= int(configuration.idle_timeout * 1000) <= UINT_VAR_MAX
+        ):
+            raise ConnectionConfigurationError(
+                "The idle timeout must be between 0.001 and "
+                f"{UINT_VAR_MAX // 1000} seconds"
+            )
         if configuration.is_client:
             if original_destination_connection_id is not None:
                 raise ConnectionConfigurationError(
@@ -387,6 +405,7 @@ class QuicConnection:
         self._events: deque[events.QuicEvent] = deque()
         self._handshake_complete = False
         self._handshake_confirmed = False
+        self._handshake_deadline: float | None = None
         self._host_cids = [
             QuicConnectionId(
                 cid=os.urandom(configuration.connection_id_length),
@@ -448,6 +467,7 @@ class QuicConnection:
         self._remote_max_streams_uni = 0
         self._remote_preferred_address: QuicPreferredAddress | None = None
         self._remote_reset_stream_at = False
+        self._remote_transport_parameters: bytes | None = None
         self._remote_version_information: QuicVersionInformation | None = None
         self._retry_count = 0
         self._retry_source_connection_id = retry_source_connection_id
@@ -550,6 +570,30 @@ class QuicConnection:
     @property
     def original_destination_connection_id(self) -> bytes:
         return self._original_destination_connection_id
+
+    def can_send_stream_data(self, stream_id: int) -> bool:
+        """
+        Return `True` if :meth:`send_stream_data` can send data on the given
+        stream.
+
+        This is not the case for the peer's unidirectional streams and for the
+        streams the peer has not opened, nor once a stream was ended by
+        :meth:`send_stream_data`, reset by :meth:`reset_stream` or
+        :meth:`reset_stream_at`, or stopped by the peer with a STOP_SENDING
+        frame.
+
+        :param stream_id: The stream's ID.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the stream ID is out of range.
+        """
+        validate_stream_id(stream_id)
+
+        if not self._stream_can_send(stream_id) or self._stream_is_discarded(stream_id):
+            return False
+        stream = self._streams.get(stream_id)
+        if stream is None:
+            return stream_is_client_initiated(stream_id) == self._is_client
+        return not stream.sender.is_ended
 
     def change_connection_id(self) -> None:
         """
@@ -830,6 +874,14 @@ class QuicConnection:
             if deadline is not None and deadline < timer_at:
                 timer_at = deadline
 
+            # Handshake timer.
+            if (
+                self._handshake_deadline is not None
+                and not self._handshake_complete
+                and self._handshake_deadline < timer_at
+            ):
+                timer_at = self._handshake_deadline
+
         return timer_at
 
     def handle_timer(self, now: float) -> None:
@@ -855,6 +907,22 @@ class QuicConnection:
             self._close_end()
             return
 
+        # Handshake timeout.
+        if (
+            self._handshake_deadline is not None
+            and not self._handshake_complete
+            and self._state not in END_STATES
+            and now >= self._handshake_deadline
+        ):
+            if self._close_event is None:
+                self._close_event = events.ConnectionTerminated(
+                    error_code=QuicErrorCode.INTERNAL_ERROR,
+                    frame_type=QuicFrameType.PADDING,
+                    reason_phrase="Handshake timeout",
+                )
+            self._close_end()
+            return
+
         # loss detection timeout
         if self._loss_at is not None and now >= self._loss_at:
             self._logger.debug("Loss detection triggered")
@@ -864,6 +932,15 @@ class QuicConnection:
         deadline = self._path_validation_deadline()
         if deadline is not None and now >= deadline:
             self._abandon_path_validation()
+
+    def is_closing(self) -> bool:
+        """
+        Return `True` if the connection is closing or closed.
+
+        This is the case as soon as :meth:`close` is called, or once the
+        connection is closed by the peer, an error or the idle timeout.
+        """
+        return self._close_pending or self._state in END_STATES
 
     def next_event(self) -> events.QuicEvent | None:
         """
@@ -938,13 +1015,26 @@ class QuicConnection:
         if not network_path.is_validated:
             network_path.bytes_received += payload_length
 
-        # for servers, arm the idle timeout on the first datagram
+        # For servers, arm the idle timeout on the first datagram and limit the
+        # time the client has to complete the handshake (RFC 9000 section 21.6).
         if self._close_at is None:
             self._close_at = now + self._idle_timeout()
+            self._handshake_deadline = now + 10.0
 
         buf = Buffer(data=data)
         while not buf.eof():
             start_off = buf.tell()
+
+            # Zero bytes after a packet are padding, which RFC 9000 section 14.1
+            # allows for datagrams carrying INITIAL packets. They are not a
+            # packet, so stop without logging a drop.
+            if (
+                start_off
+                and data[start_off] == 0
+                and data.count(0, start_off) == payload_length - start_off
+            ):
+                return
+
             try:
                 header = pull_quic_header(
                     buf, host_cid_length=self._configuration.connection_id_length
@@ -1052,8 +1142,6 @@ class QuicConnection:
                 buf.seek(start_off + header.packet_length)
                 continue
 
-            crypto_frame_required = False
-
             # Server initialization.
             if not self._is_client and self._state == QuicConnectionState.FIRSTFLIGHT:
                 # Nothing can be decrypted until we have received an INITIAL packet.
@@ -1068,7 +1156,6 @@ class QuicConnection:
                         )
                     return
 
-                crypto_frame_required = True
                 self._network_paths = [network_path]
                 self._version = header.version
                 self._initialize(header.destination_cid)
@@ -1227,7 +1314,7 @@ class QuicConnection:
             )
             try:
                 is_ack_eliciting, is_probing = self._payload_received(
-                    context, plain_payload, crypto_frame_required=crypto_frame_required
+                    context, plain_payload
                 )
             except QuicConnectionError as exc:
                 self._logger.warning(exc)
@@ -1543,53 +1630,7 @@ class QuicConnection:
         """
         Callback which is invoked by the TLS engine at most once, when the
         ALPN negotiation completes.
-
-        At this point, TLS extensions have been received so we can parse the
-        transport parameters.
         """
-        # QUIC does not use TLS 1.3 middlebox compatibility mode (RFC 9001 section 8.4).
-        if not self._is_client and self.tls.legacy_session_id:
-            raise QuicConnectionError(
-                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
-                frame_type=self._crypto_frame_type,
-                reason_phrase="ClientHello has a non-empty legacy_session_id",
-            )
-
-        # Parse the remote transport parameters.
-        self._parse_transport_parameters(self.tls.received_extensions)
-
-        # For servers, determine the Negotiated Version.
-        if not self._is_client and not self._version_negotiated_compatible:
-            if self._remote_version_information is not None:
-                # Pick the first version we support in the client's available versions,
-                # which is compatible with the current version.
-                for version in self._remote_version_information.available_versions:
-                    if version == self._version:
-                        # Stay with the current version.
-                        break
-                    elif (
-                        version in self._configuration.supported_versions
-                        and is_version_compatible(self._version, version)
-                    ):
-                        # Change version.
-                        self._version = version
-                        self._cryptos[tls.Epoch.INITIAL] = self._cryptos_initial[
-                            version
-                        ]
-
-                        # Update our transport parameters to reflect the chosen version.
-                        self.tls.handshake_extensions = [
-                            (
-                                tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS,
-                                self._serialize_transport_parameters(),
-                            )
-                        ]
-                        break
-            self._version_negotiated_compatible = True
-            self._logger.info(
-                "Negotiated protocol version %s", pretty_protocol_version(self._version)
-            )
-
         # Notify the application.
         self._events.append(events.ProtocolNegotiated(alpn_protocol=alpn_protocol))
 
@@ -2039,6 +2080,72 @@ class QuicConnection:
             )
         self._session_ticket_handler(session_ticket)
 
+    def _handle_tls_extensions(self, extensions: list[tls.Extension]) -> None:
+        """
+        Callback which is invoked by the TLS engine with the extensions it does
+        not handle itself: those of each ClientHello for servers, before
+        answering it, and those of EncryptedExtensions for clients.
+
+        This is where the transport parameters are received.
+        """
+        # QUIC does not use TLS 1.3 middlebox compatibility mode (RFC 9001 section 8.4).
+        if not self._is_client and self.tls.legacy_session_id:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
+                frame_type=self._crypto_frame_type,
+                reason_phrase="ClientHello has a non-empty legacy_session_id",
+            )
+
+        # A ClientHello after a HelloRetryRequest must have the same transport
+        # parameters (RFC 9846 section 4.2.2), which we have already applied.
+        transport_parameters = dict(extensions).get(
+            tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS
+        )
+        if self._remote_transport_parameters is not None:
+            if transport_parameters != self._remote_transport_parameters:
+                raise QuicConnectionError(
+                    error_code=QuicErrorCode.TRANSPORT_PARAMETER_ERROR,
+                    frame_type=self._crypto_frame_type,
+                    reason_phrase="ClientHello has different transport parameters",
+                )
+            return
+
+        # Parse the remote transport parameters.
+        self._parse_transport_parameters(extensions)
+        self._remote_transport_parameters = transport_parameters
+
+        # For servers, determine the Negotiated Version.
+        if not self._is_client and not self._version_negotiated_compatible:
+            if self._remote_version_information is not None:
+                # Pick the first version we support in the client's available versions,
+                # which is compatible with the current version.
+                for version in self._remote_version_information.available_versions:
+                    if version == self._version:
+                        # Stay with the current version.
+                        break
+                    elif (
+                        version in self._configuration.supported_versions
+                        and is_version_compatible(self._version, version)
+                    ):
+                        # Change version.
+                        self._version = version
+                        self._cryptos[tls.Epoch.INITIAL] = self._cryptos_initial[
+                            version
+                        ]
+
+                        # Update our transport parameters to reflect the chosen version.
+                        self.tls.handshake_extensions = [
+                            (
+                                tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS,
+                                self._serialize_transport_parameters(),
+                            )
+                        ]
+                        break
+            self._version_negotiated_compatible = True
+            self._logger.info(
+                "Negotiated protocol version %s", pretty_protocol_version(self._version)
+            )
+
     def _initialize(self, peer_cid: bytes) -> None:
         # TLS
         self.tls = tls.Context(
@@ -2099,6 +2206,7 @@ class QuicConnection:
             self.tls.get_session_ticket_cb = self._fetch_session_ticket
         if self._session_ticket_handler is not None:
             self.tls.new_session_ticket_cb = self._handle_session_ticket
+        self.tls.received_extensions_cb = self._handle_tls_extensions
         self.tls.update_traffic_key_cb = self._update_traffic_key
 
         # packet spaces
@@ -2180,6 +2288,16 @@ class QuicConnection:
                 self._quic_logger.encode_ack_frame(ranges=ack_rangeset, delay=ack_delay)
             )
 
+        # Reject acknowledgments for packets which were not sent (RFC 9000
+        # section 13.1).
+        space = self._spaces[context.epoch]
+        if ack_rangeset.stop - 1 > space.largest_sent_packet:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
+                frame_type=frame_type,
+                reason_phrase="ACK frame acknowledges a packet which was not sent",
+            )
+
         # check whether peer completed address validation
         if not self._loss.peer_completed_address_validation and context.epoch in (
             tls.Epoch.HANDSHAKE,
@@ -2191,7 +2309,7 @@ class QuicConnection:
             ack_rangeset=ack_rangeset,
             ack_delay=ack_delay,
             now=context.time,
-            space=self._spaces[context.epoch],
+            space=space,
         )
 
     def _handle_connection_close_frame(
@@ -2264,10 +2382,18 @@ class QuicConnection:
                 frame_type=frame_type,
                 reason_phrase="too much crypto buffering",
             )
-        event = stream.receiver.handle_frame(frame)
+        try:
+            event = stream.receiver.handle_frame(frame)
+        except TooManyRangesError as exc:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.CRYPTO_BUFFER_EXCEEDED,
+                frame_type=frame_type,
+                reason_phrase=str(exc),
+            )
         if event is not None:
             # Pass data to TLS layer, which may cause calls to:
             # - _alpn_handler
+            # - _handle_tls_extensions
             # - _update_traffic_key
             self._crypto_frame_type = frame_type
             self._crypto_packet_version = context.version
@@ -2280,6 +2406,15 @@ class QuicConnection:
                     frame_type=frame_type,
                     reason_phrase=str(exc),
                 )
+
+            # A HelloRetryRequest rejects 0-RTT (RFC 9001 section 4.6.2), so stop
+            # sending 0-RTT packets.
+            if (
+                self._is_client
+                and self.tls.hello_retry_requested
+                and self._cryptos[tls.Epoch.ZERO_RTT].send.is_valid()
+            ):
+                self._cryptos[tls.Epoch.ZERO_RTT].send.teardown()
 
             # Update the current epoch.
             if not self._handshake_complete and self.tls.state in [
@@ -2889,11 +3024,15 @@ class QuicConnection:
         #
         # https://datatracker.ietf.org/doc/html/rfc9000#section-3.5
         stream = self._get_or_create_stream(frame_type, stream_id)
+        was_ended = stream.sender.is_ended
         stream.sender.reset(error_code=error_code)
 
-        self._events.append(
-            events.StopSendingReceived(error_code=error_code, stream_id=stream_id)
-        )
+        # Only report a stop which ends the sending part: once the application
+        # ended it, with a FIN or a reset, it has nothing left to send.
+        if not was_ended:
+            self._events.append(
+                events.StopSendingReceived(error_code=error_code, stream_id=stream_id)
+            )
 
     def _handle_stream_frame(
         self, context: QuicReceiveContext, frame_type: int, buf: Buffer
@@ -2951,6 +3090,12 @@ class QuicConnection:
         except FinalSizeError as exc:
             raise QuicConnectionError(
                 error_code=QuicErrorCode.FINAL_SIZE_ERROR,
+                frame_type=frame_type,
+                reason_phrase=str(exc),
+            )
+        except TooManyRangesError as exc:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.INTERNAL_ERROR,
                 frame_type=frame_type,
                 reason_phrase=str(exc),
             )
@@ -3141,17 +3286,13 @@ class QuicConnection:
         return network_path.validation_deadline
 
     def _payload_received(
-        self,
-        context: QuicReceiveContext,
-        plain: bytes,
-        crypto_frame_required: bool = False,
+        self, context: QuicReceiveContext, plain: bytes
     ) -> tuple[bool, bool]:
         """
         Handle a QUIC packet payload.
         """
         buf = Buffer(data=plain)
 
-        crypto_frame_found = False
         frame_found = False
         is_ack_eliciting = False
         is_probing = None
@@ -3200,9 +3341,6 @@ class QuicConnection:
             # update ACK only / probing flags
             frame_found = True
 
-            if frame_type == QuicFrameType.CRYPTO:
-                crypto_frame_found = True
-
             if frame_type not in NON_ACK_ELICITING_FRAME_TYPES:
                 is_ack_eliciting = True
 
@@ -3216,15 +3354,6 @@ class QuicConnection:
                 error_code=QuicErrorCode.PROTOCOL_VIOLATION,
                 frame_type=QuicFrameType.PADDING,
                 reason_phrase="Packet contains no frames",
-            )
-
-        # RFC 9000 - 17.2.2. Initial Packet
-        # The first packet sent by a client always includes a CRYPTO frame.
-        if crypto_frame_required and not crypto_frame_found:
-            raise QuicConnectionError(
-                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
-                frame_type=QuicFrameType.PADDING,
-                reason_phrase="Packet contains no CRYPTO frame",
             )
 
         return is_ack_eliciting, bool(is_probing)
@@ -3665,10 +3794,14 @@ class QuicConnection:
             self._remote_active_connection_id_limit = (
                 quic_transport_parameters.active_connection_id_limit
             )
-        if quic_transport_parameters.max_idle_timeout is not None:
+        # A peer which advertises 0, or nothing, has no preference (RFC 9000
+        # section 10.1). The handshake's parameters replace those of the ticket.
+        if quic_transport_parameters.max_idle_timeout:
             self._remote_max_idle_timeout = (
                 quic_transport_parameters.max_idle_timeout / 1000.0
             )
+        else:
+            self._remote_max_idle_timeout = None
         self._remote_max_datagram_frame_size = (
             quic_transport_parameters.max_datagram_frame_size
         )

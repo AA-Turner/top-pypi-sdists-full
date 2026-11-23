@@ -102,8 +102,7 @@ def create_np_array_dataset(py_obj, h_group, name, **kwargs):
         if py_obj.ndim < 1:
             # convert string to utf8 encoded bytearray
             string_data = bytearray(py_obj.item(),"utf8") if 'bytes' not in dtype.name else memoryview(py_obj.item())
-            string_data = np.array(string_data,copy = False)
-            string_data.dtype = 'S1'
+            string_data = np.asarray(string_data).view('S1')
             h_node = h_group.create_dataset(name,data = string_data,shape=(1,string_data.size),**kwargs)
             sub_items = ()
         else:
@@ -232,7 +231,7 @@ def load_ndarray_dataset(h_node,base_type,py_obj_type):
             # not converted to list of string but saved as ar consequently
             # itemsize of dtype is > 1
             string_data = bytes(string_data).decode("utf8")
-        return np.array(string_data,copy=False,dtype=dtype)
+        return np.asarray(string_data,dtype=dtype)
     if issubclass(py_obj_type,np.matrix):
         return py_obj_type(data=h_node[()],dtype=dtype)
     # TODO how to restore other ndarray derived object_types

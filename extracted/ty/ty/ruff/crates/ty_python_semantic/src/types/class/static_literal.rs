@@ -9,7 +9,7 @@ use ruff_db::{
 use ruff_python_ast as ast;
 use ruff_python_ast::{PythonVersion, name::Name};
 use ruff_text_size::{Ranged, TextRange};
-use std::cell::RefCell;
+use std::cell::{LazyCell, RefCell};
 
 use super::implicit_attributes::implicit_attribute_names;
 use crate::{
@@ -373,7 +373,7 @@ impl<'db> StaticClassLiteral<'db> {
 
     #[salsa::tracked(
         returns(copy),
-        cycle_initial=|_, _, _| None,
+        cycle_initial=|_, _, _, _| None,
         heap_size=ruff_memory_usage::heap_size,
     )]
     pub(crate) fn generic_context(self, db: &'db dyn Db) -> Option<GenericContext<'db>> {
@@ -421,7 +421,7 @@ impl<'db> StaticClassLiteral<'db> {
 
     #[salsa::tracked(
         returns(copy),
-        cycle_initial=|_, _, _| None,
+        cycle_initial=|_, _, _, _| None,
         heap_size=ruff_memory_usage::heap_size,
     )]
     fn pep695_generic_context_inner(self, db: &'db dyn Db) -> Option<GenericContext<'db>> {
@@ -479,7 +479,7 @@ impl<'db> StaticClassLiteral<'db> {
     ) -> Option<GenericContext<'db>> {
         #[salsa::tracked(
             returns(copy),
-            cycle_initial=|_, _, _| None,
+            cycle_initial=|_, _, _, _| None,
             heap_size=ruff_memory_usage::heap_size,
         )]
         fn inherited_legacy_generic_context_inner<'db>(
@@ -706,7 +706,12 @@ impl<'db> StaticClassLiteral<'db> {
     /// Were this not a salsa query, then the calling query
     /// would depend on the class's AST and rerun for every change in that file.
     pub(crate) fn explicit_bases(self, db: &'db dyn Db) -> &'db [Type<'db>] {
-        #[salsa::tracked(returns(deref), cycle_initial=explicit_bases_cycle_initial, cycle_fn=explicit_bases_cycle_fn, heap_size=ruff_memory_usage::heap_size)]
+        #[salsa::tracked(
+            returns(deref),
+            cycle_initial=|db, id, _, input| explicit_bases_cycle_initial(db, id, input),
+            cycle_fn=explicit_bases_cycle_fn,
+            heap_size=ruff_memory_usage::heap_size,
+        )]
         fn explicit_bases_inner<'db>(
             db: &'db dyn Db,
             class: StaticClassLiteral<'db>,
@@ -819,7 +824,7 @@ impl<'db> StaticClassLiteral<'db> {
         self.decorators_inner(db)
     }
 
-    #[salsa::tracked(returns(deref), cycle_initial=|_, _, _| Box::default(), heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(returns(deref), cycle_initial=|_, _, _, _| Box::default(), heap_size=ruff_memory_usage::heap_size)]
     fn decorators_inner(self, db: &'db dyn Db) -> Box<[Type<'db>]> {
         tracing::trace!("StaticClassLiteral::decorators: {}", self.name(db));
 
@@ -921,7 +926,7 @@ impl<'db> StaticClassLiteral<'db> {
 
         #[salsa::tracked(
             returns(as_ref),
-            cycle_initial=mro_ancestors_cycle_initial,
+            cycle_initial=|db, id, _, input| mro_ancestors_cycle_initial(db, id, input),
             heap_size=ruff_memory_usage::heap_size
         )]
         fn named_tuple_ancestors<'db>(
@@ -968,7 +973,7 @@ impl<'db> StaticClassLiteral<'db> {
 
     #[salsa::tracked(
         returns(as_ref),
-        cycle_initial=mro_ancestors_cycle_initial,
+        cycle_initial=|db, id, _, input| mro_ancestors_cycle_initial(db, id, input),
         heap_size=ruff_memory_usage::heap_size
     )]
     fn try_mro_ancestors_unspecialized(
@@ -1056,7 +1061,7 @@ impl<'db> StaticClassLiteral<'db> {
     pub(super) fn instance_flags(self, db: &'db dyn Db) -> ClassInstanceFlags {
         #[salsa::tracked(
             returns(copy),
-            cycle_initial=|_, _, _| ClassInstanceFlags::empty(),
+            cycle_initial=|_, _, _, _| ClassInstanceFlags::empty(),
             heap_size=ruff_memory_usage::heap_size,
         )]
         fn instance_flags_inner<'db>(
@@ -1107,7 +1112,7 @@ impl<'db> StaticClassLiteral<'db> {
     }
 
     /// Return the module defining the `TypedDict` base of this class.
-    #[salsa::tracked(returns(copy), cycle_initial=|_, _, _| None, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(returns(copy), cycle_initial=|_, _, _, _| None, heap_size=ruff_memory_usage::heap_size)]
     pub(crate) fn typed_dict_module(self, db: &'db dyn Db) -> Option<TypingModule> {
         self.iter_mro(db, None)
             .find_map(ClassBase::typed_dict_module)
@@ -1316,7 +1321,7 @@ impl<'db> StaticClassLiteral<'db> {
     {
         #[salsa::tracked(
             returns(clone),
-            cycle_initial=|_, _, _| Err(MetaclassError {
+            cycle_initial=|_, _, _, _| Err(MetaclassError {
                 kind: MetaclassErrorKind::Cycle,
             }),
             heap_size=ruff_memory_usage::heap_size,
@@ -1865,7 +1870,7 @@ impl<'db> StaticClassLiteral<'db> {
         })
     }
 
-    fn own_generated_member(
+    pub(in crate::types) fn own_generated_member(
         self,
         db: &'db dyn Db,
         env: &ProgramEnvironment<'db>,
@@ -1938,24 +1943,37 @@ impl<'db> StaticClassLiteral<'db> {
         }
 
         let field_policy = code_generator()?;
-        let pydantic_constructor_fields_are_keyword_only =
-            field_policy.is_pydantic() && pydantic::constructor_fields_are_keyword_only(db, self);
-        let pydantic_constructor_fields_are_optional = name == "__init__"
-            && field_policy.is_pydantic()
-            && pydantic::constructor_fields_are_optional(db, self);
-
-        let instance_ty = Type::instance(
-            db,
-            env,
-            self.apply_optional_specialization(db, specialization),
-        );
+        let instance_ty = LazyCell::new(|| {
+            Type::instance(
+                db,
+                env,
+                self.apply_optional_specialization(db, specialization),
+            )
+        });
 
         let signature_from_fields = |mut parameters: Vec<_>, return_ty: Type<'db>| {
+            let pydantic_constructor_fields_are_keyword_only = field_policy.is_pydantic()
+                && pydantic::constructor_fields_are_keyword_only(db, self);
+            let pydantic_constructor_fields_are_optional = name == "__init__"
+                && field_policy.is_pydantic()
+                && pydantic::constructor_fields_are_optional(db, self);
+
             if name == "__init__" && field_policy.is_pydantic() {
                 pydantic::extend_settings_constructor_parameters(db, self, &mut parameters);
             }
 
-            for (field_name, field) in self.fields(db, specialization, field_policy) {
+            let fields = self.fields(db, specialization, field_policy);
+            let validated_fields = LazyCell::new(|| {
+                let names = fields
+                    .iter()
+                    .filter(|(_, field)| {
+                        matches!(field.kind, FieldKind::Pydantic { init: true, .. })
+                    })
+                    .map(|(name, _)| name.clone())
+                    .collect();
+                pydantic::fields_with_raw_input_validators(db, self, names)
+            });
+            for (field_name, field) in fields {
                 let (init, mut default_ty, kw_only, alias, converter, strict) = match &field.kind {
                     FieldKind::NamedTuple { default_ty } => (
                         true,
@@ -2067,7 +2085,12 @@ impl<'db> StaticClassLiteral<'db> {
                 {
                     let strict = metadata.field_is_strict(db, strict);
                     field_ty = pydantic::constructor_parameter_type(
-                        db, self, field_name, field_ty, strict,
+                        db,
+                        self,
+                        &validated_fields,
+                        field_name,
+                        field_ty,
+                        strict,
                     );
                 }
 
@@ -2171,15 +2194,9 @@ impl<'db> StaticClassLiteral<'db> {
             (field_policy, "__init__")
                 if field_policy.synthesizes_constructor_signature_from_fields(db, self) =>
             {
-                if field_policy.is_dataclass_like()
-                    && !self.has_dataclass_param(db, field_policy, DataclassFlags::INIT)
-                {
-                    return None;
-                }
-
                 let self_parameter = Parameter::positional_or_keyword(Name::new_static("self"))
                     // TODO: could be `Self`.
-                    .with_annotated_type(instance_ty);
+                    .with_annotated_type(*instance_ty);
                 signature_from_fields(vec![self_parameter], Type::none(db, env))
             }
             (
@@ -2200,7 +2217,7 @@ impl<'db> StaticClassLiteral<'db> {
                             env,
                             &TypeMapping::ReplaceSelf {
                                 new_origin: SelfTypeVarOrigin::Class(self.into()),
-                                new_upper_bound: instance_ty,
+                                new_upper_bound: *instance_ty,
                             },
                             TypeContext::default(),
                         )
@@ -2244,10 +2261,10 @@ impl<'db> StaticClassLiteral<'db> {
                     Parameters::standard([
                         Parameter::positional_or_keyword(Name::new_static("self"))
                             // TODO: could be `Self`.
-                            .with_annotated_type(instance_ty),
+                            .with_annotated_type(*instance_ty),
                         Parameter::positional_or_keyword(Name::new_static("other"))
                             // TODO: could be `Self`.
-                            .with_annotated_type(instance_ty),
+                            .with_annotated_type(*instance_ty),
                     ]),
                     KnownClass::Bool.to_instance(db, env),
                 );
@@ -2268,7 +2285,7 @@ impl<'db> StaticClassLiteral<'db> {
                         Parameters::standard([Parameter::positional_or_keyword(Name::new_static(
                             "self",
                         ))
-                        .with_annotated_type(instance_ty)]),
+                        .with_annotated_type(*instance_ty)]),
                         KnownClass::Int.to_instance(db, env),
                     );
 
@@ -2335,16 +2352,16 @@ impl<'db> StaticClassLiteral<'db> {
                 "__replace__",
             ) if env.python_version(db) >= PythonVersion::PY313 => {
                 let self_parameter = Parameter::positional_or_keyword(Name::new_static("self"))
-                    .with_annotated_type(instance_ty);
+                    .with_annotated_type(*instance_ty);
 
-                signature_from_fields(vec![self_parameter], instance_ty)
+                signature_from_fields(vec![self_parameter], *instance_ty)
             }
             (CodeGeneratorKind::DataclassLike(_), "__setattr__") => {
                 if self.is_frozen_dataclass(db) == Some(true) {
                     let signature = Signature::new(
                         Parameters::standard([
                             Parameter::positional_or_keyword(Name::new_static("self"))
-                                .with_annotated_type(instance_ty),
+                                .with_annotated_type(*instance_ty),
                             Parameter::positional_or_keyword(Name::new_static("name")),
                             Parameter::positional_or_keyword(Name::new_static("value")),
                         ]),
@@ -2361,7 +2378,7 @@ impl<'db> StaticClassLiteral<'db> {
                 let signature = Signature::new(
                     Parameters::standard([
                         Parameter::positional_or_keyword(Name::new_static("self"))
-                            .with_annotated_type(instance_ty),
+                            .with_annotated_type(*instance_ty),
                         Parameter::positional_or_keyword(Name::new_static("name")),
                     ]),
                     Type::Never,
@@ -2617,7 +2634,7 @@ impl<'db> StaticClassLiteral<'db> {
 
     #[salsa::tracked(
         returns(ref),
-        cycle_initial=|_, _, _, _, _| FxIndexMap::default(),
+        cycle_initial=|_, _, _, _, _, _| FxIndexMap::default(),
         heap_size=get_size2::GetSize::get_heap_size
     )]
     fn fields_inner(
@@ -2817,7 +2834,7 @@ impl<'db> StaticClassLiteral<'db> {
     /// Keeping both together avoids reinterpreting declarations while merging inherited fields.
     #[salsa::tracked(
         returns(ref),
-        cycle_initial=|_, _, _, _, _| OwnClassFields::default(),
+        cycle_initial=|_, _, _, _, _, _| OwnClassFields::default(),
         heap_size=get_size2::GetSize::get_heap_size
     )]
     fn own_fields_inner(
@@ -3416,7 +3433,7 @@ impl<'db> StaticClassLiteral<'db> {
             return None;
         }
 
-        #[salsa::tracked(returns(copy), cycle_initial=|_, _, _| None, heap_size=ruff_memory_usage::heap_size)]
+        #[salsa::tracked(returns(copy), cycle_initial=|_, _, _, _| None, heap_size=ruff_memory_usage::heap_size)]
         fn inheritance_cycle_inner<'db>(
             db: &'db dyn Db,
             class: StaticClassLiteral<'db>,
@@ -3632,7 +3649,7 @@ impl<'db> StaticClassLiteral<'db> {
     /// Build a definition-site equation before substituting type arguments. Supported protocols
     /// use their structural interface; `TypedDict` classes use their fields. Other classes retain the
     /// ordinary attribute and base-class variance rules.
-    #[salsa::tracked(returns(copy), cycle_initial=|_, _, _, _| VarianceTerm::BIVARIANT, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(returns(copy), cycle_initial=|_, _, _, _, _| VarianceTerm::BIVARIANT, heap_size=ruff_memory_usage::heap_size)]
     pub(in crate::types) fn variance_equation(
         self,
         db: &'db dyn Db,

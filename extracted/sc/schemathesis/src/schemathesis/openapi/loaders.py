@@ -11,6 +11,7 @@ from typing import IO, TYPE_CHECKING, Any
 from schemathesis import wfc
 from schemathesis.config import SchemathesisConfig
 from schemathesis.core import media_types
+from schemathesis.core.app_output import inside_application
 from schemathesis.core.deserialization import deserialize_yaml
 from schemathesis.core.errors import LoaderError, LoaderErrorKind
 from schemathesis.core.loaders import load_from_url, prepare_request_kwargs, raise_for_status, require_relative_url
@@ -48,14 +49,11 @@ def from_asgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
     from schemathesis.python import asgi
 
     require_relative_url(path)
-    with asgi.get_client(app) as client, django.explain_disallowed_host(app, host=asgi.HOST):
+    with inside_application(), asgi.get_client(app) as client, django.explain_disallowed_host(app, host=asgi.HOST):
         response = load_from_url(client.get, url=path, **kwargs)
     content_type = detect_content_type(headers=response.headers, path=path)
     schema = load_content(decode_lossy(response.content, response.encoding), content_type)
-    loaded = _from_dict(schema, config=config, stringify=False)
-    loaded.app = app
-    loaded.location = path
-    return loaded
+    return _from_dict(schema, config=config, stringify=False, app=app, location=path)
 
 
 def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, **kwargs: Any) -> OpenApiSchema:
@@ -80,16 +78,14 @@ def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
     require_relative_url(path)
     prepare_request_kwargs(kwargs)
     client = wsgi.get_client(app)
-    response = client.get(path=path, **kwargs)
+    with inside_application():
+        response = client.get(path=path, **kwargs)
     with django.explain_disallowed_host(app, host=wsgi.HOST):
         raise_for_status(response)
     content_type = detect_content_type(headers=response.headers, path=path)
     encoding = response.mimetype_params.get("charset", "utf-8")
     schema = load_content(decode_lossy(response.get_data(), encoding), content_type)
-    loaded = _from_dict(schema, config=config, stringify=False)
-    loaded.app = app
-    loaded.location = path
-    return loaded
+    return _from_dict(schema, config=config, stringify=False, app=app, location=path)
 
 
 def from_url(
@@ -131,9 +127,7 @@ def from_url(
     response = load_from_url(requests.get, url=url, wait_for_schema=wait_for_schema, **kwargs)
     content_type = detect_content_type(headers=response.headers, path=url)
     schema = load_content(decode_lossy(response.content, response.encoding), content_type)
-    loaded = _from_dict(schema, config=config, stringify=False)
-    loaded.location = url
-    return loaded
+    return _from_dict(schema, config=config, stringify=False, location=url)
 
 
 def from_path(
@@ -158,6 +152,12 @@ def from_path(
         ```
 
     """
+    return _from_path(path, config=config, encoding=encoding)
+
+
+def _from_path(
+    path: PathLike | str, *, config: SchemathesisConfig | None = None, encoding: str = "utf-8", app: Any = None
+) -> OpenApiSchema:
     with open(path, encoding=encoding) as file:
         content_type = detect_content_type(headers=None, path=str(path))
         try:
@@ -165,9 +165,7 @@ def from_path(
         except UnicodeDecodeError as exc:
             raise LoaderError(LoaderErrorKind.SYNTAX_ERROR, SCHEMA_SYNTAX_ERROR, extras=[str(exc)]) from exc
         schema = load_content(content, content_type)
-    loaded = _from_dict(schema, config=config, stringify=False)
-    loaded.location = Path(path).absolute().as_uri()
-    return loaded
+    return _from_dict(schema, config=config, stringify=False, app=app, location=Path(path).absolute().as_uri())
 
 
 def from_file(file: IO[str] | str, *, config: SchemathesisConfig | None = None) -> OpenApiSchema:
@@ -226,7 +224,14 @@ def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = Non
     return _from_dict(schema, config=config, stringify=True)
 
 
-def _from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None, stringify: bool) -> OpenApiSchema:
+def _from_dict(
+    schema: dict[str, Any],
+    *,
+    config: SchemathesisConfig | None,
+    stringify: bool,
+    app: Any = None,
+    location: str | None = None,
+) -> OpenApiSchema:
     if not isinstance(schema, dict):
         raise LoaderError(LoaderErrorKind.OPEN_API_INVALID_SCHEMA, SCHEMA_INVALID_ERROR)
 
@@ -254,11 +259,14 @@ def _from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None, str
             )
         from schemathesis.specs.openapi.schemas import OpenApiSchema
 
-        instance = OpenApiSchema(raw_schema=schema, config=project_config)
+        instance = OpenApiSchema(raw_schema=schema, config=project_config, app=app, location=location)
         wfc.setup_auth(instance, project_config, LoaderErrorKind.OPEN_API_INVALID_SCHEMA)
         return instance
 
-    return load_with_hooks(schema, config, build)
+    loaded = load_with_hooks(schema, config, build)
+    # API keys can go under names no sanitization key matches, e.g. a `jwt` cookie
+    loaded.config.output.sanitization.add_keys(loaded.security.api_key_names())
+    return loaded
 
 
 class ContentType(enum.Enum):
@@ -270,7 +278,6 @@ class ContentType(enum.Enum):
 
 
 def detect_content_type(*, headers: Mapping[str, str] | Headers | None = None, path: str | None = None) -> ContentType:
-    """Detect content type from various sources."""
     if headers is not None and (content_type := _detect_from_headers(headers)) != ContentType.UNKNOWN:
         return content_type
     if path is not None and (content_type := _detect_from_path(path)) != ContentType.UNKNOWN:
@@ -279,7 +286,6 @@ def detect_content_type(*, headers: Mapping[str, str] | Headers | None = None, p
 
 
 def _detect_from_headers(headers: Mapping[str, str] | Headers) -> ContentType:
-    """Detect content type from HTTP headers."""
     content_type = headers.get("Content-Type", "").lower()
     try:
         if content_type and media_types.is_json(content_type):
@@ -292,7 +298,6 @@ def _detect_from_headers(headers: Mapping[str, str] | Headers) -> ContentType:
 
 
 def _detect_from_path(path: str) -> ContentType:
-    """Detect content type from file path."""
     suffix = Path(path).suffix.lower()
     if suffix == ".json":
         return ContentType.JSON
@@ -302,12 +307,10 @@ def _detect_from_path(path: str) -> ContentType:
 
 
 def load_content(content: str, content_type: ContentType) -> dict[str, Any]:
-    """Load content using appropriate parser."""
     if content_type == ContentType.JSON:
         return _load_json(content)
     if content_type == ContentType.YAML:
         return _load_yaml(content)
-    # If type is unknown, try JSON first, then YAML
     try:
         return _load_json(content)
     except LoaderError:

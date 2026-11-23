@@ -47,6 +47,25 @@ if TYPE_CHECKING:
 # ======================================================================
 
 
+def failed_acquisitions(diagnostics: Any, failed_keys: list[str]) -> list[tuple[str, str]]:
+    """Name each package whose acquire failed, with its recorded cause (#4909).
+
+    A failed acquire only records a diagnostic, rendered after the install;
+    a frozen refusal raised before then would otherwise hide the cause.
+    """
+    from apm_cli.utils.diagnostics import CATEGORY_ERROR
+
+    keys = list(dict.fromkeys(failed_keys))
+    errors = diagnostics.by_category().get(CATEGORY_ERROR, []) if keys and diagnostics else []
+    failures: list[tuple[str, str]] = []
+    for key in keys:
+        messages = [d.message for d in errors if d.package == key]
+        failures.extend(
+            (key, message) for message in messages or [f"{key}: package could not be acquired"]
+        )
+    return failures
+
+
 def _announce_held_headers(prepared_integrations) -> None:
     """Emit every held package header (refusal paths before integration)."""
     for _dep_key, _install_path, source, _materialization, _deltas in prepared_integrations:
@@ -642,13 +661,42 @@ def _keep_prior_entries(
     lockfile = ctx.existing_lockfile
     for owner, path in kept:
         entry = deployed_path_entry(path, ctx.project_root, ctx.targets)
-        previous = lockfile.get_dependency(owner) if lockfile is not None else None
-        prior = previous.deployed_file_hashes.get(entry) if previous is not None else None
+        if lockfile is None:
+            prior = None
+        elif owner == ".":
+            # The project's own outputs keep their local lock hash (#4873).
+            prior = lockfile.local_deployed_file_hashes.get(entry)
+        else:
+            previous = lockfile.get_dependency(owner)
+            prior = previous.deployed_file_hashes.get(entry) if previous is not None else None
         ctx.package_cleanup_retained.setdefault(owner, {})[entry] = prior
         ctx.kept_overwrites.append((owner, entry))
         kind = session_kinds.get(path.resolve().as_posix())
         if kind is not None:
             ctx.kept_overwrite_kinds[entry] = kind
+
+
+def _write_plan(ctx: InstallContext, materialized, deployment_plans, local_plan) -> list:
+    """Every package this phase will deploy, as the commit gate plans its writes (#4381)."""
+    plan = [
+        (
+            materialization.package_info,
+            deployment_plans.get(materialization.dep_key),
+            ctx.managed_files,
+        )
+        for _source, materialization in materialized
+        if materialization.package_info is not None
+    ]
+    if local_plan is not None and ctx.root_has_local_primitives and ctx.targets:
+        from apm_cli.install.project_package import build_project_local_package_info
+        from apm_cli.integration.base_integrator import BaseIntegrator
+
+        managed = BaseIntegrator.normalize_managed_files(
+            builtins.set(ctx.managed_files) | builtins.set(ctx.old_local_deployed)
+        )
+        local = build_project_local_package_info(ctx.source_root or ctx.project_root)
+        plan.append((local, local_plan, managed))
+    return plan
 
 
 def _kept_skill_values(ctx: InstallContext) -> frozenset[str]:
@@ -775,6 +823,9 @@ def run(ctx: InstallContext) -> None:
     # A batch refusal must not swallow the acquired packages' held [+]
     # headers: print them before the refusal surfaces (#3994).
     try:
+        from apm_cli.install.phases.policy_gate import enforce_content_types
+
+        enforce_content_types(ctx, materialized)
         preflight_agent_plugin_materializations(materialized)
         _fail_explicit_target_without_deploy(ctx)
         deployment_plans, local_plan = preflight_skill_materializations(ctx, materialized)
@@ -789,6 +840,19 @@ def run(ctx: InstallContext) -> None:
             from apm_cli.install.template import effective_allow_map
             from apm_cli.security.trust import McpAdmission
 
+            InstallService.enforce_frozen_restored(
+                [
+                    *ctx.transitive_failures,
+                    *failed_acquisitions(
+                        ctx.diagnostics,
+                        [
+                            dep_key
+                            for dep_key, _, _, materialization, terminal in prepared_integrations
+                            if materialization is None and terminal is None
+                        ],
+                    ),
+                ]
+            )
             InstallService.enforce_frozen_selections(ctx.deps_to_install, ctx.existing_lockfile)
             effective_allow_map(ctx)
             InstallService.enforce_hydrated_mcp(
@@ -823,7 +887,10 @@ def run(ctx: InstallContext) -> None:
             refuse_stale_exec_decisions(ctx, ctx.existing_lockfile, ctx.lockfile_path.parent)
         from apm_cli.install.commit_gate import check_before_deploy
 
-        check_before_deploy(ctx)
+        check_before_deploy(ctx, _write_plan(ctx, materialized, deployment_plans, local_plan))
+        if ctx.overwrite_preflight_refused:
+            _announce_held_headers(prepared_integrations)
+            return
     except BaseException:
         _announce_held_headers(prepared_integrations)
         raise

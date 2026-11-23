@@ -8,11 +8,12 @@ from schemathesis.baseline import Baseline, BaselineEntry
 from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.events import LoadingFinished
-from schemathesis.cli.ext.fs import describe_path_error
+from schemathesis.cli.ext.fs import describe_path_error, load_baseline
+from schemathesis.cli.validation import validate_baseline_flags
 from schemathesis.config import SchemathesisWarning
 from schemathesis.core.failures import is_reproducible_failure
 from schemathesis.engine import Status, StopReason, events
-from schemathesis.engine.run import UNIT_PHASES, PhaseName, PhaseSkipReason
+from schemathesis.engine.run import TESTING_PHASES, UNIT_PHASES, PhaseName, PhaseSkipReason
 from schemathesis.engine.summary import PhaseStatuses, SummaryData
 
 # How telling each outcome is about a phase that ran several times: the summary keeps the highest.
@@ -29,7 +30,11 @@ PHASE_STATUS_PRIORITY = {
 class ExecutionContext(BaseExecutionContext):
     """Execution state for `st run`."""
 
-    phases: PhaseStatuses = field(default_factory=lambda: dict.fromkeys(PhaseName, (Status.SKIP, None)))
+    phases: PhaseStatuses = field(
+        default_factory=lambda: dict.fromkeys(
+            (PhaseName.SETUP, *TESTING_PHASES, PhaseName.TEARDOWN), (Status.SKIP, None)
+        )
+    )
     baseline_update: bool = False
     baseline_prune: bool = False
     # Problems with the invocation itself, shown before the schema is loaded.
@@ -48,12 +53,15 @@ class ExecutionContext(BaseExecutionContext):
     def on_event(self, event: events.EngineEvent) -> None:
         collector = self.warning_collector
         if isinstance(event, LoadingFinished):
+            validate_baseline_flags(event.config.baseline, update=self.baseline_update, prune=self.baseline_prune)
+            # Read and write the same baseline, including the selected project's existing annotations.
+            self.statistic.baseline = load_baseline(event.config)
             # Unmatched filter warnings are judged against the configuration the schema was loaded with.
             self.config = event.config
             collector.config = event.config
         super().on_event(event)
-        if isinstance(event, events.SchemaAnalysisWarnings):
-            collector.on_schema_warnings(event)
+        if isinstance(event, events.SetupWarnings):
+            collector.on_setup_warnings(event)
         elif isinstance(event, events.PhaseFinished):
             # A phase repeats under a time budget; a later pass that ran out of budget or was cut short
             # must not downgrade what an earlier one already found.
@@ -63,8 +71,9 @@ class ExecutionContext(BaseExecutionContext):
             if (
                 event.phase.is_enabled
                 and event.status in (Status.FAILURE, Status.ERROR)
-                # A failed sign-up leaves the run unauthenticated; the missing-auth warning reports its effect.
-                and event.phase.name is not PhaseName.AUTH_BOOTSTRAP
+                # Setup problems that should fail the run report their own error; a failed sign-up only leaves
+                # the run unauthenticated, and the missing-auth warning reports its effect.
+                and event.phase.name is not PhaseName.SETUP
             ):
                 self.exit_code = ExitCode.FAILURES
         elif isinstance(event, events.ScenarioFinished) and event.is_test_scenario:

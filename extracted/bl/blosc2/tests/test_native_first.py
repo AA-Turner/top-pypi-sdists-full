@@ -291,7 +291,7 @@ def test_native_first_inherited_policy_retains_legacy(monkeypatch, compressed, s
         return original(*args, **kwargs)
 
     monkeypatch.setattr(native, "lower_native_graph", record)
-    previous = blosc2.get_jit_options()
+    previous = blosc2.jit_config.configured_execution_options()
     try:
         if scoped:
             with blosc2.jit_options(**policy):
@@ -316,6 +316,30 @@ def test_native_first_inherited_policy_retains_legacy(monkeypatch, compressed, s
             assert report is None
     finally:
         blosc2.set_jit_options(**previous)
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_compute_uses_current_compression_defaults(monkeypatch, automatic_native_runtime, compressed):
+    values = np.linspace(0, 1, 4096)
+    source = blosc2.asarray(values, chunks=(1024,), blocks=(256,)) if compressed else values
+    expr = blosc2.lazyexpr("sin(x) + cos(x)", {"x": source})
+    layout = {"chunks": (1024,), "blocks": (256,)}
+
+    monkeypatch.setitem(blosc2.cparams_dflts, "codec", blosc2.Codec.ZSTD)
+    assert expr.compute(**layout).cparams.codec == blosc2.Codec.ZSTD
+
+    monkeypatch.setitem(blosc2.cparams_dflts, "codec", blosc2.Codec.LZ4)
+    monkeypatch.setitem(blosc2.cparams_dflts, "clevel", 2)
+    result = expr.compute(**layout)
+    assert result.cparams.codec == blosc2.Codec.LZ4
+    assert result.cparams.clevel == 2
+    np.testing.assert_allclose(result[:], np.sin(values) + np.cos(values))
+    params = expr.compute(cparams={"clevel": 1}, **layout).cparams
+    assert (params.codec, params.clevel) == (blosc2.Codec.LZ4, 1)
+    assert expr.compute(cparams={"codec": blosc2.Codec.ZSTD}, **layout).cparams.codec == blosc2.Codec.ZSTD
+    assert expr.compute(cparams=blosc2.CParams(codec=blosc2.Codec.ZSTD), **layout).cparams.codec == (
+        blosc2.Codec.ZSTD
+    )
 
 
 @pytest.mark.parametrize(

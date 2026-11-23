@@ -134,8 +134,7 @@ USER_PHONE = "user_phone"
 IN_FLIGHT = ("firing", "queued")
 POLL_SECONDS = 0.5
 DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
-FINAL_REMINDER = ("(This is the last time you'll be woken for this job. Only what you send with message_user reaches "
-                  "{first}; your normal reply is not shown to them.)")
+FINAL_REMINDER = "(Only what you send with message_user reaches {first}; your normal reply is not shown to them.)"
 NUDGE_TEXT = ("Your closing text was not delivered. If the user should see it, send it with message_user; otherwise "
               "call stay_quiet.")
 WAKE_REMINDER_TEXT = "Reminder: only message_user reaches the user."
@@ -601,7 +600,7 @@ class _Run:
         if negotiated:
             await protocol.post_agent_config(self.target_url + negotiated.endpoint, negotiated.fields,
                                              headers=self.agent.control_headers)
-        await prescribe_formats(ctx, step.id, self.agent, self.target_url)
+        await prescribe_formats(ctx, step.id, self.agent, self.target_url, formats=())  # native until it reads atif/1
         solver_model = negotiated.fields.get("model") if negotiated else None
         ctx.record_model(ModelRole.SOLVER.record_key, step.id, solver_model)
         self.usage.start(ModelRole.SOLVER, solver_model, self.agent)

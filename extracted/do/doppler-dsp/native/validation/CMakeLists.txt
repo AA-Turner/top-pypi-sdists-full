@@ -755,3 +755,43 @@ target_link_libraries(validate_corr2d_hypothesis_order PRIVATE doppler_lib_stati
 dp_gnu_compile_options(validate_corr2d_hypothesis_order PRIVATE -O3 -funroll-loops)
 add_test(NAME validate_corr2d_hypothesis_order
          COMMAND validate_corr2d_hypothesis_order --check)
+
+# The OFDM modulator's float32 error per transform length (ofdm.md section 7,
+# "the float32 error budget"). Links native/tests for dp_rng_test.h and
+# dp_test.h; ctest runs the --check subset (N = 64 and 704, each against its
+# derived bound), and src/doppler/ofdm/tests/validation/ofdm/ renders it.
+add_executable(validate_ofdm_fft_error
+               ${CMAKE_CURRENT_SOURCE_DIR}/ofdm_fft_error.c)
+target_include_directories(validate_ofdm_fft_error
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_ofdm_fft_error PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+add_test(NAME validate_ofdm_fft_error
+         COMMAND validate_ofdm_fft_error --check)
+
+# 802.11 non-HT transmit quality against window and oversampling: the mask,
+# the error a window adds at two receiver timings, L-LTF flatness and PAPR
+# (wlan.md section 7, its fourth proof, and section 8). ctest runs the
+# --check subset (the exact and Parseval EVM checks, and the mask pin);
+# src/doppler/wlan/tests/validation/wlan/ renders it.
+add_executable(validate_wlan_tx_quality
+               ${CMAKE_CURRENT_SOURCE_DIR}/wlan_tx_quality.c)
+target_include_directories(validate_wlan_tx_quality
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_wlan_tx_quality PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+add_test(NAME validate_wlan_tx_quality
+         COMMAND validate_wlan_tx_quality --check)
+
+# The noise of a wfmgen ofdm source against its contract: variance
+# 10^(-snr/10) referred to the full band, in the PPDU and the gap, read by the
+# measure module's time_stats. ctest runs the --check cell (M = 2, 10 dB);
+# src/doppler/wfm/tests/validation/wfm_synth/ renders the sweep.
+add_executable(validate_wfm_synth_ofdm_noise
+               ${CMAKE_CURRENT_SOURCE_DIR}/wfm_synth_ofdm_noise.c)
+target_include_directories(validate_wfm_synth_ofdm_noise
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_wfm_synth_ofdm_noise PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+add_test(NAME validate_wfm_synth_ofdm_noise
+         COMMAND validate_wfm_synth_ofdm_noise --check)

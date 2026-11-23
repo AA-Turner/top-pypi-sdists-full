@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: guessit
-Version: 4.5.4
+Version: 4.5.5
 Summary: GuessIt - a library for guessing information from video filenames.
 Project-URL: Homepage, https://guessit-io.github.io/guessit
 Project-URL: Repository, https://github.com/guessit-io/guessit
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: babelfish>=0.6.1
 Requires-Dist: python-dateutil>=2.8.0
-Requires-Dist: rebulk<7,>=6.0.2
+Requires-Dist: rebulk<7,>=6.0.3
 Provides-Extra: regex
 Requires-Dist: regex; extra == 'regex'
 Description-Content-Type: text/markdown
@@ -105,6 +105,22 @@ GuessIt is licensed under the [LGPLv3 license](http://www.gnu.org/licenses/lgpl.
 # CHANGELOG
 
 <!-- version list -->
+
+## v4.5.5 (2026-11-22)
+
+### Bug Fixes
+
+- **language**: Map castellano to Spanish instead of Catalan
+  ([`b9bfab4`](https://github.com/guessit-io/guessit/commit/b9bfab496220d1e62b2eacd5113e0be0b5fc2304))
+
+### Performance Improvements
+
+- **api**: Bound the rule sets kept by the effective options cache
+  ([`a0630ef`](https://github.com/guessit-io/guessit/commit/a0630efeb2ca956a2ecbaba5c803e0a326924ac9))
+
+- **api**: Keep effective options per option set and make them call-local
+  ([`09311dc`](https://github.com/guessit-io/guessit/commit/09311dc58234f468d42c1c8099e5f42a66f97ff8))
+
 
 ## v4.5.4 (2026-11-19)
 

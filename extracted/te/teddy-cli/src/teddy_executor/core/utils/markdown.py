@@ -1,5 +1,7 @@
 import os
 import re
+from dataclasses import dataclass
+from typing import Literal
 
 
 def get_language_from_path(path: str) -> str:
@@ -127,6 +129,94 @@ def strip_trailing_open_fence(content: str) -> str:
     return "\n".join(lines)
 
 
+SegmentKind = Literal["prose", "fence"]
+
+
+@dataclass(frozen=True)
+class MessageSegment:
+    """One renderable slice of a Message body.
+
+    ``kind`` is ``"prose"`` or ``"fence"``. A fence segment carries its own raw
+    ``opening`` and ``closing`` delimiter lines, so tilde fences, indented
+    fences, and longer closing runs survive re-emission byte-for-byte.
+    ``closing`` is empty when the body ends inside an open fence.
+    """
+
+    kind: SegmentKind
+    info: str = ""
+    content: str = ""
+    opening: str = ""
+    closing: str = ""
+
+
+def _closing_fence_index(lines: list[str], start: int, opening_run: str) -> int | None:
+    """Return the index of the line closing ``opening_run``, or None if unclosed.
+
+    A closing fence repeats the opening character, runs at least as long, and
+    carries no info string, so a line starting with a backtick run inside a
+    tilde block stays content.
+    """
+    for index in range(start, len(lines)):
+        candidate = _FENCE_RE.match(lines[index])
+        if candidate is None:
+            continue
+        run = candidate.group(1)
+        if run[0] != opening_run[0] or len(run) < len(opening_run):
+            continue
+        if candidate.group(2).strip():
+            continue
+        return index
+    return None
+
+
+def _flush_prose(segments: list[MessageSegment], prose: list[str]) -> None:
+    """Append the accumulated prose run, dropping whitespace-only runs."""
+    if any(line.strip() for line in prose):
+        segments.append(MessageSegment(kind="prose", content="\n".join(prose)))
+    prose.clear()
+
+
+def split_fenced_segments(body: str) -> list[MessageSegment]:
+    """Split a Markdown body into prose runs and fenced blocks.
+
+    Fences are read with the same grammar `strip_trailing_open_fence` uses: up
+    to three leading spaces, a run of three or more backticks or tildes, and an
+    optional info string. A closing fence must repeat the opening character, run
+    at least as long, and carry no info string, so a line starting with a
+    backtick run inside a tilde block stays content.
+
+    Whitespace-only prose runs are dropped: the renderer owns the spacing around
+    a fence, so a blank line between two blocks carries no information.
+    """
+    lines = body.split("\n")
+    segments: list[MessageSegment] = []
+    prose: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        match = _FENCE_RE.match(lines[index])
+        if match is None:
+            prose.append(lines[index])
+            index += 1
+            continue
+        _flush_prose(segments, prose)
+        closing_index = _closing_fence_index(lines, index + 1, match.group(1))
+        end = closing_index if closing_index is not None else len(lines)
+        segments.append(
+            MessageSegment(
+                kind="fence",
+                info=match.group(2).strip(),
+                content="\n".join(lines[index + 1 : end]),
+                opening=lines[index],
+                closing=lines[end] if closing_index is not None else "",
+            )
+        )
+        index = end + 1
+
+    _flush_prose(segments, prose)
+    return segments
+
+
 def embed_in_fence(content: str, lang: str) -> str:
     """Sanitize ``content``, then wrap it in a safe, dynamically-sized fence.
 
@@ -139,11 +229,42 @@ def embed_in_fence(content: str, lang: str) -> str:
     return f"{fence}{lang}\n{sanitized}\n{fence}"
 
 
-def get_session_history_display_name(path: str) -> str | None:
+def _normalize_session_path(path: str) -> str:
+    """Normalize a path to POSIX slashes with any leading './' removed."""
+    return path.replace("\\", "/").lstrip("./")
+
+
+def _session_directory_name(session_root: str) -> str:
+    """Return the final path component of a session root (its directory name)."""
+    return _normalize_session_path(session_root).rstrip("/").rsplit("/", 1)[-1]
+
+
+def is_own_session_path(path: str, session_root: str | None) -> bool:
+    """
+    Determines whether ``path`` belongs to the session at ``session_root``.
+
+    Falls back to the coarse ``is_session_file_path`` test when no root is
+    supplied, so legacy callers keep their session-agnostic partition.
+    """
+    if not is_session_file_path(path):
+        return False
+    if not session_root:
+        return True
+    session_name = _session_directory_name(session_root)
+    return session_name in _normalize_session_path(path).split("/")
+
+
+def get_session_history_display_name(
+    path: str, session_root: str | None = None
+) -> str | None:
     """
     Returns human-readable display name if it's a recognized session history file.
+
+    When ``session_root`` is supplied, a path outside that session is not history.
     """
-    clean_path = path.lstrip("./")
+    if session_root and not is_own_session_path(path, session_root):
+        return None
+    clean_path = _normalize_session_path(path)
     if "initial_request.md" in clean_path:
         return "Initial Request"
     plan_match = re.search(r"sessions/[^/]+/(\d+)/plan.md$", clean_path)
@@ -158,22 +279,24 @@ def get_session_history_display_name(path: str) -> str | None:
 def is_session_file_path(path: str) -> bool:
     """
     Determines if a path is inside .teddy/sessions/.
+
+    Normalizes backslashes first, so a Windows-style path is recognized too.
     """
-    return "sessions/" in path.lstrip("./")
+    return "sessions/" in _normalize_session_path(path)
 
 
-def is_session_history_path(path: str) -> bool:
+def is_session_history_path(path: str, session_root: str | None = None) -> bool:
     """
-    Determines if a path is a session history file.
+    Determines if a path is a session history file for ``session_root``.
     """
-    return get_session_history_display_name(path) is not None
+    return get_session_history_display_name(path, session_root) is not None
 
 
 def get_session_history_sort_key(path: str) -> tuple[int, int]:
     """
     Sort key for chronological session history: (turn_number, sub_order).
     """
-    clean_path = path.lstrip("./")
+    clean_path = _normalize_session_path(path)
     if "initial_request.md" in clean_path:
         return (0, 0)
     plan_match = re.search(r"sessions/[^/]+/(\d+)/plan.md$", clean_path)

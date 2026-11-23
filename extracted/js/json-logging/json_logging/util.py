@@ -48,6 +48,21 @@ def update_formatter_for_loggers(loggers_iter, formatter):
                 handler.formatter = formatter()
 
 
+def update_formatter_for_all_loggers(formatter):
+    """Apply *formatter* to the root logger and to every logger that exists right now.
+
+    The root logger is not part of ``logging.Logger.manager.loggerDict``, so it has to be added
+    explicitly. A handler installed by ``logging.basicConfig()`` carries an explicit
+    ``logging.Formatter`` and is therefore not affected by ``logging._defaultFormatter``; without
+    this, records propagated to root (for example Flask's unhandled exception log) stay plain text.
+
+    :param formatter: formatter class to apply
+    """
+    # Materialise the names first: logging.getLogger() replaces placeholders in loggerDict while we iterate.
+    logger_names = list(logging.Logger.manager.loggerDict)
+    update_formatter_for_loggers([logging.root] + [logging.getLogger(name) for name in logger_names], formatter)
+
+
 # noinspection PyPep8
 def parse_int(input_int, default):
     # noinspection PyBroadException
@@ -187,9 +202,9 @@ class RequestUtil(object):
                 if isinstance(f_locals['req'], class_type):
                     return f_locals['req']
 
-            for key in f_locals:
-                if key not in {'request', 'req'} and isinstance(f_locals[key], class_type):
-                    return f_locals[key]
+            for value in tuple(f_locals.values()):
+                if isinstance(value, class_type):
+                    return value
             if f.f_back is not None:
                 f = f.f_back
             else:
@@ -200,7 +215,8 @@ class RequestUtil(object):
     def _get_correlation_id_in_request_header(request_adapter, request):
         for header in json_logging.CORRELATION_ID_HEADERS:
             value = request_adapter.get_http_header(request, header)
-            if value is not None:
+            # An empty header carries no ID, try the next header or generate one
+            if value:
                 return value
 
         return None

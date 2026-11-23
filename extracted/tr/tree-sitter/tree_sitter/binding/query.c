@@ -2,13 +2,30 @@
 
 #include <string.h>
 
-PyObject *node_new_internal(ModuleState *state, TSNode node, PyObject *tree);
+// Only release the GIL when the cost exceeds a threshold which is computed as the
+// product of state count (N) and query length (L) and was chosen to apply when
+// N >= 5000 || (N >= 1000 && L >= 1024) i.e., 5000 * C == 1000 * (1024 + C)
+#define QUERY_RELEASE_GIL_THRESHOLD 1280000
+#define QUERY_RELEASE_GIL_C 256
 
-bool query_satisfies_predicates(Query *query, TSQueryMatch match, Tree *tree, PyObject *callable);
+PyObject *node_new_internal(ModuleState *state, TSNode node, PyObject *tree);
 
 #define QUERY_ERROR(...) PyErr_Format(state->query_error, __VA_ARGS__)
 
 #define NAME_EQ(x) (length == (sizeof(x) - 1) && strncmp(predicate_name, x, length) == 0)
+
+#define QUERY_ERROR_INVALID(kind)                                                                  \
+    do {                                                                                           \
+        char *item = PyMem_RawCalloc(end + 1, sizeof(char));                                       \
+        if (!item) {                                                                               \
+            PyErr_Format(PyExc_MemoryError, "failed to allocate memory for " kind " of size %u",   \
+                         end + 1);                                                                 \
+            goto error;                                                                            \
+        }                                                                                          \
+        memcpy(item, &source[error_offset], end);                                                  \
+        QUERY_ERROR("Invalid " kind " at row %u, column %u: %s", row, column, item);               \
+        PyMem_RawFree(item);                                                                       \
+    } while (0)
 
 #define CHECK_INDEX(query, index)                                                                  \
     do {                                                                                           \
@@ -55,8 +72,16 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
     if (query == NULL) {
         return NULL;
     }
+    uint64_t states = (uint64_t)ts_language_state_count(language_id);
+    PyThreadState *saved_thread = NULL;
+    if (states * ((uint64_t)source_len + QUERY_RELEASE_GIL_C) >= QUERY_RELEASE_GIL_THRESHOLD) {
+        saved_thread = PyEval_SaveThread();
+    }
     query->query =
         ts_query_new(language_id, source, (uint32_t)source_len, &error_offset, &error_type);
+    if (saved_thread != NULL) {
+        PyEval_RestoreThread(saved_thread);
+    }
     query->predicates = NULL;
     query->settings = NULL;
     query->assertions = NULL;
@@ -65,8 +90,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
         uint32_t row = 0, start = 0, end = 0, column;
         for (uint32_t i = 0; i < error_offset && i < (uint32_t)source_len; ++i) {
             if (source[i] == '\n') {
-                row += 1;
-                start = i + 1;
+                start = i + 1, ++row;
             }
         }
         column = error_offset - start;
@@ -85,10 +109,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     end += 1;
                 }
 
-                char *capture = PyMem_Calloc(end + 1, sizeof(char));
-                memcpy(capture, &source[error_offset], end);
-                QUERY_ERROR("Invalid capture name at row %u, column %u: %s", row, column, capture);
-                PyMem_Free(capture);
+                QUERY_ERROR_INVALID("capture name");
                 break;
             }
             case TSQueryErrorNodeType: {
@@ -96,10 +117,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     end += 1;
                 }
 
-                char *node = PyMem_Calloc(end + 1, sizeof(char));
-                memcpy(node, &source[error_offset], end);
-                QUERY_ERROR("Invalid node type at row %u, column %u: %s", row, column, node);
-                PyMem_Free(node);
+                QUERY_ERROR_INVALID("node type");
                 break;
             }
             case TSQueryErrorField: {
@@ -107,10 +125,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     end += 1;
                 }
 
-                char *field = PyMem_Calloc(end + 1, sizeof(char));
-                memcpy(field, &source[error_offset], end);
-                QUERY_ERROR("Invalid field name at row %u, column %u: %s", row, column, field);
-                PyMem_Free(field);
+                QUERY_ERROR_INVALID("field name");
                 break;
             }
             case TSQueryErrorStructure: {
@@ -158,10 +173,10 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
             goto error;
         }
 
-        PyObject *predicate_obj = NULL;
         const TSQueryPredicateStep *predicate_step =
             ts_query_predicates_for_pattern(query->query, i, &steps);
         for (uint32_t j = 0; j < steps; ++j) {
+            PyObject *predicate_obj = NULL;
             uint32_t predicate_len = 0;
             while ((predicate_step + predicate_len)->type != TSQueryPredicateStepTypeDone) {
                 ++predicate_len;
@@ -176,7 +191,6 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
 
             const char *predicate_name =
                 ts_query_string_value_for_id(query->query, predicate_step->value_id, &length);
-
             if (NAME_EQ("eq?") || NAME_EQ("not-eq?") || NAME_EQ("any-eq?") ||
                 NAME_EQ("any-not-eq?")) {
                 if (predicate_len != 3) {
@@ -218,6 +232,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     QueryPredicateEqString *predicate =
                         PyObject_New(QueryPredicateEqString, state->query_predicate_eq_string_type);
                     if (predicate == NULL) {
+                        Py_DECREF(bytes);
                         goto error;
                     }
                     predicate->capture_id = (predicate_step + 1)->value_id;
@@ -228,7 +243,6 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                 }
             } else if (NAME_EQ("match?") || NAME_EQ("not-match?") || NAME_EQ("any-match?") ||
                        NAME_EQ("any-not-match?")) {
-
                 if (predicate_len != 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "#%s expects 2 arguments, got %u",
@@ -338,9 +352,13 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                         query->query, (predicate_step + k)->value_id, &length);
                     PyObject *bytes = PyBytes_FromStringAndSize(arg, length);
                     if (bytes == NULL) {
+                        Py_DECREF(values);
                         goto error;
                     }
-                    PyList_SetItem(values, k - 2, bytes);
+                    if (PyList_SetItem(values, k - 2, bytes) < 0) {
+                        Py_DECREF(values);
+                        goto error;
+                    }
                 }
 
                 QueryPredicateAnyOf *predicate =
@@ -376,7 +394,10 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                 if (predicate_len == 2) {
                     PyObject *assertion = PyTuple_Pack(2, Py_None, is_positive);
                     Py_DECREF(is_positive);
-                    PyDict_SetItemString(pattern_assertions, first_arg, assertion);
+                    if (PyDict_SetItemString(pattern_assertions, first_arg, assertion) < 0) {
+                        Py_DECREF(assertion);
+                        goto error;
+                    }
                     Py_DECREF(assertion);
                 } else if ((predicate_step + 2)->type == TSQueryPredicateStepTypeString) {
                     const char *second_arg = ts_query_string_value_for_id(
@@ -391,7 +412,10 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     if (assertion == NULL) {
                         goto error;
                     }
-                    PyDict_SetItemString(pattern_assertions, first_arg, assertion);
+                    if (PyDict_SetItemString(pattern_assertions, first_arg, assertion) < 0) {
+                        Py_DECREF(assertion);
+                        goto error;
+                    }
                     Py_DECREF(assertion);
                 } else {
                     const char *second_arg = ts_query_capture_name_for_id(
@@ -423,7 +447,9 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                 const char *first_arg = ts_query_string_value_for_id(
                     query->query, (predicate_step + 1)->value_id, &length);
                 if (predicate_len == 2) {
-                    PyDict_SetItemString(pattern_settings, first_arg, Py_None);
+                    if (PyDict_SetItemString(pattern_settings, first_arg, Py_None) < 0) {
+                        goto error;
+                    }
                 } else if ((predicate_step + 2)->type == TSQueryPredicateStepTypeString) {
                     const char *second_arg = ts_query_string_value_for_id(
                         query->query, (predicate_step + 2)->value_id, &length);
@@ -431,7 +457,10 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     if (value == NULL) {
                         goto error;
                     }
-                    PyDict_SetItemString(pattern_settings, first_arg, value);
+                    if (PyDict_SetItemString(pattern_settings, first_arg, value) < 0) {
+                        Py_DECREF(value);
+                        goto error;
+                    }
                     Py_DECREF(value);
                 } else {
                     const char *second_arg = ts_query_capture_name_for_id(
@@ -478,20 +507,22 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
             }
 
             if (predicate_obj != NULL) {
-                int rc = PyList_Append(pattern_predicates, predicate_obj);
-                Py_DECREF(predicate_obj);
-                if (rc < 0) {
+                if (PyList_Append(pattern_predicates, predicate_obj) < 0) {
+                    Py_DECREF(predicate_obj);
                     goto error;
                 }
+                Py_DECREF(predicate_obj);
             }
 
             j += predicate_len;
             predicate_step += predicate_len + 1;
         }
 
-        PyList_SetItem(query->predicates, i, pattern_predicates);
-        PyList_SetItem(query->settings, i, pattern_settings);
-        PyList_SetItem(query->assertions, i, pattern_assertions);
+        if (PyList_SetItem(query->predicates, i, pattern_predicates) < 0 ||
+            PyList_SetItem(query->settings, i, pattern_settings) < 0 ||
+            PyList_SetItem(query->assertions, i, pattern_assertions) < 0) {
+            goto error;
+        }
         pattern_predicates = NULL, pattern_settings = NULL, pattern_assertions = NULL;
     }
 
@@ -591,6 +622,10 @@ PyObject *query_disable_pattern(Query *self, PyObject *args) {
         return NULL;
     }
     CHECK_INDEX(self->query, pattern_index);
+    if (self->busy > 0) {
+        PyErr_SetString(PyExc_RuntimeError, "cannot modify a query that is in use");
+        return NULL;
+    }
     ts_query_disable_pattern(self->query, pattern_index);
     return Py_NewRef(self);
 }
@@ -599,6 +634,10 @@ PyObject *query_disable_capture(Query *self, PyObject *args) {
     char *capture_name;
     Py_ssize_t length;
     if (!PyArg_ParseTuple(args, "s#:disable_capture", &capture_name, &length)) {
+        return NULL;
+    }
+    if (self->busy > 0) {
+        PyErr_SetString(PyExc_RuntimeError, "cannot modify a query that is in use");
         return NULL;
     }
     ts_query_disable_capture(self->query, capture_name, (uint32_t)length);
@@ -651,6 +690,20 @@ PyObject *query_is_pattern_guaranteed_at_step(Query *self, PyObject *args) {
     }
     bool result = ts_query_is_pattern_guaranteed_at_step(self->query, byte_offset);
     return PyBool_FromLong(result);
+}
+
+PyObject *query_copy(Query *self, PyObject *Py_UNUSED(args)) {
+    ModuleState *state = GET_MODULE_STATE(self);
+    Query *copied = PyObject_New(Query, state->query_type);
+    if (copied == NULL) {
+        return NULL;
+    }
+    copied->busy = 0;
+    copied->query = ts_query_copy(self->query);
+    copied->assertions = Py_NewRef(self->assertions);
+    copied->predicates = Py_NewRef(self->predicates);
+    copied->settings = Py_NewRef(self->settings);
+    return (PyObject *)copied;
 }
 
 PyObject *query_get_pattern_count(Query *self, void *Py_UNUSED(payload)) {
@@ -708,6 +761,10 @@ PyDoc_STRVAR(query_is_pattern_non_local_doc,
 PyDoc_STRVAR(query_is_pattern_guaranteed_at_step_doc,
              "is_pattern_guaranteed_at_step(self, index)\n--\n\n"
              "Check if a pattern is guaranteed to match once a given byte offset is reached.");
+PyDoc_STRVAR(query_copy_doc, "copy(self, /)\n--\n\n"
+                             "Create a copy of the query.");
+PyDoc_STRVAR(query_copy2_doc, "__copy__(self, /)\n--\n\n"
+                              "Use :func:`copy.copy` to create a copy of the query.");
 
 static PyMethodDef query_methods[] = {
     {
@@ -788,6 +845,16 @@ static PyMethodDef query_methods[] = {
         .ml_flags = METH_VARARGS,
         .ml_doc = query_is_pattern_guaranteed_at_step_doc,
     },
+    {
+        .ml_name = "copy",
+        .ml_meth = (PyCFunction)query_copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc = query_copy_doc,
+    },
+    {.ml_name = "__copy__",
+     .ml_meth = (PyCFunction)query_copy,
+     .ml_flags = METH_NOARGS,
+     .ml_doc = query_copy2_doc},
     {NULL},
 };
 

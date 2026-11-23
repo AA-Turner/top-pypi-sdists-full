@@ -20,6 +20,7 @@ fn typed_usability_excludes_incomplete_lookup_results_and_preserves_overrides() 
             lcut: None,
             received_at: None,
             version: None,
+            served_version: None,
         };
         let mut raw = DynamicConfigRaw::empty("config", &details);
         assert!(!is_usable(&raw, source));
@@ -39,6 +40,7 @@ fn typed_usability_excludes_incomplete_lookup_results_and_preserves_overrides() 
         lcut: None,
         received_at: None,
         version: None,
+        served_version: None,
     };
     let mut raw = DynamicConfigRaw::empty("config", &details);
     raw.value = Some(&value);

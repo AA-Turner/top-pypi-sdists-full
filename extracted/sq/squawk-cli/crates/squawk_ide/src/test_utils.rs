@@ -1,17 +1,18 @@
 use std::ops::Range;
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
-use rowan::TextSize;
+use squawk_rowan::TextSize;
+use squawk_sema::builtins::BUILTINS_SQL;
+use squawk_sema::extensions::BundledExtension;
+use squawk_sema::file::{FileId, FileIndex, FilePosition, FileRange, InFile};
+use squawk_sema::semantic_index::SemanticIndex;
+use squawk_sema::semantic_index_builder::SemanticIndexBuilder;
 use squawk_syntax::SourceFile;
+use squawk_syntax::ast::{self, AstNode};
 
-use crate::builtins::BUILTINS_SQL;
-use crate::db::{Database, File};
-use crate::extensions::BundledExtension;
-use crate::file::{FileId, FilePosition, FileRange, InFile};
 use crate::hover::hover_with_index as hover;
-use crate::offsets::item_at_position;
-use crate::semantic_index::SemanticIndex;
-use crate::semantic_index_builder::SemanticIndexBuilder;
+use squawk_ide_db::Database;
+use squawk_ide_db::offsets::{TokenAt, item_at_token};
 
 // TODO: we should probably use something else since `$0` is valid syntax, maybe `%0`?
 const MARKER: &str = "$0";
@@ -20,11 +21,11 @@ pub(crate) struct Fixture {
     marker_offset: TextSize,
     sql: String,
     db: Database,
-    file: File,
+    file: FileIndex,
 }
 
 pub(crate) struct Marker {
-    file: File,
+    file: FileIndex,
     offset: TextSize,
     offset_before: TextSize,
     range: Range<usize>,
@@ -34,7 +35,10 @@ impl Fixture {
     #[track_caller]
     pub(crate) fn new(sql: &str) -> Self {
         let fixture = Self::new_allow_errors(sql);
-        assert_eq!(crate::db::parse(&fixture.db, fixture.file).errors(), vec![]);
+        assert_eq!(
+            squawk_ide_db::parse(&fixture.db, fixture.file.into()).errors(),
+            vec![]
+        );
         fixture
     }
 
@@ -42,8 +46,8 @@ impl Fixture {
     pub(crate) fn new_allow_errors(sql: &str) -> Self {
         if let Some(pos) = sql.find(MARKER) {
             let sql = sql.replace(MARKER, "");
-            let db = Database::default();
-            let file = File::new(&db, sql.as_str().into());
+            let mut db = Database::default();
+            let file = db.add_file(sql.as_str().into());
             return Self {
                 marker_offset: TextSize::try_from(pos).unwrap(),
                 sql,
@@ -134,6 +138,9 @@ pub(crate) fn render_hover(files: &[&str]) -> Option<String> {
         );
     let title = format!("hover: {}", hover.snippet);
     let mut group = Level::INFO.primary_title(&title).element(snippet);
+    if let Some(substitutions) = &hover.substitutions {
+        group = group.element(Level::NOTE.message(substitutions));
+    }
     if let Some(comment) = &hover.comment {
         group = group.element(Level::NOTE.message(comment));
     }
@@ -155,11 +162,11 @@ struct SemanticFixture {
 impl SemanticFixture {
     #[track_caller]
     fn new(files: &[&str]) -> SemanticFixture {
-        let db = Database::default();
+        let mut db = Database::default();
         let mut cursor = None;
         let mut sources = vec![];
         for sql in files {
-            let file_id = File::new(&db, sql.replace("$0", "").into()).into();
+            let file_id = db.add_file(sql.replace("$0", "").into()).into();
             if let Some(offset) = sql.find("$0") {
                 let before = sql[..offset]
                     .char_indices()
@@ -210,9 +217,14 @@ pub(crate) fn render_targets<T: IntoIterator<Item = FileRange>>(
     if targets.is_empty() {
         return None;
     }
-    let source = item_at_position(&index, file, position)
-        .unwrap()
-        .map(|item| item.range);
+    let token = TokenAt::new(file, position.value).unwrap();
+    let source = match item_at_token(&index, position, &token) {
+        Some(item) => item.map(|item| item.range),
+        None => {
+            let literal = token.token.parent().and_then(ast::Literal::cast).unwrap();
+            position.with_value(token.original_range(literal.syntax().text_range()))
+        }
+    };
 
     let paths: Vec<String> = (0..files.len())
         .map(|index| format!("file{index}.sql"))

@@ -10,12 +10,13 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-from libtmux import exc
+from libtmux import Format, exc
 from libtmux.constants import WindowDirection
 from libtmux.pane import Pane
 from libtmux.session import Session
 from libtmux.test.constants import TEST_SESSION_PREFIX
 from libtmux.test.random import namer
+from libtmux.test.retry import retry_until
 from libtmux.window import Window
 
 if t.TYPE_CHECKING:
@@ -673,6 +674,86 @@ def test_new_window_select_existing(session: Session) -> None:
     assert w.window_name == "selexist_new"
 
 
+class SelectExistingFixture(t.NamedTuple):
+    """A literal window name and a decoy named what tmux could expand it to."""
+
+    test_id: str
+    name: str
+    decoy: str
+
+
+SELECT_EXISTING_FIXTURES: list[SelectExistingFixture] = [
+    SelectExistingFixture("plain", "plain", "decoy"),
+    SelectExistingFixture("comma", "a,b", "decoy"),
+    SelectExistingFixture("percent", "50%", "decoy"),
+    SelectExistingFixture("style-opener", "a#[b", "decoy"),
+    SelectExistingFixture("hash-digit", "build#2", "decoy"),
+    SelectExistingFixture("trailing-hash", "end#", "end"),
+    SelectExistingFixture("format", "#{session_name}", "{session}"),
+    SelectExistingFixture("double-hash", "a##b", "a#b"),
+    SelectExistingFixture("alias", "x#Sy", "x{session}y"),
+    SelectExistingFixture("hash-comma", "x#,y", "x,y"),
+]
+
+
+@pytest.mark.parametrize("attach", [False, True], ids=["detached", "attach"])
+@pytest.mark.parametrize(
+    list(SelectExistingFixture._fields),
+    SELECT_EXISTING_FIXTURES,
+    ids=[fixture.test_id for fixture in SELECT_EXISTING_FIXTURES],
+)
+def test_new_window_select_existing_finds_literal_name(
+    session: Session,
+    test_id: str,
+    name: str,
+    decoy: str,
+    attach: bool,
+) -> None:
+    """select_existing returns the window named exactly *name* on every tmux."""
+    existing = session.new_window(window_name=name, window_shell="exec cat")
+    session.new_window(
+        window_name=decoy.format(session=session.session_name),
+        window_shell="exec cat",
+    )
+    window_count = len(session.windows)
+
+    reused = session.new_window(
+        window_name=name,
+        select_existing=True,
+        attach=attach,
+        window_shell="exec cat",
+    )
+
+    assert reused.window_id == existing.window_id
+    assert reused.server is session.server
+    assert len(session.windows) == window_count
+    assert (session.active_window.window_id == existing.window_id) is attach
+
+
+def test_new_window_select_existing_format_name(session: Session) -> None:
+    """A Format name is expanded once against the session, then looked up."""
+    assert session.session_name is not None
+    named = session.new_window(
+        window_name=session.session_name, window_shell="exec cat"
+    )
+    session.new_window(window_name="#{session_name}", window_shell="exec cat")
+
+    reused = session.new_window(
+        window_name=Format("#{session_name}"), select_existing=True
+    )
+
+    assert reused.window_id == named.window_id
+
+
+def test_new_window_select_existing_duplicate_names_raise(session: Session) -> None:
+    """Two windows with the name raise, as tmux's -S does."""
+    session.new_window(window_name="twin", window_shell="exec cat")
+    session.new_window(window_name="twin", window_shell="exec cat")
+
+    with pytest.raises(exc.LibTmuxException, match="multiple windows named twin"):
+        session.new_window(window_name="twin", select_existing=True)
+
+
 def test_session_last_window_exception_tags_subcommand(session: Session) -> None:
     """Wrapper raises tag LibTmuxException with the originating tmux subcommand.
 
@@ -829,3 +910,62 @@ def test_environment_name_starting_with_a_dash(session: Session) -> None:
 
     session.remove_environment("-dash")
     assert show() == ["--dash"]
+
+
+def test_hash_in_names_is_literal(server: Server) -> None:
+    """A ``#`` in a session or window name is stored, not expanded as a format."""
+    session = server.new_session("made#{session_id}", window_name="win#{window_id}")
+    assert session.session_name == "made#{session_id}"
+    assert session.active_window.window_name == "win#{window_id}"
+
+    session.rename_session("renamed#S")
+    assert session.session_name == "renamed#S"
+
+    window = session.new_window(window_name="new#{pane_id}")
+    assert window.window_name == "new#{pane_id}"
+    window.rename_window("again#W")
+    window.refresh()
+    assert window.window_name == "again#W"
+
+
+def test_break_pane_window_name_is_passed_unchanged(session: Session) -> None:
+    """``break-pane -n`` does not expand formats, so its name is not escaped."""
+    pane = session.active_window.split()
+
+    window = pane.break_pane(window_name="broken#W")
+
+    assert window.window_name == "broken#W"
+
+
+def test_hash_in_pane_title_is_literal(session: Session) -> None:
+    """A ``#`` in a pane title is stored, not expanded as a format."""
+    pane = session.active_window.active_pane
+    assert pane is not None
+
+    pane.set_title("title#{pane_id}")
+    pane.refresh()
+
+    assert pane.pane_title == "title#{pane_id}"
+
+
+def test_hash_in_start_directory_is_literal(
+    session: Session,
+    tmp_path: pathlib.Path,
+) -> None:
+    """A ``#`` in ``start_directory`` names a directory, not a format."""
+    directory = tmp_path / "dir#S"
+    directory.mkdir()
+
+    window = session.new_window(start_directory=directory)
+    pane = window.active_pane
+    assert pane is not None
+    split = pane.split(start_directory=directory)
+
+    def started_there() -> bool:
+        pane.refresh()
+        split.refresh()
+        return pane.pane_current_path == str(
+            directory
+        ) and split.pane_current_path == str(directory)
+
+    retry_until(started_there, 2, raises=True)

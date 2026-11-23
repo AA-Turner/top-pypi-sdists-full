@@ -11,27 +11,13 @@ from blosc2.expression_graph import _NUMPY_VALUE_PROMOTION
 
 @pytest.fixture(autouse=True)
 def typed_route(monkeypatch):
-    monkeypatch.setenv("BLOSC2_EXPRESSION_EVALUATOR", "typed")
-
     def forbidden(*args, **kwargs):
         pytest.fail("Ordinary typed expressions reached the uniform-dtype evaluator")
 
     monkeypatch.setattr(blosc2.NDArray, "_set_pref_expr", forbidden)
 
 
-@pytest.mark.parametrize(("selector", "expected"), [(None, True), ("typed", True), ("legacy", False)])
-def test_default_and_escape_hatch(monkeypatch, selector, expected):
-    from blosc2.expression_evaluator import typed_evaluator_enabled
-
-    if selector is None:
-        monkeypatch.delenv("BLOSC2_EXPRESSION_EVALUATOR", raising=False)
-    else:
-        monkeypatch.setenv("BLOSC2_EXPRESSION_EVALUATOR", selector)
-    assert typed_evaluator_enabled() is expected
-
-
-def test_unset_selector_uses_typed_execution(monkeypatch):
-    monkeypatch.delenv("BLOSC2_EXPRESSION_EVALUATOR", raising=False)
+def test_nonflat_expression_uses_typed_execution():
     values = np.arange(63, dtype=np.float32).reshape(7, 9)
     a = blosc2.asarray(values, chunks=(3, 4), blocks=(2, 3))
     expr = (a + 1) * 2
@@ -67,7 +53,12 @@ def test_typed_map_and_reduction_semantics(monkeypatch, force_wasm, case):
         expr, expected = a == 2**53 + 1, na == 2**53 + 1
     assert expr.dtype == expected.dtype
     for result in (expr[:], expr.compute()[:], expr[:2]):
-        np.testing.assert_array_equal(result, expected[:2] if result.shape == (2, 6) else expected)
+        target = expected[:2] if result.shape == (2, 6) else expected
+        if case == "hypot":
+            # Different native math backends need not round hypot identically.
+            np.testing.assert_allclose(result, target, rtol=4 * np.finfo(target.dtype).eps, atol=0)
+        else:
+            np.testing.assert_array_equal(result, target)
     np.testing.assert_allclose(expr.sum(), expected.sum())
     np.testing.assert_allclose(expr.sum(axis=0), expected.sum(axis=0))
 
@@ -226,12 +217,6 @@ def test_typed_prefilter_failure_is_not_replayed(monkeypatch, native_graph_runti
     np.testing.assert_array_equal(output[1:], -99)
 
 
-def test_invalid_evaluator_selector(monkeypatch):
-    monkeypatch.setenv("BLOSC2_EXPRESSION_EVALUATOR", "typo")
-    with pytest.raises(ValueError, match="BLOSC2_EXPRESSION_EVALUATOR"):
-        blosc2.asarray(np.arange(4.0)) + 1
-
-
 @pytest.mark.parametrize(
     ("dtype", "op", "explicit_dtype"),
     [
@@ -287,7 +272,9 @@ def test_typed_scalar_reduction_prefilter(monkeypatch, dtype, op, explicit_dtype
         kwargs = {} if explicit_dtype is None else {"dtype": explicit_dtype}
     got = getattr(expr, method)(**kwargs)
     expected = getattr(nexpr, method)(**kwargs)
-    assert np.dtype(type(got)) == np.dtype(type(expected))
+    assert isinstance(got, np.ndarray)
+    assert got.shape == ()
+    assert got.dtype == expected.dtype
     if np.issubdtype(expected.dtype, np.floating):
         np.testing.assert_allclose(got, expected, rtol=1e-5, atol=1e-5)
     else:
@@ -319,7 +306,9 @@ def test_typed_boolean_accumulator_uses_logical_reduction(monkeypatch, op, value
     monkeypatch.setattr(blosc2.NDArray, "_execute_menudet_prefilter", record)
     a = blosc2.asarray(values, chunks=(8,), blocks=(2,))
     result = getattr(a, op)(dtype=np.bool_)
-    assert isinstance(result, np.bool_)
+    assert isinstance(result, np.ndarray)
+    assert result.shape == ()
+    assert result.dtype == np.bool_
     assert result == getattr(values, op)(dtype=np.bool_)
     if (
         not blosc2.IS_WASM
@@ -333,7 +322,9 @@ def test_typed_boolean_accumulator_uses_logical_reduction(monkeypatch, op, value
 def test_typed_empty_boolean_accumulator_identity(op):
     values = np.array([], dtype=np.int64)
     result = getattr(blosc2.asarray(values), op)(dtype=np.bool_)
-    assert isinstance(result, np.bool_)
+    assert isinstance(result, np.ndarray)
+    assert result.shape == ()
+    assert result.dtype == np.bool_
     assert result == getattr(values, op)(dtype=np.bool_)
 
 

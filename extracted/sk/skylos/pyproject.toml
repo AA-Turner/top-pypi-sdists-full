@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skylos"
-version = "5.7.0"
+version = "5.8.0"
 requires-python = ">=3.11"
 description = "Python dead code, security and secrets scanner with a pull-request gate; narrower checks for TypeScript, Java and more."
 authors = [{name = "Aaron Oh", email = "aaronoh2015@gmail.com"}]
@@ -140,6 +140,7 @@ namespaces = false
 "skylos.api" = ["upload_contract/*.json"]
 # Import-name -> distribution map for the dependency hallucination checks.
 "skylos.rules.ai_defect" = ["pipreqs_import_mapping.txt"]
+"skylos.rules" = ["packs/*.yml"]
 # Built-in standards for `skylos agent remediate --standards`.
 "skylos.llm" = ["cleanup_standards.md"]
 # GitHub Actions context capabilities (generated from Octokit's webhook
@@ -147,6 +148,8 @@ namespaces = false
 "skylos.rules.config.cicd" = ["data/*.json", "data/NOTICE.txt"]
 # The local `skylos graph open` viewer page.
 "skylos.graph.viewer" = ["index.html", "app.js", "app.css"]
+# JS/TS tool knowledge (a table of static facts, each row with its source).
+"skylos.visitors.languages.typescript" = ["data/plugin_facts.json"]
 [tool.skylos]
 complexity = 10
 nesting = 3

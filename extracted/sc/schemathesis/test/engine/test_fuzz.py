@@ -22,7 +22,7 @@ from schemathesis.core.result import Ok
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status, StopReason, events, from_schema
 from schemathesis.engine.control import ExecutionControl
-from schemathesis.engine.run import relay_events
+from schemathesis.engine.run import PhaseName, relay_events
 from schemathesis.generation import GenerationMode
 from schemathesis.specs.openapi.stateful._link_chooser import collect_link_candidates
 from test.apps.catalog.openapi import basic
@@ -133,6 +133,23 @@ def test_fuzz_entry_point_emits_engine_started_and_finished(ctx):
     _assert_engine_started_and_finished(_fuzz_events(schema))
 
 
+def test_fuzz_signs_up_in_setup_before_fuzzing(ctx):
+    api = ctx.openapi.apps.sign_up_and_login()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    collected = _collect_until_finished(schema)
+    assert {
+        "phases": [event.phase.name for event in collected if isinstance(event, events.PhaseStarted)],
+        "sign_up": [
+            event.payload.auth.status
+            for event in collected
+            if isinstance(event, events.PhaseFinished) and event.phase.name is PhaseName.SETUP
+        ],
+    } == {
+        "phases": [PhaseName.SETUP, PhaseName.CONTINUOUS_FUZZING],
+        "sign_up": [Status.SUCCESS],
+    }
+
+
 # Only waits at or above the reporting threshold are announced, so the test sleeps that long once.
 def test_fuzz_emits_rate_limit_retry(ctx, app_runner):
     calls = []
@@ -155,7 +172,6 @@ def test_fuzz_emits_rate_limit_retry(ctx, app_runner):
 
 
 def test_fuzz_no_operations_emits_no_scenarios(ctx):
-    # When the schema has no operations, the fuzz thread returns immediately
     schema = ctx.openapi.load_schema({})
     collected = _fuzz_events(schema)
     _assert_engine_started_and_finished(collected)
@@ -177,7 +193,15 @@ def test_fuzz_skips_operation_with_unresolvable_required_body(ctx):
         }
     )
     collected = _fuzz_events(schema)
-    assert [type(event) for event in collected] == [events.EngineStarted, events.EngineFinished]
+    assert [type(event) for event in collected] == [
+        events.EngineStarted,
+        events.PhaseStarted,
+        events.SetupWarnings,
+        events.PhaseFinished,
+        events.PhaseStarted,
+        events.PhaseFinished,
+        events.EngineFinished,
+    ]
 
 
 def test_fuzz_wsgi_app_without_error_feedback_and_response_data(ctx):
@@ -194,9 +218,7 @@ def test_fuzz_wsgi_app_without_error_feedback_and_response_data(ctx):
 def test_fuzz_single_unsatisfiable_operation_emits_non_fatal_error(ctx):
     api = ctx.openapi.apps.unsatisfiable()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # When the only operation is unsatisfiable in all configured modes, a NonFatalError should be emitted.
-    # Use positive-only mode: the unsatisfiable schema has contradictory positive constraints,
-    # so negative mode would succeed. We want to test the "truly unsatisfiable" path.
+    # Positive mode only: negative mode satisfies the contradictory constraints.
     schema.config.generation.update(modes=[GenerationMode.POSITIVE])
     collected = _fuzz_events(schema, FuzzConfig())
     assert _non_fatal_errors(collected)
@@ -205,7 +227,6 @@ def test_fuzz_single_unsatisfiable_operation_emits_non_fatal_error(ctx):
 def test_fuzz_finds_failure_without_continue_on_failure(ctx):
     api = ctx.openapi.apps.failure()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # Without continue_on_failure, the first failure stops the campaign
     collected = _fuzz_events(schema, FuzzConfig())
     assert _finished_scenarios(collected, status=Status.FAILURE)
     _assert_engine_started_and_finished(collected)
@@ -310,14 +331,11 @@ def test_fuzz_preflight_excludes_all_operations(ctx, factory, transform, expecte
 def test_fuzz_finds_failure_with_continue_on_failure(ctx):
     api = ctx.openapi.apps.multiple_failures()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # With continue_on_failure, the campaign continues past failures;
-    # multiple_failures has an integer query param so Hypothesis generates many examples
+    # `multiple_failures` has an integer query parameter, so Hypothesis generates many examples.
     schema.config.continue_on_failure = True
     collected = _collect_until_finished(schema, count=3, config=FuzzConfig())
     finished = _finished_scenarios(collected)
-    # Campaign continued past the first failure
     assert len(finished) >= 3
-    # At least one failure was recorded
     assert _finished_scenarios(collected, status=Status.FAILURE)
 
 
@@ -350,7 +368,6 @@ def test_failure_limit_wins_over_deadline_crossed_while_winding_down():
 def test_fuzz_max_failures_multi_worker(ctx):
     api = ctx.openapi.apps.multiple_failures()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # With 2 workers and continue_on_failure, the global failure counter stops the campaign
     schema.config.max_failures = 3
     schema.config.continue_on_failure = True
     schema.config.update(workers=2)
@@ -401,20 +418,18 @@ def test_fuzz_operation_weights_producer_higher_than_consumer(ctx):
     operations = [op.ok() for op in schema.get_all_operations() if isinstance(op, Ok)]
     weights = schema.compute_fuzz_operation_weights(operations)
 
-    # Producer (POST /users, layer 0 with outputs) must outweigh consumer (GET, deeper layer)
+    # The producer (layer 0, with outputs) outweighs its consumer at a deeper layer.
     assert weights["POST /users"] > weights["GET /users/{user_id}"]
 
 
 def test_fuzz_per_operation_continue_on_failure(ctx):
     api = ctx.openapi.apps.multiple_failures()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # When continue_on_failure=True is set only for a specific operation (not globally)
     schema.config.operations = OperationsConfig(
         operations=[OperationConfig.from_dict({"include-path": "/api/multiple_failures", "continue-on-failure": True})]
     )
     collected = _collect_until_finished(schema, count=3, config=FuzzConfig())
     finished = _finished_scenarios(collected)
-    # Then fuzz continues past failures (does not raise) and records them
     assert len(finished) >= 3
     assert _finished_scenarios(collected, status=Status.FAILURE)
 
@@ -422,7 +437,6 @@ def test_fuzz_per_operation_continue_on_failure(ctx):
 def test_fuzz_generation_parameter_overrides_are_applied(ctx):
     api = ctx.openapi.apps.multiple_failures()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # When a parameter override is configured
     schema.config.parameters = {"query.id": -1}
     stream = from_schema(schema).fuzz(FuzzConfig())
     query_values: list[dict] = []
@@ -433,7 +447,6 @@ def test_fuzz_generation_parameter_overrides_are_applied(ctx):
             if len(query_values) >= 3:
                 stream.stop()
                 break
-    # Then every generated case must have the fixed id value, not a random one
     assert query_values == [{"id": -1}] * len(query_values)
 
 
@@ -491,7 +504,6 @@ def test_fuzz_unique_inputs_sends_each_input_once(ctx, app_runner, workers):
 def test_fuzz_multiple_workers_emit_distinct_worker_ids(ctx):
     api = ctx.openapi.apps.path_variable()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # Each worker emits events with its own worker_id; with workers=2 we must see both 0 and 1
     schema.config.update(workers=2)
     worker_ids: set[int] = set()
     stream = from_schema(schema).fuzz(FuzzConfig())
@@ -519,7 +531,6 @@ def test_fuzz_scenario_interrupted_status(ctx):
 def test_fuzz_scenario_error_status(ctx):
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # When a check raises an unexpected exception, the scenario must finish with ERROR status.
 
     @schemathesis.check
     def always_errors(ctx, response, case):
@@ -604,7 +615,6 @@ def test_fuzz_preflight_reports_exclusion_once_across_workers(ctx, app_runner):
 def test_fuzz_network_error_emits_non_fatal_error(ctx):
     api = ctx.openapi.apps.slow()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # When the server times out, a NonFatalError is emitted and the scenario still finishes
     schema.config.request_timeout = 0.001
     collected = _fuzz_events(schema, FuzzConfig())
     errors = _non_fatal_errors(collected)
@@ -631,15 +641,13 @@ def test_fuzz_network_error_emits_non_fatal_error(ctx):
 def test_fuzz_interrupted_by_keyboard_interrupt(ctx):
     api = ctx.openapi.apps.path_variable()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # Inject KeyboardInterrupt directly into the generator — safe under xdist (no OS signals)
+    # Throwing into the generator avoids OS signals, which are unsafe under xdist.
     stream = from_schema(schema).fuzz(FuzzConfig())
     assert isinstance(next(stream), events.EngineStarted)
-    # Advance into run_forever so the generator is suspended at a yield inside it
+    # Advance so the generator is suspended at a yield inside the run loop.
     next(stream)
-    # Throw KeyboardInterrupt at the current yield suspension point
     interrupted = stream.generator.throw(KeyboardInterrupt)
     assert isinstance(interrupted, events.Interrupted)
-    # Drain to EngineFinished
     for _ in stream:
         pass
 
@@ -665,6 +673,7 @@ def test_fuzz_exception_thrown_into_stream_stops_workers(ctx):
     thrower.join(timeout=30)
     assert not thrower.is_alive(), "Fuzz workers kept running after the exception"
     assert raised == [error]
+    assert not [thread for thread in threading.enumerate() if thread.name.startswith("schemathesis_fuzz")]
 
 
 def test_fuzz_runs_class_based_checks(ctx):

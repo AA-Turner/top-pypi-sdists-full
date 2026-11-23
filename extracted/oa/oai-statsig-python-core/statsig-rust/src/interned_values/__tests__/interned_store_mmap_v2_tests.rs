@@ -793,7 +793,10 @@ rusty_fork_test! {
         assert!(matches!(
             preload_mmap_v2_for_test(&path),
             Err(StatsigErr::SerializationError(message))
-                if message == "Unsupported interned mmap format version 99; expected 2"
+                if message == format!(
+                    "Unsupported interned mmap format version 99; expected {}",
+                    MmapDataV2::FORMAT_VERSION,
+                )
         ));
     }
 
@@ -847,6 +850,7 @@ rusty_fork_test! {
                 has_shared_params: None,
                 is_active: None,
                 version: None,
+                served_version: None,
                 target_app_ids: None,
                 forward_all_exposures: None,
                 fields_used: None,
@@ -1679,6 +1683,7 @@ rusty_fork_test! {
                     "idType": "userID",
                     "explicitParameters": ["value"],
                     "entity": "experiment",
+                    "servedVersion": 7,
                     "targetAppIDs": ["target-app"],
                     "forwardAllExposures": true,
                     "fieldsUsed": ["email"],
@@ -1705,6 +1710,7 @@ rusty_fork_test! {
         let view = spec.view();
 
         assert_eq!(view.target_app_ids_contains("target-app"), Some(true));
+        assert_eq!(view.served_version(), Some(7));
         assert_eq!(view.forward_all_exposures(), Some(true));
         assert_eq!(view.fields_used(), vec!["email"]);
         assert!(view.uses_new_layer_eval());

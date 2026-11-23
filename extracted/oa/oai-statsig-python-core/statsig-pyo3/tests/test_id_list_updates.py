@@ -75,7 +75,7 @@ def _specs():
 @pytest.mark.parametrize(
     "use_evaluation_cache", [False, True], ids=["uncached", "cached"]
 )
-@pytest.mark.parametrize("elias_fano", [None, True], ids=["default", "elias-fano"])
+@pytest.mark.parametrize("elias_fano", [None, False], ids=["default", "hash"])
 @pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
 def test_membership_append_remove_and_new_file_reset(
     httpserver, use_evaluation_cache, elias_fano, lazy
@@ -262,7 +262,6 @@ def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy, shared, t
             specs_sync_interval_ms=60_000,
             id_lists_sync_interval_ms=60_000,
             enable_id_lists=True,
-            enable_id_list_elias_fano=True,
             shared_id_lists_dir=str(tmp_path / "id-lists") if shared else None,
             fallback_to_statsig_api=False,
             output_log_level="none",
@@ -275,6 +274,9 @@ def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy, shared, t
             assert sorted(downloads) == (
                 [] if lazy else ["/lists/members", "/lists/unused"]
             )
+
+        if shared and lazy:
+            assert not (tmp_path / "id-lists").exists()
 
         # Only call the public synchronous getter: it must initiate the load itself.
         # A cold call may hit its 30 ms budget on a busy test host. The background
@@ -289,7 +291,6 @@ def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy, shared, t
         with lock:
             assert downloads.count("/lists/members") == 1
             assert downloads.count("/lists/unused") == (0 if lazy else 1)
-        if shared:
-            assert (tmp_path / "id-lists").exists() is not bool(lazy)
+        assert (tmp_path / "id-lists").exists() is shared
     finally:
         assert sdk.shutdown().wait(10)

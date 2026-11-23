@@ -26,12 +26,14 @@ env:
     ${{ !contains(github.event.pull_request.labels.*.name, 'skip: tests') }}
   __skip_lints: &skip_lints >-
     ${{ !contains(github.event.pull_request.labels.*.name, 'skip: lints') }}
+  __is_pull_request: &is_pull_request >-
+    ${{ github.event_name == 'pull_request' }}
 
 jobs:
   cargo-fmt:
     name: "cargo fmt"
     if: *skip_lints
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,17 +49,21 @@ jobs:
   cargo-clippy:
     name: "cargo clippy"
     if: *skip_lints
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        if: github.event_name == 'pull_request'
+      - uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
+        if: *is_pull_request
         with:
-          lookup-only: false # zizmor: ignore[cache-poisoning]
+          pr-comment: false
+          github-cache: true
+          cache-executables: true
+          cache-dir: ${{ runner.temp }}/kache
+          cache-key-prefix: kache-${{ matrix.target }}
 
       - uses: dtolnay/rust-toolchain@nightly # zizmor: ignore[unpinned-uses]
         with:
@@ -68,7 +74,7 @@ jobs:
   tools:
     name: ${{ matrix.name }}
     if: *skip_lints
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     strategy:
       matrix:
@@ -87,15 +93,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # zizmor: ignore[cache-poisoning]
-          enable-cache: ${{ github.event_name == 'pull_request' }}
+          enable-cache: *is_pull_request
 
       - name: "Install ${{ matrix.name }}"
         run: uv pip install --group ${{ matrix.name }} --system
@@ -106,7 +112,7 @@ jobs:
   tests-alpine:
     name: "tests / alpine / python 3.14"
     if: *skip_tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -171,7 +177,7 @@ jobs:
     name: "build sdist"
     if: >-
       ${{ !contains(github.event.pull_request.labels.*.name, 'skip: wheels build') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -193,12 +199,12 @@ jobs:
     # if the python wheel build jobs are skipped, there are no artifacts to validate
     if: >-
       ${{
-        always() && !failure() && !cancelled() &&
-        !contains(github.event.pull_request.labels.*.name, 'skip: wheels build')
+        !contains(github.event.pull_request.labels.*.name, 'skip: wheels build') &&
+        always() && !failure() && !cancelled()
       }}
 
     name: "Publish to PyPI"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [
       build-sdist,
       manylinux,
@@ -215,7 +221,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
 
@@ -224,7 +230,7 @@ jobs:
 
       - name: "Generate PyPI publish attestations"
         if: github.ref_type == 'tag'
-        uses: astral-sh/attest-action@f589a42a7efb6fe400b4f400de60b4bc90390027 # v0.0.6
+        uses: astral-sh/attest-action@39b6ce43875c196a579e31635b11aa2a2036384a # v0.0.7
         with:
           paths: |
             wheels-*/*.whl
@@ -235,10 +241,14 @@ jobs:
         run: uv publish --trusted-publishing=always 'wheels-*/*'
 
   release-github:
-    if: ${{ github.ref_type == 'tag' && always() && !failure() && !cancelled() }}
+    if: >-
+      ${{
+        github.ref_type == 'tag' &&
+        always() && !failure() && !cancelled()
+      }}
 
     name: "Publish to GitHub Release"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [
       build-sdist,
       manylinux,

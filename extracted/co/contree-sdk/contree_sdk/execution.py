@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import PurePosixPath
 from shlex import quote
 from types import MappingProxyType
 
-from contree_client.models import (
-    InstanceNetworking,
-    InstanceResourcesLimits,
-    InstanceResult,
-    InstanceResultState,
-    StreamRepr,
-)
+from contree_client.models import InstanceResourcesLimits, InstanceResult, InstanceResultState, StreamRepr
 
 from contree_sdk.exceptions import FileWriteError
 from contree_sdk.files import InputSource, RunFiles, StagedFile
@@ -39,6 +34,8 @@ class RunRequest:
     args: tuple[str, ...] = ()
     env: Mapping[str, str] | None = None
     cwd: str | None = None
+    network_enabled: bool | None = None
+    network_policy: str | Sequence[str] | None = None
     stdin: InputSource | None = None
     stdin_open: bool = False
     files: RunFiles = None
@@ -50,7 +47,6 @@ class RunRequest:
     uid: int | None = None
     gid: int | None = None
     resources_limits: InstanceResourcesLimits | None = None
-    networking: InstanceNetworking | None = None
 
     def __post_init__(self) -> None:
         if (self.command is None) == (self.shell is None):
@@ -58,6 +54,8 @@ class RunRequest:
         object.__setattr__(self, "args", tuple(self.args))
         if self.env is not None:
             object.__setattr__(self, "env", MappingProxyType(dict(self.env)))
+        if isinstance(self.network_policy, Sequence) and not isinstance(self.network_policy, (str, bytes, bytearray)):
+            object.__setattr__(self, "network_policy", tuple(self.network_policy))
 
     @property
     def title(self) -> str:
@@ -85,9 +83,14 @@ class OperationContext:
     position_version: int = 0
     session_cwd: str | None = None
     session_env: Mapping[str, str] = field(default_factory=dict)
+    session_network_enabled: bool = True
+    session_network_policy_uuids: tuple[str, ...] = ()
+    session_resources_limits: InstanceResourcesLimits | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "session_env", MappingProxyType(dict(self.session_env)))
+        object.__setattr__(self, "session_network_policy_uuids", tuple(self.session_network_policy_uuids))
+        object.__setattr__(self, "session_resources_limits", deepcopy(self.session_resources_limits))
 
 
 def _file_write_request(path: str, content: bytes) -> RunRequest:

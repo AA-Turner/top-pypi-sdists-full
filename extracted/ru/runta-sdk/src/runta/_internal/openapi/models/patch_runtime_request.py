@@ -32,8 +32,8 @@ class PatchRuntimeRequest:
 
     Attributes:
         environment_variables (PatchRuntimeRequestEnvironmentVariables | Unset): Complete replacement of the runtime's
-            non-secret environment variables. An empty object removes every variable; omit to leave unchanged. The same
-            name, value, and reservation rules as creation apply.
+            non-secret environment variables. An empty object removes all variables. Omit to preserve current values.
+            Creation rules for names, values, and reserved names also apply.
         display_name (str | Unset): New user-facing runtime name. The runtime UUID and data-plane identity remain
             unchanged.
         egress_policy (AllowlistEgressPolicy | DenylistEgressPolicy | Unset): Per-runtime egress gateway policy.
@@ -45,8 +45,8 @@ class PatchRuntimeRequest:
         auto_delete_policy (TimeoutPolicy | Unset):
         llm_tool_io_capture_enabled (bool | Unset): Whether official LLM HTTP API tool input/output capture is enabled.
             Omit to leave unchanged.
-        llm_session_content_capture_enabled (bool | Unset): Explicitly opt in to user, assistant, and tool conversation
-            content capture. Disabled by default; independent from tool-only capture. Omit to leave unchanged.
+        llm_session_content_capture_enabled (bool | Unset): Explicitly enable capture of user, assistant, and tool
+            conversation content. Disabled by default. Independent from tool-only capture. Omit to leave unchanged.
         tls_passthrough_hosts (list[str] | Unset): Complete replacement HTTPS passthrough host configuration. Matching
             TLS connections bypass secret injection, LLM capture, token saving, and model routing and connect to the
             original destination. Omit to leave unchanged.

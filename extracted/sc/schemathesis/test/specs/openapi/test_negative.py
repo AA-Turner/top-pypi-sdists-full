@@ -1,4 +1,6 @@
+import json
 import math
+import re
 import uuid
 from urllib.parse import unquote, urlparse
 
@@ -7,7 +9,7 @@ import pytest
 import requests
 from _pytest.main import ExitCode
 from flask import jsonify
-from hypothesis import HealthCheck, Phase, given, settings
+from hypothesis import HealthCheck, Phase, assume, given, settings
 from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from jsonschema_rs import canonical
@@ -16,8 +18,10 @@ import schemathesis
 from schemathesis.config import GenerationConfig
 from schemathesis.core import string_to_boolean
 from schemathesis.core.control import SkipTest
+from schemathesis.core.deserialization import parse_json_sequence
 from schemathesis.core.jsonschema import CANONICALIZE_DRAFT_BY_VALIDATOR, _is_valid_uuid, make_validator
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
+from schemathesis.core.mutations import Mutation, MutationChannel, OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.generation import GenerationMode
@@ -26,17 +30,27 @@ from schemathesis.generation.jsonschema.builder import build
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi._hypothesis import get_default_format_strategies
-from schemathesis.specs.openapi.negative import mutated, negative_schema
+from schemathesis.specs.openapi.negative import (
+    _with_syntax_fuzzing,
+    is_non_empty_query,
+    mutated,
+    negative_schema,
+)
 from schemathesis.specs.openapi.negative.mutations import (
+    MAX_WALK_DEPTH,
     MutationContext,
     MutationResult,
+    MutationTargetDescriptor,
+    WalkStep,
     change_type,
     compute_mutation_targets,
+    has_negatable_target,
     negate_constraints,
     prevent_unsatisfiable_schema,
     remove_required_property,
 )
 from schemathesis.specs.openapi.negative.utils import can_negate
+from schemathesis.transport.requests import REQUESTS_TRANSPORT
 from test.utils import assert_requests_call, find_first, run_given
 
 MAX_EXAMPLES = 15
@@ -67,7 +81,7 @@ INTEGER_SCHEMA = {
 
 
 def validate_schema(schema):
-    """Validate schema by constructing a Draft4Validator (which validates the schema on construction)."""
+    """Draft4Validator construction raises on an invalid schema."""
     jsonschema_rs.Draft4Validator(schema)
 
 
@@ -143,6 +157,10 @@ def test_top_level_strategy(data, location, schema):
         # Query and path parameters are always strings
         (change_type, {"type": "string"}, ParameterLocation.PATH, True),
         (change_type, {"type": "string"}, ParameterLocation.QUERY, True),
+        # Binary strings accept any bytes
+        (change_type, {"type": "string", "format": "binary"}, ParameterLocation.BODY, True),
+        # Every value can spell a string
+        (negate_constraints, {"anyOf": [{}, {"type": "integer"}]}, ParameterLocation.BODY, True),
     ],
 )
 @given(data=st.data())
@@ -151,8 +169,6 @@ def test_failing_mutations(data, mutation, schema, location, validate):
     if validate:
         validate_schema(schema)
     original_schema = deepclone(schema)
-    # When mutation can't be applied
-    # Then it returns "failure"
     result, metadata = mutation(
         MutationContext(
             keywords=schema,
@@ -167,29 +183,30 @@ def test_failing_mutations(data, mutation, schema, location, validate):
     )
     assert result == MutationResult.FAILURE
     assert metadata is None
-    # And doesn't mutate the input schema
     assert schema == original_schema
 
 
+@pytest.mark.parametrize(
+    ("media_type", "schema"),
+    [("application/x-www-form-urlencoded", {"type": "object"}), ("application/xml", {"type": "string"})],
+    ids=["urlencoded", "xml-string"],
+)
 @given(data=st.data())
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=MAX_EXAMPLES)
-def test_change_type_urlencoded(data):
-    # When `application/x-www-form-urlencoded` media type is passed to `change_type`
-    schema = {"type": "object"}
+def test_change_type_non_json_media_types(data, media_type, schema):
+    schema = deepclone(schema)
     original_schema = deepclone(schema)
     context = MutationContext(
         keywords=schema,
         non_keywords={},
         location=ParameterLocation.BODY,
-        media_type="application/x-www-form-urlencoded",
+        media_type=media_type,
         allow_extra_parameters=True,
         target_descriptors=(),
     )
-    # Then it should not be mutated
     result, metadata = change_type(context, data.draw, schema)
     assert result == MutationResult.FAILURE
     assert metadata is None
-    # And doesn't mutate the input schema
     assert schema == original_schema
 
 
@@ -212,8 +229,6 @@ def test_successful_mutations(data, mutation, schema):
     validate_schema(schema)
     validator = jsonschema_rs.Draft4Validator(schema)
     schema = deepclone(schema)
-    # When mutation can be applied
-    # Then it returns "success"
     result, metadata = mutation(
         MutationContext(
             keywords=schema,
@@ -228,10 +243,11 @@ def test_successful_mutations(data, mutation, schema):
     )
     assert result == MutationResult.SUCCESS
     assert metadata is not None
-    # And the mutated schema is a valid JSON Schema
     validate_schema(schema)
-    # And instances valid for this schema are not valid for the original one
     new_instance = data.draw(from_schema(schema))
+    # An undeclared key can spell the removed property again; negative generation filters such values out.
+    if mutation is remove_required_property and isinstance(new_instance, dict):
+        assume(metadata.mutations[0].parameter not in new_instance)
     assert not validator.is_valid(new_instance)
 
 
@@ -265,7 +281,6 @@ def test_successful_mutations(data, mutation, schema):
 def test_path_parameters_are_string(data, schema):
     validator = jsonschema_rs.Draft4Validator(schema)
     new_schema = deepclone(schema)
-    # When path parameters are mutated
     new_schema, _ = data.draw(
         mutated(
             keywords=new_schema,
@@ -277,14 +292,10 @@ def test_path_parameters_are_string(data, schema):
         )
     )
     assert new_schema["type"] == "object"
-    # Then mutated schema is a valid JSON Schema
     validate_schema(new_schema)
-    # And parameters remain primitive types
     new_instance = data.draw(from_schema(new_schema))
     assert not isinstance(new_instance["foo"], ((list, dict)))
-    # And there should be no additional parameters
     assert len(new_instance) == 1
-    # And instances valid for this schema are not valid for the original one
     assert not validator.is_valid(new_instance)
 
 
@@ -292,13 +303,12 @@ def test_path_parameters_are_string(data, schema):
 @given(data=st.data())
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=MAX_EXAMPLES)
 def test_custom_fields_are_intact(data, key):
-    # When the schema contains some non-JSON Schema keywords (e.g. components from Open API)
+    # Non-JSON Schema keys such as Open API `components` must stay intact.
     schema = {
         "type": "object",
         "properties": {"X-Foo": {"type": "string", "maxLength": 5}},
         "additionalProperties": False,
     }
-    # Then they should not be negated
     new_schema, _ = data.draw(
         mutated(
             keywords=schema,
@@ -310,6 +320,358 @@ def test_custom_fields_are_intact(data, key):
         )
     )
     assert key in new_schema
+
+
+def _assert_drawn_values_invalid(data, mutated_schema, original_schema):
+    value = data.draw(
+        build(
+            mutated_schema,
+            draft=CANONICALIZE_DRAFT_BY_VALIDATOR[jsonschema_rs.Draft202012Validator],
+            formats=get_default_format_strategies(),
+        )
+    )
+    assert not jsonschema_rs.Draft202012Validator(original_schema).is_valid(value), (
+        f"Valid against the original: {value!r}"
+    )
+
+
+def _without_pattern_exclusion(schema):
+    # Which strings a wire-level exclusion bars is checked end to end, not by its regex text.
+    return {key: value for key, value in schema.items() if not (key == "not" and set(value) == {"pattern"})}
+
+
+NOT_ZERO_OR_ONE = {"not": {"enum": [0, 1]}}
+NOT_WHOLE = {"not": {"multipleOf": 1}}
+PLAIN_TYPES = {name: {"type": name} for name in ("string", "integer", "number", "object", "array", "boolean", "null")}
+
+
+@pytest.mark.parametrize(
+    ("location", "schema", "original_value", "expected_by_type"),
+    [
+        (
+            ParameterLocation.QUERY,
+            {"type": ["boolean", "number", "null", "object", "array"], "maxLength": 5, "minimum": 1},
+            "array | boolean | null | number | object",
+            {"string": {"type": "string", "maxLength": 5}},
+        ),
+        (
+            ParameterLocation.BODY,
+            {"type": ["integer", "string", "object", "array", "boolean", "null"], "minimum": 1},
+            "array | boolean | integer | null | object | string",
+            {"number": {"type": "number", **NOT_WHOLE}},
+        ),
+        (
+            ParameterLocation.PATH,
+            {"type": ["integer", "number"], "minimum": 1},
+            "integer | number",
+            {"string": PLAIN_TYPES["string"], "null": PLAIN_TYPES["null"], "boolean": PLAIN_TYPES["boolean"]},
+        ),
+        (
+            ParameterLocation.BODY,
+            {"type": "integer", "minimum": 1},
+            "integer",
+            {
+                **{name: PLAIN_TYPES[name] for name in PLAIN_TYPES if name != "integer"},
+                "number": {"type": "number", **NOT_WHOLE},
+            },
+        ),
+        (
+            ParameterLocation.QUERY,
+            {"type": "integer"},
+            "integer",
+            {
+                **{name: PLAIN_TYPES[name] for name in PLAIN_TYPES if name != "integer"},
+                "number": {"type": "number", **NOT_WHOLE},
+                "array": {"type": "array", "minItems": 1, "items": {"not": {"enum": [None, [], {}]}}},
+            },
+        ),
+        (
+            ParameterLocation.QUERY,
+            {"type": "boolean"},
+            "boolean",
+            {
+                "string": PLAIN_TYPES["string"],
+                "integer": {"type": "integer", **NOT_ZERO_OR_ONE},
+                "number": {"type": "number", **NOT_ZERO_OR_ONE},
+                "null": PLAIN_TYPES["null"],
+            },
+        ),
+        (
+            ParameterLocation.PATH,
+            {"type": "boolean"},
+            "boolean",
+            {
+                "string": PLAIN_TYPES["string"],
+                "integer": {"type": "integer", **NOT_ZERO_OR_ONE},
+                "number": {"type": "number", **NOT_ZERO_OR_ONE},
+                "null": PLAIN_TYPES["null"],
+            },
+        ),
+        (
+            ParameterLocation.HEADER,
+            {"type": "boolean"},
+            "boolean",
+            {name: PLAIN_TYPES[name] for name in PLAIN_TYPES if name != "boolean"},
+        ),
+        (
+            ParameterLocation.BODY,
+            {"type": "boolean"},
+            "boolean",
+            {name: PLAIN_TYPES[name] for name in PLAIN_TYPES if name != "boolean"},
+        ),
+    ],
+    ids=[
+        "query-single-candidate",
+        "body-single-candidate",
+        "path-numeric",
+        "body-integer",
+        "query-integer",
+        "query-boolean",
+        "path-boolean",
+        "header-boolean",
+        "body-boolean",
+    ],
+)
+def test_change_type_result(location, schema, original_value, expected_by_type):
+    def change(data):
+        mutated_schema = deepclone(schema)
+        result, metadata = change_type(_mutation_context(location), data.draw, mutated_schema)
+        return result, metadata, mutated_schema
+
+    @run_given(st.data(), max_examples=10)
+    def check(data):
+        result, metadata, mutated_schema = change(data)
+        new_type = mutated_schema["type"]
+        assert (result, _without_pattern_exclusion(mutated_schema), metadata.mutations) == (
+            MutationResult.SUCCESS,
+            expected_by_type[new_type],
+            (
+                Mutation(
+                    path=(),
+                    parameter_location=location,
+                    schema_pointer="",
+                    channel=MutationChannel.SCHEMA,
+                    operator=OperatorKind.CHANGE_TYPE,
+                    keywords=("type",),
+                    parameter=None,
+                    original_value=original_value,
+                    new_value=new_type,
+                ),
+            ),
+        )
+        _assert_drawn_values_invalid(data, mutated_schema, schema)
+
+    for new_type in expected_by_type:
+        find_first(
+            st.data(),
+            lambda data, new_type=new_type: change(data)[2]["type"] == new_type,
+            # Path parameters turn into null or boolean in about one case in twenty.
+            max_examples=500,
+        )
+
+
+@pytest.mark.parametrize(
+    ("location", "schema", "expected_schema", "parameter", "original_value"),
+    [
+        (
+            ParameterLocation.QUERY,
+            {"type": "object", "properties": {"a": {}}, "required": ["a"]},
+            {"type": "object", "properties": {"a": {}}, "not": {"required": ["a"]}},
+            "a",
+            ["a"],
+        ),
+        (
+            ParameterLocation.QUERY,
+            {"type": "object", "properties": {"a": {}, "b": {}}, "required": ["a", "b"]},
+            {"type": "object", "properties": {"a": {}, "b": {}}, "not": {"required": ["a", "b"]}},
+            None,
+            ["a", "b"],
+        ),
+        (
+            ParameterLocation.PATH,
+            {"type": "string", "minLength": 1, "maxLength": 5},
+            {"type": "string", "minLength": 1, "not": {"maxLength": 5}},
+            None,
+            None,
+        ),
+        (
+            ParameterLocation.BODY,
+            {"type": "string", "maxLength": 5, BUNDLE_STORAGE_KEY: {"A": {"type": "integer"}}},
+            {"type": "string", "not": {"maxLength": 5}, BUNDLE_STORAGE_KEY: {"A": {"type": "integer"}}},
+            None,
+            None,
+        ),
+    ],
+    ids=["single-required", "many-required", "path-min-length-one", "bundled"],
+)
+def test_negate_constraints_result(location, schema, expected_schema, parameter, original_value):
+    keywords = tuple(key for key in expected_schema["not"])
+
+    @run_given(st.data(), max_examples=10)
+    def check(data):
+        mutated_schema = deepclone(schema)
+        result, metadata = negate_constraints(_mutation_context(location), data.draw, mutated_schema)
+        _assert_drawn_values_invalid(data, mutated_schema, schema)
+        assert (result, mutated_schema, metadata.mutations) == (
+            MutationResult.SUCCESS,
+            expected_schema,
+            (
+                Mutation(
+                    path=(),
+                    parameter_location=location,
+                    schema_pointer="",
+                    channel=MutationChannel.SCHEMA,
+                    operator=OperatorKind.NEGATE_CONSTRAINTS,
+                    keywords=keywords,
+                    parameter=parameter,
+                    original_value=original_value,
+                    new_value=None,
+                ),
+            ),
+        )
+
+
+def _negated_keywords(schema, data):
+    _, metadata = negate_constraints(_mutation_context(ParameterLocation.BODY), data.draw, deepclone(schema))
+    return metadata.mutations[0].keywords
+
+
+def test_negate_constraints_never_negates_exclusive_bound_without_its_bound():
+    with pytest.raises(NoSuchExample):
+        find_first(
+            st.data(),
+            lambda data: _negated_keywords({"minimum": 5, "exclusiveMinimum": True}, data) == ("exclusiveMinimum",),
+            # Proving absence needs more draws than the default budget.
+            max_examples=100,
+        )
+
+
+ROOT_TARGET_ONLY = (MutationTargetDescriptor(walk=()),)
+
+
+@pytest.mark.parametrize(
+    ("location", "keywords", "expected"),
+    [
+        (
+            ParameterLocation.HEADER,
+            {
+                "type": "object",
+                "properties": {"X-C": False, "X-B": True, "X-A": {"type": "string", "maxLength": 3}},
+                "additionalProperties": False,
+                "required": ["X-A"],
+            },
+            {
+                "type": "object",
+                "properties": {
+                    "X-C": False,
+                    "X-B": {"type": "string", "format": "_header_value"},
+                    "X-A": {"type": "string", "maxLength": 3, "format": "_header_value"},
+                },
+                "additionalProperties": False,
+                "not": {"required": ["X-A"]},
+            },
+        ),
+        (
+            ParameterLocation.QUERY,
+            {"type": "object", "properties": {"a": {"type": "string"}}, "minProperties": 2},
+            {"type": "object", "properties": {"a": {"type": "string"}}, "not": {"minProperties": 2}},
+        ),
+        (
+            ParameterLocation.QUERY,
+            {"type": "object", "properties": {"a": {"type": "string"}}, "maxProperties": 2},
+            {
+                "type": "object",
+                "properties": {"a": {"type": "string"}},
+                "not": {"maxProperties": 2},
+                "minProperties": 1,
+            },
+        ),
+    ],
+    ids=["header", "barred-min-properties", "non-empty-object"],
+)
+def test_mutated_parameter_container_schema(location, keywords, expected):
+    @run_given(
+        mutated(
+            keywords=keywords,
+            non_keywords={BUNDLE_STORAGE_KEY: {}, "x-extra": 1},
+            location=location,
+            media_type=None,
+            allow_extra_parameters=False,
+            target_descriptors=ROOT_TARGET_ONLY,
+        ),
+        st.data(),
+        max_examples=10,
+    )
+    def check(value, data):
+        new_schema, _ = value
+        assert new_schema == {**expected, BUNDLE_STORAGE_KEY: {}, "x-extra": 1}
+        _assert_drawn_values_invalid(data, new_schema, keywords)
+
+
+def test_mutated_headers_occasionally_allow_undeclared_names():
+    keywords = {
+        "type": "object",
+        "properties": {"X-A": {"type": "string", "maxLength": 3}},
+        "additionalProperties": False,
+    }
+    new_schema, _ = find_first(
+        mutated(
+            keywords=keywords,
+            non_keywords={},
+            location=ParameterLocation.HEADER,
+            media_type=None,
+            allow_extra_parameters=True,
+            target_descriptors=ROOT_TARGET_ONLY + (MutationTargetDescriptor(walk=(WalkStep("properties", "X-A"),)),),
+        ),
+        lambda value: value[0]["additionalProperties"] is not False,
+        max_examples=100,
+    )
+    assert new_schema["additionalProperties"] == {"type": "string", "format": "_header_value"}
+
+
+def test_mutated_secondary_target_is_drawn_from_the_whole_pool():
+    keywords = {
+        "type": "object",
+        "properties": {name: {"type": "string", "maxLength": 3} for name in ("a", "b", "c")},
+    }
+    find_first(
+        mutated(
+            keywords=keywords,
+            non_keywords={},
+            location=ParameterLocation.BODY,
+            media_type="application/json",
+            allow_extra_parameters=True,
+            target_descriptors=compute_mutation_targets(keywords),
+        ),
+        lambda value: {mutation.parameter for mutation in value[1].mutations} == {"b", "c"},
+        # Two specific targets in one case is rare, so a single match needs a wider search.
+        max_examples=500,
+    )
+
+
+def test_mutated_property_target_keeps_object_non_empty():
+    keywords = {"type": "object", "properties": {"a": {"type": "string", "maxLength": 3}}}
+
+    @run_given(
+        mutated(
+            keywords=keywords,
+            non_keywords={},
+            location=ParameterLocation.BODY,
+            media_type="application/json",
+            allow_extra_parameters=True,
+            target_descriptors=(MutationTargetDescriptor(walk=(WalkStep("properties", "a"),)),),
+        ),
+        st.data(),
+        max_examples=10,
+    )
+    def check(value, data):
+        new_schema, _ = value
+        assert {key: value for key, value in new_schema.items() if key != "properties"} == {
+            "type": "object",
+            "required": ["a"],
+            "minProperties": 1,
+        }
+        _assert_drawn_values_invalid(data, new_schema, keywords)
 
 
 @pytest.mark.parametrize(
@@ -345,7 +707,6 @@ def test_mutation_result_success(left, right, expected):
 @given(data=st.data())
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=MAX_EXAMPLES)
 def test_negate_constraints_keep_dependencies(data, schema, validator_cls):
-    # When `negate_constraints` is used
     schema = deepclone(schema)
     negate_constraints(
         MutationContext(
@@ -359,10 +720,8 @@ def test_negate_constraints_keep_dependencies(data, schema, validator_cls):
         data.draw,
         schema,
     )
-    # Then it should always produce valid schemas
-    # Creating a validator validates the schema
+    # Building a validator checks the schema; `exclusiveMaximum`/`exclusiveMinimum` need their `maximum`/`minimum`.
     validator_cls(schema)
-    # E.g. `exclusiveMaximum` / `exclusiveMinimum` only work when `maximum` / `minimum` are present in the same schema
 
 
 @given(data=st.data())
@@ -525,8 +884,7 @@ def test_openapi_31_legacy_exclusive_bounds_in_response_schema(ctx):
     response_def = operation.responses.get("200")
     assert response_def is not None
     resolved = response_def.get_schema("application/json")
-    # Without upgrade: Draft 2020-12 ignores bool exclusiveMinimum -> schema is just {type: integer, minimum: 1}
-    # With upgrade: {type: integer, exclusiveMinimum: 1} — value must be strictly > 1
+    # Draft 2020-12 ignores a boolean `exclusiveMinimum`, so the bound must be upgraded to a number.
     assert resolved.schema == {"type": "integer", "exclusiveMinimum": 1}
 
 
@@ -549,8 +907,7 @@ def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
 
 
 def test_openapi_31_prefix_items_query_param_negative_generation(ctx):
-    # Draft 2020-12 `prefixItems` must not crash the negative-path validator with
-    # `items is not of types boolean, object` from meta-validation.
+    # Draft 2020-12 `prefixItems` must not fail meta-validation in the negative-path validator.
     schema = ctx.openapi.load_schema(
         {
             "/box": {
@@ -615,9 +972,48 @@ def test_openapi_31_prefix_items_body_negative_generation(ctx):
         pass
 
 
+def test_negative_json_sequence_body_reads_as_an_invalid_stream(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"application/jsonl": {"itemSchema": {"type": "integer"}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+    )
+    validator = jsonschema_rs.validator_for({"type": "array", "items": {"type": "integer"}})
+
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=10, derandomize=True)
+    def test(case):
+        records = parse_json_sequence(REQUESTS_TRANSPORT.serialize_case(case)["data"], case.media_type)
+        assert not validator.is_valid(records), f"Reads as a valid stream: {case.body!r}"
+
+
+@pytest.mark.parametrize(
+    ("version", "media_type_object", "expected"),
+    [
+        ("3.2.0", {"itemSchema": {}}, False),
+        ("3.2.0", {"itemSchema": True}, False),
+        ("3.2.0", {"itemSchema": {"type": "integer"}}, True),
+        ("3.1.0", {"schema": {"type": "object"}}, True),
+    ],
+    ids=["any-item", "true-item", "integer-item", "single-record-object"],
+)
+def test_json_sequence_body_is_negatable_only_with_violations_on_the_wire(ctx, version, media_type_object, expected):
+    # A non-array value goes out as one record, so with every item allowed any body reads as a valid stream.
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"application/jsonl": media_type_object}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+    )
+    assert [body.is_negatable for body in operation.body] == [expected]
+
+
 @pytest.mark.hypothesis_nested
 def test_optional_query_param_negation(ctx):
-    # When all query parameters are optional
     schema = ctx.openapi.load_schema(
         {
             "/bug": {
@@ -635,7 +1031,6 @@ def test_optional_query_param_negation(ctx):
     def test(case):
         request = requests.PreparedRequest()
         request.prepare(**case.as_transport_kwargs(base_url="http://127.0.0.1"))
-        # Then negative schema should not generate empty queries
         assert urlparse(request.url).query != ""
 
 
@@ -686,46 +1081,66 @@ def _wire_readings(value):
     boolean = string_to_boolean(text)
     if isinstance(boolean, bool):
         readings.append(boolean)
+    if re.fullmatch(r"-?\d+", text):
+        readings.append(int(text))
+    if re.fullmatch(r"-?\d+(\.\d*)?([eE][+-]?\d+)?", text):
+        readings.append(float(text))
     return readings
 
 
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(
-    ("version", "parameter_schema", "allow_empty_value"),
+    ("version", "location", "parameter_schema", "allow_empty_value"),
     [
-        ("3.0.2", {"type": "boolean", "nullable": True}, True),
-        ("3.0.2", {"type": "boolean"}, True),
-        ("3.1.0", {"type": ["boolean", "null"]}, True),
-        ("3.0.2", {"type": "boolean", "nullable": True}, False),
+        ("3.0.2", ParameterLocation.QUERY, {"type": "boolean", "nullable": True}, True),
+        ("3.0.2", ParameterLocation.QUERY, {"type": "boolean"}, True),
+        ("3.1.0", ParameterLocation.QUERY, {"type": ["boolean", "null"]}, True),
+        ("3.0.2", ParameterLocation.QUERY, {"type": "boolean", "nullable": True}, False),
+        ("3.0.2", ParameterLocation.QUERY, {"type": "integer"}, False),
+        ("3.0.2", ParameterLocation.QUERY, {"type": "number"}, False),
+        ("3.0.2", ParameterLocation.PATH, {"type": "integer"}, False),
+        ("3.0.2", ParameterLocation.PATH, {"type": "number"}, False),
+        ("3.0.2", ParameterLocation.PATH, {"type": "boolean"}, False),
     ],
-    ids=["nullable-empty", "empty", "type-array-empty", "nullable"],
+    ids=[
+        "nullable-empty",
+        "empty",
+        "type-array-empty",
+        "nullable",
+        "query-integer",
+        "query-number",
+        "path-integer",
+        "path-number",
+        "path-boolean",
+    ],
 )
-def test_negative_query_value_is_invalid_as_sent(ctx, version, parameter_schema, allow_empty_value):
+def test_negative_parameter_value_is_invalid_as_sent(ctx, version, location, parameter_schema, allow_empty_value):
     # A string that spells a value a sibling branch accepts is that value once it reaches the server.
-    parameter = {"name": "value", "in": "query", "required": True, "schema": parameter_schema}
+    parameter = {"name": "value", "in": location.value, "required": True, "schema": parameter_schema}
     if allow_empty_value:
         parameter["allowEmptyValue"] = True
+    path = "/items/{value}" if location == ParameterLocation.PATH else "/items"
     operation = ctx.openapi.load_operation(
-        "GET /items", {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}, version=version
+        f"GET {path}", {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}, version=version
     )
     validator = make_validator(
-        operation.get_parameter_set(ParameterLocation.QUERY).items[0].validation_schema,
+        operation.get_parameter_set(location).items[0].validation_schema,
         operation.schema.adapter.jsonschema_validator_cls,
     )
 
     # Strings that spell an accepted value are a small slice of the negative space.
     @run_given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=100, derandomize=True)
     def test(case):
-        query = case.query or {}
+        container = case.get_container(location) or {}
         mutations = case.meta.phase.data.mutations
         if (
-            "value" not in query
-            or isinstance(query["value"], (dict, list))
+            "value" not in container
+            or isinstance(container["value"], (dict, list))
             or not any(mutation.schema_pointer.startswith("/properties/value") for mutation in mutations)
         ):
             return
-        assert not any(validator.is_valid(reading) for reading in _wire_readings(query["value"])), (
-            f"Valid as sent: {query['value']!r}, mutations: {mutations!r}"
+        assert not any(validator.is_valid(reading) for reading in _wire_readings(container["value"])), (
+            f"Valid as sent: {container['value']!r}, mutations: {mutations!r}"
         )
 
 
@@ -888,7 +1303,6 @@ def test_boolean_not_in_negative_body_schema(ctx, body_schema, negated):
 
 @pytest.mark.hypothesis_nested
 def test_negating_multiple_query_params(ctx):
-    # When all query parameters are optional
     schema = ctx.openapi.load_schema(
         {
             "/bug": {
@@ -908,7 +1322,6 @@ def test_negating_multiple_query_params(ctx):
     def test(case):
         request = requests.PreparedRequest()
         request.prepare(**case.as_transport_kwargs(base_url="http://127.0.0.1"))
-        # Then negated parameter should always be serialized
         query = urlparse(request.url).query
         if "key1" in case.query:
             assert "key1" in query, case.query
@@ -978,15 +1391,58 @@ def test_negative_body_respects_allow_extra_parameter_toggle(ctx):
 
 
 @pytest.mark.parametrize(
-    ("schema", "new_type"),
+    ("schema", "new_type", "expected"),
     [
-        ({"type": "object", "required": ["a"]}, "string"),
-        ({"required": ["a"], "not": {"maxLength": 5}}, "string"),
+        ({"type": "object", "required": ["a"]}, "string", {"type": "object"}),
+        ({"required": ["a"], "not": {"maxLength": 5}}, "string", {"not": {"maxLength": 5}}),
+        ({"type": "integer", "not": {"minimum": 1}}, "string", {"type": "integer"}),
     ],
+    ids=["drops-required", "drops-required-keeps-negation", "drops-numeric-negation"],
 )
-def test_prevent_unsatisfiable_schema(schema, new_type):
+def test_prevent_unsatisfiable_schema(schema, new_type, expected):
+    schema = deepclone(schema)
     prevent_unsatisfiable_schema(schema, new_type)
     assert admits_a_value(schema)
+    assert schema == expected
+
+
+def _strings_in(value):
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [string for key, item in value.items() for string in [key, *_strings_in(item)]]
+    if isinstance(value, list):
+        return [string for item in value for string in _strings_in(item)]
+    return []
+
+
+def test_negative_body_strings_respect_codec_and_null_byte_settings():
+    # Without schema-level targets every case breaks one value of a generated valid body.
+    strategy = negative_schema(
+        {"type": "object", "properties": {"a": {"type": "string", "maxLength": 3}}, "required": ["a"]},
+        operation_name="POST /items",
+        location=ParameterLocation.BODY,
+        media_type="application/xml",
+        custom_formats=get_default_format_strategies(),
+        generation_config=GenerationConfig(codec="ascii", allow_x00=False),
+        validator_cls=jsonschema_rs.Draft4Validator,
+        target_descriptors=(),
+    )
+
+    @run_given(strategy, max_examples=10)
+    def check(generated):
+        assert [string for string in _strings_in(generated.value) if not string.isascii() or "\x00" in string] == []
+
+
+def _mutation_context(location, media_type=None):
+    return MutationContext(
+        keywords={},
+        non_keywords={},
+        location=location,
+        media_type=media_type,
+        allow_extra_parameters=True,
+        target_descriptors=(),
+    )
 
 
 ARRAY_PARAMETER = {"type": "array", "minItems": 1, "items": {"type": "string", "format": "ipv4"}}
@@ -1014,7 +1470,6 @@ DYNAMIC_OBJECT_PARAMETER = {"type": "object", "additionalProperties": {"type": "
 @pytest.mark.hypothesis_nested
 def test_non_default_styles(ctx, location, schema, style, explode):
     # See GH-1208
-    # When the schema contains a parameter with a not-default "style"
     schema = ctx.openapi.load_schema(
         {
             "/bug": {
@@ -1127,7 +1582,6 @@ def test_negative_body_never_validates_against_its_own_schema(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_negative_format_generates_invalid_values(ctx):
-    # When a path parameter has `format: uuid`
     operation = ctx.openapi.load_operation(
         "GET /items/{id}",
         {
@@ -1143,11 +1597,9 @@ def test_negative_format_generates_invalid_values(ctx):
     def test(case):
         nonlocal invalid_uuid_found
         id_value = case.path_parameters["id"]
-        # Negative mode should generate values that DON'T match UUID format
         if not _is_valid_uuid(id_value):
             invalid_uuid_found = True
 
-    # Then at least some generated values should be invalid UUIDs
     assert invalid_uuid_found, "Negative mode should generate invalid UUID values"
 
 
@@ -1161,9 +1613,7 @@ def is_valid_uuid4(value: str) -> bool:
 
 @pytest.mark.hypothesis_nested
 def test_negative_custom_format_generates_invalid_values(ctx):
-    # When a user registers a custom format (uuid4)
     schemathesis.openapi.format("uuid4", st.uuids(version=4).map(str))
-    # And a path parameter uses that custom format
     operation = ctx.openapi.load_operation(
         "GET /items/{id}",
         {
@@ -1179,11 +1629,9 @@ def test_negative_custom_format_generates_invalid_values(ctx):
     def test(case):
         nonlocal invalid_uuid4_found
         id_value = case.path_parameters["id"]
-        # Negative mode should generate values that DON'T match the custom uuid4 format
         if not is_valid_uuid4(id_value):
             invalid_uuid4_found = True
 
-    # Then at least some generated values should be invalid UUID4s
     assert invalid_uuid4_found, "Negative mode should generate invalid UUID4 values for custom formats"
 
 
@@ -1256,7 +1704,7 @@ def test_multiple_mutations_render_one_line_each():
 )
 @pytest.mark.hypothesis_nested
 def test_ecma_regex_patterns(ctx, pattern):
-    # Large quantifiers can exceed jsonschema_rs's default compiled regex size limit
+    # Large quantifiers can exceed the validator's default regex size limit.
     operation = ctx.openapi.load_operation(
         "POST /test",
         {
@@ -1284,12 +1732,8 @@ def test_ecma_regex_patterns(ctx, pattern):
 
 @pytest.mark.hypothesis_nested
 def test_path_parameters_never_contain_slash(ctx):
-    # When fuzzing path parameters, mutated values should never contain `/`
-    # because this would change the URL structure and potentially route to different endpoints.
-    # For example, `/api/groups/{id}` with id="foo/bar" becomes `/api/groups/foo/bar`
-    # which could match `/api/groups/{id}/{user_id}` instead.
-    #
-    # This can happen when the generated value is a dict/object that gets stringified with `/` in keys
+    # A `/` in a path value changes the route: `/api/groups/{id}` with `foo/bar` may hit `/api/groups/{id}/{user_id}`.
+    # Objects stringified with `/` in their keys produce such values.
     operation = ctx.openapi.load_operation(
         "GET /api/groups/{id}",
         {
@@ -1496,8 +1940,6 @@ def test_integer_path_parameter_no_false_positive(ctx, cli, snapshot_cli):
 
 
 def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, app_runner):
-    # Enum path parameters in fuzzing mode: a validating server must not produce
-    # false positives for negative_data_rejection.
     app, raw_schema = ctx.openapi.make_flask_app(
         {
             "/items/{kind}/{id}": {
@@ -1557,8 +1999,7 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, ap
 
 @pytest.mark.snapshot(replace_invalid_component=True)
 def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli, snapshot_cli):
-    # A server that accepts everything. Mutations must fire and the check
-    # must report failures for enum + integer path parameters in fuzzing mode.
+    # Mutations must fire for enum and integer path parameters, and the check must report them.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items/{kind}/{id}": {
@@ -1591,7 +2032,6 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli
 
     @app.route("/items/<kind>/<path:id>", methods=["POST"])
     def items(kind, id):
-        # Accepts everything — intentionally does not validate
         return jsonify({"ok": True}), 200
 
     assert (
@@ -1609,10 +2049,8 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli
 
 
 def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, cli, app_runner):
-    # `{,3}` is valid in Python, but jsonschema_rs rejects it as an incomplete quantifier when
-    # meta-validating the schema. A pattern it cannot compile constrains nothing during validation
-    # either, so it is dropped and the rest of the schema still drives generation - and the app
-    # accepting a request without the required parameter is a genuine finding, not a crash.
+    # The validator cannot compile `{,3}`, so generation drops the pattern and the rest of the schema still applies.
+    # The app accepting a request without the required parameter is a real finding, not a crash.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -1750,12 +2188,93 @@ NEGATABLE_SCHEMAS = [
     ({"const": 5}, True),
     ({"not": {}}, True),
     ({"pattern": "["}, True),
+    ({"format": "email"}, True),
 ]
 
 
 @pytest.mark.parametrize(("schema", "expected"), NEGATABLE_SCHEMAS, ids=str)
 def test_can_negate(schema, expected):
-    assert can_negate(schema) is expected
+    # Repeated calls give the same answer.
+    assert [can_negate(schema), can_negate(schema)] == [expected, expected]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ({"a": "x"}, True),
+        ({"a": 1}, True),
+        ({"a": ["", None]}, True),
+        ({"a": None}, False),
+        ({"a": [None]}, False),
+        ({"a": []}, False),
+        ({}, False),
+    ],
+    ids=["string", "integer", "list-with-value", "none", "list-of-none", "empty-list", "no-parameters"],
+)
+def test_is_non_empty_query(query, expected):
+    assert is_non_empty_query(query) is expected
+
+
+def test_syntax_fuzzing_sends_non_json_bytes():
+    value = find_first(_with_syntax_fuzzing(st.nothing(), ParameterLocation.BODY), lambda value: True, max_examples=100)
+    with pytest.raises((json.JSONDecodeError, UnicodeDecodeError)):
+        json.loads(value.value)
+    assert value.meta.mutations == (
+        Mutation(
+            path=(),
+            parameter_location=ParameterLocation.BODY,
+            schema_pointer="",
+            channel=MutationChannel.SCHEMA,
+            operator=OperatorKind.SYNTAX_FUZZING,
+            keywords=(),
+            parameter=None,
+            original_value=None,
+            new_value=None,
+        ),
+    )
+
+
+def _untyped_chain(depth, leaf):
+    schema = leaf
+    for _ in range(depth):
+        schema = {"properties": {"x": schema}}
+    return schema
+
+
+BOUNDED_STRING = {"type": "string", "maxLength": 3}
+
+
+@pytest.mark.parametrize(
+    ("location", "allow_extra_parameters", "schema", "expected"),
+    [
+        (ParameterLocation.PATH, False, {"type": "integer"}, True),
+        (ParameterLocation.PATH, False, BOUNDED_STRING, True),
+        (ParameterLocation.HEADER, False, {"properties": {"a": BOUNDED_STRING}}, True),
+        (ParameterLocation.HEADER, False, {"patternProperties": {"^a": BOUNDED_STRING}}, True),
+        (ParameterLocation.HEADER, False, {"items": BOUNDED_STRING}, True),
+        (ParameterLocation.HEADER, False, {"additionalProperties": BOUNDED_STRING}, True),
+        (ParameterLocation.HEADER, False, {"additionalProperties": {"type": "string"}}, False),
+        (ParameterLocation.QUERY, True, {"properties": {"a": {"additionalProperties": {"type": "string"}}}}, True),
+        (ParameterLocation.QUERY, False, {"properties": {"a": {"additionalProperties": {"type": "string"}}}}, False),
+        (ParameterLocation.PATH, False, _untyped_chain(MAX_WALK_DEPTH, BOUNDED_STRING), True),
+        (ParameterLocation.PATH, False, _untyped_chain(MAX_WALK_DEPTH + 1, BOUNDED_STRING), False),
+    ],
+    ids=[
+        "non-string",
+        "bounded-string",
+        "properties",
+        "pattern-properties",
+        "items",
+        "additional-properties",
+        "unbounded-additional-properties",
+        "extra-parameters-allowed",
+        "extra-parameters-forbidden",
+        "at-depth-limit",
+        "beyond-depth-limit",
+    ],
+)
+def test_has_negatable_target(location, allow_extra_parameters, schema, expected):
+    assert has_negatable_target(schema, location=location, allow_extra_parameters=allow_extra_parameters) is expected
 
 
 def _operation_with_parameters(ctx, parameters, *, version="3.0.2"):
@@ -2035,8 +2554,7 @@ def test_negative_body_stays_invalid_when_a_sibling_carries_a_format(ctx):
 
 
 def test_negative_declines_unbuildable_negated_body(ctx):
-    # `additionalProperties: false` plus an `allOf` of `if`/`then` negates to a shape the
-    # canonical strategy builder cannot draw for; must be declined, not raised as fatal.
+    # `additionalProperties: false` with an `allOf` of `if`/`then` negates to an undrawable shape; it must be declined.
     operation = ctx.openapi.load_operation(
         "POST /items",
         {

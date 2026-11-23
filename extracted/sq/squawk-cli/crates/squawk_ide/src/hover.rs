@@ -1,25 +1,25 @@
+use squawk_sema::arena::IdxRange;
+use squawk_sema::file::{FilePosition, FileRange, InFile};
+use squawk_sema::interner::Name;
+use squawk_sema::ir::{
+    AggregateKind, Column, ColumnId, ColumnOwner, ConstraintOwner, FunctionId, FunctionKind,
+    GraphElementKind, Item, Operand, ParamId, ParamMode, SourceId, SourceKind, StarId, TableId,
+    TableKind, TypeId, TypeKind,
+};
+use squawk_sema::semantic_index::SemanticIndex;
 use std::fmt::{self, Write as _};
 
-use rowan::TextSize;
-use salsa::Database as Db;
+use squawk_rowan::TextSize;
 use squawk_syntax::ast::{self, AstNode};
 
-use crate::arena::IdxRange;
-use crate::db::{parse, semantic_index};
-use crate::file::{FilePosition, FileRange, InFile};
 use crate::hover_literal::{LiteralHover, hover_literal};
-use crate::interner::Name;
-use crate::ir::{
-    Column, ColumnId, ColumnOwner, ConstraintOwner, FunctionId, FunctionKind, GraphElementKind,
-    Item, Operand, ParamId, ParamMode, SourceId, SourceKind, StarId, TableId, TableKind, TypeId,
-    TypeKind,
-};
-use crate::offsets::{TokenAt, item_at_token};
-use crate::semantic_index::SemanticIndex;
+use squawk_ide_db::offsets::{TokenAt, item_at_token};
+use squawk_ide_db::{Db, parse, semantic_index};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Hover {
     pub snippet: String,
+    pub substitutions: Option<String>,
     pub comment: Option<String>,
 }
 
@@ -34,6 +34,10 @@ impl Hover {
 "
         );
 
+        if let Some(substitutions) = &self.substitutions {
+            writeln!(out, "---\n{substitutions}").unwrap();
+        }
+
         if let Some(comment) = &self.comment {
             writeln!(out, "---\n{comment}").unwrap();
         }
@@ -47,6 +51,7 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
     let hover = hover_with_index(semantic_index(db, file), &parse(db, file).tree(), position)?;
     Some(Hover {
         snippet: hover.snippet,
+        substitutions: hover.substitutions,
         comment: hover.comment,
     })
 }
@@ -54,6 +59,7 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HoverInfo {
     pub snippet: String,
+    pub substitutions: Option<String>,
     pub comment: Option<String>,
     pub range: FileRange,
 }
@@ -69,17 +75,46 @@ pub(crate) fn hover_with_index(
     {
         return Some(HoverInfo {
             snippet,
+            substitutions: item_substitutions(index, item.value.item),
             comment: item_comment(index, item.value.item).map(str::to_string),
             range: item.map(|item| item.range),
         });
     }
     let literal = token.token.parent().and_then(ast::Literal::cast)?;
     let LiteralHover { snippet, comment } = hover_literal(&literal)?;
+    let range = position.with_value(token.original_range(literal.syntax().text_range()));
+    let snippet = match index.literal_types.get(&range) {
+        Some(&ty) => index.type_name(ty).to_string(),
+        None => snippet.to_string(),
+    };
     Some(HoverInfo {
-        snippet: snippet.to_string(),
+        snippet,
+        substitutions: None,
         comment,
-        range: position.with_value(token.original_range(literal.syntax().text_range())),
+        range,
     })
+}
+
+fn item_substitutions(index: &SemanticIndex, item: Item) -> Option<String> {
+    let Item::Reference(reference) = item else {
+        return None;
+    };
+    let substitutions = index.call_substitutions.get(&reference)?;
+    let mut out = String::new();
+    for (i, id) in substitutions.iter().enumerate() {
+        let substitution = &index.substitutions[id];
+        if i > 0 {
+            out.push_str(", ");
+        }
+        write!(
+            out,
+            "`{}` = `{}`",
+            index.type_name(substitution.param),
+            index.type_name(substitution.ty)
+        )
+        .unwrap();
+    }
+    Some(out)
 }
 
 pub(crate) fn function_signature(index: &SemanticIndex, function: FunctionId) -> String {
@@ -293,7 +328,7 @@ fn item_hover(index: &SemanticIndex, item: Item) -> Option<String> {
             let text_search = &index.text_search[text_search];
             format!(
                 "{} {}",
-                text_search.kind.label(),
+                text_search.kind,
                 hover.qualified(text_search.schema, text_search.name)
             )
         }
@@ -433,7 +468,7 @@ impl<'a> Hovers<'a> {
 
     fn table(self, table: TableId) -> String {
         let data = &self.index.tables[table];
-        let kind = data.kind.label();
+        let kind = data.kind;
         let name = self.table_name(table);
         match data.kind {
             TableKind::Table
@@ -692,9 +727,10 @@ impl fmt::Display for ParamList<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let index = self.index;
         let function = &index.functions[self.function];
+        let order_by_at = function.aggregate_kind.map(AggregateKind::direct);
         f.write_str("(")?;
         for (i, param) in function.params.iter().enumerate() {
-            match (i, function.direct_args == Some(i)) {
+            match (i, order_by_at == Some(i)) {
                 (0, true) => f.write_str("order by ")?,
                 (_, true) => f.write_str(" order by ")?,
                 (0, false) => {}

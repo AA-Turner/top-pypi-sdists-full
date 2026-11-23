@@ -1,0 +1,3701 @@
+use std::borrow::Cow;
+use std::fmt;
+
+use crate::arena::IdxRange;
+use crate::interner::{Interner, Name};
+use crate::ir::{
+    AccessMethodKind, ReferenceKind, Resolution, ReturnKind, RoutineKind, TableKind,
+    TextSearchKind, TypeKind,
+};
+use squawk_diagnostics::{Edit, Fix};
+use squawk_rowan::{TextRange, TextSize};
+use squawk_syntax::ast;
+use squawk_syntax::quote::{quote_ident, quote_string_literal};
+
+use crate::expr_context::ExprContext;
+use crate::lookup::TableLookup;
+use crate::lower::OutputClause;
+use crate::pg_float::FloatType;
+use crate::pg_int::IntType;
+use crate::pg_json::JsonType;
+use crate::pg_numeric::NumericTypmod;
+use crate::semantic_index::{DiagnosticKind, Errors, Suggestion};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SimilarColumn {
+    pub(crate) qualifier: Option<Name>,
+    pub(crate) column: Name,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ConflictTargetKey {
+    pub(crate) columns: IdxRange<Name>,
+    pub(crate) insert_at: TextSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SimilarType {
+    Named(Name),
+    Keyword(&'static str),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Similar {
+    Column(SimilarColumn),
+    Table(Name),
+    Type(SimilarType),
+    Window(Name),
+    EnumLabel(Name),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TyName {
+    pub(crate) name: Name,
+    pub(crate) array: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OperandName {
+    Ty(TyName),
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OperatorReplacement {
+    Concat,
+    Equals,
+}
+
+impl OperatorReplacement {
+    pub(crate) fn text(self) -> &'static str {
+        match self {
+            OperatorReplacement::Concat => "||",
+            OperatorReplacement::Equals => "=",
+        }
+    }
+
+    fn message(self) -> &'static str {
+        match self {
+            OperatorReplacement::Concat => "use `||` to concatenate strings",
+            OperatorReplacement::Equals => "use `=` to compare for equality",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LookupKind {
+    Call,
+    Signature,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectArgs {
+    Fixed,
+    Variadic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ErrorArgs {
+    List(IdxRange<ErrorArg>),
+    Star,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArgLabel {
+    Position(usize),
+    Name(Name),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ErrorParam {
+    pub(crate) name: Option<Name>,
+    pub(crate) position: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ErrorReturnType {
+    pub(crate) ty: TyName,
+    pub(crate) kind: ReturnKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OutsideSearchPath {
+    pub(crate) schema: Name,
+    pub(crate) others: usize,
+    pub(crate) qualify_at: Option<TextSize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ErrorCandidates {
+    pub(crate) shown: IdxRange<ErrorCandidate>,
+    pub(crate) total: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AssignmentCast {
+    pub(crate) parens: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ForeignKeyPair {
+    pub(crate) column: Name,
+    pub(crate) referenced_column: Name,
+    pub(crate) ty: TyName,
+    pub(crate) referenced_ty: TyName,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ErrorCandidate {
+    pub(crate) args: ErrorArgs,
+    pub(crate) reason: Option<CandidateReason>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CandidateReason {
+    ArgType {
+        position: usize,
+        expected: TyName,
+        found: TyName,
+    },
+    ArgCount {
+        min: usize,
+        max: usize,
+        supplied: usize,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ErrorArg {
+    pub(crate) name: Option<Name>,
+    pub(crate) ty: OperandName,
+    pub(crate) variadic: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ObjectKind {
+    Relation,
+    Type,
+    Role,
+    AccessMethod,
+    ForeignDataWrapper,
+    Server,
+    Statistics,
+    Publication,
+    Subscription,
+    GraphElement,
+    GraphProperty,
+    GraphLabel,
+    Conversion,
+    Language,
+    EventTrigger,
+    Schema,
+    Tablespace,
+    Database,
+    Operator,
+    OperatorFamily,
+    OperatorClass,
+    Collation,
+    Extension,
+    PreparedStatement,
+    EnumLabel,
+    Function,
+    TextSearch(TextSearchKind),
+    Table(TableKind),
+}
+
+impl fmt::Display for ObjectKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            ObjectKind::Relation => "relation",
+            ObjectKind::Type => "type",
+            ObjectKind::Role => "role",
+            ObjectKind::AccessMethod => "access method",
+            ObjectKind::ForeignDataWrapper => "foreign-data wrapper",
+            ObjectKind::Server => "server",
+            ObjectKind::Statistics => "statistics object",
+            ObjectKind::Publication => "publication",
+            ObjectKind::Subscription => "subscription",
+            ObjectKind::GraphElement => "element table",
+            ObjectKind::GraphProperty => "property",
+            ObjectKind::GraphLabel => "label",
+            ObjectKind::Conversion => "conversion",
+            ObjectKind::Language => "language",
+            ObjectKind::EventTrigger => "event trigger",
+            ObjectKind::Schema => "schema",
+            ObjectKind::Tablespace => "tablespace",
+            ObjectKind::Database => "database",
+            ObjectKind::Operator => "operator",
+            ObjectKind::OperatorFamily => "operator family",
+            ObjectKind::OperatorClass => "operator class",
+            ObjectKind::Collation => "collation",
+            ObjectKind::Extension => "extension",
+            ObjectKind::PreparedStatement => "prepared statement",
+            ObjectKind::EnumLabel => "enum label",
+            ObjectKind::Function => "function",
+            ObjectKind::TextSearch(kind) => return write!(f, "{kind}"),
+            ObjectKind::Table(kind) => return write!(f, "{kind}"),
+        })
+    }
+}
+
+impl ObjectKind {
+    fn duplicate_kind(self) -> DiagnosticKind {
+        match self {
+            ObjectKind::Relation => DiagnosticKind::DuplicateRelation,
+            ObjectKind::Type => DiagnosticKind::DuplicateType,
+            ObjectKind::Role => DiagnosticKind::DuplicateRole,
+            ObjectKind::AccessMethod => DiagnosticKind::DuplicateAccessMethod,
+            ObjectKind::ForeignDataWrapper => DiagnosticKind::DuplicateForeignDataWrapper,
+            ObjectKind::Server => DiagnosticKind::DuplicateServer,
+            ObjectKind::Statistics => DiagnosticKind::DuplicateStatistics,
+            ObjectKind::Publication => DiagnosticKind::DuplicatePublication,
+            ObjectKind::Subscription => DiagnosticKind::DuplicateSubscription,
+            ObjectKind::GraphElement => DiagnosticKind::DuplicateGraphElement,
+            ObjectKind::GraphProperty => DiagnosticKind::DuplicateGraphProperty,
+            ObjectKind::GraphLabel => DiagnosticKind::DuplicateGraphLabel,
+            ObjectKind::Conversion => DiagnosticKind::DuplicateConversion,
+            ObjectKind::Language => DiagnosticKind::DuplicateLanguage,
+            ObjectKind::EventTrigger => DiagnosticKind::DuplicateEventTrigger,
+            ObjectKind::Schema => DiagnosticKind::DuplicateSchema,
+            ObjectKind::Tablespace => DiagnosticKind::DuplicateTablespace,
+            ObjectKind::Database => DiagnosticKind::DuplicateDatabase,
+            ObjectKind::Operator => DiagnosticKind::DuplicateOperator,
+            ObjectKind::OperatorFamily => DiagnosticKind::DuplicateOperatorFamily,
+            ObjectKind::OperatorClass => DiagnosticKind::DuplicateOperatorClass,
+            ObjectKind::Collation => DiagnosticKind::DuplicateCollation,
+            ObjectKind::Extension => DiagnosticKind::DuplicateExtension,
+            ObjectKind::PreparedStatement => DiagnosticKind::DuplicatePreparedStatement,
+            ObjectKind::EnumLabel => DiagnosticKind::DuplicateEnumLabel,
+            ObjectKind::Function => DiagnosticKind::DuplicateFunction,
+            ObjectKind::TextSearch(_) => DiagnosticKind::DuplicateTextSearch,
+            ObjectKind::Table(_) => DiagnosticKind::DuplicateRelation,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NumericOverflow {
+    Format,
+    Typmod(NumericTypmod),
+    Infinite(NumericTypmod),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SemaError {
+    CannotChangeDatabase,
+    ValuesLengthMismatch,
+    InsertMoreExpressionsThanTargets,
+    ViewTooManyColumnNames,
+    CreateAsTooManyColumnNames,
+    ReplaceConstraintTrigger,
+    RenameSelectRule,
+    NestedAggregate,
+    AggregateContainsWindow,
+    NestedWindow,
+    WindowWithoutOver {
+        name: Name,
+        over_at: TextSize,
+    },
+    MisplacedAggregate {
+        context: ExprContext,
+    },
+    MisplacedWindow {
+        context: ExprContext,
+    },
+    MisplacedSetReturningFunction {
+        context: ExprContext,
+    },
+    SetReturningFunctionIn {
+        construct: SetReturningConstruct,
+    },
+    SetReturningFunctionNotTopLevel,
+    EmptyArrayType {
+        cast: Option<TyName>,
+    },
+    TablesampleSetArgument,
+    MisplacedSubquery {
+        context: ExprContext,
+    },
+    DefaultColumnReference,
+    GeneratedColumnReference {
+        column: Name,
+    },
+    SubqueryNotSingleColumn,
+    SubqueryTooManyColumns,
+    SubqueryTooFewColumns,
+    Duplicate {
+        object: ObjectKind,
+        name: Name,
+    },
+    DuplicateInSchema {
+        object: ObjectKind,
+        name: Name,
+        schema: Name,
+    },
+    DuplicateForAccessMethod {
+        object: ObjectKind,
+        name: Name,
+        access_method: Option<Name>,
+    },
+    DuplicatePolicy {
+        name: Name,
+        table: Name,
+    },
+    DuplicateTrigger {
+        name: Name,
+        table: Name,
+    },
+    DuplicateRule {
+        name: Name,
+        table: Name,
+    },
+    DuplicateConstraint {
+        name: Name,
+        owner: Name,
+        domain: bool,
+    },
+    CircularInheritance {
+        child: Name,
+        parent: Name,
+    },
+    CompositeMemberOfItself {
+        name: Name,
+    },
+    DuplicateColumn {
+        name: Name,
+        relation: Name,
+    },
+    DuplicateFunction {
+        name: Name,
+        schema: Option<Name>,
+    },
+    DuplicateTransform {
+        ty: TyName,
+        language: Name,
+    },
+    ColumnSpecifiedMoreThanOnce {
+        name: Name,
+    },
+    DuplicateCte {
+        name: Name,
+    },
+    DuplicateSource {
+        name: Name,
+    },
+    DuplicateAssignment {
+        name: Name,
+    },
+    DuplicateWindow {
+        name: Name,
+    },
+    DuplicateParam {
+        name: Name,
+    },
+    DependentObjects {
+        object: ObjectKind,
+        name: Name,
+    },
+    RequiredBySystem {
+        schema: Name,
+    },
+    AccessMethodKindMismatch {
+        name: Name,
+        expected: AccessMethodKind,
+    },
+    UnresolvedCast {
+        source: TyName,
+        target: TyName,
+    },
+    UnresolvedTransform {
+        ty: TyName,
+        language: Name,
+    },
+    UnresolvedQualifiedColumn {
+        qualifier: Name,
+        column: Name,
+        similar: Option<Name>,
+    },
+    QualifiedSetTarget {
+        column: Name,
+        relation: Name,
+    },
+    UnresolvedRecordColumn {
+        column: Name,
+    },
+    UnresolvedReference {
+        kind: ReferenceKind,
+        name: Name,
+        similar: Option<Similar>,
+    },
+    AmbiguousReference {
+        kind: ReferenceKind,
+        name: Name,
+    },
+    NotLateral {
+        table: Name,
+        column: Option<Name>,
+        lateral_at: TextSize,
+    },
+    FutureCte {
+        name: Name,
+        recursive_at: TextSize,
+    },
+    UnresolvedRoutine {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        args: ErrorArgs,
+        lookup: LookupKind,
+        similar: Option<Name>,
+        misplaced_order_by: bool,
+        candidates: Option<ErrorCandidates>,
+        unknown_names: bool,
+        outside_search_path: Option<OutsideSearchPath>,
+    },
+    ArgumentTypeMismatch {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        arg: ArgLabel,
+        found: TyName,
+        expected: TyName,
+    },
+    ArgumentCountMismatch {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        min: usize,
+        max: usize,
+        supplied: usize,
+        missing: IdxRange<ErrorParam>,
+    },
+    PositionalAfterNamed,
+    DuplicateArgumentName {
+        name: Name,
+    },
+    UnknownArgumentName {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        arg: Name,
+    },
+    ArgumentPositionalAndNamed {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        arg: Name,
+    },
+    MissingArguments {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        missing: IdxRange<ErrorParam>,
+    },
+    NotVariadic {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        arg: ArgLabel,
+    },
+    UnlabeledVariadic {
+        kind: RoutineKind,
+        schema: Option<Name>,
+        name: Name,
+        param: Name,
+        insert_at: Option<TextSize>,
+    },
+    ProcedureCalledAsFunction {
+        schema: Option<Name>,
+        name: Name,
+        args: ErrorArgs,
+        select_range: Option<TextRange>,
+    },
+    FunctionCalledAsProcedure {
+        schema: Option<Name>,
+        name: Name,
+        args: ErrorArgs,
+        call_range: Option<TextRange>,
+    },
+    AggregateDroppedAsFunction {
+        schema: Option<Name>,
+        name: Name,
+        function_range: Option<TextRange>,
+    },
+    TableRowTypeAlteredAsType {
+        name: Name,
+        kind: TableKind,
+        type_range: Option<TextRange>,
+    },
+    CompositeTypeAlteredAsTable {
+        name: Name,
+        table_range: Option<TextRange>,
+    },
+    InheritedColumnRename {
+        column: Name,
+    },
+    InheritedConstraintRename {
+        name: Name,
+    },
+    CannotRenameInheritedColumn {
+        column: Name,
+    },
+    CannotRenameInheritedConstraint {
+        name: Name,
+    },
+    UnresolvedOperator {
+        schema: Option<Name>,
+        name: Name,
+        left: Option<OperandName>,
+        right: OperandName,
+        lookup: LookupKind,
+        ambiguous: bool,
+        replacement: Option<OperatorReplacement>,
+    },
+    InvalidEnumValue {
+        ty: Name,
+        value: Name,
+        similar: Option<Name>,
+    },
+    InvalidBoolValue {
+        value: Name,
+        similar: Option<&'static str>,
+    },
+    InvalidIntValue {
+        ty: IntType,
+        value: Name,
+    },
+    IntValueOutOfRange {
+        ty: IntType,
+        value: Name,
+    },
+    InvalidFloatValue {
+        ty: FloatType,
+        value: Name,
+    },
+    FloatValueOutOfRange {
+        ty: FloatType,
+        value: Name,
+    },
+    InvalidNumericValue {
+        value: Name,
+    },
+    InvalidUuidValue {
+        value: Name,
+    },
+    InvalidJsonValue {
+        ty: JsonType,
+    },
+    UnsupportedJsonEscape,
+    NumericValueOutOfRange {
+        value: Name,
+        overflow: NumericOverflow,
+    },
+    NotEnum {
+        name: Name,
+    },
+    NotComposite {
+        name: Name,
+    },
+    StarNotComposite {
+        ty: TyName,
+    },
+    ColumnNotationNotComposite {
+        column: Name,
+        ty: TyName,
+    },
+    WrongTypeKind {
+        name: Name,
+        expected: TypeKind,
+    },
+    TypedTableAlter {
+        name: Name,
+    },
+    InvalidDomainConstraint {
+        what: &'static str,
+    },
+    CompoundColumnCount {
+        op: CompoundOp,
+    },
+    CompoundTypeMismatch {
+        op: CompoundOp,
+        left: TyName,
+        right: TyName,
+    },
+    RecursiveCteTypeMismatch {
+        name: Name,
+        column: usize,
+        non_recursive: TyName,
+        overall: TyName,
+    },
+    ColumnListTooLong {
+        what: &'static str,
+        name: Name,
+        available: usize,
+        specified: usize,
+    },
+    InsertMoreTargetsThanExpressions {
+        row_hint: bool,
+    },
+    MissingShellType,
+    WrongRelationKind {
+        name: Name,
+        expected: TableLookup,
+        kind: TableKind,
+        drop: Option<DropRelation>,
+    },
+    CannotCopy {
+        name: Name,
+        copy_from: bool,
+        kind: TableKind,
+    },
+    TruncateOnlyPartitioned {
+        name: Name,
+        only_range: TextRange,
+        r_paren_range: Option<TextRange>,
+    },
+    TruncateReferenced {
+        name: Name,
+        referencing: Name,
+        cascade: TruncateCascade,
+    },
+    CannotOpenIndex {
+        name: Name,
+    },
+    ParameterlessAggregate {
+        name: Name,
+        star_at: TextSize,
+    },
+    MissingWithinGroup {
+        name: Name,
+        within_at: Option<TextRange>,
+    },
+    OrderedSetDirectArgCount {
+        name: Name,
+        expected: usize,
+        direct_args: DirectArgs,
+        supplied: usize,
+    },
+    HypotheticalArgCount {
+        name: Name,
+        hypothetical: usize,
+        ordering: usize,
+    },
+    CannotCreateIndex {
+        name: Name,
+        kind: TableKind,
+    },
+    NotIdentityColumn {
+        column: Name,
+        relation: Name,
+    },
+    IdentityColumnDefault {
+        column: Name,
+        relation: Name,
+        change: DefaultChange,
+    },
+    GeneratedColumnDefault {
+        column: Name,
+        relation: Name,
+        change: DefaultChange,
+        kind: GeneratedKind,
+    },
+    ConstraintTrigger {
+        name: Name,
+        relation: Name,
+    },
+    DropReturnRule {
+        name: Name,
+        kind: TableKind,
+        table: Name,
+    },
+    MultiplePrimaryKeys {
+        table: Name,
+    },
+    NoPrimaryKeyForReferencedTable {
+        table: Name,
+    },
+    NoUniqueConstraintForReferencedTable {
+        table: Name,
+    },
+    DeferrablePrimaryKeyForReferencedTable {
+        table: Name,
+    },
+    DeferrableUniqueConstraintForReferencedTable {
+        table: Name,
+    },
+    NoConflictArbiter {
+        foreign_table: bool,
+    },
+    DeferrableConflictArbiter,
+    ConflictConstraintWithoutIndex,
+    WholeRowConflictTarget,
+    ConflictOnSystemCatalog,
+    ExclusionConflictArbiter {
+        action: ConflictAction,
+    },
+    MissingConflictTarget {
+        action: ConflictAction,
+        key: Option<ConflictTargetKey>,
+    },
+    DoSelectWithoutReturning {
+        returning_at: TextSize,
+    },
+    ConflictWithRules {
+        table: Name,
+        rule: Name,
+        event: ConflictRuleEvent,
+    },
+    RefreshConcurrentlyWithoutUniqueIndex {
+        name: Name,
+    },
+    UniqueIndexNotSupported {
+        access_method: Name,
+    },
+    InvalidOrdinal {
+        clause: OutputClause,
+        position: usize,
+    },
+    MissingArrayType {
+        ty: TyName,
+    },
+    KeywordArgType {
+        keyword: &'static str,
+        expected: TyName,
+        found: TyName,
+    },
+    QuantifiedNonArray {
+        quantifier: Quantifier,
+        found: TyName,
+    },
+    NoDefaultOperatorClass {
+        ty: TyName,
+        access_method: Name,
+    },
+    ForeignKeyTypeMismatch {
+        constraint: Name,
+        pairs: IdxRange<ForeignKeyPair>,
+    },
+    NonBoolComparison {
+        comparison: Comparison,
+        left: TyName,
+        right: TyName,
+        found: TyName,
+    },
+    WindowOverride {
+        name: Name,
+        clause: WindowClause,
+    },
+    WindowFrameCopy {
+        name: Name,
+        hint: bool,
+    },
+    WindowAggregateOrderBy,
+    WindowDistinct,
+    TriggerReturnType {
+        name: Name,
+        kind: TriggerFunctionKind,
+    },
+    OutParamResultType {
+        expected: TyName,
+        returns: Option<TextRange>,
+    },
+    ConflictingNullability {
+        column: Name,
+        table: Name,
+    },
+    RowLengthMismatch,
+    UnnestColumnDefList,
+    MissingColumnDefList,
+    UnexpectedColumnDefList {
+        reason: ColumnDefListReason,
+    },
+    RowsFromColumnDefList,
+    SetofOperatorArg,
+    PseudoTypeColumn {
+        name: Name,
+        ty: TyName,
+    },
+    CollationNotSupported {
+        ty: TyName,
+    },
+    UnsupportedReturnType {
+        function: Name,
+        ty: TyName,
+    },
+    OrdinalityColumnDefList {
+        fix: Option<OrdinalityColumnDefListFix>,
+    },
+    DuplicateColumnDefList,
+    TransitionRowVariable {
+        row_range: TextRange,
+    },
+    ViewDropColumns,
+    ViewColumnRenamed {
+        from: Name,
+        to: Name,
+        rename: Option<ViewColumnRename>,
+    },
+    ViewColumnTypeChanged {
+        column: Name,
+        from: TyName,
+        to: TyName,
+    },
+    ReplaceFunctionReturnType {
+        from: ErrorReturnType,
+        to: ErrorReturnType,
+    },
+    ReplaceFunctionParamName {
+        name: Name,
+    },
+    ReplaceFunctionRemovesDefaults,
+    UniqueMissingPartitionColumn {
+        kind: UniqueKind,
+        table: Name,
+        column: Name,
+    },
+    UniqueOnExpressionPartitionKey {
+        kind: UniqueKind,
+        table: Name,
+    },
+    GeneratedColumnInsert {
+        column: Name,
+        identity: bool,
+    },
+    CannotCast {
+        source: TyName,
+        target: TyName,
+    },
+    OverlappingPartition {
+        partition: Name,
+        existing: Name,
+        default: bool,
+    },
+    AssignmentTypeMismatch {
+        column: Name,
+        column_ty: TyName,
+        expr_ty: TyName,
+        default: bool,
+        cast: Option<AssignmentCast>,
+    },
+    AlterColumnTypeWithoutUsing {
+        column: Name,
+        ty: TyName,
+        insert_at: Option<TextSize>,
+    },
+    DropColumnWithDependents {
+        column: Name,
+        table: Name,
+        view: Name,
+    },
+    AlterColumnTypeWithDependents {
+        column: Name,
+        view: Name,
+    },
+    GeneratedColumnUpdate {
+        column: Name,
+        identity: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum UniqueKind {
+    PrimaryKey,
+    Unique,
+    UniqueIndex,
+}
+
+impl fmt::Display for UniqueKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            UniqueKind::PrimaryKey => "primary key",
+            UniqueKind::Unique => "unique constraint",
+            UniqueKind::UniqueIndex => "unique index",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ViewColumnRename {
+    pub(crate) schema: Option<Name>,
+    pub(crate) view: Name,
+    pub(crate) insert_at: TextSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TruncateCascade {
+    Insert(TextSize),
+    ReplaceRestrict(TextRange),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DefaultChange {
+    Set,
+    Drop,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GeneratedKind {
+    Stored,
+    Virtual,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DropRelation {
+    pub(crate) keyword_range: Option<TextRange>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Comparison {
+    In,
+    NotIn,
+    Using,
+}
+
+impl Comparison {
+    pub(crate) fn operator(self) -> &'static str {
+        match self {
+            Comparison::In | Comparison::Using => "=",
+            Comparison::NotIn => "<>",
+        }
+    }
+
+    fn note(self) -> &'static str {
+        match self {
+            Comparison::In => "`in` compares each element using `=`",
+            Comparison::NotIn => "`not in` compares each element using `<>`",
+            Comparison::Using => "`using` compares the joined columns using `=`",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Quantifier {
+    Any,
+    Some,
+    All,
+}
+
+impl fmt::Display for Quantifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Quantifier::Any => "any",
+            Quantifier::Some => "some",
+            Quantifier::All => "all",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CompoundOp {
+    Union,
+    Intersect,
+    Except,
+}
+
+impl fmt::Display for CompoundOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            CompoundOp::Union => "union",
+            CompoundOp::Intersect => "intersect",
+            CompoundOp::Except => "except",
+        })
+    }
+}
+
+impl From<ast::CompoundOp> for CompoundOp {
+    fn from(op: ast::CompoundOp) -> CompoundOp {
+        match op {
+            ast::CompoundOp::Union(_) => CompoundOp::Union,
+            ast::CompoundOp::Intersect(_) => CompoundOp::Intersect,
+            ast::CompoundOp::Except(_) => CompoundOp::Except,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConflictAction {
+    DoUpdate,
+    DoSelect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SetReturningConstruct {
+    Aggregate,
+    Window,
+    Case,
+    Coalesce,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConflictRuleEvent {
+    Insert,
+    Update,
+}
+
+impl fmt::Display for ConflictRuleEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            ConflictRuleEvent::Insert => "`on insert`",
+            ConflictRuleEvent::Update => "`on update`",
+        })
+    }
+}
+
+impl fmt::Display for ConflictAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            ConflictAction::DoUpdate => "`on conflict do update`",
+            ConflictAction::DoSelect => "`on conflict do select`",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WindowClause {
+    PartitionBy,
+    OrderBy,
+}
+
+impl fmt::Display for WindowClause {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            WindowClause::PartitionBy => "`partition by`",
+            WindowClause::OrderBy => "`order by`",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OrdinalityColumnDefListFix {
+    pub(crate) call_range: TextRange,
+    pub(crate) alias: Option<Name>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ColumnDefListReason {
+    OutParams,
+    NamedComposite,
+    NotRecord,
+}
+
+impl ColumnDefListReason {
+    fn message(self) -> &'static str {
+        match self {
+            ColumnDefListReason::OutParams => {
+                "a column definition list is redundant for a function with OUT parameters"
+            }
+            ColumnDefListReason::NamedComposite => {
+                "a column definition list is redundant for a function returning a named composite type"
+            }
+            ColumnDefListReason::NotRecord => {
+                "a column definition list is only allowed for functions returning `record`"
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TriggerFunctionKind {
+    Trigger,
+    EventTrigger,
+}
+
+impl TriggerFunctionKind {
+    pub(crate) fn return_type(self) -> &'static str {
+        match self {
+            TriggerFunctionKind::Trigger => "trigger",
+            TriggerFunctionKind::EventTrigger => "event_trigger",
+        }
+    }
+}
+
+const COPY_SELECT_HINT: &str = "try the `copy (select ...) to` variant";
+
+fn copy_target(copy_from: bool, kind: TableKind) -> (&'static str, Option<&'static str>) {
+    match (copy_from, kind) {
+        (true, TableKind::View) => ("view", Some(COPY_SELECT_HINT)),
+        (true, TableKind::ForeignTable) => ("foreign table", Some(COPY_SELECT_HINT)),
+        (true, TableKind::Sequence) => ("sequence", None),
+        (true, TableKind::Table | TableKind::MaterializedView | TableKind::PropertyGraph) => {
+            ("non-table relation", None)
+        }
+        (false, TableKind::View) => (
+            "view",
+            Some("to enable copying to a view, provide an `instead of insert` trigger"),
+        ),
+        (false, TableKind::MaterializedView) => ("materialized view", None),
+        (false, TableKind::Sequence) => ("sequence", None),
+        (false, TableKind::Table | TableKind::ForeignTable | TableKind::PropertyGraph) => {
+            ("non-table relation", None)
+        }
+    }
+}
+
+fn unresolved_kind(kind: ReferenceKind) -> DiagnosticKind {
+    match kind {
+        ReferenceKind::Relation => DiagnosticKind::UnresolvedRelation,
+        ReferenceKind::Table => DiagnosticKind::UnresolvedTable,
+        ReferenceKind::Column => DiagnosticKind::UnresolvedColumn,
+        ReferenceKind::Function(_) => DiagnosticKind::UnresolvedFunction,
+        ReferenceKind::Type => DiagnosticKind::UnresolvedType,
+        ReferenceKind::Window => DiagnosticKind::UnresolvedWindow,
+        ReferenceKind::JsonPath => DiagnosticKind::UnresolvedJsonPath,
+        ReferenceKind::Index => DiagnosticKind::UnresolvedIndex,
+        ReferenceKind::Constraint => DiagnosticKind::UnresolvedConstraint,
+        ReferenceKind::Trigger => DiagnosticKind::UnresolvedTrigger,
+        ReferenceKind::Rule => DiagnosticKind::UnresolvedRule,
+        ReferenceKind::Role => DiagnosticKind::UnresolvedRole,
+        ReferenceKind::Policy => DiagnosticKind::UnresolvedPolicy,
+        ReferenceKind::AccessMethod => DiagnosticKind::UnresolvedAccessMethod,
+        ReferenceKind::EventTrigger => DiagnosticKind::UnresolvedEventTrigger,
+        ReferenceKind::Language => DiagnosticKind::UnresolvedLanguage,
+        ReferenceKind::ForeignDataWrapper => DiagnosticKind::UnresolvedForeignDataWrapper,
+        ReferenceKind::Server => DiagnosticKind::UnresolvedServer,
+        ReferenceKind::Conversion => DiagnosticKind::UnresolvedConversion,
+        ReferenceKind::OperatorFamily => DiagnosticKind::UnresolvedOperatorFamily,
+        ReferenceKind::OperatorClass => DiagnosticKind::UnresolvedOperatorClass,
+        ReferenceKind::Statistics => DiagnosticKind::UnresolvedStatistics,
+        ReferenceKind::TextSearch(_) => DiagnosticKind::UnresolvedTextSearch,
+        ReferenceKind::Publication => DiagnosticKind::UnresolvedPublication,
+        ReferenceKind::Subscription => DiagnosticKind::UnresolvedSubscription,
+        ReferenceKind::GraphElement => DiagnosticKind::UnresolvedGraphElement,
+        ReferenceKind::GraphLabel => DiagnosticKind::UnresolvedGraphLabel,
+        ReferenceKind::EnumLabel => DiagnosticKind::UnresolvedEnumLabel,
+        ReferenceKind::GraphProperty => DiagnosticKind::UnresolvedGraphProperty,
+        ReferenceKind::Collation => DiagnosticKind::UnresolvedCollation,
+        ReferenceKind::Schema => DiagnosticKind::UnresolvedSchema,
+        ReferenceKind::Tablespace => DiagnosticKind::UnresolvedTablespace,
+        ReferenceKind::Database => DiagnosticKind::UnresolvedDatabase,
+        ReferenceKind::Extension => DiagnosticKind::UnresolvedExtension,
+        ReferenceKind::Operator => DiagnosticKind::UnresolvedOperator,
+        ReferenceKind::Savepoint => DiagnosticKind::UnresolvedSavepoint,
+        ReferenceKind::Cursor => DiagnosticKind::UnresolvedCursor,
+        ReferenceKind::PreparedTransaction => DiagnosticKind::UnresolvedPreparedTransaction,
+        ReferenceKind::PreparedStatement => DiagnosticKind::UnresolvedPreparedStatement,
+        ReferenceKind::Param => DiagnosticKind::UnresolvedParam,
+        ReferenceKind::Channel => unreachable!(),
+    }
+}
+
+fn ambiguous_kind(kind: ReferenceKind) -> DiagnosticKind {
+    match kind {
+        ReferenceKind::Function(_) => DiagnosticKind::AmbiguousFunction,
+        ReferenceKind::Operator => DiagnosticKind::AmbiguousOperator,
+        ReferenceKind::Column
+        | ReferenceKind::Relation
+        | ReferenceKind::Table
+        | ReferenceKind::Param
+        | ReferenceKind::Type
+        | ReferenceKind::Window
+        | ReferenceKind::JsonPath
+        | ReferenceKind::Index
+        | ReferenceKind::Constraint
+        | ReferenceKind::Trigger
+        | ReferenceKind::Rule
+        | ReferenceKind::Role
+        | ReferenceKind::Policy
+        | ReferenceKind::AccessMethod
+        | ReferenceKind::EventTrigger
+        | ReferenceKind::Language
+        | ReferenceKind::ForeignDataWrapper
+        | ReferenceKind::Server
+        | ReferenceKind::Conversion
+        | ReferenceKind::OperatorFamily
+        | ReferenceKind::OperatorClass
+        | ReferenceKind::Statistics
+        | ReferenceKind::TextSearch(_)
+        | ReferenceKind::Publication
+        | ReferenceKind::Subscription
+        | ReferenceKind::GraphElement
+        | ReferenceKind::GraphLabel
+        | ReferenceKind::EnumLabel
+        | ReferenceKind::GraphProperty
+        | ReferenceKind::Collation
+        | ReferenceKind::Schema
+        | ReferenceKind::Tablespace
+        | ReferenceKind::Database
+        | ReferenceKind::Extension
+        | ReferenceKind::Savepoint
+        | ReferenceKind::Cursor
+        | ReferenceKind::PreparedTransaction
+        | ReferenceKind::PreparedStatement
+        | ReferenceKind::Channel => DiagnosticKind::AmbiguousColumn,
+    }
+}
+
+impl fmt::Display for RoutineKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+impl RoutineKind {
+    fn label(self) -> &'static str {
+        match self {
+            RoutineKind::Function => "function",
+            RoutineKind::Aggregate => "aggregate",
+            RoutineKind::Procedure => "procedure",
+            RoutineKind::Routine => "routine",
+        }
+    }
+
+    fn call_label(self) -> &'static str {
+        match self {
+            RoutineKind::Routine => RoutineKind::Function.label(),
+            RoutineKind::Function | RoutineKind::Aggregate | RoutineKind::Procedure => self.label(),
+        }
+    }
+}
+
+impl ExprContext {
+    fn label(self) -> &'static str {
+        match self {
+            ExprContext::Unrestricted => "",
+            ExprContext::Where => "`where`",
+            ExprContext::JoinCondition => "`join` conditions",
+            ExprContext::GroupBy => "`group by`",
+            ExprContext::Having => "`having`",
+            ExprContext::Filter => "`filter`",
+            ExprContext::WindowDefinition => "window definitions",
+            ExprContext::WindowRange => "window `range`",
+            ExprContext::WindowRows => "window `rows`",
+            ExprContext::WindowGroups => "window `groups`",
+            ExprContext::Limit => "`limit`",
+            ExprContext::Offset => "`offset`",
+            ExprContext::Values | ExprContext::ValuesSingle => "`values`",
+            ExprContext::Returning => "`returning`",
+            ExprContext::Insert => "`insert`",
+            ExprContext::Update => "`update`",
+            ExprContext::FromFunction => "functions in `from`",
+            ExprContext::MergeWhen => "`merge when` conditions",
+            ExprContext::CheckConstraint => "check constraints",
+            ExprContext::Default => "`default` expressions",
+            ExprContext::GeneratedColumn => "column generation expressions",
+            ExprContext::IndexExpression => "index expressions",
+            ExprContext::IndexPredicate => "index predicates",
+            ExprContext::StatisticsExpression => "statistics expressions",
+            ExprContext::PartitionKey => "partition key expressions",
+            ExprContext::PartitionBound => "partition bound",
+            ExprContext::Policy => "policy expressions",
+            ExprContext::TriggerWhen => "trigger `when` conditions",
+            ExprContext::CallArgument => "`call` arguments",
+            ExprContext::Transform => "transform expressions",
+            ExprContext::CopyWhere => "`copy from where` conditions",
+            ExprContext::ExecuteParameter => "`execute` parameters",
+        }
+    }
+
+    pub(crate) fn subquery_label(self) -> Option<&'static str> {
+        match self {
+            ExprContext::CheckConstraint => Some("check constraint"),
+            ExprContext::Default => Some("`default` expression"),
+            ExprContext::GeneratedColumn => Some("column generation expression"),
+            ExprContext::IndexExpression => Some("index expression"),
+            ExprContext::IndexPredicate => Some("index predicate"),
+            ExprContext::StatisticsExpression => Some("statistics expression"),
+            ExprContext::PartitionKey => Some("partition key expression"),
+            ExprContext::PartitionBound => Some("partition bound"),
+            ExprContext::TriggerWhen => Some("trigger `when` condition"),
+            ExprContext::CallArgument => Some("`call` argument"),
+            ExprContext::Transform => Some("transform expression"),
+            ExprContext::CopyWhere => Some("`copy from where` condition"),
+            ExprContext::ExecuteParameter => Some("`execute` parameter"),
+            ExprContext::Unrestricted
+            | ExprContext::Where
+            | ExprContext::JoinCondition
+            | ExprContext::GroupBy
+            | ExprContext::Having
+            | ExprContext::Filter
+            | ExprContext::WindowDefinition
+            | ExprContext::WindowRange
+            | ExprContext::WindowRows
+            | ExprContext::WindowGroups
+            | ExprContext::Limit
+            | ExprContext::Offset
+            | ExprContext::Values
+            | ExprContext::ValuesSingle
+            | ExprContext::Returning
+            | ExprContext::Insert
+            | ExprContext::Update
+            | ExprContext::FromFunction
+            | ExprContext::MergeWhen
+            | ExprContext::Policy => None,
+        }
+    }
+}
+
+impl fmt::Display for TypeKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TypeKind::Shell => "shell type",
+            TypeKind::Type => "type",
+            TypeKind::Domain => "domain",
+            TypeKind::Enum => "enum",
+            TypeKind::Range => "range type",
+            TypeKind::Multirange => "multirange type",
+        })
+    }
+}
+
+impl fmt::Display for TableLookup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TableLookup::Table => "table",
+            TableLookup::ForeignTable => "foreign table",
+            TableLookup::TableOrForeignTable => "table or foreign table",
+            TableLookup::TableOrView => "table or view",
+            TableLookup::TableOrMaterializedView => "table or materialized view",
+            TableLookup::Any | TableLookup::FromItem => "relation",
+            TableLookup::Like => "table, view, materialized view, composite type, or foreign table",
+            TableLookup::View => "view",
+            TableLookup::MaterializedView => "materialized view",
+            TableLookup::Sequence => "sequence",
+            TableLookup::PropertyGraph => "property graph",
+            TableLookup::CopyTo => "table or materialized view",
+            TableLookup::CopyFrom => "table or foreign table",
+            TableLookup::Truncate => "table",
+        })
+    }
+}
+
+impl fmt::Display for OutputClause {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            OutputClause::OrderBy => "`order by`",
+            OutputClause::GroupBy => "`group by`",
+            OutputClause::DistinctOn => "`distinct on`",
+        })
+    }
+}
+
+fn drop_hint(kind: TableKind) -> &'static str {
+    match kind {
+        TableKind::Table => "use `drop table` to remove a table",
+        TableKind::ForeignTable => "use `drop foreign table` to remove a foreign table",
+        TableKind::View => "use `drop view` to remove a view",
+        TableKind::MaterializedView => "use `drop materialized view` to remove a materialized view",
+        TableKind::Sequence => "use `drop sequence` to remove a sequence",
+        TableKind::PropertyGraph => "use `drop property graph` to remove a property graph",
+    }
+}
+
+fn alter_relation_hint(kind: TableKind) -> &'static str {
+    match kind {
+        TableKind::Table => "use `alter table` instead",
+        TableKind::ForeignTable => "use `alter foreign table` instead",
+        TableKind::View => "use `alter view` instead",
+        TableKind::MaterializedView => "use `alter materialized view` instead",
+        TableKind::Sequence => "use `alter sequence` instead",
+        TableKind::PropertyGraph => "use `alter property graph` instead",
+    }
+}
+
+fn replace_suggestion(message: &'static str, range: TextRange, replacement: String) -> Suggestion {
+    Suggestion {
+        message: message.into(),
+        fix: Fix {
+            title: format!("Replace with `{replacement}`").into(),
+            edits: vec![Edit::replace(range, replacement)],
+        },
+    }
+}
+
+fn plural_columns(count: usize) -> &'static str {
+    if count == 1 { "column" } else { "columns" }
+}
+
+impl SemaError {
+    pub(crate) fn reference(
+        kind: ReferenceKind,
+        resolution: Resolution,
+        name: Name,
+    ) -> Option<SemaError> {
+        match resolution {
+            Resolution::Unresolved if kind == ReferenceKind::Channel => None,
+            Resolution::Unresolved => Some(SemaError::UnresolvedReference {
+                kind,
+                name,
+                similar: None,
+            }),
+            Resolution::Ambiguous => Some(SemaError::AmbiguousReference { kind, name }),
+            Resolution::Column { .. }
+            | Resolution::Source(_)
+            | Resolution::Cte(_)
+            | Resolution::Table(_)
+            | Resolution::Function(_)
+            | Resolution::Param(_)
+            | Resolution::Type(_)
+            | Resolution::Window(_)
+            | Resolution::JsonPath(_)
+            | Resolution::Index(_)
+            | Resolution::Constraint(_)
+            | Resolution::Trigger(_)
+            | Resolution::Rule(_)
+            | Resolution::Role(_)
+            | Resolution::Policy(_)
+            | Resolution::AccessMethod(_)
+            | Resolution::EventTrigger(_)
+            | Resolution::Language(_)
+            | Resolution::ForeignDataWrapper(_)
+            | Resolution::Server(_)
+            | Resolution::Conversion(_)
+            | Resolution::OperatorFamily(_)
+            | Resolution::OperatorClass(_)
+            | Resolution::Statistics(_)
+            | Resolution::TextSearch(_)
+            | Resolution::Publication(_)
+            | Resolution::Subscription(_)
+            | Resolution::GraphElement(_)
+            | Resolution::GraphLabel(_)
+            | Resolution::EnumLabel(_)
+            | Resolution::GraphProperty(_)
+            | Resolution::Collation(_)
+            | Resolution::Schema(_)
+            | Resolution::Tablespace(_)
+            | Resolution::Database(_)
+            | Resolution::Extension(_)
+            | Resolution::Operator(_)
+            | Resolution::Savepoint(_)
+            | Resolution::Cursor(_)
+            | Resolution::PreparedTransaction(_)
+            | Resolution::PreparedStatement(_)
+            | Resolution::Channel(_)
+            | Resolution::Unknown => None,
+        }
+    }
+
+    pub(crate) fn kind(&self) -> DiagnosticKind {
+        match *self {
+            SemaError::CannotChangeDatabase => DiagnosticKind::CannotChangeDatabase,
+            SemaError::ValuesLengthMismatch
+            | SemaError::InsertMoreExpressionsThanTargets
+            | SemaError::ViewTooManyColumnNames
+            | SemaError::CreateAsTooManyColumnNames => DiagnosticKind::ColumnCountMismatch,
+            SemaError::ReplaceConstraintTrigger => DiagnosticKind::ReplaceConstraintTrigger,
+            SemaError::RenameSelectRule => DiagnosticKind::RenameSelectRule,
+            SemaError::NestedAggregate
+            | SemaError::AggregateContainsWindow
+            | SemaError::MisplacedAggregate { .. } => DiagnosticKind::GroupingError,
+            SemaError::MisplacedSetReturningFunction { .. }
+            | SemaError::SetReturningFunctionIn { .. }
+            | SemaError::SetReturningFunctionNotTopLevel => DiagnosticKind::FeatureNotSupported,
+            SemaError::TablesampleSetArgument => DiagnosticKind::TypeMismatch,
+            SemaError::EmptyArrayType { .. } => DiagnosticKind::IndeterminateType,
+            SemaError::MisplacedSubquery { .. }
+            | SemaError::DefaultColumnReference
+            | SemaError::UnnestColumnDefList
+            | SemaError::TransitionRowVariable { .. } => DiagnosticKind::FeatureNotSupported,
+            SemaError::GeneratedColumnReference { .. } => DiagnosticKind::InvalidColumnReference,
+            SemaError::InheritedColumnRename { .. }
+            | SemaError::ViewDropColumns
+            | SemaError::ViewColumnRenamed { .. }
+            | SemaError::ViewColumnTypeChanged { .. }
+            | SemaError::InheritedConstraintRename { .. }
+            | SemaError::CannotRenameInheritedColumn { .. }
+            | SemaError::CannotRenameInheritedConstraint { .. } => {
+                DiagnosticKind::InvalidTableDefinition
+            }
+            SemaError::ReplaceFunctionReturnType { .. }
+            | SemaError::ReplaceFunctionParamName { .. }
+            | SemaError::ReplaceFunctionRemovesDefaults => DiagnosticKind::IncompatibleReplacement,
+            SemaError::UniqueMissingPartitionColumn { .. }
+            | SemaError::UniqueOnExpressionPartitionKey { .. } => {
+                DiagnosticKind::InvalidTableDefinition
+            }
+            SemaError::GeneratedColumnInsert { .. } | SemaError::GeneratedColumnUpdate { .. } => {
+                DiagnosticKind::GeneratedColumnWrite
+            }
+            SemaError::NestedWindow
+            | SemaError::WindowWithoutOver { .. }
+            | SemaError::MisplacedWindow { .. }
+            | SemaError::WindowOverride { .. }
+            | SemaError::WindowFrameCopy { .. }
+            | SemaError::WindowAggregateOrderBy
+            | SemaError::WindowDistinct => DiagnosticKind::WindowingError,
+            SemaError::Duplicate { object, .. }
+            | SemaError::DuplicateInSchema { object, .. }
+            | SemaError::DuplicateForAccessMethod { object, .. } => object.duplicate_kind(),
+            SemaError::ColumnSpecifiedMoreThanOnce { .. } => DiagnosticKind::DuplicateColumn,
+            SemaError::DuplicateCte { .. } => DiagnosticKind::DuplicateCte,
+            SemaError::DuplicateSource { .. } => DiagnosticKind::DuplicateSource,
+            SemaError::DuplicatePolicy { .. } => DiagnosticKind::DuplicatePolicy,
+            SemaError::DuplicateTrigger { .. } => DiagnosticKind::DuplicateTrigger,
+            SemaError::DuplicateRule { .. } => DiagnosticKind::DuplicateRule,
+            SemaError::DuplicateConstraint { .. } => DiagnosticKind::DuplicateConstraint,
+            SemaError::CircularInheritance { .. } => DiagnosticKind::CircularInheritance,
+            SemaError::CompositeMemberOfItself { .. } => DiagnosticKind::CompositeMemberOfItself,
+            SemaError::DuplicateColumn { .. } => DiagnosticKind::DuplicateColumn,
+            SemaError::DuplicateFunction { .. } => DiagnosticKind::DuplicateFunction,
+            SemaError::DuplicateTransform { .. } => DiagnosticKind::DuplicateTransform,
+            SemaError::DuplicateAssignment { .. } => DiagnosticKind::DuplicateAssignment,
+            SemaError::DuplicateWindow { .. } => DiagnosticKind::DuplicateWindow,
+            SemaError::DuplicateParam { .. } => DiagnosticKind::DuplicateParam,
+            SemaError::DependentObjects { .. }
+            | SemaError::DropColumnWithDependents { .. }
+            | SemaError::AlterColumnTypeWithDependents { .. } => {
+                DiagnosticKind::DependentObjectsStillExist
+            }
+            SemaError::TruncateReferenced { .. } => DiagnosticKind::FeatureNotSupported,
+            SemaError::RequiredBySystem { .. } => DiagnosticKind::RequiredBySystem,
+            SemaError::AccessMethodKindMismatch { .. } => DiagnosticKind::AccessMethodKindMismatch,
+            SemaError::UnresolvedCast { .. } => DiagnosticKind::UnresolvedCast,
+            SemaError::UnresolvedTransform { .. } => DiagnosticKind::UnresolvedTransform,
+            SemaError::UnresolvedOperator {
+                ambiguous: true, ..
+            } => DiagnosticKind::AmbiguousOperator,
+            SemaError::UnresolvedOperator {
+                ambiguous: false, ..
+            } => DiagnosticKind::UnresolvedOperator,
+            SemaError::UnresolvedRoutine { .. } => DiagnosticKind::UnresolvedFunction,
+            SemaError::ArgumentTypeMismatch { .. } => DiagnosticKind::TypeMismatch,
+            SemaError::ArgumentCountMismatch { .. }
+            | SemaError::MissingArguments { .. }
+            | SemaError::OrderedSetDirectArgCount { .. }
+            | SemaError::HypotheticalArgCount { .. } => DiagnosticKind::ArgumentCountMismatch,
+            SemaError::UnknownArgumentName { .. } => DiagnosticKind::UnresolvedParam,
+            SemaError::PositionalAfterNamed
+            | SemaError::DuplicateArgumentName { .. }
+            | SemaError::ArgumentPositionalAndNamed { .. }
+            | SemaError::NotVariadic { .. }
+            | SemaError::UnlabeledVariadic { .. }
+            | SemaError::SetofOperatorArg => DiagnosticKind::InvalidArgument,
+            SemaError::ProcedureCalledAsFunction { .. }
+            | SemaError::FunctionCalledAsProcedure { .. }
+            | SemaError::AggregateDroppedAsFunction { .. }
+            | SemaError::ParameterlessAggregate { .. }
+            | SemaError::MissingWithinGroup { .. } => DiagnosticKind::WrongRoutineKind,
+            SemaError::UnresolvedQualifiedColumn { .. }
+            | SemaError::QualifiedSetTarget { .. }
+            | SemaError::UnresolvedRecordColumn { .. } => DiagnosticKind::UnresolvedColumn,
+            SemaError::UnresolvedReference { kind, .. } => unresolved_kind(kind),
+            SemaError::AmbiguousReference { kind, .. } => ambiguous_kind(kind),
+            SemaError::NotLateral {
+                column: Some(_), ..
+            } => DiagnosticKind::UnresolvedColumn,
+            SemaError::NotLateral { column: None, .. } | SemaError::FutureCte { .. } => {
+                DiagnosticKind::UnresolvedRelation
+            }
+            SemaError::InvalidEnumValue { .. } => DiagnosticKind::UnresolvedEnumLabel,
+            SemaError::InvalidBoolValue { .. }
+            | SemaError::InvalidIntValue { .. }
+            | SemaError::InvalidFloatValue { .. }
+            | SemaError::InvalidNumericValue { .. }
+            | SemaError::InvalidUuidValue { .. }
+            | SemaError::InvalidJsonValue { .. }
+            | SemaError::UnsupportedJsonEscape => DiagnosticKind::InvalidLiteral,
+            SemaError::IntValueOutOfRange { .. }
+            | SemaError::FloatValueOutOfRange { .. }
+            | SemaError::NumericValueOutOfRange { .. } => DiagnosticKind::ValueOutOfRange,
+            SemaError::NotEnum { .. }
+            | SemaError::NotComposite { .. }
+            | SemaError::StarNotComposite { .. }
+            | SemaError::ColumnNotationNotComposite { .. }
+            | SemaError::WrongTypeKind { .. }
+            | SemaError::TableRowTypeAlteredAsType { .. } => DiagnosticKind::WrongTypeKind,
+            SemaError::TypedTableAlter { .. } => DiagnosticKind::TypedTableAlter,
+            SemaError::InvalidDomainConstraint { .. } => DiagnosticKind::InvalidDomainConstraint,
+            SemaError::CompoundTypeMismatch { .. } | SemaError::RecursiveCteTypeMismatch { .. } => {
+                DiagnosticKind::TypeMismatch
+            }
+            SemaError::OverlappingPartition { .. } => DiagnosticKind::InvalidTableDefinition,
+            SemaError::AlterColumnTypeWithoutUsing { .. }
+            | SemaError::CannotCast { .. }
+            | SemaError::AssignmentTypeMismatch { .. } => DiagnosticKind::TypeMismatch,
+            SemaError::CompoundColumnCount { .. }
+            | SemaError::ColumnListTooLong { .. }
+            | SemaError::InsertMoreTargetsThanExpressions { .. }
+            | SemaError::RowLengthMismatch
+            | SemaError::SubqueryNotSingleColumn
+            | SemaError::SubqueryTooManyColumns
+            | SemaError::SubqueryTooFewColumns => DiagnosticKind::ColumnCountMismatch,
+            SemaError::MissingShellType => DiagnosticKind::MissingShellType,
+            SemaError::WrongRelationKind { .. }
+            | SemaError::CompositeTypeAlteredAsTable { .. }
+            | SemaError::CannotCopy { .. }
+            | SemaError::TruncateOnlyPartitioned { .. }
+            | SemaError::CannotOpenIndex { .. }
+            | SemaError::CannotCreateIndex { .. } => DiagnosticKind::WrongRelationKind,
+            SemaError::NotIdentityColumn { .. } => DiagnosticKind::NotIdentityColumn,
+            SemaError::IdentityColumnDefault { .. } | SemaError::GeneratedColumnDefault { .. } => {
+                DiagnosticKind::ColumnDefaultNotAllowed
+            }
+            SemaError::ConstraintTrigger { .. } => DiagnosticKind::ReplaceConstraintTrigger,
+            SemaError::DropReturnRule { .. } => DiagnosticKind::DropReturnRule,
+            SemaError::MultiplePrimaryKeys { .. } => DiagnosticKind::MultiplePrimaryKeys,
+            SemaError::NoPrimaryKeyForReferencedTable { .. }
+            | SemaError::NoUniqueConstraintForReferencedTable { .. }
+            | SemaError::DeferrablePrimaryKeyForReferencedTable { .. }
+            | SemaError::DeferrableUniqueConstraintForReferencedTable { .. }
+            | SemaError::ForeignKeyTypeMismatch { .. } => DiagnosticKind::InvalidForeignKey,
+            SemaError::NoConflictArbiter { .. }
+            | SemaError::DeferrableConflictArbiter
+            | SemaError::ConflictConstraintWithoutIndex
+            | SemaError::ExclusionConflictArbiter { .. }
+            | SemaError::MissingConflictTarget { .. } => DiagnosticKind::InvalidConflictArbiter,
+            SemaError::DoSelectWithoutReturning { .. } => DiagnosticKind::MissingReturning,
+            SemaError::MissingColumnDefList => DiagnosticKind::MissingColumnDefList,
+            SemaError::UnexpectedColumnDefList { .. }
+            | SemaError::RowsFromColumnDefList
+            | SemaError::OrdinalityColumnDefList { .. }
+            | SemaError::DuplicateColumnDefList => DiagnosticKind::UnexpectedColumnDefList,
+            SemaError::PseudoTypeColumn { .. } => DiagnosticKind::InvalidTableDefinition,
+            SemaError::CollationNotSupported { .. } | SemaError::UnsupportedReturnType { .. } => {
+                DiagnosticKind::TypeMismatch
+            }
+            SemaError::ConflictWithRules { .. }
+            | SemaError::WholeRowConflictTarget
+            | SemaError::ConflictOnSystemCatalog => DiagnosticKind::FeatureNotSupported,
+            SemaError::RefreshConcurrentlyWithoutUniqueIndex { .. } => {
+                DiagnosticKind::MissingUniqueIndex
+            }
+            SemaError::UniqueIndexNotSupported { .. } => DiagnosticKind::UniqueIndexNotSupported,
+            SemaError::InvalidOrdinal { .. } => DiagnosticKind::InvalidOrdinal,
+            SemaError::MissingArrayType { .. } => DiagnosticKind::MissingArrayType,
+            SemaError::NoDefaultOperatorClass { .. } => DiagnosticKind::MissingDefaultOperatorClass,
+            SemaError::KeywordArgType { .. } => DiagnosticKind::TypeMismatch,
+            SemaError::QuantifiedNonArray { .. } => DiagnosticKind::TypeMismatch,
+            SemaError::NonBoolComparison { .. } => DiagnosticKind::TypeMismatch,
+            SemaError::TriggerReturnType { .. } | SemaError::OutParamResultType { .. } => {
+                DiagnosticKind::WrongReturnType
+            }
+            SemaError::ConflictingNullability { .. } => DiagnosticKind::ConflictingNullability,
+        }
+    }
+
+    pub(crate) fn suggestion(
+        &self,
+        range: TextRange,
+        names: &Interner,
+        errors: &Errors,
+    ) -> Option<Suggestion> {
+        let suggestion = match *self {
+            SemaError::UnresolvedReference {
+                similar: Some(Similar::Column(similar)),
+                ..
+            } => {
+                let column = quote_ident(names.resolve(similar.column)).into_owned();
+                let replacement = match similar.qualifier {
+                    Some(qualifier) => {
+                        format!("{}.{column}", quote_ident(names.resolve(qualifier)))
+                    }
+                    None => column,
+                };
+                replace_suggestion("a column with a similar name exists", range, replacement)
+            }
+            SemaError::UnresolvedReference {
+                similar: Some(Similar::Table(table)),
+                ..
+            } => replace_suggestion(
+                "a relation with a similar name exists",
+                range,
+                quote_ident(names.resolve(table)).into_owned(),
+            ),
+            SemaError::UnresolvedReference {
+                similar: Some(Similar::Type(similar)),
+                ..
+            } => {
+                let replacement = match similar {
+                    SimilarType::Named(name) => quote_ident(names.resolve(name)).into_owned(),
+                    SimilarType::Keyword(keyword) => keyword.to_owned(),
+                };
+                replace_suggestion("a type with a similar name exists", range, replacement)
+            }
+            SemaError::UnresolvedReference {
+                similar: Some(Similar::Window(window)),
+                ..
+            } => replace_suggestion(
+                "a window with a similar name exists",
+                range,
+                quote_ident(names.resolve(window)).into_owned(),
+            ),
+            SemaError::UnresolvedReference {
+                similar: Some(Similar::EnumLabel(label)),
+                ..
+            }
+            | SemaError::InvalidEnumValue {
+                similar: Some(label),
+                ..
+            } => replace_suggestion(
+                "an enum label with a similar name exists",
+                range,
+                quote_string_literal(names.resolve(label)),
+            ),
+            SemaError::InvalidBoolValue {
+                similar: Some(similar),
+                ..
+            } => replace_suggestion(
+                "a similar boolean value exists",
+                range,
+                quote_string_literal(similar),
+            ),
+            SemaError::UnresolvedQualifiedColumn {
+                similar: Some(similar),
+                ..
+            } => replace_suggestion(
+                "a column with a similar name exists",
+                range,
+                quote_ident(names.resolve(similar)).into_owned(),
+            ),
+            SemaError::ProcedureCalledAsFunction {
+                select_range: Some(select_range),
+                ..
+            } => Suggestion {
+                message: "to call a procedure, use `call`".into(),
+                fix: Fix {
+                    title: "Replace with `call`".into(),
+                    edits: vec![Edit::replace(select_range, "call")],
+                },
+            },
+            SemaError::FunctionCalledAsProcedure {
+                call_range: Some(call_range),
+                ..
+            } => Suggestion {
+                message: "to call a function, use `select`".into(),
+                fix: Fix {
+                    title: "Replace with `select`".into(),
+                    edits: vec![Edit::replace(call_range, "select")],
+                },
+            },
+            SemaError::AggregateDroppedAsFunction {
+                function_range: Some(function_range),
+                ..
+            } => Suggestion {
+                message: "use `drop aggregate` to drop aggregate functions".into(),
+                fix: Fix {
+                    title: "Replace with `aggregate`".into(),
+                    edits: vec![Edit::replace(function_range, "aggregate")],
+                },
+            },
+            SemaError::TableRowTypeAlteredAsType {
+                kind,
+                type_range: Some(type_range),
+                ..
+            } => Suggestion {
+                message: alter_relation_hint(kind).into(),
+                fix: Fix {
+                    title: format!("Replace with `{kind}`").into(),
+                    edits: vec![Edit::replace(type_range, kind.label())],
+                },
+            },
+            SemaError::CompositeTypeAlteredAsTable {
+                table_range: Some(table_range),
+                ..
+            } => Suggestion {
+                message: "use `alter type` instead".into(),
+                fix: Fix {
+                    title: "Replace with `type`".into(),
+                    edits: vec![Edit::replace(table_range, "type")],
+                },
+            },
+            SemaError::ViewColumnRenamed {
+                from,
+                to,
+                rename:
+                    Some(ViewColumnRename {
+                        schema,
+                        view,
+                        insert_at,
+                    }),
+            } => {
+                let view = match schema {
+                    Some(schema) => format!(
+                        "{}.{}",
+                        quote_ident(names.resolve(schema)),
+                        quote_ident(names.resolve(view))
+                    ),
+                    None => quote_ident(names.resolve(view)).into_owned(),
+                };
+                let rename = format!(
+                    "alter view {view} rename column {} to {}",
+                    quote_ident(names.resolve(from)),
+                    quote_ident(names.resolve(to))
+                );
+                Suggestion {
+                    message: "rename the view column with `alter view` first".into(),
+                    fix: Fix {
+                        title: format!("Insert `{rename}`").into(),
+                        edits: vec![Edit::insert(format!("{rename};\n"), insert_at)],
+                    },
+                }
+            }
+            SemaError::TransitionRowVariable { row_range } => Suggestion {
+                message: "use `old table` or `new table` to name transition tables".into(),
+                fix: Fix {
+                    title: "Replace with `table`".into(),
+                    edits: vec![Edit::replace(row_range, "table")],
+                },
+            },
+            SemaError::WrongRelationKind {
+                kind,
+                drop:
+                    Some(DropRelation {
+                        keyword_range: Some(keyword_range),
+                    }),
+                ..
+            } => Suggestion {
+                message: drop_hint(kind).into(),
+                fix: Fix {
+                    title: format!("Replace with `{kind}`").into(),
+                    edits: vec![Edit::replace(keyword_range, kind.label())],
+                },
+            },
+            SemaError::MissingConflictTarget {
+                key: Some(ConflictTargetKey { columns, insert_at }),
+                ..
+            } => {
+                let mut target = String::from("(");
+                for (i, column) in columns.iter().enumerate() {
+                    if i > 0 {
+                        target.push_str(", ");
+                    }
+                    target.push_str(&quote_ident(names.resolve(errors.names[column])));
+                }
+                target.push(')');
+                Suggestion {
+                    message: "specify the columns of a unique key".into(),
+                    fix: Fix {
+                        title: format!("Insert `{target}`").into(),
+                        edits: vec![Edit::insert(format!(" {target}"), insert_at)],
+                    },
+                }
+            }
+            SemaError::EmptyArrayType { cast: Some(ty) } => {
+                let suffix = if ty.array { "[]" } else { "" };
+                let ty = format!("{}{suffix}", names.resolve(ty.name));
+                Suggestion {
+                    message: "cast the empty array to the column's type".into(),
+                    fix: Fix {
+                        title: format!("Cast to `{ty}`").into(),
+                        edits: vec![Edit::insert(format!("::{ty}"), range.end())],
+                    },
+                }
+            }
+            SemaError::AssignmentTypeMismatch {
+                column_ty,
+                cast: Some(AssignmentCast { parens }),
+                ..
+            } => {
+                let suffix = if column_ty.array { "[]" } else { "" };
+                let ty = format!("{}{suffix}", names.resolve(column_ty.name));
+                let mut edits = Vec::with_capacity(2);
+                if parens {
+                    edits.push(Edit::insert("(", range.start()));
+                    edits.push(Edit::insert(format!(")::{ty}"), range.end()));
+                } else {
+                    edits.push(Edit::insert(format!("::{ty}"), range.end()));
+                }
+                Suggestion {
+                    message: "cast the expression to the column's type".into(),
+                    fix: Fix {
+                        title: format!("Cast to `{ty}`").into(),
+                        edits,
+                    },
+                }
+            }
+            SemaError::AlterColumnTypeWithoutUsing {
+                column,
+                ty,
+                insert_at: Some(insert_at),
+            } => {
+                let suffix = if ty.array { "[]" } else { "" };
+                let using = format!(
+                    "using {}::{}{suffix}",
+                    quote_ident(names.resolve(column)),
+                    names.resolve(ty.name)
+                );
+                Suggestion {
+                    message: "convert the existing values with an explicit cast".into(),
+                    fix: Fix {
+                        title: format!("Insert `{using}`").into(),
+                        edits: vec![Edit::insert(format!(" {using}"), insert_at)],
+                    },
+                }
+            }
+            SemaError::OrdinalityColumnDefList {
+                fix: Some(OrdinalityColumnDefListFix { call_range, alias }),
+            } => {
+                let suffix = match alias {
+                    Some(alias) => {
+                        format!(") with ordinality as {}", quote_ident(names.resolve(alias)))
+                    }
+                    None => ") with ordinality".to_owned(),
+                };
+                Suggestion {
+                    message: "put the column definition list inside `rows from`".into(),
+                    fix: Fix {
+                        title: "Move the column definition list inside `rows from`".into(),
+                        edits: vec![
+                            Edit::insert("rows from (", call_range.start()),
+                            Edit::replace(TextRange::new(call_range.end(), range.start()), " as "),
+                            Edit::insert(suffix, range.end()),
+                        ],
+                    },
+                }
+            }
+            SemaError::DoSelectWithoutReturning { returning_at } => Suggestion {
+                message: "add a `returning` clause to return the conflicting rows".into(),
+                fix: Fix {
+                    title: "Insert `returning *`".into(),
+                    edits: vec![Edit::insert(" returning *", returning_at)],
+                },
+            },
+            SemaError::OutParamResultType {
+                returns: Some(returns),
+                ..
+            } => Suggestion {
+                message: "the `out` parameters already determine the result type".into(),
+                fix: Fix {
+                    title: "Remove the `returns` clause".into(),
+                    edits: vec![Edit::delete(returns)],
+                },
+            },
+            SemaError::WindowWithoutOver { over_at, .. } => Suggestion {
+                message: "add an empty `over` clause to compute it over all rows".into(),
+                fix: Fix {
+                    title: "Insert `over ()`".into(),
+                    edits: vec![Edit::insert(" over ()", over_at)],
+                },
+            },
+            SemaError::MissingWithinGroup {
+                within_at: Some(within_at),
+                ..
+            } => Suggestion {
+                message: "move the aggregated arguments into `within group`".into(),
+                fix: Fix {
+                    title: "Move into `within group (order by ...)`".into(),
+                    edits: vec![Edit::replace(within_at, ") within group (order by ")],
+                },
+            },
+            SemaError::ParameterlessAggregate { star_at, .. } => Suggestion {
+                message: "use `*` to call an aggregate with no arguments".into(),
+                fix: Fix {
+                    title: "Insert `*`".into(),
+                    edits: vec![Edit::insert("*", star_at)],
+                },
+            },
+            SemaError::QualifiedSetTarget { column, .. } => Suggestion {
+                message: "`set` target columns cannot be qualified with the relation name".into(),
+                fix: Fix {
+                    title: format!("Remove `{}.`", quote_ident(names.resolve(column))).into(),
+                    edits: vec![Edit::delete(range)],
+                },
+            },
+            SemaError::UnlabeledVariadic {
+                insert_at: Some(insert_at),
+                ..
+            } => Suggestion {
+                message: "label the variadic array with `variadic`".into(),
+                fix: Fix {
+                    title: "Insert `variadic`".into(),
+                    edits: vec![Edit::insert("variadic ", insert_at)],
+                },
+            },
+            SemaError::UnresolvedRoutine {
+                name,
+                outside_search_path:
+                    Some(OutsideSearchPath {
+                        schema,
+                        qualify_at: Some(qualify_at),
+                        ..
+                    }),
+                ..
+            } => {
+                let schema = names.resolve(schema);
+                let quoted = quote_ident(schema);
+                Suggestion {
+                    message: format!("qualify the call with schema `{schema}`").into(),
+                    fix: Fix {
+                        title: format!(
+                            "Qualify as `{quoted}.{}`",
+                            quote_ident(names.resolve(name))
+                        )
+                        .into(),
+                        edits: vec![Edit::insert(format!("{quoted}."), qualify_at)],
+                    },
+                }
+            }
+            SemaError::UnresolvedRoutine {
+                kind,
+                similar: Some(similar),
+                misplaced_order_by: false,
+                ..
+            } => {
+                let message = match kind {
+                    RoutineKind::Function | RoutineKind::Routine => {
+                        "a function with a similar name exists"
+                    }
+                    RoutineKind::Aggregate => "an aggregate with a similar name exists",
+                    RoutineKind::Procedure => "a procedure with a similar name exists",
+                };
+                replace_suggestion(
+                    message,
+                    range,
+                    quote_ident(names.resolve(similar)).into_owned(),
+                )
+            }
+            SemaError::NotLateral {
+                table,
+                column,
+                lateral_at,
+            } => {
+                let table = names.resolve(table);
+                let message = match column {
+                    Some(column) => format!(
+                        "to reference column `{}` of table `{table}`, mark the subquery as `lateral`",
+                        names.resolve(column)
+                    ),
+                    None => {
+                        format!("to reference table `{table}`, mark the subquery as `lateral`")
+                    }
+                };
+                Suggestion {
+                    message: message.into(),
+                    fix: Fix {
+                        title: "Add `lateral`".into(),
+                        edits: vec![Edit::insert("lateral ", lateral_at)],
+                    },
+                }
+            }
+            SemaError::UnresolvedOperator {
+                replacement: Some(replacement),
+                ..
+            } => replace_suggestion(replacement.message(), range, replacement.text().into()),
+            SemaError::TruncateOnlyPartitioned {
+                only_range,
+                r_paren_range,
+                ..
+            } => {
+                let mut edits = Vec::with_capacity(2);
+                edits.push(Edit::delete(only_range));
+                if let Some(r_paren_range) = r_paren_range {
+                    edits.push(Edit::delete(r_paren_range));
+                }
+                Suggestion {
+                    message: "remove `only` to also truncate the partitions, or truncate the partitions directly".into(),
+                    fix: Fix {
+                        title: "Remove `only`".into(),
+                        edits,
+                    },
+                }
+            }
+            SemaError::TruncateReferenced {
+                referencing,
+                cascade,
+                ..
+            } => {
+                let (title, edit) = match cascade {
+                    TruncateCascade::Insert(at) => ("Add `cascade`", Edit::insert(" cascade", at)),
+                    TruncateCascade::ReplaceRestrict(range) => {
+                        ("Replace with `cascade`", Edit::replace(range, "cascade"))
+                    }
+                };
+                Suggestion {
+                    message: format!(
+                        "truncate `{}` at the same time, or use `cascade`",
+                        names.resolve(referencing)
+                    )
+                    .into(),
+                    fix: Fix {
+                        title: title.into(),
+                        edits: vec![edit],
+                    },
+                }
+            }
+            SemaError::FutureCte { name, recursive_at } => Suggestion {
+                message: format!(
+                    "to reference `{}`, mark the `with` clause as `recursive`",
+                    names.resolve(name)
+                )
+                .into(),
+                fix: Fix {
+                    title: "Add `recursive`".into(),
+                    edits: vec![Edit::insert(" recursive", recursive_at)],
+                },
+            },
+            _ => return None,
+        };
+        Some(suggestion)
+    }
+
+    pub(crate) fn hint(&self) -> Option<&'static str> {
+        match *self {
+            SemaError::NoDefaultOperatorClass { .. } => Some(
+                "specify an operator class for the index or define a default operator class for the data type",
+            ),
+            SemaError::IntValueOutOfRange {
+                ty: IntType::Int2, ..
+            } => Some("`int2` values range from `-32768` to `32767`"),
+            SemaError::IntValueOutOfRange {
+                ty: IntType::Int4, ..
+            } => Some("`int4` values range from `-2147483648` to `2147483647`"),
+            SemaError::IntValueOutOfRange {
+                ty: IntType::Int8, ..
+            } => Some(
+                "`int8` values range from `-9223372036854775808` to `9223372036854775807`",
+            ),
+            SemaError::InvalidBoolValue { similar: None, .. } => Some(
+                "expected one of `true`, `false`, `yes`, `no`, `on`, `off`, `1`, or `0`",
+            ),
+            SemaError::EmptyArrayType { cast: None } => Some(
+                "explicitly cast to the desired type, for example `array[]::integer[]`",
+            ),
+            SemaError::SetReturningFunctionIn { .. } => Some(
+                "you might be able to move the set-returning function into a `lateral` `from` item",
+            ),
+            SemaError::TypedTableAlter { .. } => {
+                Some("use `alter ... cascade` to alter the typed tables too")
+            }
+            SemaError::ConflictConstraintWithoutIndex => Some(
+                "only primary key, unique, and exclusion constraints can be used as arbiters",
+            ),
+            SemaError::WholeRowConflictTarget => {
+                Some("list the columns of a unique index instead")
+            }
+            SemaError::MissingConflictTarget { key: None, .. } => {
+                Some("specify a conflict target, like `on conflict (column_name)`")
+            }
+            SemaError::InsertMoreTargetsThanExpressions { row_hint } => row_hint.then_some(
+                "the insertion source is a row expression containing the same number of columns expected by the `insert`; consider removing the extra parentheses",
+            ),
+            SemaError::MissingShellType => Some(
+                "create the type as a shell type, then create its canonicalization function, then do a full `create type`",
+            ),
+            SemaError::WrongRelationKind {
+                kind,
+                drop:
+                    Some(DropRelation {
+                        keyword_range: None,
+                    }),
+                ..
+            } => Some(drop_hint(kind)),
+            SemaError::CannotCopy {
+                copy_from, kind, ..
+            } => copy_target(copy_from, kind).1,
+            SemaError::CannotOpenIndex { .. } => {
+                Some("this operation is not supported for indexes")
+            }
+            SemaError::DropColumnWithDependents { .. } => {
+                Some("use `drop column ... cascade` to drop the dependent objects too")
+            }
+            SemaError::AlterColumnTypeWithoutUsing {
+                insert_at: None, ..
+            } => Some("add a `using` clause that converts the existing values"),
+            SemaError::AssignmentTypeMismatch { cast: None, .. } => {
+                Some("rewrite the expression to produce the column's type")
+            }
+            SemaError::RecursiveCteTypeMismatch { .. } => {
+                Some("cast the output of the non-recursive term to the overall type")
+            }
+            SemaError::GeneratedColumnInsert { identity: true, .. } => {
+                Some("use `overriding system value` to override")
+            }
+            SemaError::IdentityColumnDefault {
+                change: DefaultChange::Drop,
+                ..
+            } => {
+                Some("use `drop identity` instead")
+            }
+            SemaError::GeneratedColumnDefault {
+                change: DefaultChange::Set,
+                ..
+            } => {
+                Some("use `set expression` instead")
+            }
+            SemaError::GeneratedColumnDefault {
+                change: DefaultChange::Drop,
+                kind: GeneratedKind::Stored,
+                ..
+            } => Some("use `drop expression` instead"),
+            SemaError::WindowFrameCopy { hint, .. } => {
+                hint.then_some("omit the parentheses in this `over` clause")
+            }
+            SemaError::MissingWithinGroup {
+                within_at: None, ..
+            } => Some("pass the aggregated arguments in `within group (order by ...)`"),
+            SemaError::HypotheticalArgCount { .. } => {
+                Some("each hypothetical argument must have a matching ordering column")
+            }
+            SemaError::RefreshConcurrentlyWithoutUniqueIndex { .. } => Some(
+                "create a unique index with no `where` clause on one or more columns of the materialized view",
+            ),
+            SemaError::UnresolvedRoutine {
+                misplaced_order_by: true,
+                ..
+            } => Some("`order by` must appear after all regular arguments of the aggregate"),
+            SemaError::UnresolvedRoutine {
+                similar: Some(_), ..
+            }
+            | SemaError::UnresolvedRoutine {
+                outside_search_path: Some(_),
+                ..
+            } => None,
+            SemaError::UnresolvedRoutine {
+                kind,
+                unknown_names: true,
+                ..
+            } => Some(match kind {
+                RoutineKind::Procedure => {
+                    "no procedure with that name accepts the given argument names"
+                }
+                RoutineKind::Function | RoutineKind::Aggregate | RoutineKind::Routine => {
+                    "no function with that name accepts the given argument names"
+                }
+            }),
+            SemaError::UnresolvedRoutine {
+                args,
+                lookup,
+                similar: None,
+                misplaced_order_by: false,
+                ..
+            } => match (lookup, args) {
+                (LookupKind::Call, ErrorArgs::List(args)) if !args.is_empty() => {
+                    Some("consider adding explicit type casts")
+                }
+                (LookupKind::Call | LookupKind::Signature, ErrorArgs::List(_) | ErrorArgs::Star) => {
+                    None
+                }
+            },
+            SemaError::ArgumentTypeMismatch { .. } => Some("consider adding explicit type casts"),
+            SemaError::UnlabeledVariadic {
+                insert_at: None, ..
+            } => Some("pass an array labeled `variadic` as the last argument"),
+            SemaError::ProcedureCalledAsFunction {
+                select_range: None,
+                ..
+            } => Some("to call a procedure, use `call`"),
+            SemaError::FunctionCalledAsProcedure {
+                call_range: None, ..
+            } => Some("to call a function, use `select`"),
+            SemaError::AggregateDroppedAsFunction {
+                function_range: None,
+                ..
+            } => Some("use `drop aggregate` to drop aggregate functions"),
+            SemaError::TableRowTypeAlteredAsType {
+                kind,
+                type_range: None,
+                ..
+            } => Some(alter_relation_hint(kind)),
+            SemaError::CompositeTypeAlteredAsTable {
+                table_range: None, ..
+            } => Some("use `alter type` instead"),
+            SemaError::ReplaceFunctionReturnType { .. }
+            | SemaError::ReplaceFunctionParamName { .. }
+            | SemaError::ReplaceFunctionRemovesDefaults => {
+                Some("drop the existing function first, then create it again")
+            }
+            SemaError::ViewColumnRenamed { rename: None, .. } => Some(
+                "use `alter view ... rename column ...` to change the name of a view column instead",
+            ),
+            SemaError::UnnestColumnDefList => Some(
+                "use a separate `unnest` call for each array inside `rows from`, each with its own column definition list",
+            ),
+            SemaError::RowsFromColumnDefList => Some(
+                "put a separate column definition list for each function inside `rows from`",
+            ),
+            SemaError::OrdinalityColumnDefList { fix: None } => {
+                Some("put the column definition list inside `rows from`")
+            }
+            SemaError::UnresolvedOperator {
+                replacement: Some(_),
+                ..
+            } => None,
+            SemaError::UnresolvedOperator {
+                ambiguous: true, ..
+            } => Some("could not choose a best candidate operator; consider adding explicit type casts"),
+            SemaError::UnresolvedOperator { lookup, .. } => match lookup {
+                LookupKind::Call => Some("consider adding explicit type casts"),
+                LookupKind::Signature => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn static_message(&self) -> Option<&'static str> {
+        match *self {
+            SemaError::CannotChangeDatabase => Some("current database cannot be changed"),
+            SemaError::PositionalAfterNamed => {
+                Some("positional argument cannot follow named argument")
+            }
+            SemaError::NoConflictArbiter { .. } => Some(
+                "there is no unique or exclusion constraint matching the `on conflict` specification",
+            ),
+            SemaError::DeferrableConflictArbiter => Some(
+                "`on conflict` does not support deferrable unique constraints/exclusion constraints as arbiters",
+            ),
+            SemaError::DoSelectWithoutReturning { .. } => {
+                Some("`on conflict do select` requires a `returning` clause")
+            }
+            SemaError::ConflictConstraintWithoutIndex => {
+                Some("constraint in `on conflict` clause has no associated index")
+            }
+            SemaError::ConflictWithRules { .. } => Some(
+                "`insert` with `on conflict` cannot be used with table that has `insert` or `update` rules",
+            ),
+            SemaError::WholeRowConflictTarget => {
+                Some("whole row unique index inference specifications are not supported")
+            }
+            SemaError::ConflictOnSystemCatalog => {
+                Some("`on conflict` is not supported with system catalog tables")
+            }
+            SemaError::ValuesLengthMismatch => Some("`values` lists must all be the same length"),
+            SemaError::InsertMoreExpressionsThanTargets => {
+                Some("`insert` has more expressions than target columns")
+            }
+            SemaError::ViewTooManyColumnNames => {
+                Some("`create view` specifies more column names than columns")
+            }
+            SemaError::CreateAsTooManyColumnNames => Some("too many column names were specified"),
+            SemaError::ReplaceConstraintTrigger => {
+                Some("`create or replace constraint trigger` is not supported")
+            }
+            SemaError::RenameSelectRule => Some("renaming an `on select` rule is not allowed"),
+            SemaError::NestedAggregate => Some("aggregate calls cannot be nested"),
+            SemaError::AggregateContainsWindow => {
+                Some("aggregate calls cannot contain window function calls")
+            }
+            SemaError::NestedWindow => Some("window function calls cannot be nested"),
+            SemaError::InsertMoreTargetsThanExpressions { .. } => {
+                Some("`insert` has more target columns than expressions")
+            }
+            SemaError::MissingShellType => {
+                Some("cannot specify a canonical function without a pre-created shell type")
+            }
+            SemaError::WindowAggregateOrderBy => {
+                Some("aggregate `order by` is not implemented for window functions")
+            }
+            SemaError::WindowDistinct => Some("`distinct` is not implemented for window functions"),
+            SemaError::RowLengthMismatch => Some("unequal number of entries in row expressions"),
+            SemaError::DefaultColumnReference => {
+                Some("cannot use column reference in `default` expression")
+            }
+            SemaError::SubqueryNotSingleColumn => Some("subquery must return only one column"),
+            SemaError::SubqueryTooManyColumns => Some("subquery has too many columns"),
+            SemaError::SubqueryTooFewColumns => Some("subquery has too few columns"),
+            SemaError::UnnestColumnDefList => {
+                Some("`unnest` with multiple arguments cannot have a column definition list")
+            }
+            SemaError::MissingColumnDefList => {
+                Some("a column definition list is required for functions returning `record`")
+            }
+            SemaError::UnexpectedColumnDefList { reason } => Some(reason.message()),
+            SemaError::RowsFromColumnDefList => {
+                Some("`rows from` with multiple functions cannot have a column definition list")
+            }
+            SemaError::OrdinalityColumnDefList { .. } => {
+                Some("`with ordinality` cannot be used with a column definition list")
+            }
+            SemaError::DuplicateColumnDefList => {
+                Some("multiple column definition lists are not allowed for the same function")
+            }
+            SemaError::TransitionRowVariable { .. } => {
+                Some("row variable naming in the `referencing` clause is not supported")
+            }
+            SemaError::ViewDropColumns => Some("cannot drop columns from view"),
+            SemaError::SetofOperatorArg => Some("`setof` is not allowed for operator arguments"),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn notes(&self, names: &Interner, errors: &Errors) -> Vec<Cow<'static, str>> {
+        let message = ErrorMessage {
+            error: self,
+            names,
+            errors,
+        };
+        let note = match *self {
+            SemaError::UnresolvedRoutine {
+                schema,
+                name,
+                candidates: Some(ErrorCandidates { shown, total }),
+                ..
+            } => {
+                let hidden = total - shown.len();
+                let mut notes = Vec::with_capacity(shown.len() + usize::from(hidden > 0));
+                notes.extend(shown.iter().map(|candidate| {
+                    let candidate = errors.candidates[candidate];
+                    Cow::Owned(message.candidate(schema, name, candidate).to_string())
+                }));
+                if hidden > 0 {
+                    let s = if hidden == 1 { "" } else { "s" };
+                    notes.push(Cow::Owned(format!("and {hidden} other candidate{s}")));
+                }
+                return notes;
+            }
+            SemaError::UnresolvedRoutine {
+                kind,
+                name,
+                outside_search_path: Some(OutsideSearchPath { schema, others, .. }),
+                ..
+            } => {
+                let label = kind.call_label();
+                let name = names.resolve(name);
+                let schema = names.resolve(schema);
+                Cow::Owned(match others {
+                    0 => format!(
+                        "a {label} named `{name}` exists in schema `{schema}`, which is not in the `search_path`"
+                    ),
+                    others => {
+                        let s = if others == 1 { "" } else { "s" };
+                        format!(
+                            "a {label} named `{name}` exists in schema `{schema}` and {others} other{s}, none of which are in the `search_path`"
+                        )
+                    }
+                })
+            }
+            SemaError::NonBoolComparison { comparison, .. } => Cow::Borrowed(comparison.note()),
+            SemaError::NumericValueOutOfRange {
+                overflow: NumericOverflow::Typmod(typmod),
+                ..
+            } => {
+                let bound = match typmod.max_digits() {
+                    0 => "1".to_owned(),
+                    digits => format!("10^{digits}"),
+                };
+                Cow::Owned(format!(
+                    "a field with precision {} and scale {} must round to an absolute value less than `{bound}`",
+                    typmod.precision, typmod.scale
+                ))
+            }
+            SemaError::NumericValueOutOfRange {
+                overflow: NumericOverflow::Infinite(typmod),
+                ..
+            } => Cow::Owned(format!(
+                "a field with precision {} and scale {} cannot hold an infinite value",
+                typmod.precision, typmod.scale
+            )),
+            SemaError::DropColumnWithDependents { column, view, .. }
+            | SemaError::AlterColumnTypeWithDependents { column, view } => Cow::Owned(format!(
+                "view `{}` depends on column `{}`",
+                names.resolve(view),
+                names.resolve(column)
+            )),
+            SemaError::GeneratedColumnInsert { column, identity }
+            | SemaError::GeneratedColumnUpdate { column, identity } => {
+                let column = names.resolve(column);
+                Cow::Owned(if identity {
+                    format!("`{column}` is an identity column defined as `generated always`")
+                } else {
+                    format!("`{column}` is a generated column")
+                })
+            }
+            SemaError::PseudoTypeColumn { .. } => Cow::Borrowed(
+                "pseudo-types can only be used for function arguments and return types",
+            ),
+            SemaError::NoConflictArbiter {
+                foreign_table: true,
+            } => Cow::Borrowed("foreign tables can't have unique or exclusion constraints"),
+            SemaError::TruncateReferenced {
+                name, referencing, ..
+            } => Cow::Owned(format!(
+                "table `{}` references `{}`",
+                names.resolve(referencing),
+                names.resolve(name)
+            )),
+            SemaError::CircularInheritance { child, parent } => Cow::Owned(format!(
+                "`{}` is already a child of `{}`",
+                names.resolve(child),
+                names.resolve(parent)
+            )),
+            SemaError::ConflictWithRules { table, rule, event } => Cow::Owned(format!(
+                "`{}` has an {} rule `{}`",
+                names.resolve(table),
+                event,
+                names.resolve(rule)
+            )),
+            SemaError::ForeignKeyTypeMismatch { pairs, .. } => {
+                return pairs
+                    .iter()
+                    .map(|pair| {
+                        let pair = errors.foreign_key_pairs[pair];
+                        Cow::Owned(message.foreign_key_pair(pair).to_string())
+                    })
+                    .collect();
+            }
+            SemaError::ArgumentCountMismatch { missing, .. } if !missing.is_empty() => {
+                Cow::Owned(format!("missing {}", message.params(missing)))
+            }
+            _ => return vec![],
+        };
+        vec![note]
+    }
+
+    pub(crate) fn message(&self, names: &Interner, errors: &Errors) -> Cow<'static, str> {
+        match self.static_message() {
+            Some(message) => Cow::Borrowed(message),
+            None => Cow::Owned(
+                ErrorMessage {
+                    error: self,
+                    names,
+                    errors,
+                }
+                .to_string(),
+            ),
+        }
+    }
+}
+
+struct ErrorMessage<'a> {
+    error: &'a SemaError,
+    names: &'a Interner,
+    errors: &'a Errors,
+}
+
+impl ErrorMessage<'_> {
+    fn ty(&self, ty: TyName) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            let suffix = if ty.array { "[]" } else { "" };
+            write!(f, "{}{suffix}", self.names.resolve(ty.name))
+        })
+    }
+
+    fn return_ty(&self, ret: ErrorReturnType) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            let prefix = match ret.kind {
+                ReturnKind::Single => "",
+                ReturnKind::Set => "setof ",
+            };
+            write!(f, "{prefix}{}", self.ty(ret.ty))
+        })
+    }
+
+    fn arg_label(&self, arg: ArgLabel) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| match arg {
+            ArgLabel::Position(position) => write!(f, "{}", position + 1),
+            ArgLabel::Name(name) => write!(f, "`{}`", self.names.resolve(name)),
+        })
+    }
+
+    fn qualified(&self, schema: Option<Name>, name: Name) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            if let Some(schema) = schema {
+                write!(f, "{}.", self.names.resolve(schema))?;
+            }
+            f.write_str(self.names.resolve(name))
+        })
+    }
+
+    fn signature(
+        &self,
+        schema: Option<Name>,
+        name: Name,
+        args: ErrorArgs,
+    ) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            let n = |name| self.names.resolve(name);
+            write!(f, "{}(", self.qualified(schema, name))?;
+            let args = match args {
+                ErrorArgs::List(args) => args,
+                ErrorArgs::Star => return f.write_str("*)"),
+            };
+            for (i, arg) in args.iter().enumerate() {
+                let arg = self.errors.args[arg];
+                if i > 0 {
+                    f.write_str(", ")?;
+                }
+                if arg.variadic {
+                    f.write_str("variadic ")?;
+                }
+                if let Some(name) = arg.name {
+                    write!(f, "{} => ", n(name))?;
+                }
+                write!(f, "{}", self.operand(arg.ty))?;
+            }
+            f.write_str(")")
+        })
+    }
+
+    fn foreign_key_pair(&self, pair: ForeignKeyPair) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            let ForeignKeyPair {
+                column,
+                referenced_column,
+                ty,
+                referenced_ty,
+            } = pair;
+            write!(
+                f,
+                "key columns `{}` and `{}` are of incompatible types: `{}` and `{}`",
+                self.names.resolve(column),
+                self.names.resolve(referenced_column),
+                self.ty(ty),
+                self.ty(referenced_ty)
+            )
+        })
+    }
+
+    fn candidate(
+        &self,
+        schema: Option<Name>,
+        name: Name,
+        candidate: ErrorCandidate,
+    ) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            let ErrorCandidate { args, reason } = candidate;
+            let signature = self.signature(schema, name, args);
+            match reason {
+                Some(CandidateReason::ArgType {
+                    position,
+                    expected,
+                    found,
+                }) => write!(
+                    f,
+                    "`{signature}` expects `{}` for argument {}, found `{}`",
+                    self.ty(expected),
+                    position + 1,
+                    self.ty(found)
+                ),
+                Some(CandidateReason::ArgCount { min, max, supplied }) => {
+                    let (bound, count) = if min == max {
+                        ("", min)
+                    } else if supplied < min {
+                        ("at least ", min)
+                    } else {
+                        ("at most ", max)
+                    };
+                    write!(
+                        f,
+                        "`{signature}` takes {bound}{count} argument{} but {supplied} {} supplied",
+                        if count == 1 { "" } else { "s" },
+                        if supplied == 1 { "was" } else { "were" },
+                    )
+                }
+                None => write!(f, "candidate `{signature}`"),
+            }
+        })
+    }
+
+    fn params(&self, params: IdxRange<ErrorParam>) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| {
+            for (i, param) in params.iter().enumerate() {
+                if i > 0 {
+                    f.write_str(", ")?;
+                }
+                match self.errors.params[param] {
+                    ErrorParam {
+                        name: Some(name), ..
+                    } => write!(f, "`{}`", self.names.resolve(name))?,
+                    ErrorParam {
+                        name: None,
+                        position,
+                    } => write!(f, "`${}`", position + 1)?,
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn operand(&self, operand: OperandName) -> impl fmt::Display + '_ {
+        fmt::from_fn(move |f| match operand {
+            OperandName::Ty(ty) => write!(f, "{}", self.ty(ty)),
+            OperandName::Unknown => f.write_str("unknown"),
+        })
+    }
+}
+
+impl fmt::Display for ErrorMessage<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let n = |name| self.names.resolve(name);
+        match *self.error {
+            SemaError::CannotChangeDatabase
+            | SemaError::PositionalAfterNamed
+            | SemaError::ValuesLengthMismatch
+            | SemaError::InsertMoreExpressionsThanTargets
+            | SemaError::ViewTooManyColumnNames
+            | SemaError::CreateAsTooManyColumnNames
+            | SemaError::ReplaceConstraintTrigger
+            | SemaError::RenameSelectRule
+            | SemaError::NestedAggregate
+            | SemaError::AggregateContainsWindow
+            | SemaError::NestedWindow
+            | SemaError::InsertMoreTargetsThanExpressions { .. }
+            | SemaError::MissingShellType
+            | SemaError::WindowAggregateOrderBy
+            | SemaError::WindowDistinct
+            | SemaError::RowLengthMismatch
+            | SemaError::DefaultColumnReference
+            | SemaError::SubqueryNotSingleColumn
+            | SemaError::SubqueryTooManyColumns
+            | SemaError::SubqueryTooFewColumns
+            | SemaError::UnnestColumnDefList
+            | SemaError::MissingColumnDefList
+            | SemaError::UnexpectedColumnDefList { .. }
+            | SemaError::RowsFromColumnDefList
+            | SemaError::OrdinalityColumnDefList { .. }
+            | SemaError::DuplicateColumnDefList
+            | SemaError::TransitionRowVariable { .. }
+            | SemaError::ViewDropColumns
+            | SemaError::SetofOperatorArg
+            | SemaError::NoConflictArbiter { .. }
+            | SemaError::DeferrableConflictArbiter
+            | SemaError::ConflictConstraintWithoutIndex
+            | SemaError::ConflictWithRules { .. }
+            | SemaError::WholeRowConflictTarget
+            | SemaError::ConflictOnSystemCatalog
+            | SemaError::DoSelectWithoutReturning { .. } => {
+                f.write_str(self.error.static_message().unwrap_or_default())
+            }
+            SemaError::MissingConflictTarget { action, .. } => {
+                write!(f, "{action} requires a conflict target")
+            }
+            SemaError::ExclusionConflictArbiter { action } => {
+                write!(f, "{action} not supported with exclusion constraints")
+            }
+            SemaError::MisplacedAggregate { context } => write!(
+                f,
+                "aggregate functions are not allowed in {}",
+                context.label()
+            ),
+            SemaError::MisplacedWindow { context } => {
+                let label = match context {
+                    ExprContext::WindowRange
+                    | ExprContext::WindowRows
+                    | ExprContext::WindowGroups => ExprContext::WindowDefinition.label(),
+                    context => context.label(),
+                };
+                write!(f, "window functions are not allowed in {label}")
+            }
+            SemaError::MisplacedSetReturningFunction { context } => {
+                let label = match context {
+                    ExprContext::WindowRange
+                    | ExprContext::WindowRows
+                    | ExprContext::WindowGroups => ExprContext::WindowDefinition.label(),
+                    context => context.label(),
+                };
+                write!(f, "set-returning functions are not allowed in {label}")
+            }
+            SemaError::SetReturningFunctionIn { construct } => match construct {
+                SetReturningConstruct::Aggregate => {
+                    f.write_str("aggregate calls cannot contain set-returning function calls")
+                }
+                SetReturningConstruct::Window => {
+                    f.write_str("window function calls cannot contain set-returning function calls")
+                }
+                SetReturningConstruct::Case => {
+                    f.write_str("set-returning functions are not allowed in `case`")
+                }
+                SetReturningConstruct::Coalesce => {
+                    f.write_str("set-returning functions are not allowed in `coalesce`")
+                }
+            },
+            SemaError::SetReturningFunctionNotTopLevel => {
+                f.write_str("set-returning functions must appear at top level of `from`")
+            }
+            SemaError::TablesampleSetArgument => {
+                f.write_str("argument of `tablesample` must not return a set")
+            }
+            SemaError::EmptyArrayType { .. } => f.write_str("cannot determine type of empty array"),
+            SemaError::MisplacedSubquery { context } => write!(
+                f,
+                "cannot use subquery in {}",
+                context.subquery_label().unwrap_or_default()
+            ),
+            SemaError::GeneratedColumnReference { column } => write!(
+                f,
+                "cannot use generated column `{}` in column generation expression",
+                n(column)
+            ),
+            SemaError::WindowWithoutOver { name, .. } => {
+                write!(f, "window function `{}` requires an `over` clause", n(name))
+            }
+            SemaError::MissingWithinGroup { name, .. } => write!(
+                f,
+                "ordered-set aggregate `{}` requires a `within group` clause",
+                n(name)
+            ),
+            SemaError::OrderedSetDirectArgCount {
+                name,
+                expected,
+                direct_args,
+                supplied,
+            } => write!(
+                f,
+                "ordered-set aggregate `{}` takes {}{expected} direct argument{} but {supplied} {} supplied",
+                n(name),
+                match direct_args {
+                    DirectArgs::Fixed => "",
+                    DirectArgs::Variadic => "at least ",
+                },
+                if expected == 1 { "" } else { "s" },
+                if supplied == 1 { "was" } else { "were" },
+            ),
+            SemaError::HypotheticalArgCount {
+                name,
+                hypothetical,
+                ordering,
+            } => write!(
+                f,
+                "hypothetical-set aggregate `{}` has {hypothetical} hypothetical argument{} but {ordering} ordering column{}",
+                n(name),
+                if hypothetical == 1 { "" } else { "s" },
+                if ordering == 1 { "" } else { "s" },
+            ),
+            SemaError::Duplicate { object, name } => {
+                write!(f, "{object} `{}` already exists", n(name))
+            }
+            SemaError::DuplicateInSchema {
+                object,
+                name,
+                schema,
+            } => write!(
+                f,
+                "{} `{}` already exists in schema `{}`",
+                object,
+                n(name),
+                n(schema)
+            ),
+            SemaError::DuplicateForAccessMethod {
+                object,
+                name,
+                access_method,
+            } => {
+                write!(f, "{object} `{}`", n(name))?;
+                if let Some(access_method) = access_method {
+                    write!(f, " for access method `{}`", n(access_method))?;
+                }
+                f.write_str(" already exists")
+            }
+            SemaError::DuplicatePolicy { name, table } => write!(
+                f,
+                "policy `{}` for table `{}` already exists",
+                n(name),
+                n(table)
+            ),
+            SemaError::DuplicateTrigger { name, table } => write!(
+                f,
+                "trigger `{}` for relation `{}` already exists",
+                n(name),
+                n(table)
+            ),
+            SemaError::DuplicateRule { name, table } => write!(
+                f,
+                "rule `{}` for relation `{}` already exists",
+                n(name),
+                n(table)
+            ),
+            SemaError::DuplicateConstraint {
+                name,
+                owner,
+                domain,
+            } => {
+                let what = if domain { "domain" } else { "relation" };
+                write!(
+                    f,
+                    "constraint `{}` for {what} `{}` already exists",
+                    n(name),
+                    n(owner)
+                )
+            }
+            SemaError::CircularInheritance { .. } => f.write_str("circular inheritance"),
+            SemaError::CompositeMemberOfItself { name } => {
+                write!(
+                    f,
+                    "composite type `{}` cannot be made a member of itself",
+                    n(name)
+                )
+            }
+            SemaError::DuplicateColumn { name, relation } => {
+                write!(f, "column `{}.{}` already exists", n(relation), n(name))
+            }
+            SemaError::DuplicateFunction { name, schema } => {
+                write!(
+                    f,
+                    "function `{}` already exists with same argument types",
+                    n(name)
+                )?;
+                if let Some(schema) = schema {
+                    write!(f, " in schema `{}`", n(schema))?;
+                }
+                Ok(())
+            }
+            SemaError::DuplicateTransform { ty, language } => write!(
+                f,
+                "transform for type `{}` language `{}` already exists",
+                self.ty(ty),
+                n(language)
+            ),
+            SemaError::ColumnSpecifiedMoreThanOnce { name } => {
+                write!(f, "column `{}` specified more than once", n(name))
+            }
+            SemaError::DuplicateCte { name } => {
+                write!(
+                    f,
+                    "`with` query name `{}` specified more than once",
+                    n(name)
+                )
+            }
+            SemaError::DuplicateSource { name } => {
+                write!(f, "table name `{}` specified more than once", n(name))
+            }
+            SemaError::DuplicateAssignment { name } => {
+                write!(f, "multiple assignments to same column `{}`", n(name))
+            }
+            SemaError::DuplicateWindow { name } => {
+                write!(f, "window `{}` is already defined", n(name))
+            }
+            SemaError::DuplicateParam { name } => {
+                write!(f, "parameter name `{}` used more than once", n(name))
+            }
+            SemaError::DependentObjects { object, name } => write!(
+                f,
+                "cannot drop {} `{}` because other objects depend on it",
+                object,
+                n(name)
+            ),
+            SemaError::RequiredBySystem { schema } => write!(
+                f,
+                "cannot drop schema `{}` because it is required by the database system",
+                n(schema)
+            ),
+            SemaError::AccessMethodKindMismatch { name, expected } => {
+                let expected = match expected {
+                    AccessMethodKind::Table => "`table`",
+                    AccessMethodKind::Index => "`index`",
+                };
+                write!(f, "access method `{}` is not of type {expected}", n(name))
+            }
+            SemaError::UnresolvedCast { source, target } => write!(
+                f,
+                "cast from type `{}` to type `{}` does not exist",
+                self.ty(source),
+                self.ty(target)
+            ),
+            SemaError::UnresolvedReference { kind, name, .. } => {
+                let name = n(name);
+                match kind {
+                    ReferenceKind::Relation => {
+                        write!(f, "missing `from` clause entry for table `{name}`")
+                    }
+                    ReferenceKind::Table => write!(f, "relation `{name}` does not exist"),
+                    ReferenceKind::Column => write!(f, "column `{name}` does not exist"),
+                    ReferenceKind::Function(kind) => {
+                        write!(f, "{kind} `{name}` does not exist")
+                    }
+                    ReferenceKind::Type => write!(f, "type `{name}` does not exist"),
+                    ReferenceKind::Window => write!(f, "window `{name}` does not exist"),
+                    ReferenceKind::JsonPath => write!(f, "JSON path `{name}` does not exist"),
+                    ReferenceKind::Index => write!(f, "index `{name}` does not exist"),
+                    ReferenceKind::Constraint => write!(f, "constraint `{name}` does not exist"),
+                    ReferenceKind::Trigger => write!(f, "trigger `{name}` does not exist"),
+                    ReferenceKind::Rule => write!(f, "rule `{name}` does not exist"),
+                    ReferenceKind::Role => write!(f, "role `{name}` does not exist"),
+                    ReferenceKind::Policy => write!(f, "policy `{name}` does not exist"),
+                    ReferenceKind::AccessMethod => {
+                        write!(f, "access method `{name}` does not exist")
+                    }
+                    ReferenceKind::EventTrigger => {
+                        write!(f, "event trigger `{name}` does not exist")
+                    }
+                    ReferenceKind::Language => write!(f, "language `{name}` does not exist"),
+                    ReferenceKind::ForeignDataWrapper => {
+                        write!(f, "foreign-data wrapper `{name}` does not exist")
+                    }
+                    ReferenceKind::Server => write!(f, "server `{name}` does not exist"),
+                    ReferenceKind::Conversion => write!(f, "conversion `{name}` does not exist"),
+                    ReferenceKind::OperatorFamily => {
+                        write!(f, "operator family `{name}` does not exist")
+                    }
+                    ReferenceKind::OperatorClass => {
+                        write!(f, "operator class `{name}` does not exist")
+                    }
+                    ReferenceKind::Statistics => {
+                        write!(f, "statistics object `{name}` does not exist")
+                    }
+                    ReferenceKind::TextSearch(kind) => {
+                        write!(f, "{kind} `{name}` does not exist")
+                    }
+                    ReferenceKind::Publication => write!(f, "publication `{name}` does not exist"),
+                    ReferenceKind::Subscription => {
+                        write!(f, "subscription `{name}` does not exist")
+                    }
+                    ReferenceKind::GraphElement => {
+                        write!(f, "element table `{name}` does not exist")
+                    }
+                    ReferenceKind::GraphLabel => write!(f, "label `{name}` does not exist"),
+                    ReferenceKind::EnumLabel => write!(f, "enum label `{name}` does not exist"),
+                    ReferenceKind::GraphProperty => write!(f, "property `{name}` does not exist"),
+                    ReferenceKind::Collation => write!(f, "collation `{name}` does not exist"),
+                    ReferenceKind::Schema => write!(f, "schema `{name}` does not exist"),
+                    ReferenceKind::Tablespace => write!(f, "tablespace `{name}` does not exist"),
+                    ReferenceKind::Database => write!(f, "database `{name}` does not exist"),
+                    ReferenceKind::Extension => write!(f, "extension `{name}` does not exist"),
+                    ReferenceKind::Operator => write!(f, "operator `{name}` does not exist"),
+                    ReferenceKind::Savepoint => write!(f, "savepoint `{name}` does not exist"),
+                    ReferenceKind::Cursor => write!(f, "cursor `{name}` does not exist"),
+                    ReferenceKind::PreparedTransaction => {
+                        write!(f, "prepared transaction `{name}` does not exist")
+                    }
+                    ReferenceKind::PreparedStatement => {
+                        write!(f, "prepared statement `{name}` does not exist")
+                    }
+                    ReferenceKind::Param => write!(f, "there is no parameter `{name}`"),
+                    ReferenceKind::Channel => unreachable!(),
+                }
+            }
+            SemaError::AmbiguousReference { kind, name } => {
+                let name = n(name);
+                match kind {
+                    ReferenceKind::Function(kind) => {
+                        write!(f, "{kind} `{name}` is not unique")
+                    }
+                    ReferenceKind::Operator => write!(f, "operator `{name}` is not unique"),
+                    ReferenceKind::Column
+                    | ReferenceKind::Relation
+                    | ReferenceKind::Table
+                    | ReferenceKind::Param
+                    | ReferenceKind::Type
+                    | ReferenceKind::Window
+                    | ReferenceKind::JsonPath
+                    | ReferenceKind::Index
+                    | ReferenceKind::Constraint
+                    | ReferenceKind::Trigger
+                    | ReferenceKind::Rule
+                    | ReferenceKind::Role
+                    | ReferenceKind::Policy
+                    | ReferenceKind::AccessMethod
+                    | ReferenceKind::EventTrigger
+                    | ReferenceKind::Language
+                    | ReferenceKind::ForeignDataWrapper
+                    | ReferenceKind::Server
+                    | ReferenceKind::Conversion
+                    | ReferenceKind::OperatorFamily
+                    | ReferenceKind::OperatorClass
+                    | ReferenceKind::Statistics
+                    | ReferenceKind::TextSearch(_)
+                    | ReferenceKind::Publication
+                    | ReferenceKind::Subscription
+                    | ReferenceKind::GraphElement
+                    | ReferenceKind::GraphLabel
+                    | ReferenceKind::EnumLabel
+                    | ReferenceKind::GraphProperty
+                    | ReferenceKind::Collation
+                    | ReferenceKind::Schema
+                    | ReferenceKind::Tablespace
+                    | ReferenceKind::Database
+                    | ReferenceKind::Extension
+                    | ReferenceKind::Savepoint
+                    | ReferenceKind::Cursor
+                    | ReferenceKind::PreparedTransaction
+                    | ReferenceKind::PreparedStatement
+                    | ReferenceKind::Channel => {
+                        write!(f, "column reference `{name}` is ambiguous")
+                    }
+                }
+            }
+            SemaError::UnresolvedQualifiedColumn {
+                qualifier,
+                column,
+                similar: _,
+            } => {
+                write!(f, "column `{}.{}` does not exist", n(qualifier), n(column))
+            }
+            SemaError::UnresolvedRecordColumn { column } => write!(
+                f,
+                "could not identify column `{}` in type `record`",
+                n(column)
+            ),
+            SemaError::QualifiedSetTarget { column, relation } => write!(
+                f,
+                "column `{}` of relation `{}` does not exist",
+                n(column),
+                n(relation)
+            ),
+            SemaError::NotLateral {
+                column: Some(column),
+                ..
+            } => write!(f, "column `{}` does not exist", n(column)),
+            SemaError::FutureCte { name, .. } => {
+                write!(f, "relation `{}` does not exist", n(name))
+            }
+            SemaError::NotLateral {
+                table,
+                column: None,
+                ..
+            } => write!(
+                f,
+                "invalid reference to `from` clause entry for table `{}`",
+                n(table)
+            ),
+            SemaError::UnresolvedRoutine {
+                kind,
+                schema,
+                name,
+                args,
+                lookup: _,
+                similar: _,
+                misplaced_order_by: _,
+                candidates: _,
+                unknown_names: _,
+                outside_search_path: _,
+            } => write!(
+                f,
+                "{} `{}` does not exist",
+                kind.call_label(),
+                self.signature(schema, name, args)
+            ),
+            SemaError::ArgumentTypeMismatch {
+                kind: _,
+                schema,
+                name,
+                arg,
+                found,
+                expected,
+            } => write!(
+                f,
+                "argument {} of `{}` has type `{}`, expected `{}`",
+                self.arg_label(arg),
+                self.qualified(schema, name),
+                self.ty(found),
+                self.ty(expected)
+            ),
+            SemaError::ArgumentCountMismatch {
+                kind,
+                schema,
+                name,
+                min,
+                max,
+                supplied,
+                missing: _,
+            } => {
+                let (bound, count) = if min == max {
+                    ("", min)
+                } else if supplied < min {
+                    ("at least ", min)
+                } else {
+                    ("at most ", max)
+                };
+                write!(
+                    f,
+                    "{} `{}` takes {bound}{count} argument{} but {supplied} {} supplied",
+                    kind.call_label(),
+                    self.qualified(schema, name),
+                    if count == 1 { "" } else { "s" },
+                    if supplied == 1 { "was" } else { "were" },
+                )
+            }
+            SemaError::DuplicateArgumentName { name } => {
+                write!(f, "argument name `{}` used more than once", n(name))
+            }
+            SemaError::UnknownArgumentName {
+                kind,
+                schema,
+                name,
+                arg,
+            } => write!(
+                f,
+                "{} `{}` has no parameter named `{}`",
+                kind.call_label(),
+                self.qualified(schema, name),
+                n(arg)
+            ),
+            SemaError::ArgumentPositionalAndNamed {
+                kind: _,
+                schema,
+                name,
+                arg,
+            } => write!(
+                f,
+                "argument `{}` of `{}` was specified both positionally and by name",
+                n(arg),
+                self.qualified(schema, name)
+            ),
+            SemaError::MissingArguments {
+                kind,
+                schema,
+                name,
+                missing,
+            } => {
+                write!(
+                    f,
+                    "{} `{}` is missing required argument{} ",
+                    kind.call_label(),
+                    self.qualified(schema, name),
+                    if missing.len() == 1 { "" } else { "s" }
+                )?;
+                write!(f, "{}", self.params(missing))
+            }
+            SemaError::NotVariadic {
+                kind: _,
+                schema,
+                name,
+                arg,
+            } => write!(
+                f,
+                "argument {} of `{}` is labeled `variadic` but its parameter is not variadic",
+                self.arg_label(arg),
+                self.qualified(schema, name)
+            ),
+            SemaError::UnlabeledVariadic {
+                kind: _,
+                schema,
+                name,
+                param,
+                insert_at: _,
+            } => write!(
+                f,
+                "variadic parameter `{}` of `{}` must be labeled `variadic` when passed by name",
+                n(param),
+                self.qualified(schema, name)
+            ),
+            SemaError::ProcedureCalledAsFunction {
+                schema, name, args, ..
+            } => write!(f, "`{}` is a procedure", self.signature(schema, name, args)),
+            SemaError::FunctionCalledAsProcedure {
+                schema, name, args, ..
+            } => write!(
+                f,
+                "`{}` is not a procedure",
+                self.signature(schema, name, args)
+            ),
+            SemaError::TableRowTypeAlteredAsType { name, kind, .. } => {
+                write!(f, "`{}` is a {kind}'s row type", n(name))
+            }
+            SemaError::CompositeTypeAlteredAsTable { name, .. } => {
+                write!(f, "`{}` is a composite type", n(name))
+            }
+            SemaError::InheritedColumnRename { column } => write!(
+                f,
+                "inherited column `{}` must be renamed in child tables too",
+                n(column)
+            ),
+            SemaError::ViewColumnRenamed { from, to, .. } => write!(
+                f,
+                "cannot change name of view column `{}` to `{}`",
+                n(from),
+                n(to)
+            ),
+            SemaError::PseudoTypeColumn { name, ty } => {
+                write!(
+                    f,
+                    "column `{}` cannot have pseudo-type `{}`",
+                    n(name),
+                    self.ty(ty)
+                )
+            }
+            SemaError::CollationNotSupported { ty } => {
+                write!(f, "collations are not supported by type `{}`", self.ty(ty))
+            }
+            SemaError::UnsupportedReturnType { function, ty } => write!(
+                f,
+                "function `{}` in `from` has unsupported return type `{}`",
+                n(function),
+                self.ty(ty)
+            ),
+            SemaError::ReplaceFunctionReturnType { from, to } => write!(
+                f,
+                "cannot change return type of existing function from `{}` to `{}`",
+                self.return_ty(from),
+                self.return_ty(to)
+            ),
+            SemaError::ReplaceFunctionParamName { name } => {
+                write!(f, "cannot change name of input parameter `{}`", n(name))
+            }
+            SemaError::ReplaceFunctionRemovesDefaults => {
+                write!(f, "cannot remove parameter defaults from existing function")
+            }
+            SemaError::UniqueMissingPartitionColumn {
+                kind,
+                table,
+                column,
+            } => write!(
+                f,
+                "{kind} on partitioned table `{}` must include partition key column `{}`",
+                n(table),
+                n(column)
+            ),
+            SemaError::AssignmentTypeMismatch {
+                column,
+                column_ty,
+                expr_ty,
+                default,
+                ..
+            } => write!(
+                f,
+                "column `{}` is of type `{}` but {}expression is of type `{}`",
+                n(column),
+                self.ty(column_ty),
+                if default { "default " } else { "" },
+                self.ty(expr_ty)
+            ),
+            SemaError::OverlappingPartition {
+                partition,
+                existing,
+                default: false,
+            } => write!(
+                f,
+                "partition `{}` would overlap partition `{}`",
+                n(partition),
+                n(existing)
+            ),
+            SemaError::OverlappingPartition {
+                partition,
+                existing,
+                default: true,
+            } => write!(
+                f,
+                "partition `{}` conflicts with existing default partition `{}`",
+                n(partition),
+                n(existing)
+            ),
+            SemaError::CannotCast { source, target } => write!(
+                f,
+                "cannot cast type `{}` to `{}`",
+                self.ty(source),
+                self.ty(target)
+            ),
+            SemaError::AlterColumnTypeWithoutUsing { column, ty, .. } => write!(
+                f,
+                "column `{}` cannot be cast automatically to type `{}`",
+                n(column),
+                self.ty(ty)
+            ),
+            SemaError::DropColumnWithDependents { column, table, .. } => write!(
+                f,
+                "cannot drop column `{}` of table `{}` because other objects depend on it",
+                n(column),
+                n(table)
+            ),
+            SemaError::AlterColumnTypeWithDependents { .. } => {
+                write!(f, "cannot alter type of a column used by a view or rule")
+            }
+            SemaError::GeneratedColumnInsert { column, .. } => write!(
+                f,
+                "cannot insert a non-default value into column `{}`",
+                n(column)
+            ),
+            SemaError::GeneratedColumnUpdate { column, .. } => {
+                write!(f, "column `{}` can only be updated to `default`", n(column))
+            }
+            SemaError::UniqueOnExpressionPartitionKey { kind, table } => write!(
+                f,
+                "{kind} is not supported on partitioned table `{}` because its partition key contains expressions",
+                n(table)
+            ),
+            SemaError::ViewColumnTypeChanged { column, from, to } => write!(
+                f,
+                "cannot change type of view column `{}` from `{}` to `{}`",
+                n(column),
+                self.ty(from),
+                self.ty(to)
+            ),
+            SemaError::InheritedConstraintRename { name } => write!(
+                f,
+                "inherited constraint `{}` must be renamed in child tables too",
+                n(name)
+            ),
+            SemaError::CannotRenameInheritedColumn { column } => {
+                write!(f, "cannot rename inherited column `{}`", n(column))
+            }
+            SemaError::CannotRenameInheritedConstraint { name } => {
+                write!(f, "cannot rename inherited constraint `{}`", n(name))
+            }
+            SemaError::AggregateDroppedAsFunction { schema, name, .. } => match schema {
+                Some(schema) => write!(f, "`{}.{}` is an aggregate function", n(schema), n(name)),
+                None => write!(f, "`{}` is an aggregate function", n(name)),
+            },
+            SemaError::UnresolvedOperator {
+                schema,
+                name,
+                left,
+                right,
+                lookup: _,
+                ambiguous,
+                replacement: _,
+            } => {
+                if ambiguous {
+                    f.write_str("operator is not unique: `")?;
+                } else {
+                    f.write_str("operator does not exist: `")?;
+                }
+                if let Some(left) = left {
+                    write!(f, "{} ", self.operand(left))?;
+                }
+                if let Some(schema) = schema {
+                    write!(f, "{}.", n(schema))?;
+                }
+                write!(f, "{} {}`", n(name), self.operand(right))
+            }
+            SemaError::UnresolvedTransform { ty, language } => write!(
+                f,
+                "transform for type `{}` language `{}` does not exist",
+                self.ty(ty),
+                n(language)
+            ),
+            SemaError::InvalidEnumValue {
+                ty,
+                value,
+                similar: _,
+            } => write!(
+                f,
+                "invalid input value for enum `{}`: `{}`",
+                n(ty),
+                n(value)
+            ),
+            SemaError::InvalidBoolValue { value, similar: _ } => {
+                write!(f, "invalid input value for type `bool`: `{}`", n(value))
+            }
+            SemaError::InvalidIntValue { ty, value } => {
+                write!(f, "invalid input value for type `{ty}`: `{}`", n(value))
+            }
+            SemaError::IntValueOutOfRange { ty, value } => {
+                write!(f, "value `{}` is out of range for type `{ty}`", n(value))
+            }
+            SemaError::InvalidFloatValue { ty, value } => {
+                write!(f, "invalid input value for type `{ty}`: `{}`", n(value))
+            }
+            SemaError::FloatValueOutOfRange { ty, value } => {
+                write!(f, "value `{}` is out of range for type `{ty}`", n(value))
+            }
+            SemaError::InvalidNumericValue { value } => {
+                write!(f, "invalid input value for type `numeric`: `{}`", n(value))
+            }
+            SemaError::InvalidUuidValue { value } => {
+                write!(f, "invalid input value for type `uuid`: `{}`", n(value))
+            }
+            SemaError::InvalidJsonValue { ty } => write!(f, "invalid input value for type `{ty}`"),
+            SemaError::UnsupportedJsonEscape => {
+                write!(f, r"unsupported Unicode escape `\u0000` for type `jsonb`")
+            }
+            SemaError::NumericValueOutOfRange {
+                value,
+                overflow:
+                    NumericOverflow::Typmod(NumericTypmod { precision, scale })
+                    | NumericOverflow::Infinite(NumericTypmod { precision, scale }),
+            } => write!(
+                f,
+                "value `{}` is out of range for type `numeric({precision}, {scale})`",
+                n(value)
+            ),
+            SemaError::NumericValueOutOfRange {
+                value,
+                overflow: NumericOverflow::Format,
+            } => write!(f, "value `{}` is out of range for type `numeric`", n(value)),
+            SemaError::NotEnum { name } => write!(f, "`{}` is not an enum", n(name)),
+            SemaError::NotComposite { name } => write!(f, "`{}` is not a composite type", n(name)),
+            SemaError::StarNotComposite { ty } => {
+                write!(f, "type `{}` is not a composite type", self.ty(ty))
+            }
+            SemaError::ColumnNotationNotComposite { column, ty } => write!(
+                f,
+                "column notation `.{}` applied to type `{}`, which is not a composite type",
+                n(column),
+                self.ty(ty)
+            ),
+            SemaError::WrongTypeKind { name, expected } => {
+                write!(f, "`{}` is not a {expected}", n(name))
+            }
+            SemaError::TypedTableAlter { name } => write!(
+                f,
+                "cannot alter type `{}` because it is the type of a typed table",
+                n(name)
+            ),
+            SemaError::InvalidDomainConstraint { what } => {
+                write!(f, "{what} not possible for domains")
+            }
+            SemaError::CompoundColumnCount { op } => {
+                write!(f, "each `{op}` query must have the same number of columns")
+            }
+            SemaError::RecursiveCteTypeMismatch {
+                name,
+                column,
+                non_recursive,
+                overall,
+            } => write!(
+                f,
+                "recursive query `{}` column {column} has type `{}` in non-recursive term but type `{}` overall",
+                n(name),
+                self.ty(non_recursive),
+                self.ty(overall)
+            ),
+            SemaError::CompoundTypeMismatch { op, left, right } => write!(
+                f,
+                "`{op}` types `{}` and `{}` cannot be matched",
+                self.ty(left),
+                self.ty(right)
+            ),
+            SemaError::ColumnListTooLong {
+                what,
+                name,
+                available,
+                specified,
+            } => write!(
+                f,
+                "{what} `{}` has {available} {} available but {specified} {} specified",
+                n(name),
+                plural_columns(available),
+                plural_columns(specified),
+            ),
+            SemaError::WrongRelationKind { name, expected, .. } => {
+                write!(f, "`{}` is not a {expected}", n(name))
+            }
+            SemaError::CannotOpenIndex { name } => {
+                write!(f, "cannot open relation `{}`", n(name))
+            }
+            SemaError::ParameterlessAggregate { name, .. } => write!(
+                f,
+                "`{}(*)` must be used to call a parameterless aggregate function",
+                n(name)
+            ),
+            SemaError::CannotCopy {
+                name,
+                copy_from,
+                kind,
+            } => {
+                let direction = if copy_from { "from" } else { "to" };
+                let what = copy_target(copy_from, kind).0;
+                write!(f, "cannot copy {direction} {what} `{}`", n(name))
+            }
+            SemaError::CannotCreateIndex { name, kind } => {
+                write!(f, "cannot create index on {kind} `{}`", n(name))
+            }
+            SemaError::TruncateOnlyPartitioned { name, .. } => {
+                write!(f, "cannot truncate only partitioned table `{}`", n(name))
+            }
+            SemaError::TruncateReferenced { name, .. } => write!(
+                f,
+                "cannot truncate table `{}` because it is referenced in a foreign key constraint",
+                n(name)
+            ),
+            SemaError::NotIdentityColumn { column, relation } => write!(
+                f,
+                "column `{}.{}` is not an identity column",
+                n(relation),
+                n(column)
+            ),
+            SemaError::IdentityColumnDefault {
+                column, relation, ..
+            } => write!(
+                f,
+                "column `{}.{}` is an identity column",
+                n(relation),
+                n(column)
+            ),
+            SemaError::GeneratedColumnDefault {
+                column, relation, ..
+            } => write!(
+                f,
+                "column `{}.{}` is a generated column",
+                n(relation),
+                n(column)
+            ),
+            SemaError::ConstraintTrigger { name, relation } => write!(
+                f,
+                "trigger `{}` for relation `{}` is a constraint trigger",
+                n(name),
+                n(relation)
+            ),
+            SemaError::DropReturnRule { name, kind, table } => {
+                let table = n(table);
+                write!(
+                    f,
+                    "cannot drop rule `{}` on {kind} `{table}` because {kind} `{table}` requires it",
+                    n(name)
+                )
+            }
+            SemaError::MultiplePrimaryKeys { table } => write!(
+                f,
+                "multiple primary keys for table `{}` are not allowed",
+                n(table)
+            ),
+            SemaError::NoPrimaryKeyForReferencedTable { table } => write!(
+                f,
+                "there is no primary key for referenced table `{}`",
+                n(table)
+            ),
+            SemaError::NoUniqueConstraintForReferencedTable { table } => write!(
+                f,
+                "there is no unique constraint matching given keys for referenced table `{}`",
+                n(table)
+            ),
+            SemaError::DeferrablePrimaryKeyForReferencedTable { table } => write!(
+                f,
+                "cannot use a deferrable primary key for referenced table `{}`",
+                n(table)
+            ),
+            SemaError::DeferrableUniqueConstraintForReferencedTable { table } => write!(
+                f,
+                "cannot use a deferrable unique constraint for referenced table `{}`",
+                n(table)
+            ),
+            SemaError::RefreshConcurrentlyWithoutUniqueIndex { name } => write!(
+                f,
+                "cannot refresh materialized view `{}` concurrently",
+                n(name)
+            ),
+            SemaError::UniqueIndexNotSupported { access_method } => write!(
+                f,
+                "access method `{}` does not support unique indexes",
+                n(access_method)
+            ),
+            SemaError::InvalidOrdinal { clause, position } => {
+                write!(f, "{clause} position {position} is not in select list")
+            }
+            SemaError::KeywordArgType {
+                keyword,
+                expected,
+                found,
+            } => write!(
+                f,
+                "argument of `{keyword}` must be type `{}`, not type `{}`",
+                self.ty(expected),
+                self.ty(found)
+            ),
+            SemaError::QuantifiedNonArray { quantifier, found } => write!(
+                f,
+                "argument of `{quantifier}` must be an array, not type `{}`",
+                self.ty(found)
+            ),
+            SemaError::NoDefaultOperatorClass { ty, access_method } => write!(
+                f,
+                "data type `{}` has no default operator class for access method `{}`",
+                self.ty(ty),
+                n(access_method)
+            ),
+            SemaError::ForeignKeyTypeMismatch { constraint, .. } => write!(
+                f,
+                "foreign key constraint `{}` cannot be implemented",
+                n(constraint)
+            ),
+            SemaError::NonBoolComparison {
+                comparison,
+                left,
+                right,
+                found,
+            } => write!(
+                f,
+                "operator `{} {} {}` must return type `bool`, not type `{}`",
+                self.ty(left),
+                comparison.operator(),
+                self.ty(right),
+                self.ty(found)
+            ),
+            SemaError::MissingArrayType { ty } => {
+                write!(f, "could not find array type for type `{}`", self.ty(ty))
+            }
+            SemaError::WindowOverride { name, clause } => {
+                write!(f, "cannot override {clause} clause of window `{}`", n(name))
+            }
+            SemaError::WindowFrameCopy { name, .. } => write!(
+                f,
+                "cannot copy window `{}` because it has a frame clause",
+                n(name)
+            ),
+            SemaError::OutParamResultType { expected, .. } => write!(
+                f,
+                "function result type must be `{}` because of `out` parameters",
+                self.ty(expected)
+            ),
+            SemaError::TriggerReturnType { name, kind } => write!(
+                f,
+                "function `{}` must return type `{}`",
+                n(name),
+                kind.return_type()
+            ),
+            SemaError::ConflictingNullability { column, table } => write!(
+                f,
+                "conflicting `null`/`not null` declarations for column `{}` of table `{}`",
+                n(column),
+                n(table)
+            ),
+        }
+    }
+}

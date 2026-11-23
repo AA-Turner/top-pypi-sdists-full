@@ -13,12 +13,28 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 from contextlib import contextmanager
-from typing import Any, Generator
+from pathlib import Path
+from typing import Any, Generator, Literal
 
-import packaging.version
+from antsibull_docs_loader.ansible import (
+    ALL_DOCUMENTABLE_PLUGIN_TYPES,
+    CORE_DOCUMENTABLE_PLUGIN_TYPES,
+    EDA_PLUGIN_TYPES,
+)
+from antsibull_docs_loader.data import CollectionInfo
+from antsibull_docs_loader.loader import (
+    Documentation,
+    load_docs,
+    load_docs_from_role_argspec_file,
+)
+from antsibull_docs_loader.routing import (
+    CollectionRouting,
+    File,
+    complete_redirects_for_collection,
+    load_routing_information,
+)
 from antsibull_docs_parser import dom as _ansible_markup_dom
 from antsibull_docs_parser.parser import Context as _AnsibleMarkupContext
 from antsibull_docs_parser.parser import Whitespace as _AnsibleMarkupWhitespace
@@ -33,13 +49,17 @@ from antsibull_fileutils.vcs import detect_vcs
 from antsibull_fileutils.yaml import load_yaml_file, store_yaml_file
 
 from .ansible import (
+    OBJECT_TYPES,
     PLUGIN_EXCEPTIONS,
-    get_ansible_release,
     get_documentable_objects,
     get_documentable_plugins,
 )
 from .config import ChangelogConfig, CollectionDetails, PathsConfig
 from .logger import LOGGER
+
+PluginMode = Literal["compare", "old", "new"]
+
+_FAIL_ON_BAD_COMPARISON = False
 
 
 class _AnsibleMarkupRSTFormatter(_AnsibleMarkupRSTFormatterBase):
@@ -385,60 +405,16 @@ def run_ansible_doc(
 
 
 def run_ansible_doc_metadata_dump(
-    paths: PathsConfig, playbook_dir: str | None, collection_name: str | None
+    paths: PathsConfig, playbook_dir: str | None, collection_name: str
 ) -> dict:
     """
     Runs ansible-doc to retrieve documentation for all plugins in a collection.
     """
-    command = [paths.ansible_doc_path, "--metadata-dump"]
-    if collection_name:
-        command.append(collection_name)
+    command = [paths.ansible_doc_path, "--metadata-dump", collection_name]
     if playbook_dir:
         command.extend(["--playbook-dir", playbook_dir])
     output = _check_output(command)
     return json.loads(output.decode("utf-8"))
-
-
-def load_plugin_metadata(  # pylint: disable=too-many-arguments
-    paths: PathsConfig,
-    playbook_dir: str | None,
-    plugin_type: str,
-    collection_name: str | None,
-    use_ansible_doc: bool = False,
-    category: str = "plugin",
-) -> dict[str, dict[str, Any]]:
-    """
-    Collect plugin metadata for all plugins of a given type.
-
-    :arg paths: Paths configuration
-    :arg playbook_dir: Value for the ``--playbook-dir`` argument of ``ansible-doc``
-    :arg plugin_type: The plugin type or object type to consider
-    :arg collection_name: The name of the collection, if appropriate
-    :arg use_ansible_doc: Set to ``True`` to always use ansible-doc to enumerate plugins/modules
-    :arg category: Set to ``object`` for roles and playbooks
-    """
-    if use_ansible_doc or category == "object":
-        # WARNING: Do not make this the default to this before ansible-core/-base is a requirement!
-        plugins_list = list_plugins_ansibledoc(
-            paths, playbook_dir, plugin_type, collection_name, category
-        )
-    else:
-        plugins_list = list_plugins_walk(
-            paths, playbook_dir, plugin_type, collection_name
-        )
-
-    result: dict[str, dict[str, Any]] = {}
-    if not plugins_list:
-        return result
-
-    plugins_data = run_ansible_doc(paths, playbook_dir, plugin_type, plugins_list)
-
-    for name, data in plugins_data.items():
-        processed_data = jsondoc_to_metadata(
-            paths, collection_name, plugin_type, name, data, category=category
-        )
-        result[processed_data["name"]] = processed_data
-    return result
 
 
 def _load_plugins_2_13(
@@ -524,97 +500,7 @@ def _load_collection_plugins_2_13(
         )
 
 
-def _load_collection_plugins(
-    plugins_data: dict[str, Any],
-    paths: PathsConfig,
-    collection_details: CollectionDetails,
-    config: ChangelogConfig,
-    use_ansible_doc: bool,
-) -> None:
-    collection_name = "{}.{}".format(
-        collection_details.get_namespace(), collection_details.get_name()
-    )
-
-    with collection_copier(
-        paths, config, collection_details.get_namespace(), collection_details.get_name()
-    ) as (playbook_dir, new_paths):
-        for plugin_type in get_documentable_plugins():
-            plugins_data["plugins"][plugin_type] = load_plugin_metadata(
-                new_paths,
-                playbook_dir,
-                plugin_type,
-                collection_name,
-                use_ansible_doc=use_ansible_doc,
-            )
-
-        for object_type in get_documentable_objects():
-            plugins_data["objects"][object_type] = load_plugin_metadata(
-                new_paths,
-                playbook_dir,
-                object_type,
-                collection_name,
-                use_ansible_doc=use_ansible_doc,
-                category="object",
-            )
-
-
-def _load_ansible_plugins(
-    plugins_data: dict[str, Any], paths: PathsConfig, use_ansible_doc: bool
-) -> None:
-    for plugin_type in get_documentable_plugins():
-        plugins_data["plugins"][plugin_type] = load_plugin_metadata(
-            paths, None, plugin_type, None, use_ansible_doc=use_ansible_doc
-        )
-
-
-def _get_ansible_core_version(paths: PathsConfig) -> packaging.version.Version:
-    try:
-        version, _ = get_ansible_release()
-        return packaging.version.Version(version)
-    except ValueError:
-        pass
-
-    command = [paths.ansible_doc_path, "--version"]
-    output = _check_output(command).decode("utf-8")
-    for regex in (r"^ansible-doc \[(?:core|base) ([^\]]+)\]", r"^ansible-doc ([^\s]+)"):
-        match = re.match(regex, output)
-        if match:
-            return packaging.version.Version(match.group(1))
-    raise RuntimeError(
-        f"Cannot extract ansible-core version from ansible-doc --version output:\n{output}"
-    )
-
-
-def _refresh_plugin_cache(
-    paths: PathsConfig,
-    collection_details: CollectionDetails,
-    config: ChangelogConfig,
-    version: str,
-    use_ansible_doc: bool = False,
-):
-    LOGGER.info("refreshing plugin cache")
-
-    plugins_data: dict[str, Any] = {
-        "version": version,
-        "plugins": {},
-        "objects": {},
-    }
-
-    core_version = _get_ansible_core_version(paths)
-    if core_version >= packaging.version.Version("2.13.0.dev0"):
-        if paths.is_collection:
-            _load_collection_plugins_2_13(
-                plugins_data, paths, collection_details, config
-            )
-        else:
-            _load_plugins_2_13(plugins_data, paths, "ansible.builtin")
-    elif paths.is_collection:
-        _load_collection_plugins(
-            plugins_data, paths, collection_details, config, use_ansible_doc
-        )
-    else:
-        _load_ansible_plugins(plugins_data, paths, use_ansible_doc)
-
+def _remove_empty_namespaces(plugins_data: dict[str, Any]) -> None:
     # remove empty namespaces from plugins
     for category in ("plugins", "objects"):
         for section in plugins_data[category].values():
@@ -622,7 +508,241 @@ def _refresh_plugin_cache(
                 if plugin["namespace"] is None:
                     del plugin["namespace"]
 
+
+def _refresh_plugin_cache(
+    paths: PathsConfig,
+    collection_details: CollectionDetails,
+    config: ChangelogConfig,
+    version: str,
+) -> dict[str, Any]:
+    LOGGER.info("refreshing plugin cache")
+    plugins_data: dict[str, Any] = {
+        "version": version,
+        "plugins": {},
+        "objects": {},
+    }
+
+    if paths.is_collection:
+        _load_collection_plugins_2_13(plugins_data, paths, collection_details, config)
+    else:
+        _load_plugins_2_13(plugins_data, paths, "ansible.builtin")
+
+    _remove_empty_namespaces(plugins_data)
     return plugins_data
+
+
+def _get_collection_info(
+    paths: PathsConfig,
+    collection_details: CollectionDetails,
+) -> CollectionInfo:
+    if paths.is_collection:
+        namespace = collection_details.get_namespace()
+        name = collection_details.get_name()
+        return CollectionInfo(
+            path=Path(paths.base_dir),
+            namespace=namespace,
+            name=name,
+            full_name=f"{namespace}.{name}",
+            version=collection_details.version,
+            is_ansible_core=False,
+        )
+    return CollectionInfo(
+        path=Path(paths.base_dir) / "lib" / "ansible",
+        namespace="ansible",
+        name="builtin",
+        full_name="ansible.builtin",
+        version=None,  # we don't need the correct value
+        is_ansible_core=True,
+    )
+
+
+def _get_entry(
+    plugin_fqcn: tuple[str, ...], plugin_type: str, docs: Documentation | None
+) -> tuple[str, dict[str, Any]]:
+    description = docs.documentation.get("short_description") if docs else None
+    version_added = docs.documentation.get("version_added") if docs else None
+    if plugin_type == "module":
+        return plugin_fqcn[-1], {
+            "name": plugin_fqcn[-1],
+            "namespace": ".".join(plugin_fqcn[:-1]),
+            "description": description,
+            "version_added": version_added,
+        }
+    fqcn = ".".join(plugin_fqcn)
+    return fqcn, {
+        "name": fqcn,
+        "namespace": None,
+        "description": description,
+        "version_added": version_added,
+    }
+
+
+def _resolve(
+    *,
+    collection_name: str,
+    routing_info: CollectionRouting,
+    plugin_fqcn: tuple[str, ...],
+    plugin_type: str,
+    plugin_file: File,
+) -> File | None:
+    if plugin_type not in routing_info.plugin_data:
+        return plugin_file
+    routing = routing_info.plugin_data[plugin_type].get(".".join(plugin_fqcn))
+    if routing is None or routing.redirect is None:
+        return plugin_file
+    if routing.redirect is ...:
+        return None
+    if not routing.redirect.startswith(f"{collection_name}."):
+        return None
+    new_fqcn = tuple(routing.redirect[len(collection_name) + 1 :].split("."))
+    return routing_info.files[plugin_type].get(new_fqcn)
+
+
+def _refresh_plugin_cache_new(  # pylint: disable=too-many-locals
+    paths: PathsConfig,
+    collection_details: CollectionDetails,
+    version: str,
+) -> dict[str, Any]:
+    LOGGER.info("refreshing plugin cache")
+    plugins_data: dict[str, Any] = {
+        "version": version,
+        "plugins": {},
+        "objects": {},
+    }
+
+    collection_info = _get_collection_info(paths, collection_details)
+    routing_info = load_routing_information(collection_info)
+    complete_redirects_for_collection(
+        {collection_info.full_name: routing_info},
+        collection_name=collection_info.full_name,
+    )
+    for plugin_type in ALL_DOCUMENTABLE_PLUGIN_TYPES:
+        if (
+            not paths.is_collection
+            and plugin_type not in CORE_DOCUMENTABLE_PLUGIN_TYPES
+        ):
+            continue
+        dest: dict[str, dict[str, str | None]] = {}
+        destination = (
+            plugins_data["objects"]
+            if plugin_type in OBJECT_TYPES
+            else plugins_data["plugins"]
+        )
+        destination[plugin_type] = dest
+        plugin_data = routing_info.files.get(plugin_type)
+        if plugin_data is None:
+            continue
+        for plugin_fqcn, plugin_file in sorted(plugin_data.items()):
+            actual_plugin_file = _resolve(
+                collection_name=collection_info.full_name,
+                routing_info=routing_info,
+                plugin_fqcn=plugin_fqcn,
+                plugin_type=plugin_type,
+                plugin_file=plugin_file,
+            )
+            if actual_plugin_file is None:
+                continue
+            if plugin_type == "role":
+                entrypoints = load_docs_from_role_argspec_file(
+                    actual_plugin_file.docs_candidates[0]
+                )
+                if entrypoints is not None:
+                    fqcn, entry = _get_entry(
+                        plugin_fqcn, plugin_type, entrypoints.entrypoints.get("main")
+                    )
+                    dest[fqcn] = entry
+            else:
+                docs_path = load_docs(actual_plugin_file.docs_candidates)
+                if docs_path is not None:
+                    fqcn, entry = _get_entry(plugin_fqcn, plugin_type, docs_path[0])
+                    dest[fqcn] = entry
+
+    _remove_empty_namespaces(plugins_data)
+    return plugins_data
+
+
+_ISSUES_URL = "https://github.com/ansible-community/antsibull-changelog/issues/"
+_COMPARE_MESSAGE = f"Please report this issue in {_ISSUES_URL}. Thanks!"
+
+
+def _compare_plugin_type(
+    *,
+    category: str,
+    plugin_type: str,
+    op: dict[str, Any],
+    np: dict[str, Any],
+    is_ansible_core: bool,
+) -> None:
+    if sorted(op) != sorted(np):
+        missing = sorted(set(op) - set(np))
+        superfluous = sorted(set(np) - set(op))
+        if is_ansible_core and plugin_type in ("filter", "test"):
+            # Ansible-core includes docs for builtin Jinja2 filters and tests.
+            # antsibull-docs-loader doesn't know about these yet and will not return them.
+            # Since they never have 'version_added', this doesn't matter for our use-case,
+            # so we don't warn about them.
+            missing.clear()
+        if missing or superfluous:
+            LOGGER.warning(
+                f"Found differences when scanning plugin cache for {category}.{plugin_type}:"
+                f" missing {missing}, superfluous {superfluous}. {_COMPARE_MESSAGE}",
+                missing=missing,
+                superfluous=superfluous,
+            )
+            if _FAIL_ON_BAD_COMPARISON:
+                raise ValueError("Comparison failed!")
+    for plugin_name in op:
+        if plugin_name in np:
+            opd = op[plugin_name]
+            npd = np[plugin_name]
+            if opd != npd:
+                LOGGER.warning(
+                    "Found differences when scanning plugin cache for"
+                    f" {category}.{plugin_type}.{plugin_name}: {{opd}} vs. {{npd}}."
+                    f" {_COMPARE_MESSAGE}",
+                    opd=opd,
+                    npd=npd,
+                )
+                if _FAIL_ON_BAD_COMPARISON:
+                    raise ValueError("Comparison failed!")
+
+
+def _refresh_plugin_cache_cmp(
+    paths: PathsConfig,
+    collection_details: CollectionDetails,
+    config: ChangelogConfig,
+    version: str,
+    plugin_mode: PluginMode,
+) -> dict[str, Any]:
+    if plugin_mode == "old":
+        return _refresh_plugin_cache(paths, collection_details, config, version)
+    if plugin_mode == "new":
+        return _refresh_plugin_cache_new(paths, collection_details, version)
+    old_cache = _refresh_plugin_cache(paths, collection_details, config, version)
+    new_cache = _refresh_plugin_cache_new(paths, collection_details, version)
+    for category in ("plugins", "objects"):
+        # Skip EDA plugin types since the old method does not support them
+        o = [pt for pt in old_cache[category] if pt not in EDA_PLUGIN_TYPES]
+        n = [pt for pt in new_cache[category] if pt not in EDA_PLUGIN_TYPES]
+        if sorted(o) != sorted(n):
+            LOGGER.warning(
+                f"Found differences when scanning plugin cache for {category}:"
+                f" missing {{missing}}, superfluous {{superfluous}}. {_COMPARE_MESSAGE}",
+                missing=sorted(set(o) - set(n)),
+                superfluous=sorted(set(n) - set(o)),
+            )
+            if _FAIL_ON_BAD_COMPARISON:
+                raise ValueError("Comparison failed!")
+        for plugin_type in o:
+            if plugin_type in n:
+                _compare_plugin_type(
+                    category=category,
+                    plugin_type=plugin_type,
+                    op=old_cache[category][plugin_type],
+                    np=new_cache[category][plugin_type],
+                    is_ansible_core=not paths.is_collection,
+                )
+    return new_cache
 
 
 def load_plugins(  # pylint: disable=too-many-arguments
@@ -631,7 +751,8 @@ def load_plugins(  # pylint: disable=too-many-arguments
     config: ChangelogConfig,
     version: str,
     force_reload: bool = False,
-    use_ansible_doc: bool = False,
+    # pylint: disable-next=unused-argument,fixme
+    use_ansible_doc: bool = False,  # TODO: add runtime deprecation!
     add_plugin_period: bool = False,
     *,
     ignore_cache: bool = False,
@@ -643,7 +764,6 @@ def load_plugins(  # pylint: disable=too-many-arguments
     :arg collection_details: Collection details
     :arg version: The current version. Used for caching data
     :arg force_reload: Set to ``True`` to ignore potentially cached data
-    :arg use_ansible_doc: Set to ``True`` to always use ansible-doc to enumerate plugins/modules
     :arg ignore_cache: Set to ``True`` to neither read nor write the cache.
         Implies ``force_reload=True``.
     :return: A list of all plugins
@@ -653,6 +773,10 @@ def load_plugins(  # pylint: disable=too-many-arguments
 
     plugin_cache_path = os.path.join(paths.changelog_dir, ".plugin-cache.yaml")
     plugins_data: dict[str, Any] = {}
+
+    # pylint: disable-next=fixme
+    # TODO: change to 'new' in next version
+    plugin_mode: PluginMode = "compare"
 
     if not ignore_cache and not force_reload and os.path.exists(plugin_cache_path):
         plugins_data = load_yaml_file(plugin_cache_path)
@@ -665,8 +789,12 @@ def load_plugins(  # pylint: disable=too-many-arguments
             plugins_data = {}
 
     if not plugins_data:
-        plugins_data = _refresh_plugin_cache(
-            paths, collection_details, config, version, use_ansible_doc
+        plugins_data = _refresh_plugin_cache_cmp(
+            paths,
+            collection_details,
+            config,
+            version,
+            plugin_mode=plugin_mode,
         )
         if not ignore_cache:
             store_yaml_file(plugin_cache_path, plugins_data)

@@ -11,6 +11,7 @@ from scipy.special import softmax
 
 from onnxtr.utils import VOCABS
 
+from ..._utils import ConfidenceAggregation, aggregate_confidence
 from ...engine import Engine, EngineConfig
 from ..core import RecognitionPostProcessor
 
@@ -22,16 +23,16 @@ default_cfgs: dict[str, dict[str, Any]] = {
         "std": (0.299, 0.296, 0.301),
         "input_shape": (3, 32, 128),
         "vocab": VOCABS["french"],
-        "url": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.0.1/vitstr_small-3ff9c500.onnx",
-        "url_8_bit": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.1.2/vitstr_small_dynamic_8_bit-bec6c796.onnx",
+        "url": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.9.0/vitstr_small-b75ae317.onnx",
+        "url_8_bit": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.9.0/vitstr_small_dynamic_8_bit-6d403485.onnx",
     },
     "vitstr_base": {
         "mean": (0.694, 0.695, 0.693),
         "std": (0.299, 0.296, 0.301),
         "input_shape": (3, 32, 128),
         "vocab": VOCABS["french"],
-        "url": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.0.1/vitstr_base-ff62f5be.onnx",
-        "url_8_bit": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.1.2/vitstr_base_dynamic_8_bit-976c7cd6.onnx",
+        "url": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.9.0/vitstr_base-c1359806.onnx",
+        "url_8_bit": "https://github.com/felixdittrich92/OnnxTR/releases/download/v0.9.0/vitstr_base_dynamic_8_bit-8799b168.onnx",
     },
 }
 
@@ -44,8 +45,12 @@ class ViTSTR(Engine):
         vocab: vocabulary used for encoding
         engine_cfg: configuration for the inference engine
         cfg: dictionary containing information about the model
+        confidence_aggregation: aggregation method of the character probabilities into the word confidence
         **kwargs: additional arguments to be passed to `Engine`
     """
+
+    # Sequence length of the model, as in docTR: words of up to max_length - 2 chars + SOS & EOS
+    max_length: int = 34
 
     def __init__(
         self,
@@ -53,6 +58,7 @@ class ViTSTR(Engine):
         vocab: str,
         engine_cfg: EngineConfig | None = None,
         cfg: dict[str, Any] | None = None,
+        confidence_aggregation: ConfidenceAggregation = "mean",
         **kwargs: Any,
     ) -> None:
         super().__init__(url=model_path, engine_cfg=engine_cfg, **kwargs)
@@ -60,7 +66,7 @@ class ViTSTR(Engine):
         self.vocab = vocab
         self.cfg = cfg
 
-        self.postprocessor = ViTSTRPostProcessor(vocab=self.vocab)
+        self.postprocessor = ViTSTRPostProcessor(vocab=self.vocab, confidence_aggregation=confidence_aggregation)
 
     def __call__(
         self,
@@ -83,13 +89,15 @@ class ViTSTRPostProcessor(RecognitionPostProcessor):
 
     Args:
         vocab: string containing the ordered sequence of supported characters
+        confidence_aggregation: aggregation method of the character probabilities into the word confidence
     """
 
     def __init__(
         self,
         vocab: str,
+        confidence_aggregation: ConfidenceAggregation = "mean",
     ) -> None:
-        super().__init__(vocab)
+        super().__init__(vocab, confidence_aggregation)
         self._embedding = list(vocab) + ["<eos>", "<sos>"]
 
     def __call__(self, logits):
@@ -100,10 +108,13 @@ class ViTSTRPostProcessor(RecognitionPostProcessor):
         word_values = [
             "".join(self._embedding[idx] for idx in encoded_seq).split("<eos>")[0] for encoded_seq in out_idxs
         ]
-        # compute probabilties for each word up to the EOS token
+        # aggregate the character probabilities of each word up to the EOS token: the number of predicted tokens is
+        # used since the <sos> token is decoded as several characters
+        is_eos = out_idxs == len(self.vocab)
+        seq_lens = np.where(is_eos.any(axis=-1), is_eos.argmax(axis=-1), out_idxs.shape[-1])
         probs = [
-            preds_prob[i, : len(word)].clip(0, 1).mean().astype(float) if word else 0.0
-            for i, word in enumerate(word_values)
+            aggregate_confidence(preds_prob[i, :seq_len], self.confidence_aggregation)
+            for i, seq_len in enumerate(seq_lens)
         ]
 
         return list(zip(word_values, probs))
@@ -123,7 +134,11 @@ def _vitstr(
 
     kwargs["vocab"] = _cfg["vocab"]
     # Patch the url
-    model_path = default_cfgs[arch]["url_8_bit"] if load_in_8_bit and "http" in model_path else model_path
+    model_path = (
+        default_cfgs[arch]["url_8_bit"]
+        if load_in_8_bit and model_path.startswith(("http://", "https://"))
+        else model_path
+    )
 
     # Build the model
     return ViTSTR(model_path, cfg=_cfg, engine_cfg=engine_cfg, **kwargs)

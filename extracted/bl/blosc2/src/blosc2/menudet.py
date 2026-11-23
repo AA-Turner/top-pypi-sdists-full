@@ -115,7 +115,8 @@ class MenudetFunction:
         author._capture_analysis = capture_analysis(author.dsl_source, author.input_names)
         self._expression = None
         if (
-            len(function.body) == 1
+            not pragmas
+            and len(function.body) == 1
             and isinstance(function.body[0], ast.Return)
             and function.body[0].value is not None
         ):
@@ -166,10 +167,11 @@ class MenudetFunction:
         return inputs
 
     def _specialize(self, inputs):
-        from . import FPAccuracy, jit_config
+        from . import jit_config
+        from .menudet_kernel import MENUDET_EXECUTION_ENV
 
         dtypes = {name: np.dtype(value.dtype).newbyteorder("=") for name, value in inputs.items()}
-        options = jit_config.execution_options()
+        options = jit_config.configured_execution_options()
         key = (
             tuple((name, dtype.str) for name, dtype in dtypes.items()),
             tuple(options.items()),
@@ -205,10 +207,15 @@ class MenudetFunction:
                     policy is None
                     and os.environ.get("ME_DSL_JIT", "").lower() not in ("", "0", "false", "off")
                 )
-                configured = any(
-                    options[name]
-                    for name in ("compiler", "cflags", "trace", "compiler_output", "jit_backend")
-                ) or (compiled and options["cache_dir"] is not None)
+                configured = (
+                    any(
+                        options[name]
+                        for name in ("compiler", "cflags", "trace", "compiler_output", "jit_backend")
+                    )
+                    or (compiled and options["cache_dir"] is not None)
+                    or any(os.environ.get(name) for name, _ in MENUDET_EXECUTION_ENV.values())
+                    or jit_config.trace_enabled()
+                )
                 kernel = None
                 if (
                     output is None
@@ -217,7 +224,7 @@ class MenudetFunction:
                     and self._export_options["ndim"] == 0
                     and self._export_options["casting"] == "unsafe"
                     and not configured
-                    and options["fp_accuracy"] == FPAccuracy.DEFAULT
+                    and options["fp_accuracy"] is None
                     and all(dtype.kind in "biuf" for dtype in dtypes.values())
                 ):
                     from .graph_plan import NativeGraph

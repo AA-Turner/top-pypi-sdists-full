@@ -158,7 +158,6 @@ schema = schemathesis.openapi.from_asgi("/openapi.json", app=app)
 
 
 def test_python_app(testdir, schema_with_python_app, python_app_auth):
-    # When there is a WSGI / ASGI app
     testdir.make_test(
         f"""
 {schema_with_python_app}
@@ -173,12 +172,10 @@ def test(case):
     """,
     )
     result = testdir.runpytest("-s")
-    # Then there should be a way to get auth from them
     result.assert_outcomes(passed=1)
 
 
 def test_requests_auth(ctx, testdir):
-    # When the user registers auth from `requests`
     api = ctx.openapi.apps.success_and_text()
     testdir.make_test(
         f"""
@@ -201,7 +198,6 @@ def test(case):
         schema=api.spec,
     )
     result = testdir.runpytest("-s")
-    # Then auth should be present in `as_transport_kwargs` output
     result.assert_outcomes(passed=2)
 
 
@@ -274,7 +270,7 @@ def test_api(case):
 
 
 def test_conditional(ctx, testdir):
-    # When the user sets up multiple auths applied to different API operations
+    # Different auths apply to different operations.
     api = ctx.openapi.apps.success_and_text()
     testdir.make_test(
         f"""
@@ -414,8 +410,6 @@ def test_api(case):
 
 def test_openapi_basic_auth_applied_via_wsgi(testdir):
     # See GH-3575
-    # When [auth.openapi.BasicAuth] is configured and the app uses WSGI transport,
-    # the auth should be applied (sent as Authorization header).
     testdir.makefile(
         ".toml",
         schemathesis="""
@@ -482,8 +476,6 @@ def test_api(case):
 
 def test_unused_openapi_auth_warning_in_pytest_mode(testdir):
     # See GH-3575
-    # When a user configures [auth.openapi.WRONG_SCHEME] but WRONG_SCHEME doesn't exist
-    # in the schema's securitySchemes, a warning should be emitted.
     testdir.makefile(
         ".toml",
         schemathesis="""
@@ -529,7 +521,6 @@ def test_api(case):
 """
     )
     result = testdir.runpytest("-W", "always")
-    # The unused OpenAPI auth scheme warning should be emitted
     result.stdout.re_match_lines([r".*WRONG_MISSING_AUTH.*"])
 
 
@@ -776,6 +767,105 @@ def test_api(case):
     assert case.call_and_validate(excluded_checks=[ignored_auth]).status_code == 200
     assert set(api_keys) == {"explicit-key"}
 """
+    )
+    result = testdir.runpytest("-s")
+    result.assert_outcomes(passed=1)
+
+
+PER_TEST_AUTH = "@schema.auth(ScopedAuth, retry_on={retry_on})\n@schema.parametrize()"
+STRATEGY_AUTH = """
+scoped = AuthStorage()
+scoped.auth(retry_on={retry_on})(ScopedAuth)
+
+@given(case=schema["/items"]["GET"].as_strategy(auth_storage=scoped))
+"""
+
+
+@pytest.mark.parametrize(
+    ("retry_source", "test_auth", "expected_status"),
+    [
+        ("@schema.auth(retry_on=[401])", PER_TEST_AUTH.format(retry_on="[]"), 200),
+        ("@schemathesis.auth(retry_on=[401])", PER_TEST_AUTH.format(retry_on="[]"), 200),
+        ('@schema.auth(retry_on=[401]).apply_to(path="/other")', PER_TEST_AUTH.format(retry_on="[]"), 200),
+        ("@schema.auth(retry_on=[401])", STRATEGY_AUTH.format(retry_on="[]"), 200),
+        ("", PER_TEST_AUTH.format(retry_on="[401]"), 200),
+        ("", STRATEGY_AUTH.format(retry_on="[401]"), 200),
+        ("", PER_TEST_AUTH.format(retry_on="None"), 200),
+        ("", STRATEGY_AUTH.format(retry_on="None"), 200),
+        ("", PER_TEST_AUTH.format(retry_on="[]"), 401),
+    ],
+    ids=[
+        "schema-auth",
+        "global-auth",
+        "schema-auth-for-other-paths",
+        "strategy-auth",
+        "per-test-auth-retry-on",
+        "strategy-auth-retry-on",
+        "per-test-auth-default-retry-on",
+        "strategy-auth-default-retry-on",
+        "per-test-auth-retry-on-disabled",
+    ],
+)
+def test_reactive_reauth_with_auth_the_case_was_generated_with(testdir, ctx, retry_source, test_auth, expected_status):
+    testdir.makefile(".toml", schemathesis='[generation]\nmode = "positive"\n')
+    testdir.make_test(
+        f"""
+from flask import Flask, request
+from schemathesis.auths import AuthStorage
+from schemathesis.specs.openapi.checks import ignored_auth
+
+app = Flask(__name__)
+
+@app.route("/items")
+def items():
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+    # Only scoped tokens are accepted, and the first one has expired.
+    if token.startswith("scoped-") and token != "scoped-1":
+        return []
+    return {{"error": "Unauthorized"}}, 401
+
+@app.route("/openapi.json")
+def openapi():
+    return raw_schema
+
+schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+
+{retry_source}
+class OtherAuth:
+    def get(self, case, ctx):
+        return "other"
+
+    def set(self, case, data, ctx):
+        case.headers["Authorization"] = f"Bearer {{data}}"
+
+counter = {{"n": 0}}
+
+class ScopedAuth:
+    def get(self, case, ctx):
+        counter["n"] += 1
+        return f"scoped-{{counter['n']}}"
+
+    def set(self, case, data, ctx):
+        case.headers["Authorization"] = f"Bearer {{data}}"
+
+{test_auth}
+@settings(max_examples=3)
+def test_api(case):
+    response = case.call_and_validate(excluded_checks=[ignored_auth])
+    latest = f"Bearer scoped-{{counter['n']}}"
+    assert (response.status_code, response.request.headers["Authorization"]) == ({expected_status}, latest)
+""",
+        schema=ctx.openapi.build_schema(
+            {
+                "/items": {
+                    "get": {
+                        "security": [{"Bearer": []}],
+                        "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                    }
+                }
+            },
+            components={"securitySchemes": {"Bearer": {"type": "http", "scheme": "bearer"}}},
+        ),
     )
     result = testdir.runpytest("-s")
     result.assert_outcomes(passed=1)

@@ -34,21 +34,22 @@ def sql_string_value(node: ast.expr, *, interpolation_placeholder: str = " ") ->
 
 
 def _sql_string_value(node: ast.expr, *, interpolation_placeholder: str) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        left = _sql_string_value(node.left, interpolation_placeholder=interpolation_placeholder)
-        right = _sql_string_value(node.right, interpolation_placeholder=interpolation_placeholder)
-        if left is not None and right is not None:
-            return left + right
+    match node:
+        case ast.Constant() if isinstance(node.value, str):
+            return node.value
+        case ast.BinOp() if isinstance(node.op, ast.Add):
+            left = _sql_string_value(node.left, interpolation_placeholder=interpolation_placeholder)
+            right = _sql_string_value(node.right, interpolation_placeholder=interpolation_placeholder)
+            if left is not None and right is not None:
+                return left + right
+        case _:
+            pass
     if isinstance(node, ast.JoinedStr):
         pieces: list[str] = []
         for value in node.values:
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 pieces.append(value.value)
             elif isinstance(value, ast.FormattedValue):
-                # Keep static SQL tokens on either side adjacent while ensuring
-                # an interpolation can never manufacture SELECT/FROM/* itself.
                 pieces.append(interpolation_placeholder)
             else:  # pragma: no cover - the parser emits only these two forms
                 return None

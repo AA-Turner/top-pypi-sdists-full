@@ -243,6 +243,7 @@ class LlmUpdateParams(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",
@@ -358,6 +359,7 @@ class BackupModelBackupModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",
@@ -1766,9 +1768,10 @@ class Mcp(TypedDict, total=False):
     """Query parameters to append to the MCP connection request URL."""
 
     timeout_ms: int
-    """Maximum time to wait for a connection to be established (in milliseconds).
+    """Maximum time to wait for an MCP tool call to return (in milliseconds).
 
-    Default to 120,000 ms (2 minutes).
+    Values below 60,000 are treated as 60,000, and values above 600,000 are treated
+    as 600,000. Default to 60,000 ms (1 minute).
     """
 
 
@@ -1815,6 +1818,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(TypedDict, total=False
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",
@@ -1881,6 +1885,7 @@ class ModelConfigCascadingModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",
@@ -1985,6 +1990,7 @@ class ModelConfigDuplexModelConfigBackend(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",
@@ -2045,6 +2051,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",

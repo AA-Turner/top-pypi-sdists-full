@@ -1,26 +1,24 @@
-use rowan::{NodeOrToken, TextRange, TextSize, WalkEvent};
-use salsa::Database as Db;
+use squawk_rowan::{NodeOrToken, TextRange, TextSize, WalkEvent};
 use squawk_syntax::{
     SyntaxKind, SyntaxNode, SyntaxToken,
-    ast::{self, AstNode},
+    ast::{self, AstNode, NameLike},
     match_ast,
 };
 
-use crate::db::{File, parse, semantic_index};
-use crate::file::{FileId, InFile, InIrFile, IrFileId};
-use crate::ir::{Item, Resolution, TableId, TableKind};
-use crate::lower::is_public_role;
-use crate::semantic_index::SemanticIndex;
+use squawk_sema::file::{FileId, InFile, InIrFile, IrFileId};
+use squawk_sema::ir::{Item, Resolution, TableId, TableKind};
+use squawk_sema::semantic_index::SemanticIndex;
 
-#[salsa::tracked]
+use squawk_ide_db::{Db, parse, semantic_index};
+
 pub fn semantic_tokens(
     db: &dyn Db,
-    file: File,
+    file_id: FileId,
     range_to_highlight: Option<TextRange>,
 ) -> Vec<SemanticToken> {
     semantic_tokens_with_index(
-        semantic_index(db, file.into()),
-        crate::file::InFile::new(file, &parse(db, file).tree()),
+        semantic_index(db, file_id),
+        squawk_sema::file::InFile::new(file_id, &parse(db, file_id).tree()),
         range_to_highlight,
     )
 }
@@ -295,9 +293,40 @@ impl Highlighter<'_> {
                     self.keyword(file_id, partition_for_values_in.in_token());
                 },
                 ast::RoleNameRef(name_ref) => {
-                    if is_public_role(&name_ref) {
+                    if name_ref.is_public() {
                         self.keyword(file_id, name_ref.ident_token());
                     }
+                },
+                ast::ParallelFuncOption(option) => {
+                    self.contextual_keyword(file_id, option.ident_token(), PARALLEL_MODES);
+                },
+                ast::AttributeOption(option) => {
+                    if let Some(name) = option.name()
+                        && let Some(words) = attribute_option_values(&name.text())
+                        && let Some(ast::FuncType::Type(ast::Type::PathType(path_type))) =
+                            option.attribute_value().and_then(|value| value.func_type())
+                        && path_type.arg_list().is_none()
+                        && let Some(path) = path_type.path_ref()
+                        && path.qualifier().is_none()
+                        && let Some(segment) = path.segment()
+                    {
+                        self.contextual_keyword(file_id, segment.ident_token(), words);
+                    }
+                },
+                ast::StorageMode(mode) => {
+                    self.contextual_keyword(file_id, mode.ident_token(), STORAGE_MODES);
+                },
+                ast::StatisticsKind(kind) => {
+                    self.contextual_keyword(file_id, kind.ident_token(), STATISTICS_KINDS);
+                },
+                ast::AsPolicyType(policy_type) => {
+                    self.contextual_keyword(file_id, policy_type.ident_token(), POLICY_TYPES);
+                },
+                ast::RoleOptionGeneric(option) => {
+                    self.contextual_keyword(file_id, option.ident_token(), ROLE_OPTIONS);
+                },
+                ast::JsonEncoding(encoding) => {
+                    self.contextual_keyword(file_id, encoding.ident_token(), JSON_ENCODINGS);
                 },
                 _ => (),
             }
@@ -316,6 +345,12 @@ impl Highlighter<'_> {
         }
         let Some(token_type) = lexical_token_type(token.kind()) else {
             return;
+        };
+        let token_type = if token_type == SemanticTokenType::Keyword && keyword_used_as_name(token)
+        {
+            SemanticTokenType::NameRef
+        } else {
+            token_type
         };
         let range = token.text_range();
         if let Some(body) = token
@@ -359,17 +394,17 @@ impl Highlighter<'_> {
     fn ty(&mut self, file_id: IrFileId, ty: ast::Type) {
         match ty {
             ast::Type::ArrayType(_) => {}
+            ast::Type::SetofType(setof_type) => {
+                self.type_keyword(file_id, setof_type.setof_token());
+            }
             ast::Type::BitType(bit_type) => {
-                self.type_keyword(file_id, bit_type.setof_token());
                 self.type_keyword(file_id, bit_type.bit_token());
             }
             ast::Type::BitVaryingType(bit_varying_type) => {
-                self.type_keyword(file_id, bit_varying_type.setof_token());
                 self.type_keyword(file_id, bit_varying_type.bit_token());
                 self.type_keyword(file_id, bit_varying_type.varying_token());
             }
             ast::Type::VarcharType(varchar_type) => {
-                self.type_keyword(file_id, varchar_type.setof_token());
                 self.type_keyword(file_id, varchar_type.national_token());
                 self.type_keyword(
                     file_id,
@@ -382,7 +417,6 @@ impl Highlighter<'_> {
                 self.type_keyword(file_id, varchar_type.varying_token());
             }
             ast::Type::CharacterType(character_type) => {
-                self.type_keyword(file_id, character_type.setof_token());
                 self.type_keyword(file_id, character_type.national_token());
                 self.type_keyword(
                     file_id,
@@ -393,26 +427,20 @@ impl Highlighter<'_> {
                 );
             }
             ast::Type::DoubleType(double_type) => {
-                self.type_keyword(file_id, double_type.setof_token());
                 self.type_keyword(file_id, double_type.double_token());
                 self.type_keyword(file_id, double_type.precision_token());
             }
             ast::Type::IntervalType(interval_type) => {
-                self.type_keyword(file_id, interval_type.setof_token());
                 self.type_keyword(file_id, interval_type.interval_token());
             }
-            ast::Type::PathType(path_type) => {
-                self.type_keyword(file_id, path_type.setof_token());
-            }
+            ast::Type::PathType(_) => {}
             ast::Type::TimeType(time_type) => {
-                self.type_keyword(file_id, time_type.setof_token());
                 self.type_keyword(file_id, time_type.time_token());
                 if let Some(timezone) = time_type.timezone() {
                     self.timezone(file_id, timezone);
                 }
             }
             ast::Type::TimestampType(timestamp_type) => {
-                self.type_keyword(file_id, timestamp_type.setof_token());
                 self.type_keyword(file_id, timestamp_type.timestamp_token());
                 if let Some(timezone) = timestamp_type.timezone() {
                     self.timezone(file_id, timezone);
@@ -433,6 +461,21 @@ impl Highlighter<'_> {
                 self.type_keyword(file_id, without_timezone.time_token());
                 self.type_keyword(file_id, without_timezone.zone_token());
             }
+        }
+    }
+
+    fn contextual_keyword(
+        &mut self,
+        file_id: IrFileId,
+        token: Option<SyntaxToken>,
+        words: &[&str],
+    ) {
+        if let Some(token) = token
+            && words
+                .iter()
+                .any(|word| token.text().eq_ignore_ascii_case(word))
+        {
+            self.keyword(file_id, Some(token));
         }
     }
 
@@ -474,6 +517,64 @@ impl Highlighter<'_> {
     fn original_range(&self, file_id: IrFileId, range: TextRange) -> TextRange {
         self.index.range(InIrFile::new(file_id, range)).value
     }
+}
+
+const PARALLEL_MODES: &[&str] = &["safe", "restricted", "unsafe"];
+
+const STORAGE_MODES: &[&str] = &["plain", "external", "extended", "main"];
+
+const FINALFUNC_MODIFY_MODES: &[&str] = &["read_only", "shareable", "read_write"];
+
+const COLLATION_PROVIDERS: &[&str] = &["builtin", "icu", "libc"];
+
+const STATISTICS_KINDS: &[&str] = &["ndistinct", "dependencies", "mcv"];
+
+fn attribute_option_values(name: &str) -> Option<&'static [&'static str]> {
+    match name {
+        "parallel" => Some(PARALLEL_MODES),
+        "storage" => Some(STORAGE_MODES),
+        "finalfunc_modify" | "mfinalfunc_modify" => Some(FINALFUNC_MODIFY_MODES),
+        "provider" => Some(COLLATION_PROVIDERS),
+        _ => None,
+    }
+}
+
+const POLICY_TYPES: &[&str] = &["permissive", "restrictive"];
+
+const ROLE_OPTIONS: &[&str] = &[
+    "superuser",
+    "nosuperuser",
+    "createrole",
+    "nocreaterole",
+    "replication",
+    "noreplication",
+    "createdb",
+    "nocreatedb",
+    "login",
+    "nologin",
+    "bypassrls",
+    "nobypassrls",
+    "noinherit",
+];
+
+const JSON_ENCODINGS: &[&str] = &["utf8", "utf16", "utf32"];
+
+fn keyword_used_as_name(token: &SyntaxToken) -> bool {
+    token.parent().is_some_and(|parent| {
+        matches!(
+            parent.kind(),
+            SyntaxKind::ATTRIBUTE_NAME
+                | SyntaxKind::ATTRIBUTE_NAMESPACE
+                | SyntaxKind::COPY_OPTION_KEY
+                | SyntaxKind::ELEMENT_TAG
+                | SyntaxKind::EXPLAIN_OPTION_NAME
+                | SyntaxKind::FOREIGN_OPTION_NAME
+                | SyntaxKind::GRANT_ROLE_OPTION_NAME
+                | SyntaxKind::OPTION_ITEM_KEY
+                | SyntaxKind::VACUUM_OPTION_NAME
+                | SyntaxKind::XML_PI_TARGET
+        )
+    })
 }
 
 fn lexical_token_type(kind: SyntaxKind) -> Option<SemanticTokenType> {

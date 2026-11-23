@@ -412,15 +412,12 @@ class OpenApiTransportTests(unittest.IsolatedAsyncioTestCase):
         await http.create_runtime(
             "restored",
             checkpoint_id="checkpoint-1",
-            vcpus=8,
-            memory_mib=8192,
-            memory_max_mib=16384,
         )
 
         self.assertEqual(seen["json"]["checkpoint_id"], "checkpoint-1")
         self.assertNotIn("resources", seen["json"])
 
-    async def test_public_restore_preserves_explicit_resources(self) -> None:
+    async def test_public_restore_rejects_explicit_resources(self) -> None:
         for resources, expected in _restore_resource_cases():
             with self.subTest(resources=resources):
                 bodies: list[dict[str, Any]] = []
@@ -435,6 +432,15 @@ class OpenApiTransportTests(unittest.IsolatedAsyncioTestCase):
                     endpoint="http://runta.test", token="rt_test"
                 ) as client:
                     set_handler(client._http, handler)
+                    if resources is not None:
+                        with self.assertRaisesRegex(ValueError, "preserve recorded"):
+                            await client.runtimes.create(
+                                checkpoint_id="checkpoint-1",
+                                resources=resources,
+                                wait=False,
+                            )
+                        self.assertEqual(bodies, [])
+                        continue
                     runtime = await client.runtimes.create(
                         checkpoint_id="checkpoint-1", resources=resources, wait=False
                     )
@@ -695,7 +701,7 @@ class OpenApiTransportTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SyncOpenApiTransportTests(unittest.TestCase):
-    def test_public_restore_preserves_explicit_resources(self) -> None:
+    def test_public_restore_rejects_explicit_resources(self) -> None:
         for resources, expected in _restore_resource_cases():
             with self.subTest(resources=resources):
                 bodies: list[dict[str, Any]] = []
@@ -708,6 +714,15 @@ class SyncOpenApiTransportTests(unittest.TestCase):
 
                 with Runta(endpoint="http://runta.test", token="rt_test") as client:
                     set_handler(client._http, handler)
+                    if resources is not None:
+                        with self.assertRaisesRegex(ValueError, "preserve recorded"):
+                            client.runtimes.create(
+                                checkpoint_id="checkpoint-1",
+                                resources=resources,
+                                wait=False,
+                            )
+                        self.assertEqual(bodies, [])
+                        continue
                     runtime = client.runtimes.create(
                         checkpoint_id="checkpoint-1", resources=resources, wait=False
                     )

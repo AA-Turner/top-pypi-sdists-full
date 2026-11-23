@@ -383,6 +383,38 @@ def patch_trl_fused_lm_head():
     return True
 
 
+def patch_cpu_sdpa_gqa():
+    """Lets CPU SDPA take a mask with enable_gqa = True (torch >= 2.5), so transformers skips
+    repeating K / V (CUDA GQA rejects masks); Qwen3-0.6B at 2 x 2048 saves 16 MiB per layer. CPU
+    tensors only; idempotent; returns True when installed."""
+    try:
+        from transformers.integrations import sdpa_attention
+    except Exception:
+        return False
+    original = getattr(sdpa_attention, "use_gqa_in_sdpa", None)
+    if original is None:
+        return False
+    if getattr(original, "_unsloth_cpu", False):
+        return True
+    from packaging.version import Version
+    if Version(torch.__version__.split("+")[0]) < Version("2.5.0"):
+        return False
+
+    @functools.wraps(original)
+    def use_gqa_in_sdpa(attention_mask, key, *args, **kwargs):
+        if original(attention_mask, key, *args, **kwargs):
+            return True
+        value = args[0] if args else kwargs.get("value", key)
+        return (
+            isinstance(key, torch.Tensor) and not isinstance(key, torch.fx.Proxy) and key.device.type == "cpu"
+            and isinstance(value, torch.Tensor) and key.shape[-1] == value.shape[-1]
+        )
+
+    use_gqa_in_sdpa._unsloth_cpu = True
+    sdpa_attention.use_gqa_in_sdpa = use_gqa_in_sdpa
+    return True
+
+
 class _Bf16StoredLinearFunction(torch.autograd.Function):
     """F.linear with a frozen bf16 weight upcast per call; saves the bf16 weight, backward is dX = dY @ W."""
 
@@ -431,6 +463,27 @@ def store_frozen_linears_in_bf16(model):
         if buffer.dtype == torch.bfloat16:
             buffer.data = buffer.data.float()
     return len(stored)
+
+
+def set_bf16_stored_dtype(model, dtype):
+    """Moves Bf16StoredLinear weights to fp32 or back to bf16 (lossless: bf16 checkpoint values),
+    returns count; only frozen upcast weights go back, so modules_to_save is never rounded."""
+    moved = 0
+    for module in model.modules():
+        weight = getattr(module, "weight", None)
+        if not isinstance(module, Bf16StoredLinear) or weight is None or weight.dtype == dtype:
+            continue
+        if dtype == torch.bfloat16:
+            if not getattr(module, "_unsloth_upcast", False) or weight.requires_grad:
+                continue
+            module._unsloth_upcast = False
+        elif weight.dtype == torch.bfloat16:
+            module._unsloth_upcast = True
+        else:
+            continue
+        weight.data = weight.data.to(dtype)
+        moved += 1
+    return moved
 
 
 def cpu_causal_conv1d(hidden_states, weight, bias = None, activation = None, **kwargs):

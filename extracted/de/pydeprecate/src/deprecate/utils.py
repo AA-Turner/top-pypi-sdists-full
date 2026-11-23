@@ -20,6 +20,7 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 
 """
 
+import dataclasses
 import inspect
 import warnings
 from collections.abc import Generator, Mapping
@@ -67,7 +68,7 @@ def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, Any, An
         - Excludes *args and **kwargs (use inspect.getfullargspec for those)
 
     """
-    func_default_params = _get_signature(func).parameters
+    func_default_params = inspect.signature(func).parameters
     func_arg_type_val = []
     for arg in func_default_params:
         param = func_default_params[arg]
@@ -78,17 +79,6 @@ def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, Any, An
             continue
         func_arg_type_val.append((arg, param.annotation, param.default))
     return func_arg_type_val
-
-
-def _get_signature(func: Callable) -> inspect.Signature:
-    """Read the signature of a callable with :func:`inspect.signature`, without caching it.
-
-    Read when a callable is decorated (through :func:`_signature_facts`) and by the audit helpers, never on a
-    deprecated call: the wrapper keeps the facts it needs.  No cache holds the callable, so reading its signature never
-    keeps it alive.
-
-    """
-    return inspect.signature(func)
 
 
 #: Parameter kinds that can be filled by a positional argument, in the order a signature declares them.
@@ -130,8 +120,7 @@ class _SigFacts:
 def _signature_facts(obj: Callable[..., Any], *, empty_on_error: bool = False) -> _SigFacts:
     """Read the signature of a callable once and return every fact the decorator and the proxy need from it.
 
-    A class reports its constructor parameters without ``self``, as :func:`inspect.signature` does.  The signature
-    is read through :func:`_get_signature`.
+    A class reports its constructor parameters without ``self``, as :func:`inspect.signature` does.
 
     Args:
         obj: The callable to inspect.
@@ -155,7 +144,7 @@ def _signature_facts(obj: Callable[..., Any], *, empty_on_error: bool = False) -
 
     """
     try:
-        params = list(_get_signature(obj).parameters.values())
+        params = list(inspect.signature(obj).parameters.values())
     except (TypeError, ValueError):
         if not empty_on_error:
             raise
@@ -183,9 +172,15 @@ def _is_dataclass_target(cls: Any) -> bool:  # noqa: ANN401
     Used by :class:`~deprecate.proxy._DeprecatedProxy` to detect ``@dataclass`` targets that benefit from automatic
     ``attrs_mapping`` → ``args_mapping`` expansion.
 
-    """
-    import dataclasses
+    Example:
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Point:
+        ...     x: int
+        >>> _is_dataclass_target(Point), _is_dataclass_target(Point(1)), _is_dataclass_target(int)
+        (True, False, False)
 
+    """
     return isinstance(cls, type) and dataclasses.is_dataclass(cls)
 
 
@@ -244,6 +239,11 @@ def _warns_repr(warns: list[warnings.WarningMessage]) -> list[Union[Warning, str
 
     Returns:
         List of warning messages as strings or Warning objects.
+
+    Example:
+        >>> caught = warnings.WarningMessage(UserWarning("old is deprecated"), UserWarning, "mod.py", 1)
+        >>> _warns_repr([caught])
+        [UserWarning('old is deprecated')]
 
     """
     return [w.message for w in warns]
@@ -408,7 +408,18 @@ def void(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
 def _unwrap_descriptor_target(
     target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
 ) -> Union[bool, None, Callable, TargetMode]:
-    """Return ``target.__func__`` when *target* is a descriptor; pass through otherwise."""
+    """Return ``target.__func__`` when *target* is a ``staticmethod``/``classmethod``; pass anything else through.
+
+    Class-body code sees the raw descriptor, which lacks ``__qualname__``; callers unwrap it to inspect the function.
+
+    Example:
+        >>> def func(): pass
+        >>> _unwrap_descriptor_target(staticmethod(func)) is func
+        True
+        >>> _unwrap_descriptor_target(func) is func
+        True
+
+    """
     if isinstance(target, (staticmethod, classmethod)):
         return target.__func__
     return target
@@ -441,7 +452,8 @@ def _partial_chain(obj: Any) -> tuple[partial, ...]:  # noqa: ANN401
 
     """
     layers: list[partial] = []
-    while isinstance(obj, partial) and len(layers) < _MAX_PARTIAL_DEPTH:
+    # ``type(obj)``, not ``isinstance``: a proxy's ``__class__`` evaluates its ``skip_if``, which naming must not do.
+    while issubclass(type(obj), partial) and len(layers) < _MAX_PARTIAL_DEPTH:
         layers.append(obj)
         obj = obj.func
     return tuple(layers)

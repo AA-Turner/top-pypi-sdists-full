@@ -113,6 +113,18 @@
   tests:
     - tests/test_interop_tests.py
 
+- file: format2/draft/synthetic-draft-bad-cycles.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/draft/synthetic-draft-bad-cycles-list-form.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/draft/synthetic-draft-bare-step-ref.gxwf.yml
   origin: synthetic
   format: format2
@@ -312,6 +324,13 @@
     - tests/test_lint_best_practices.py
     - tests/test_interop_tests.py
 
+- file: native/synthetic-bp-creator-identifiers.ga
+  origin: synthetic
+  format: native
+  description: One creator per case of the creator identifier lints (ORCID and ROR iDs).
+  tests:
+    - tests/test_interop_tests.py
+
 - file: native/synthetic-untyped-params.ga
   origin: synthetic
   format: native
@@ -498,6 +517,58 @@
 - file: format2/synthetic-comments-list.gxwf.yml
   origin: synthetic
   format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-frame-references.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frames referencing an input id, step labels, step indices, a digit string and comments — lints clean and converts.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-frame-unknown-step.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame `contains_steps` names a step that does not exist (typo) — lint error, conversion fails.
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_comments.py
+
+- file: format2/synthetic-frame-index-out-of-range.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame `contains_steps` / `contains_comments` indices (ints and digit strings) beyond the workflow — lint errors, conversion fails.
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_comments.py
+
+- file: format2/synthetic-frame-digit-label.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame `contains_steps` names a step by an all-digit label beyond the index range — the label wins.
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_comments.py
+
+- file: format2/synthetic-frame-unknown-comment.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame `contains_comments` names a comment that does not exist — lint error, conversion fails.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-frame-step-id-shadowed-by-label.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame references a step by `id` when the step has a different `label` — conversion only knows the label.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-frame-empty.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Frame with an empty `contains_steps` — best-practice warning.
   tests:
     - tests/test_interop_tests.py
 
@@ -1046,6 +1117,13 @@
 
 # --- best practices lint fixture files ---
 
+- file: format2/synthetic-bp-creator-identifiers.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: One creator per case of the creator identifier lints (ORCID and ROR iDs).
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/synthetic-bp-no-annotation.gxwf.yml
   origin: synthetic
   format: format2
@@ -1202,6 +1280,232 @@
     - tests/test_interop_tests.py
 
 - file: format2/draft/synthetic-draft-bad-record-input-type.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/draft/synthetic-draft-shadowed-step-ref.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-base.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_diff.py
+
+- file: format2/diff/synthetic-diff-removed-step.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_diff.py
+
+- file: format2/diff/synthetic-diff-removed-output.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-unwired-input.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-changed-step.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-draft-before.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_diff.py
+
+- file: format2/diff/synthetic-diff-draft-after.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_diff.py
+
+- file: format2/diff/synthetic-diff-draft-replanned.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-removed-leaf-step.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-relinked-slash-key.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-output-suffixed-step-key.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-explicit-false.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-explicit-false-bare.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-explicit-state.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-in-default.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-out-action.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-inner-id.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-inner-id-renamed.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-out-extra-key.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-untyped-subworkflow.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-self-loop.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-nested-type-omitted.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-nested-type-explicit.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-inline-subworkflow.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-inline-subworkflow-removed-step.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-inline-subworkflow-interface.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps-relabeled.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps-duplicate-id.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps-id-on-other-label.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps-two-level-inline.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/diff/synthetic-diff-list-steps-two-level-inline-relabeled.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-is-based-on.ga
+  origin: synthetic
+  format: native
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-is-based-on-extra-field.ga
+  origin: synthetic
+  format: native
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-is-based-on.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-is-based-on-extra-field.gxwf.yml
   origin: synthetic
   format: format2
   tests:

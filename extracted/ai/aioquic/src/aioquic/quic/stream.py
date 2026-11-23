@@ -22,6 +22,10 @@ class StreamFinishedError(Exception):
     pass
 
 
+class TooManyRangesError(Exception):
+    pass
+
+
 class QuicStreamReceiver:
     """
     The receive part of a QUIC stream.
@@ -146,6 +150,12 @@ class QuicStreamReceiver:
 
         # return data from the front of the buffer
         data = self._pull_data()
+
+        # Limit the out-of-order ranges a peer can make us track (RFC 9000
+        # section 21.7): at most 1024, and 64 plus one per KiB of buffered span.
+        if len(self._ranges) > min(1024, 64 + len(self._buffer) // 1024):
+            raise TooManyRangesError("Too many gaps in received data")
+
         end_stream = (
             self._buffer_start == self._final_size and self._reliable_size is None
         )
@@ -221,7 +231,7 @@ class QuicStreamReceiver:
         Remove data from the front of the buffer.
         """
         try:
-            has_data_to_read = self._ranges[0].start == self._buffer_start
+            has_data_to_read = self._ranges.start == self._buffer_start
         except IndexError:
             has_data_to_read = False
         if not has_data_to_read:
@@ -268,6 +278,15 @@ class QuicStreamSender:
         self._stream_id = stream_id
 
     @property
+    def is_ended(self) -> bool:
+        """
+        Whether the sending part was ended, by writing its FIN or resetting it.
+
+        Unlike `is_finished`, this does not wait for the peer's acknowledgement.
+        """
+        return self._buffer_fin is not None or self._reset_error_code is not None
+
+    @property
     def next_offset(self) -> int:
         """
         The offset for the next frame to send.
@@ -275,7 +294,7 @@ class QuicStreamSender:
         This is used to determine the space needed for the frame's `offset` field.
         """
         try:
-            return self._pending[0].start
+            return self._pending.start
         except IndexError:
             return self._buffer_stop
 

@@ -1,13 +1,15 @@
 import ast
 import bisect
 import re
+from pathlib import Path
 from .weak_random_context import private_model_slug_evidence
 from skylos.rules.base import SkylosRule
 from .pickle_provenance import safe_pickle_loads
 from .source_owned_code import source_owned_code_calls
 from .yaml_loader_provenance import yaml_loader_classes, yaml_load_call_name
 from .untrusted_sources import UntrustedSourceIndex, _unsafe_import_roots
-from .import_proof import provider_binding_is_stable
+from .import_proof import provider_binding_is_stable, provider_is_unshadowed
+from .project_source import project_source_snapshot
 from .tls_provenance import tls_verification_disabled as _tls_verification_disabled
 from .flow_env import ValueFlow, _scope_bindings, _scope_children
 from .module_namespace import module_name_for, module_rebinding
@@ -21,6 +23,7 @@ from skylos.security.command_guard_types import (
     REMOTE_SCRIPT_RULE,
     SCOPE_VIOLATION_RULE,
 )
+from skylos.reporting.listing import UNPROVEN_SOURCE_KIND, YAML_PROJECT_TOO_LARGE
 
 # Command-guard risks that make even a fixed shell command dangerous:
 # exfiltration, remote script execution, broad deletion, credential reads.
@@ -51,7 +54,11 @@ DANGEROUS_CALLS = {
         "SKY-D203",
         "CRITICAL",
         "Use of os.system()",
-        {"constant_command_severity": "LOW", "constant_argument": "command"},
+        {
+            "constant_command_severity": "LOW",
+            "constant_argument": "command",
+            "temp_path_command": True,
+        },
     ),
     "pickle.load": (
         "SKY-D204",
@@ -180,7 +187,11 @@ DANGEROUS_CALLS = {
         "SKY-D203",
         "CRITICAL",
         "Use of os.popen()",
-        {"constant_command_severity": "LOW", "command_positional_args": 3},
+        {
+            "constant_command_severity": "LOW",
+            "command_positional_args": 3,
+            "temp_path_command": True,
+        },
     ),
     "subprocess.*": (
         "SKY-D209",
@@ -776,7 +787,221 @@ def _has_shell_expansion(command: str) -> bool:
     return False
 
 
-def _call_severity(node: ast.Call, severity: str, opts) -> str:
+# ``os.system(f"cwebp {tmp_in} -o {tmp_out}")`` with both paths from
+# ``tempfile.mkstemp``: the process names those files itself (random names in
+# the temp directory), so a command of literals and such paths reads no input.
+_TEMP_OBJECT_CALLS = frozenset(
+    {"tempfile.NamedTemporaryFile", "tempfile.TemporaryDirectory"}
+)
+_TEMP_PATH_PLACEHOLDER = "/tmp/skylos-temp-path"
+_SCOPE_BOUNDARIES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+
+
+class _TempPaths:
+    """Names that every binding in one function sets to a path ``tempfile``
+    made (``"path"``) or to a temporary file or directory object whose
+    ``.name`` is one (``"object"``)."""
+
+    def __init__(self, context, scope: ast.AST):
+        self.scope = scope
+        import_only = context.bindings()[1]
+        dynamic, rebound = context.globals_rebinding()
+        targets: dict[str, set[str]] = {}
+        for item in ast.walk(context.module):
+            if isinstance(item, ast.Import):
+                for alias in item.names:
+                    local = alias.asname or alias.name.split(".", 1)[0]
+                    targets.setdefault(local, set()).add(
+                        alias.name if alias.asname else local
+                    )
+            elif isinstance(item, ast.ImportFrom):
+                for alias in item.names:
+                    module_name = item.module if not item.level else None
+                    targets.setdefault(alias.asname or alias.name, set()).add(
+                        f"{module_name}.{alias.name}" if module_name else "?"
+                    )
+        self.imports = {
+            name: next(iter(found))
+            for name, found in targets.items()
+            if len(found) == 1
+            and name in import_only
+            and not dynamic
+            and name not in rebound
+        }
+        self.parameters = {
+            arg.arg for arg in ast.walk(scope.args) if isinstance(arg, ast.arg)
+        }
+        self.nested_rebound = _scope_escapes(scope)[2]
+        self.kinds: dict[str, str | None] = {}
+
+    def factory(self, node: ast.AST) -> str | None:
+        """The ``tempfile`` factory ``node`` calls with literal arguments
+        only (a prefix, suffix or directory from elsewhere reaches the path)."""
+        if not isinstance(node, ast.Call) or not all(
+            isinstance(arg, ast.Constant) for arg in node.args
+        ):
+            return None
+        if any(
+            kw.arg is None or not isinstance(kw.value, ast.Constant)
+            for kw in node.keywords
+        ):
+            return None
+        dotted = _dotted_name(node.func)
+        if not dotted:
+            return None
+        root, _, rest = dotted.partition(".")
+        target = self.imports.get(root)
+        if target is None:
+            return None
+        return f"{target}.{rest}" if rest else target
+
+    def is_path(self, node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return self.kind(node.id) == "path"
+        if isinstance(node, ast.Attribute) and node.attr == "name":
+            if isinstance(node.value, ast.Name):
+                return self.kind(node.value.id) == "object"
+            return self.factory(node.value) in _TEMP_OBJECT_CALLS
+        if isinstance(node, ast.Subscript):
+            index = node.slice
+            return (
+                isinstance(index, ast.Constant)
+                and index.value == 1
+                and self.factory(node.value) == "tempfile.mkstemp"
+            )
+        return self.factory(node) == "tempfile.mkdtemp"
+
+    def kind(self, name: str) -> str | None:
+        if name not in self.kinds:
+            self.kinds[name] = None
+            self.kinds[name] = self._kind(name)
+        return self.kinds[name]
+
+    def _kind(self, name: str) -> str | None:
+        if name in self.parameters or name in self.nested_rebound:
+            return None
+        kinds = set()
+        pending = list(ast.iter_child_nodes(self.scope))
+        while pending:
+            current = pending.pop()
+            if isinstance(current, _SCOPE_BOUNDARIES):
+                if getattr(current, "name", None) == name:
+                    return None
+                continue
+            pending.extend(ast.iter_child_nodes(current))
+            if (
+                isinstance(current, (ast.Global, ast.Nonlocal))
+                and name in current.names
+            ):
+                return None
+            if (
+                isinstance(current, ast.alias)
+                and (current.asname or current.name.split(".", 1)[0]) == name
+            ):
+                return None
+            if (
+                isinstance(current, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar))
+                and current.name == name
+            ):
+                return None
+            if isinstance(current, ast.MatchMapping) and current.rest == name:
+                return None
+            if (
+                isinstance(current, ast.Name)
+                and current.id == name
+                and isinstance(current.ctx, (ast.Store, ast.Del))
+            ):
+                kind = self._binding_kind(current)
+                if kind is None:
+                    return None
+                kinds.add(kind)
+        return kinds.pop() if len(kinds) == 1 else None
+
+    def _binding_kind(self, target: ast.Name) -> str | None:
+        parent = getattr(target, "parent", None)
+        if isinstance(parent, ast.Assign) and parent.targets == [target]:
+            if self.is_path(parent.value):
+                return "path"
+            if self.factory(parent.value) in _TEMP_OBJECT_CALLS:
+                return "object"
+            return None
+        if isinstance(parent, ast.withitem) and parent.optional_vars is target:
+            factory = self.factory(parent.context_expr)
+            if factory == "tempfile.TemporaryDirectory":
+                return "path"
+            if factory == "tempfile.NamedTemporaryFile":
+                return "object"
+            return None
+        if (
+            isinstance(parent, (ast.Tuple, ast.List))
+            and len(parent.elts) == 2
+            and parent.elts[1] is target
+            and isinstance(getattr(parent, "parent", None), ast.Assign)
+            and parent.parent.targets == [parent]
+            and self.factory(parent.parent.value) == "tempfile.mkstemp"
+        ):
+            return "path"
+        return None
+
+
+def _temp_path_command_text(node: ast.AST, temp_paths: _TempPaths) -> str | None:
+    """The shell text of an f-string or ``+`` chain of literals and
+    ``tempfile`` paths, each path replaced by a placeholder path."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _temp_path_command_text(node.left, temp_paths)
+        right = _temp_path_command_text(node.right, temp_paths)
+        return None if left is None or right is None else left + right
+    if isinstance(node, ast.JoinedStr):
+        parts = []
+        for part in node.values:
+            if isinstance(part, ast.FormattedValue):
+                if part.format_spec is not None or part.conversion not in (
+                    -1,
+                    ord("s"),
+                ):
+                    return None
+                if not temp_paths.is_path(part.value):
+                    return None
+                parts.append(_TEMP_PATH_PLACEHOLDER)
+            else:
+                text = _temp_path_command_text(part, temp_paths)
+                if text is None:
+                    return None
+                parts.append(text)
+        return "".join(parts)
+    if temp_paths.is_path(node):
+        return _TEMP_PATH_PLACEHOLDER
+    return None
+
+
+def _temp_path_command(node: ast.Call, opts, filename=None) -> bool:
+    """The command is literals and paths ``tempfile`` made in this function,
+    with at least one such path, and no shell expansion or command-guard
+    risk."""
+    if not opts or not opts.get("temp_path_command"):
+        return False
+    if len(node.args) > opts.get("command_positional_args", 1):
+        return False
+    command = _constant_argument_node(node, frozenset({"command", "cmd"}))
+    if command is None or _constant_str_value(command) is not None:
+        return False
+    scope = _constant_scope(node)
+    module = _module_of(node)
+    if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)) or module is None:
+        return False
+    try:
+        context = _constant_context(module, filename, None)
+        if context.locals_dynamic():
+            return False
+        text = _temp_path_command_text(command, _TempPaths(context, scope))
+    except Exception:  # noqa: BLE001 - the proof only demotes; failing keeps it
+        return False
+    return text is not None and _shell_text_is_inert(text)
+
+
+def _call_severity(node: ast.Call, severity: str, opts, filename=None) -> str:
     """``os.system("twine upload dist/*")``: a fixed command string has no
     input to inject, so it is reported at the lower severity the rule sets.
     Formatted, concatenated or variable commands, and fixed commands that
@@ -790,7 +1015,9 @@ def _call_severity(node: ast.Call, severity: str, opts) -> str:
             if kw.arg == "command":
                 command = kw.value
     text = _constant_str_value(command)
-    if text is None or _has_shell_expansion(text):
+    if text is None:
+        return lowered if _temp_path_command(node, opts, filename) else severity
+    if _has_shell_expansion(text):
         return severity
     if any(
         risk.rule_id in _DANGEROUS_COMMAND_RULES for risk in scan_shell_command(text)
@@ -814,6 +1041,17 @@ def _call_low_risk_context(
     if not opts:
         return None
     if opts.get("constant_command_severity") and severity != rule_severity:
+        if (
+            opts.get("temp_path_command")
+            and _constant_str_value(
+                _constant_argument_node(node, frozenset({"command", "cmd"}))
+            )
+            is None
+        ):
+            return {
+                "reason": "temp-file-command",
+                "detail": "the command joins literals and paths made by tempfile",
+            }
         return {
             "reason": "constant-shell-command",
             "detail": "the command is a fixed string with no input",
@@ -1349,6 +1587,53 @@ def _yaml_load_without_safeloader(
     ):
         return False
     return True
+
+
+def yaml_loader_unproven_for_project_size(
+    node: ast.Call,
+    aliases,
+    loader_classes,
+    filename=None,
+    project_root=None,
+    module=None,
+) -> bool:
+    """A flagged ``yaml.load`` whose loader this file alone proves safe.
+
+    The whole-project proof (no other module replaces ``yaml.SafeLoader``)
+    needs every Python file of the project; past the source snapshot limits
+    it is unavailable, so ``yaml.load(text, Loader=yaml.SafeLoader)`` in a
+    project with more than 2,048 Python files was a listed HIGH finding. The
+    call stays reported, as a review item that is not listed and does not
+    block, only when the snapshot is incomplete and the file-only proof holds.
+    """
+    if not filename or not project_root:
+        return False
+    try:
+        if project_source_snapshot(project_root)[1]:
+            return False
+        # A project module named ``yaml`` would replace PyYAML entirely; that
+        # check reads the file system, not the snapshot, so it still applies.
+        if not provider_is_unshadowed("yaml.SafeLoader", filename, project_root):
+            return False
+    except (OSError, RuntimeError, ValueError, TypeError):
+        return False
+    # The file-only proof: the same module name, no path on disk, so no
+    # project snapshot is consulted.
+    tree_only = f"<tree-only>/{Path(str(filename)).name}"
+    return not _yaml_load_without_safeloader(
+        node, aliases, loader_classes, tree_only, None, module
+    )
+
+
+def mark_yaml_loader_review(finding: dict) -> dict:
+    finding["message"] = (
+        "Review (not listed, not blocking): the loader is a safe YAML loader in "
+        "this file, but the project is too large to prove no other module "
+        "replaces it. " + finding["message"]
+    )
+    finding["review_item"] = {"kind": UNPROVEN_SOURCE_KIND, "blocking": False}
+    finding.setdefault("metadata", {})["yaml_loader_proof"] = YAML_PROJECT_TOO_LARGE
+    return finding
 
 
 _UNKNOWN = "unknown"
@@ -3233,6 +3518,7 @@ class DangerousCallsRule(SkylosRule):
             if weak_hash_key is not None:
                 opts = {**opts, "hash_data_index": 1}
 
+            yaml_review = False
             if rule_key in {"yaml.load", "yaml.load_all"}:
                 if not _yaml_load_without_safeloader(
                     node,
@@ -3243,6 +3529,14 @@ class DangerousCallsRule(SkylosRule):
                     self._module,
                 ):
                     continue
+                yaml_review = yaml_loader_unproven_for_project_size(
+                    node,
+                    self.aliases,
+                    self._yaml_loader_classes(),
+                    context.get("filename"),
+                    context.get("project_root"),
+                    self._module,
+                )
 
             if opts and opts.get("ruamel_unsafe_type"):
                 if not _ruamel_unsafe_type(node):
@@ -3271,7 +3565,9 @@ class DangerousCallsRule(SkylosRule):
 
             finding = {
                 "rule_id": rule_id,
-                "severity": _call_severity(node, severity, opts),
+                "severity": _call_severity(
+                    node, severity, opts, context.get("filename")
+                ),
                 "message": message,
                 "file": context.get("filename"),
                 "line": node.lineno,
@@ -3291,6 +3587,8 @@ class DangerousCallsRule(SkylosRule):
                 evidence = private_model_slug_evidence(node)
                 if evidence:
                     finding["security_evidence"] = evidence
+            if yaml_review:
+                mark_yaml_loader_review(finding)
             findings.append(finding)
             break
 

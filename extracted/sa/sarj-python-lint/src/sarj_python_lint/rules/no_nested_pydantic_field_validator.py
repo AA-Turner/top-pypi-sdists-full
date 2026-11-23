@@ -140,8 +140,6 @@ class NoNestedPydanticFieldValidator(Rule):
                 continue
             outer_fields = _direct_fields(outer, imports)
             for nested in (statement for statement in outer.body if isinstance(statement, ast.ClassDef)):
-                # A based nested class may be an indirect Pydantic model whose inherited fields are unavailable to this
-                # file-local analysis. Only base-less Config/helper classes provide a deterministic ownership mistake.
                 if nested.bases:
                     continue
                 collect_nested_validators(outer, nested, outer_fields)
@@ -250,8 +248,11 @@ def _function_binds(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda, n
 
 
 def _scope_statement_binds(node: ast.AST, name: str) -> bool:
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
-        return node.name == name if not isinstance(node, ast.Lambda) else False
-    if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
-        return node.id == name
+    match node:
+        case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef() | ast.Lambda():
+            return node.name == name if not isinstance(node, ast.Lambda) else False
+        case ast.Name() if isinstance(node.ctx, (ast.Store, ast.Del)):
+            return node.id == name
+        case _:
+            pass
     return any(_scope_statement_binds(child, name) for child in ast.iter_child_nodes(node))

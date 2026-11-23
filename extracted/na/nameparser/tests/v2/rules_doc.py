@@ -133,6 +133,9 @@ POLICIES: dict[str, Policy] = {
         name_order=FAMILY_FIRST_GIVEN_LAST, two_family_names=True),
     "two_family_names+middle_as_family": Policy(
         two_family_names=True, middle_as_family=True),
+    "two_family_names+turkic": Policy(
+        two_family_names=True,
+        patronymic_rules=frozenset({PatronymicRule.TURKIC})),
     #: rules/O8's switch (#1254), named after its field as O6's is,
     #: with each order, the rule standing down under both family-first
     #: ones, and with the switches it reads before.
@@ -227,6 +230,11 @@ from nameparser.locales._es_given_names import GIVEN_NAMES  # noqa: E402
 #: a rule names the data as it names the switch.
 _ES_GIVEN = Lexicon.default() | Lexicon(given_names=GIVEN_NAMES)
 CONFIGS: dict[str, tuple[Policy, Lexicon]] = {
+    #: rules/N4's opt-in markers (#1164), shipped off by default: the
+    #: default policy with a lexicon that turns both on, the call
+    #: docs/customize.rst teaches.
+    "aka+alias": (Policy(), Lexicon.default().add(
+        "aka", "alias", kind="alias_marker")),
     "two_family_names+es_given_names": (
         POLICIES["two_family_names"], _ES_GIVEN),
     "family-first+two_family_names+es_given_names": (

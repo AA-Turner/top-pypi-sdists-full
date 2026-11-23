@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.public_ingress_protocol import PublicIngressProtocol
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PublicIngressSpec")
 
@@ -20,16 +21,24 @@ class PublicIngressSpec:
         Attributes:
             protocol (PublicIngressProtocol): HTTP/HTTPS application-layer ingress protocol.
             runtime_port (int): Port inside the runtime VM.
+            hostname_label (str | Unset): Stable custom hostname label for this port, for example `foxden`. The
+                port is then reachable at `<label>.<ingress domain>`, for example
+                `foxden.runta.sh`. This is a preview. It is available only when the
+                deployment enables custom hostnames. A PATCH that replaces
+                `ingress_specs` without `hostname_label` for this port clears the label.
     """
 
     protocol: PublicIngressProtocol
     runtime_port: int
+    hostname_label: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         protocol = self.protocol.value
 
         runtime_port = self.runtime_port
+
+        hostname_label = self.hostname_label
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -39,6 +48,8 @@ class PublicIngressSpec:
                 "runtime_port": runtime_port,
             }
         )
+        if hostname_label is not UNSET:
+            field_dict["hostname_label"] = hostname_label
 
         return field_dict
 
@@ -49,9 +60,12 @@ class PublicIngressSpec:
 
         runtime_port = d.pop("runtime_port")
 
+        hostname_label = d.pop("hostname_label", UNSET)
+
         public_ingress_spec = cls(
             protocol=protocol,
             runtime_port=runtime_port,
+            hostname_label=hostname_label,
         )
 
         public_ingress_spec.additional_properties = d

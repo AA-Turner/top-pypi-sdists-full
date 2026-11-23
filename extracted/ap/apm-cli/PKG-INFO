@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apm-cli
-Version: 0.37.0
+Version: 0.38.1
 Summary: MCP configuration tool
 Author-email: Daniel Meppiel <user@example.com>
 License: 
@@ -421,7 +421,7 @@ Then follow the **[Quickstart](https://microsoft.github.io/apm/quickstart/)**: a
 Teach your coding agent to use APM with the [official guide](https://github.com/microsoft/apm/tree/main/packages/apm-guide) (an expert agent plus the `apm-usage` skill):
 
 ```bash
-apm install microsoft/apm/packages/apm-guide#v0.37.0
+apm install microsoft/apm/packages/apm-guide#v0.38.1
 ```
 
 ## Community

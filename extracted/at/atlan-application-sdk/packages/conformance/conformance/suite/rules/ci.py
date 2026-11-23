@@ -10,7 +10,6 @@ from conformance.suite.schema.catalog import (
 from conformance.suite.schema.disposition import (
     EnforcementTier,
     FixLocus,
-    RuleMechanism,
     RuleScope,
 )
 
@@ -28,7 +27,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.BOTH,
         name="UnpinnedActionReference",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="supply-chain",
         autofixable=True,
         orthogonal_gate="skip",
@@ -52,7 +50,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "`atlanhq/` org are exempt (they intentionally track @main); local "
             "`./` composite-action refs are exempt (no version to pin)."
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c001",
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/ci.prose.md",
@@ -70,7 +67,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="BootstrapWorkflowDrift",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="ci-consistency",
         autofixable=True,
         orthogonal_gate="skip",
@@ -145,7 +141,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "to Harbor. Set it with `--use-ghcr-base` or by hand; pass "
             "`--use-ghcr-base false` to remove it."
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c002",
         remediation_reference=RemediationReference(
             kind=RemediationKind.COMMAND,
             target="atlan-application-sdk-conformance bootstrap --json",
@@ -168,7 +163,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.BOTH,
         name="GitignoreMissingEntry",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="ci-consistency",
         # False rather than a per-finding-shape split: this ID covers two
         # cases with different remediability (see full_description) — the
@@ -202,7 +196,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "on an existing `.gitignore` always requires human judgment and is not "
             "autofixed, which is why this rule's `autofixable` is false overall."
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c003",
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/ci.prose.md",
@@ -221,7 +214,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.BOTH,
         name="UnretriedToolDownload",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="ci-reliability",
         # Not autofixable: the right remediation differs per site — wrap in
         # with-retry.sh, add curl/wget retry flags, or (best) stop downloading
@@ -263,7 +255,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "taking the tool from the runner tool cache, or from "
             "`atlanhq/application-sdk/.github/actions/setup-deps@main`."
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c004",
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/ci.prose.md",

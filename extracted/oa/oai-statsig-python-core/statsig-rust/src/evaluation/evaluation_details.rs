@@ -8,6 +8,8 @@ pub struct EvaluationDetails {
     pub lcut: Option<u64>,
     pub received_at: Option<u64>,
     pub version: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub served_version: Option<u32>,
 }
 
 impl EvaluationDetails {
@@ -69,6 +71,7 @@ impl EvaluationDetails {
             lcut: Some(lcut),
             received_at,
             version,
+            served_version: None,
         }
     }
 
@@ -79,6 +82,7 @@ impl EvaluationDetails {
             lcut: None,
             received_at: None,
             version: None,
+            served_version: None,
         }
     }
 
@@ -89,6 +93,7 @@ impl EvaluationDetails {
             lcut: None,
             received_at: None,
             version: None,
+            served_version: None,
         }
     }
 
@@ -105,6 +110,7 @@ impl EvaluationDetails {
                 lcut: None,
                 received_at: None,
                 version: eval_result.version,
+                served_version: None,
             };
         }
 
@@ -114,6 +120,7 @@ impl EvaluationDetails {
                 lcut: Some(lcut),
                 received_at,
                 version: eval_result.version,
+                served_version: None,
             };
         }
 
@@ -122,6 +129,7 @@ impl EvaluationDetails {
             lcut: Some(lcut),
             received_at,
             version: eval_result.version,
+            served_version: eval_result.served_version,
         }
     }
 }

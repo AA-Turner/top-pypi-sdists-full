@@ -166,13 +166,17 @@ _SOURCES: dict[tuple[str, str], tuple[str, str] | None] = {
     ("_render", "_INITIAL"): ("_vocab", "_INITIAL"),
     # SAME object, imported for the one-case letter initial (#723)
     ("_classify", "_INITIAL"): ("_vocab", "_INITIAL"),
+    # rules/P12's plain-word letter test (#1464), its own only copy
+    ("_classify", "_HAS_LETTER"): None,
+    # rules/P12's four-word count (#1464), compiled from `_vocab._LETTER`,
+    # a pattern string no module compiles alone
+    ("_post_rules", "_HAS_LETTER"): None,
     # Deliberately NOT a straight copy -- _INITIAL's period
     # alternative, pinned by the dedicated test above:
     ("_render", "_DOTTED_INITIAL"): None,
     # #542: the name run after an Mc prefix, read on the word as
     # written once _MC has matched its composed spelling
     ("_render", "_NAME_RUN"): None,
-    ("_tokenize", "_BIDI"): None,
     # Mirrors _pipeline._state.COMMA_CHARS, a set rather than a
     # pattern -- pinned by its own test below
     ("_render", "_COMMA_CHAR"): None,

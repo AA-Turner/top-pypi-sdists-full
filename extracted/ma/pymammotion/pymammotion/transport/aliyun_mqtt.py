@@ -29,6 +29,7 @@ from pymammotion.aliyun.exceptions import DeviceUnboundException
 from pymammotion.data.mqtt.event import ThingEventMessage
 from pymammotion.data.mqtt.properties import ThingPropertiesMessage
 from pymammotion.data.mqtt.status import ThingStatusMessage
+from pymammotion.http.model.http import RateLimitedError
 from pymammotion.transport.base import (
     AccountInUseError,
     ReLoginRequiredError,
@@ -36,6 +37,7 @@ from pymammotion.transport.base import (
     TransportAvailability,
     TransportError,
     TransportType,
+    is_transient_network_error,
 )
 from pymammotion.transport.cloud import (
     ACCOUNT_IN_USE_RETRY_SEC,
@@ -101,7 +103,7 @@ class AliyunMQTTConfig:
     keepalive: int = _MQTT_KEEPALIVE
 
     @classmethod
-    def from_aliyun_credentials(
+    def from_aliyun_credentials(  # noqa: PLR0917 — preserve the existing positional API
         cls,
         region_id: str,
         product_key: str,
@@ -265,6 +267,7 @@ class AliyunMQTTTransport(CloudTransport):
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._task
+        await self._settle_abandoned_connects()
         self._availability = TransportAvailability.DISCONNECTED
         self._client = None
         # Nothing reports a transition once the loop is gone, so a held lock ends here.
@@ -398,6 +401,28 @@ class AliyunMQTTTransport(CloudTransport):
             except Exception:
                 _logger.exception("on_account_in_use_changed callback failed")
 
+    async def _refresh_after_rejection(self, cycles: int, give_up_reason: str) -> bool:
+        """Ask the host to refresh the bind credentials after the broker refused them.
+
+        True means reconnect now with the refreshed token.  False means either a
+        transient failure — the loop backs off without spending the refresh budget —
+        or a give-up, which this handles and which stops the loop.
+        """
+        fatal = ReLoginRequiredError("", give_up_reason)
+        if self.on_auth_failure is not None and cycles < _MAX_AUTH_REFRESH_CYCLES:
+            try:
+                if await self.on_auth_failure():
+                    return True
+            except ReLoginRequiredError as exc:
+                fatal = exc
+            except Exception as exc:
+                if is_transient_network_error(exc) or isinstance(exc, RateLimitedError):
+                    _logger.warning("Aliyun credential refresh failed transiently — backing off: %s", exc)
+                    return False
+                _logger.warning("on_auth_failure callback failed", exc_info=True)
+        await self._handle_fatal_auth_error(fatal)
+        return False
+
     @staticmethod
     async def get_ssl_context() -> ssl.SSLContext:
         """Build the TLS context for the Aliyun broker with the pinned CA bundle loaded."""
@@ -410,14 +435,11 @@ class AliyunMQTTTransport(CloudTransport):
         await loop.run_in_executor(None, context.load_verify_locations, _CA_CERT_FILE)
         return context
 
-    async def _run(self) -> None:  # noqa: C901
+    async def _run(self) -> None:
         """Run the main Aliyun MQTT connection loop, reconnecting with exponential backoff."""
         backoff = MQTT_RECONNECT_MIN_SEC
-        #: Consecutive credential-refresh reconnect cycles without the broker accepting
-        #: the session (an accepted bind_reply or real device traffic).  Bounds the
-        #: rc-4/5 and bind_reply-2043 refresh loops: a refresh that "succeeds" but is
-        #: rejected by the broker again must not retry forever with zero backoff —
-        #: that hammers Aliyun (historically: account blocks).
+        # Refresh-reconnect cycles since the broker last accepted the session: bounds the
+        # rc-4/5 and bind_reply-2043 loops, which otherwise hammer Aliyun into an account block.
         auth_refresh_cycles = 0
 
         _tls_context = await self.get_ssl_context()
@@ -427,42 +449,11 @@ class AliyunMQTTTransport(CloudTransport):
             await self._notify_availability(TransportAvailability.CONNECTING)
             client_id, password = self._build_credentials()
             try:
-                async with aiomqtt.Client(
-                    hostname=self._config.host,
-                    port=self._config.port,
-                    username=self._config.username,
-                    password=password,
-                    identifier=client_id,
-                    keepalive=self._config.keepalive,
-                    tls_context=_tls_context,
-                    protocol=aiomqtt.ProtocolVersion.V311,
-                    timeout=60,
-                    max_inflight_messages=_MQTT_MAX_INFLIGHT,
-                    max_queued_incoming_messages=_MQTT_MAX_QUEUED,
-                ) as client:
+                async with self._connected_client(self._new_client(client_id, password, _tls_context)) as client:
                     self._client = client
-                    # Only the reconnect backoff resets on a handshake; the auth
-                    # refresh budget waits for the broker to accept the bind.
+                    # Only the backoff resets on a handshake; the bind may yet be refused (2152/2043).
                     backoff = MQTT_RECONNECT_MIN_SEC
-                    # A handshake is not a usable session (the bind may yet be 2152/2043); bind 200 announces it.
-
-                    for topic in self._effective_subscribe_topics():
-                        await client.subscribe(topic, qos=1)
-
-                    # Send the Aliyun IoT bind message to register the app client
-                    bind_topic = f"/sys/{self._config.product_key}/{self._config.device_name}/app/up/account/bind"
-                    await client.publish(
-                        bind_topic,
-                        json.dumps(
-                            {
-                                "id": "msgid1",
-                                "version": "1.0",
-                                "request": {"clientId": self._config.username},
-                                "params": {"iotToken": self._iot_token},
-                            }
-                        ),
-                        qos=1,
-                    )
+                    await self._subscribe_and_bind(client)
 
                     async for message in client.messages:
                         if self._stop_event.is_set():
@@ -471,75 +462,27 @@ class AliyunMQTTTransport(CloudTransport):
                         topic = str(message.topic)
                         raw = bytes(message.payload)
                         if topic.endswith("/account/bind_reply"):
-                            code = self._handle_bind_reply(raw)
-                            if code == 2152:
-                                msg = "Aliyun account is held by another session (bind_reply 2152)"
-                                raise AccountInUseError(msg)
-                            if code == 2043:
-                                raise SessionExpiredError(
-                                    TransportType.CLOUD_ALIYUN,
-                                    "Aliyun IoT token rejected by broker (bind_reply 2043) — token needs refresh",
-                                )
-                            if code == 200:
+                            if await self._on_bind_reply(raw):
                                 auth_refresh_cycles = 0
-                                if self._account_in_use:
-                                    _logger.info("Aliyun account lock released — bind accepted")
-                                    await self._set_account_in_use(False)
-                                if self._availability is not TransportAvailability.CONNECTED:
-                                    await self._notify_availability(TransportAvailability.CONNECTED)
                             continue
-                        # A non-bind message means the broker is serving this session.
-                        # The refresh budget resets only on an accepted bind or HERE —
-                        # never on a rejecting bind_reply and never at connect time: a
-                        # TCP CONNECT succeeds even when the bind is about to be rejected,
-                        # and resetting there made _MAX_AUTH_REFRESH_CYCLES unreachable
-                        # (a ~1s refresh/reconnect loop — the account-blocking hammer).
+                        # Any other message means the broker is serving this session; a TCP connect does not.
                         auth_refresh_cycles = 0
-                        if topic.endswith("/thing/status"):
-                            await self._dispatch_device_status(topic, raw)
-                        elif topic.endswith(("/thing/events", "/thing/properties")):
-                            await self._dispatch_aliyun_event(topic, raw)
-                        else:
-                            result = self._unwrap_envelope(topic, raw)
-                            if result is not None:
-                                decoded, iot_id = result
-                                if self.on_device_message is not None:
-                                    # Per-device routing is registered, so an envelope we
-                                    # can't attribute is dropped rather than handed to the
-                                    # raw callback — that would feed one device's frame to
-                                    # whichever handle happened to own the shared slot.
-                                    # Mirrors MQTTTransport._dispatch_message.
-                                    if iot_id:
-                                        await self.on_device_message(iot_id, decoded)
-                                    else:
-                                        _logger.debug(
-                                            "AliyunMQTTTransport: envelope on %s carries no iotId — dropping",
-                                            topic,
-                                        )
-                                elif self.on_message is not None:
-                                    await self.on_message(decoded)
+                        await self._dispatch_message(topic, raw)
 
             except aiomqtt.MqttCodeError as exc:
                 rc = exc.rc
                 if rc in (4, 5):
                     _logger.error("Aliyun MQTT auth refused (rc=%s): %s — attempting credential refresh", rc, exc)
-                    if self.on_auth_failure is not None and auth_refresh_cycles < _MAX_AUTH_REFRESH_CYCLES:
-                        try:
-                            if await self.on_auth_failure():
-                                auth_refresh_cycles += 1
-                                _logger.info("Aliyun credentials refreshed after auth failure — retrying")
-                                await asyncio.sleep(backoff)
-                                backoff = min(backoff * 2, MQTT_RECONNECT_MAX_SEC_ALIYUN)
-                                continue
-                        except ReLoginRequiredError as relogin_exc:
-                            await self._handle_fatal_auth_error(relogin_exc)
-                            raise
-                        except Exception:
-                            _logger.warning("on_auth_failure callback failed", exc_info=True)
-                    fatal = ReLoginRequiredError("", f"Aliyun MQTT auth exhausted (rc={rc})")
-                    await self._handle_fatal_auth_error(fatal)
-                    raise fatal from exc
-                _logger.warning("Aliyun MQTT error (rc=%s): %s — retry in %ds", rc, exc, backoff)
+                    if await self._refresh_after_rejection(
+                        auth_refresh_cycles, f"Aliyun MQTT auth exhausted (rc={rc})"
+                    ):
+                        auth_refresh_cycles += 1
+                        _logger.info("Aliyun credentials refreshed after auth failure — retrying")
+                        await asyncio.sleep(backoff)
+                        backoff = min(backoff * 2, MQTT_RECONNECT_MAX_SEC_ALIYUN)
+                        continue
+                else:
+                    _logger.warning("Aliyun MQTT error (rc=%s): %s — retry in %ds", rc, exc, backoff)
             except AccountInUseError:
                 account_locked = True
                 self._client = None
@@ -551,22 +494,12 @@ class AliyunMQTTTransport(CloudTransport):
                 await self._set_account_in_use(True)
             except SessionExpiredError as exc:
                 _logger.warning("Aliyun bind token expired — attempting credential refresh: %s", exc)
-                if self.on_auth_failure is not None and auth_refresh_cycles < _MAX_AUTH_REFRESH_CYCLES:
-                    try:
-                        if await self.on_auth_failure():
-                            auth_refresh_cycles += 1
-                            _logger.info("Aliyun credentials refreshed after bind token expiry — reconnecting")
-                            await asyncio.sleep(backoff)
-                            backoff = min(backoff * 2, MQTT_RECONNECT_MAX_SEC_ALIYUN)
-                            continue
-                    except ReLoginRequiredError as relogin_exc:
-                        await self._handle_fatal_auth_error(relogin_exc)
-                        raise
-                    except Exception:
-                        _logger.warning("on_auth_failure callback failed", exc_info=True)
-                fatal = ReLoginRequiredError("", f"Aliyun bind token unrecoverable: {exc}")
-                await self._handle_fatal_auth_error(fatal)
-                raise fatal from exc
+                if await self._refresh_after_rejection(auth_refresh_cycles, f"Aliyun bind token unrecoverable: {exc}"):
+                    auth_refresh_cycles += 1
+                    _logger.info("Aliyun credentials refreshed after bind token expiry — reconnecting")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, MQTT_RECONNECT_MAX_SEC_ALIYUN)
+                    continue
             except aiomqtt.MqttError as exc:
                 _logger.debug("Aliyun MQTT disconnected: %s — retry in %ds", exc, backoff)
             except asyncio.CancelledError:
@@ -592,6 +525,84 @@ class AliyunMQTTTransport(CloudTransport):
                     break
                 if not account_locked:
                     backoff = min(backoff * 2, MQTT_RECONNECT_MAX_SEC_ALIYUN)
+
+    def _new_client(self, client_id: str, password: str, tls_context: ssl.SSLContext) -> aiomqtt.Client:
+        """Build the broker client for one connection attempt."""
+        return aiomqtt.Client(
+            hostname=self._config.host,
+            port=self._config.port,
+            username=self._config.username,
+            password=password,
+            identifier=client_id,
+            keepalive=self._config.keepalive,
+            tls_context=tls_context,
+            protocol=aiomqtt.ProtocolVersion.V311,
+            timeout=60,
+            max_inflight_messages=_MQTT_MAX_INFLIGHT,
+            max_queued_incoming_messages=_MQTT_MAX_QUEUED,
+        )
+
+    async def _subscribe_and_bind(self, client: aiomqtt.Client) -> None:
+        """Subscribe the topics, then publish the account bind that registers this app client."""
+        for topic in self._effective_subscribe_topics():
+            await client.subscribe(topic, qos=1)
+        bind_topic = f"/sys/{self._config.product_key}/{self._config.device_name}/app/up/account/bind"
+        await client.publish(
+            bind_topic,
+            json.dumps(
+                {
+                    "id": "msgid1",
+                    "version": "1.0",
+                    "request": {"clientId": self._config.username},
+                    "params": {"iotToken": self._iot_token},
+                }
+            ),
+            qos=1,
+        )
+
+    async def _on_bind_reply(self, raw: bytes) -> bool:
+        """Act on a bind_reply; True when the broker accepted the bind.
+
+        Raises:
+            AccountInUseError: 2152, another session holds the account.
+            SessionExpiredError: 2043, the iotToken was rejected.
+
+        """
+        code = self._handle_bind_reply(raw)
+        if code == 2152:
+            msg = "Aliyun account is held by another session (bind_reply 2152)"
+            raise AccountInUseError(msg)
+        if code == 2043:
+            raise SessionExpiredError(
+                TransportType.CLOUD_ALIYUN,
+                "Aliyun IoT token rejected by broker (bind_reply 2043) — token needs refresh",
+            )
+        if code != 200:
+            return False
+        if self._account_in_use:
+            _logger.info("Aliyun account lock released — bind accepted")
+            await self._set_account_in_use(False)
+        if self._availability is not TransportAvailability.CONNECTED:
+            await self._notify_availability(TransportAvailability.CONNECTED)
+        return True
+
+    async def _dispatch_message(self, topic: str, raw: bytes) -> None:
+        """Route a non-bind message to the status, event or per-device callback."""
+        if topic.endswith("/thing/status"):
+            await self._dispatch_device_status(topic, raw)
+        elif topic.endswith(("/thing/events", "/thing/properties")):
+            await self._dispatch_aliyun_event(topic, raw)
+        elif (result := self._unwrap_envelope(topic, raw)) is not None:
+            decoded, iot_id = result
+            if self.on_device_message is not None:
+                # With per-device routing registered, an unattributable envelope is dropped,
+                # never handed to whichever handle owns the raw callback.
+                if iot_id:
+                    await self.on_device_message(iot_id, decoded)
+                else:
+                    _logger.debug("AliyunMQTTTransport: envelope on %s carries no iotId — dropping", topic)
+            elif self.on_message is not None:
+                await self.on_message(decoded)
 
     # ------------------------------------------------------------------
     # Device status dispatch

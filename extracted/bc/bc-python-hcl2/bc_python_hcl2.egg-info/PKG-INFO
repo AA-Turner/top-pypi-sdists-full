@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bc-python-hcl2
-Version: 0.4.3
+Version: 0.4.5
 Summary: A parser for HCL2
 Home-page: https://github.com/bridgecrewio/python-hcl2
 Author: bridgecrew
@@ -24,6 +24,18 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lark>=1.0.0
 Requires-Dist: importlib-resources<7.0.0,>=2.0.0; python_version < "3.9"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![Build Status](https://github.com/bridgecrewio/python-hcl2/workflows/build/badge.svg)](https://github.com/bridgecrewio/python-hcl2/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python-hcl2/master/LICENSE)

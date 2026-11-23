@@ -20,12 +20,20 @@ from bitfab.gmail_sandbox import (
     is_gmail_call,
     mailbox_from_recorded_calls,
 )
+from bitfab.mock_override import MockOverrideCtx
 from bitfab.sandbox import (
     Sandbox,
     SandboxStartCtx,
     combine_sandboxes,
     without_sandbox,
 )
+from bitfab.slack_calls import install as install_slack_interception
+from bitfab.slack_sandbox import (
+    SLACK_SANDBOX_NAME,
+    build_slack_sandbox,
+    urllib_transport,
+)
+from bitfab.slack_sandbox import Transport as SlackTransport
 
 RECORDED = "recorded"
 SandboxModeSetting = bool | str
@@ -139,6 +147,7 @@ def gmail_sandbox(
             integration="gmail",
             mode=READ_REAL_WRITE_FAKE,
             load=_load_live,
+            is_write=is_gmail_write,
         )
     if mode != RECORDED:
         raise ValueError(
@@ -159,10 +168,81 @@ def gmail_sandbox(
         integration="gmail",
         mode=RECORDED,
         load=_load_recorded,
+        is_write=is_gmail_write,
     )
 
 
 GMAIL_MODES = (READ_REAL_WRITE_FAKE, RECORDED)
+GMAIL_READ_VERBS = frozenset({"get", "list", "getProfile"})
+
+
+def is_gmail_write(call: MockOverrideCtx) -> bool:
+    return call.node.trace_function_key.rsplit(".", 1)[-1] not in GMAIL_READ_VERBS
+
+
+def slack_sandbox(
+    token: str | None = None,
+    api_url: str | None = None,
+    mode: str = READ_REAL_WRITE_FAKE,
+    start: Callable[[SandboxStartCtx], Any] | None = None,
+    _transport: SlackTransport | None = None,
+) -> Sandbox:
+    """The Slack sandbox: answers Slack Web API calls during replay, never sending a write to Slack.
+
+    It answers calls made through ``slack_sdk``'s ``WebClient`` and
+    ``AsyncWebClient`` and calls made with ``requests`` to ``slack.com/api``.
+    Reads go to the real workspace as it stood when the original trace
+    started: channel history and thread replies stop at that time, and search
+    results after it are dropped. Messages, edits, deletions, reactions, new
+    conversations and file uploads stay in the sandbox for the rest of the
+    replay item and show on later reads. A method it does not know is refused,
+    and a missing or refused token fails the replay item, even when the
+    replayed code catches the error.
+
+    It is off until a replay asks for it, with
+    ``replay(sandbox_modes={"slack": True})`` or by passing
+    ``slack_sandbox(...)`` in ``sandboxes``.
+
+    Args:
+        token: ``"read-real-write-fake"`` mode only. The Slack token that
+            reads the real workspace. ``None`` uses the ``BITFAB_SLACK_TOKEN``
+            environment variable, and without that the token each replayed
+            call was made with. It is never written to a span, the sandbox's
+            state, or the replay trace.
+        api_url: ``"read-real-write-fake"`` mode only. Where reads are sent.
+            ``None`` reads from the URL each replayed call's client points
+            at, which is ``https://slack.com/api/`` unless the client was
+            given another.
+        mode: ``"read-real-write-fake"`` (default) reads the real workspace
+            as described above. ``"recorded"`` never reaches Slack and needs
+            no token: it answers reads from the Slack calls the original
+            trace recorded. Channel history and thread replies come from the
+            messages the original run read, so a replay that reads them in a
+            new way is still answered; any other read gets the recorded reply
+            to the same call. A read the trace has nothing for fails the
+            replay item. Writes stay in the sandbox in both modes.
+        start: ``"recorded"`` mode only. Builds the workspace for one replay
+            item from a ``SandboxStartCtx``. Return
+            ``{"recordedChannels": {channel_id: [message, ...]},
+            "recordedReads": [{"method": ..., "params": {...},
+            "response": {...}}]}``; either key may be left out. ``None`` uses
+            ``recorded_start_state``. A sandbox store's Slack entry takes the
+            same shape.
+    """
+    if mode == RECORDED and (token is not None or api_url is not None):
+        raise ValueError(
+            f'slack_sandbox(token=..., api_url=...) are for mode="{READ_REAL_WRITE_FAKE}"; '
+            f'mode="{RECORDED}" never reads the real workspace.'
+        )
+    if mode != RECORDED and start is not None:
+        raise ValueError(
+            f'slack_sandbox(start=...) builds a recorded workspace; mode="'
+            f'{READ_REAL_WRITE_FAKE}" reads the real one instead. Pass one or the other.'
+        )
+    install_slack_interception()
+    return build_slack_sandbox(
+        token, api_url, _transport or urllib_transport, mode, start
+    )
 
 
 @dataclass(frozen=True)
@@ -185,6 +265,14 @@ SERVICE_MODES: dict[str, ServiceModes] = {
         sandbox_name=GITHUB_SANDBOX_NAME,
         default_mode=READ_REAL_WRITE_FAKE,
         modes={READ_REAL_WRITE_FAKE: github_sandbox},
+    ),
+    "slack": ServiceModes(
+        sandbox_name=SLACK_SANDBOX_NAME,
+        default_mode=READ_REAL_WRITE_FAKE,
+        modes={
+            READ_REAL_WRITE_FAKE: slack_sandbox,
+            RECORDED: lambda: slack_sandbox(mode=RECORDED),
+        },
     ),
 }
 

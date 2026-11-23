@@ -54,7 +54,7 @@ fn ef_base_handles_skew_bounds_arbitrary_strings_and_borrowed_iteration() {
     assert!(!heap.is_mapped() && m.is_mapped());
     assert_eq!(&*heap.map, &*m.map);
     assert!(heap.is_compact() && heap.map.len() < 8 * orig.len());
-    assert!(heap.iter_keys.get().is_none() && heap.content_digest.get().is_none());
+    assert!(heap.iter_keys.get().is_none());
     assert!(m.ef.is_some());
     assert_eq!(m.len(), orig.len());
     assert!(m.iter_keys.get().is_none());
@@ -79,10 +79,6 @@ fn ef_base_handles_skew_bounds_arbitrary_strings_and_borrowed_iteration() {
     {
         assert_eq!(heap.contains(key), orig.contains(key));
         assert_eq!(m.contains(key), orig.contains(key));
-        assert_eq!(
-            m.contains_hashed(key, stable_hash(key.as_bytes())),
-            orig.contains(key)
-        );
     }
     for x in 0..10000 {
         let key = spelling((x * 0x9e37_79b9_7f4bu64) & ((1 << 48) - 1));
@@ -94,44 +90,6 @@ fn ef_base_handles_skew_bounds_arbitrary_strings_and_borrowed_iteration() {
     let f2 = NamedTempFile::new().unwrap();
     std::fs::write(f2.path(), bytes).unwrap();
     assert!(IdListImage::open(f2.path(), &[7; 32], "mixed").is_err());
-}
-
-#[test]
-fn delta_requires_an_in_bounds_v2_hash_table() {
-    use crate::id_lists_adapter::shared_id_list_delta::MappedDelta;
-    let ns = [11; 32];
-    let name = "mixed";
-    let base = "list-test.ids";
-    let open = |table: &[u8], declared_len: u64| {
-        let mut delta = vec![0; 72];
-        delta[..8].copy_from_slice(b"STGDELT\0");
-        delta[8..12].copy_from_slice(&1u32.to_le_bytes());
-        delta[16..24].copy_from_slice(&declared_len.to_le_bytes());
-        delta[24..32].copy_from_slice(&1u64.to_le_bytes());
-        delta[40..72].copy_from_slice(&digest(base.as_bytes()));
-        delta.extend_from_slice(table);
-        let f = NamedTempFile::new().unwrap();
-        std::fs::write(f.path(), delta).unwrap();
-        MappedDelta::open(f.path(), &ns, name, base).map(drop)
-    };
-
-    let mut plain = NamedTempFile::new().unwrap();
-    write_list(plain.as_file_mut(), &ns, name, &IdListIds::new()).unwrap();
-    let table = std::fs::read(plain.path()).unwrap();
-    let len = table.len() as u64;
-    open(&table, len).unwrap();
-    for declared in [len - 1, len + 1, u64::MAX] {
-        let err = open(&table, declared).expect_err("invalid table extent");
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData, "length {declared}");
-    }
-
-    // An EF-only table also has zero hash slots, but no operation bits for its key.
-    let ids = IdListIds::from(["AAAAAAAA".to_owned()]);
-    let mut compact = NamedTempFile::new().unwrap();
-    write_list_with_format(compact.as_file_mut(), &ns, name, &ids, true).unwrap();
-    let table = std::fs::read(compact.path()).unwrap();
-    let err = open(&table, table.len() as u64).expect_err("EF inside delta");
-    assert_eq!(err.kind(), io::ErrorKind::InvalidData);
 }
 
 #[test]
@@ -157,7 +115,7 @@ fn ef_rejects_canonical_member_in_residual_raw_eight_partition() {
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     // A plain v2 hash image still accepts canonical and arbitrary raw-eight strings.
     let mut plain = NamedTempFile::new().unwrap();
-    write_image_keys(plain.as_file_mut(), &ns, name, ids.collect_image_keys()).unwrap();
+    write_list(plain.as_file_mut(), &ns, name, &ids).unwrap();
     let view = IdListImage::open(plain.path(), &ns, name).unwrap();
     assert!(view.contains("AAAAAAAA") && view.contains("!!!!bad!"));
 }

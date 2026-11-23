@@ -31,76 +31,78 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dynamic = [
     "version",
 ]
 dependencies = [
-    "beartype>=0.22.9",
+    "beartype>=0.23.0",
     "markdown-it-py>=3.0.0",
-    "myst-parser>=5.0.0",
+    "myst-parser>=5.2.0",
     "sybil>=9.3.0",
     "typing-extensions>=4.4.0",
 ]
-optional-dependencies.karva = [ "karva==0.0.1a12" ]
+optional-dependencies.karva = [ "karva==0.0.1a13" ]
 urls.Documentation = "https://adamtheturtle.github.io/sybil-extras/"
 urls.Source = "https://github.com/adamtheturtle/sybil-extras"
 
 [dependency-groups]
 dev = [
     "actionlint-py==1.7.12.25",
-    "beartype==0.23.0rc2",
+    "beartype==0.23.1",
     "charset-normalizer==3.5.2",
     "check-manifest==0.51",
-    "click==8.5.0",
+    "click==8.5.1",
     "deptry==0.25.1",
     "doc8==2.0.0",
+    "doc8-inline-markup==2026.11.18.3; python_version>='3.12'",
     "furo==2025.12.19",
     "interrogate==1.7.0",
-    "karva==0.0.1a12",
-    "mypy==2.4.0",
+    "karva==0.0.1a13",
+    "mypy==2.4.1",
     "mypy-pytest-parametrize==2026.10.5.1",
-    "mypy-strict-kwargs==2026.8.25.1",
+    "mypy-strict-kwargs==2026.10.19",
     "no-defaults==2026.9.1",
-    "prek==0.5.5",
+    "prek==0.5.11",
     "pydocstringformatter==1.0.0",
     "pydocstyle==6.3",
-    "pylint[spelling]==4.1.2",
+    "pylint[spelling]==4.1.4",
     "pylint-per-file-ignores==4.0.0",
-    "pyproject-fmt==2.30.1",
-    "pyrefly==1.3.2",
+    "pyproject-fmt==2.30.6",
+    "pyrefly==1.4.1",
     "pyright==1.1.414",
     "pyroma==5.0.1",
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-beartype==0.3.0",
     "pytest-cov==7.1.0",
-    "ruff==0.16.10",
+    "ruff==0.17.5",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
     "shellcheck-py==0.11.0.1",
     "shfmt-py==4.2.0",
-    "snapper-fmt==0.11.9",
+    "snapper-fmt==0.11.10",
     "sphinx>=8.1.3",
     "sphinx-copybutton==0.5.2",
     "sphinx-lint==1.0.2",
     "sphinx-pyproject==0.3.0",
-    "sphinx-substitution-extensions==2026.8.13.1",
+    "sphinx-substitution-extensions==2026.10.9",
     "sphinxcontrib-spelling==8.0.2",
     # ``sphinxcontrib-towncrier`` renders unreleased news fragments
     # as Markdown in docs/source/unreleased.md during Sphinx builds.
     "sphinxcontrib-towncrier==0.5.0a0",
-    "strict-kwargs==2026.8.28.post2",
+    "strict-kwargs==2026.11.14",
     "sybil==10.1.0",
     "towncrier==26.9.0",
-    "ty==0.0.84",
-    "uv==0.12.23",
-    "vale==3.22.0.0",
+    "ty==0.0.105",
+    "uv==0.13.9",
+    "vale==3.27.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.30.1",
+    "zizmor==1.32.0",
 ]
-crosshair = [ "crosshair-tool==0.0.111" ]
+crosshair = [ "crosshair-tool==0.0.113" ]
 release = [ "check-wheel-contents==0.6.3", "towncrier==26.9.0" ]
 
 [tool.setuptools]
@@ -321,6 +323,10 @@ ignore = [
     "zizmor.yml",
 ]
 
+[tool.deptry]
+# The generated test modules import Karva; there is no static source import.
+per_rule_ignores.DEP002 = [ "karva" ]
+
 [tool.vulture]
 # Duplicate some of .gitignore
 exclude = [ ".venv" ]
@@ -369,7 +375,7 @@ ignore_names = [
 [tool.pyproject-fmt]
 indent = 4
 keep_full_version = true
-max_supported_python = "3.14"
+max_supported_python = "3.15"
 
 [tool.mypy]
 files = [ "." ]
@@ -381,6 +387,7 @@ plugins = [
     "mypy_pytest_parametrize",
     "mypy_strict_kwargs",
 ]
+show_traceback = true
 num_workers = "auto"
 
 [tool.pyrefly]

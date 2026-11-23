@@ -679,8 +679,8 @@ class ProvisionalSnapshotOfferingV1(_OfferingBase):
     ``restatement_window`` overrides the SDK's default three-day provisional
     re-read window after period close. ``restatement_cadence`` defaults to the
     configured reporting period (and is never allowed to beat
-    ``fastest_safe_cadence``). Every successful scheduled read is a new immutable
-    observation, including unchanged content. A per-slice ``provisional_until``
+    ``fastest_safe_cadence``). Every successful scheduled read is a durable
+    observation; only changed content creates a revision. A per-slice ``provisional_until``
     is authoritative over this offering default. ``official_close_lag`` still
     requires an explicitly declared window and asks a producer with an
     authoritative offering to publish an official revision after settlement;
@@ -1006,6 +1006,10 @@ class ReportingFinalityEvidenceV1(_Frozen):
     ]
     observed_at: datetime
     evidence_ref: ExternalId | None = None
+    stable_since: datetime | None = Field(
+        default=None,
+        description="Source evidence timestamp preserved without deriving SDK finality policy",
+    )
     provisional_until: datetime | None = None
 
     @model_validator(mode="after")

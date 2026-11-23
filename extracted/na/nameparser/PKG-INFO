@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nameparser
-Version: 3.1.0
+Version: 3.2.0
 Summary: Parse human names into title, given, middle, family, suffix, nickname and maiden name. Typed, zero-dependency, CJK-aware.
 Author-email: Derek Gulbranson <derek73@gmail.com>
 License-Expression: LGPL-2.1-or-later
@@ -43,24 +43,40 @@ nameparser parses human names into seven fields — title, given, middle,
 family, suffix, nickname, maiden. Results are immutable, configuration is
 composable, and locale packs are opt-in.
 
-📣 **nameparser 3.1 reads lists of names, not just one name at a
-time:**
+📣 **nameparser 3.0 removes HumanName and the rest of the 1.x
+compatibility layer:**
+
+* ``HumanName``, ``Constants``, the shared ``CONSTANTS`` and
+  ``nameparser.util`` are gone, along with the 1.x names of the word
+  lists; ``parse()`` and ``Parser`` are the replacement. 2.8 is the
+  last release that has them, and it warns at each use 3.0 removes;
+  `Coming from 1.x or 2.x`_ below says where to start.
+* 3.0 also configures a ``Lexicon`` `by reading
+  <https://nameparser.readthedocs.io/en/latest/customize.html#configuring-by-reading>`__
+  (``Lexicon.default().add("leed", kind="credential")``), renders a
+  name in the order it was written (``str(parse("김민준"))`` is
+  ``'김민준'``), and adds packs that choose the languages a parse reads.
+
+📣 **nameparser 3.1 adds two tools for working with lists of names:**
 
 * ``Parser.suggest()`` reads a list from one source and returns a
   parser configured for how it is written: its name order, its
   patronymics, and family names written as letters or in capitals.
 * ``Parser.matching()`` groups and compares names from several sources.
 
+📣 **nameparser 3.2 adds new vocabulary and locale packs.** Four packs
+are new (Malay, Burmese, Dutch, Portugal), and three more now read two
+family names (Croatian, Slovenian, Brazilian Portuguese). It also reads
+a name written after ``@`` as a nickname, and a parse makes about a
+third fewer function calls than in 3.1.
+
 `Getting started
 <https://nameparser.readthedocs.io/en/latest/getting-started.html>`__
-takes you through both, and the `release log
+takes you through ``suggest`` and ``matching``, and the `release log
 <https://nameparser.readthedocs.io/en/latest/release_log.html>`__ has
-the details. 3.1 also reads Thai titles, a salutation written joined to
-the given name included (``นายสมชาย ใจดี``).
-
-**Upgrading from 1.x or 2.x?** 3.0 removed ``HumanName`` and the rest
-of the 1.x compatibility layer: `Coming from 1.x or 2.x`_ below says
-where to start.
+the details. Please `open an issue
+<https://github.com/derek73/python-nameparser/issues>`__ for anything
+that parses wrong.
 
 Installation
 ------------
@@ -181,6 +197,8 @@ parser splits it off, with no configuration (see `Thai names
     ('นาย', 'สมชาย', 'ใจดี')
     >>> parse("г-н Иван Петров").title             # Cyrillic title
     'г-н'
+    >>> parse("श्री रवि कुमार वर्मा").title          # Hindi: a Devanagari salutation
+    'श्री'
     >>> arabic = parse("محمد بن سلمان")            # Arabic: بن chains onto the family name
     >>> arabic.family, arabic.patronymic          # and marks it a patronymic
     ('بن سلمان', 'بن سلمان')
@@ -209,8 +227,13 @@ the patronymic in Russian. See `Locale packs
     >>> ivan = russian.parse("Сидоров Иван Петрович")
     >>> ivan.given, ivan.patronymic, ivan.family
     ('Иван', 'Петрович', 'Сидоров')
+    >>> parse("Shri Ravi Kumar Verma").given       # romanized, Shri may be a name
+    'Shri'
+    >>> hindi = parser_for(locales.HI)             # the Hindi pack reads the salutation
+    >>> hindi.parse("Shri Ravi Kumar Verma").title
+    'Shri'
     >>> locales.available()                        # every pack that ships
-    ('ar', 'bn', 'cs', 'es', 'es_ar', 'ga', 'gd', 'he', 'hi', 'hr', 'ja', 'mn', 'ne', 'pt', 'pt_br', 'ru', 'sk', 'sl', 'tr_az', 'vi', 'zh')
+    ('ar', 'bn', 'cs', 'es', 'es_ar', 'ga', 'gd', 'he', 'hi', 'hr', 'ja', 'mn', 'ms', 'my', 'ne', 'nl', 'pt', 'pt_br', 'pt_pt', 'ru', 'sk', 'sl', 'tr_az', 'vi', 'zh')
 
 When a reading is wrong for your data
 -------------------------------------
@@ -355,7 +378,12 @@ the sources whose licences ask for credit are credited:
   and ``_es_ar_given_names.py``;
 - part of ``locales.ZH``'s surnames, selected from Taiwan's Ministry of
   the Interior surname ranking (Open Government Data License, version 1),
-  credited in ``nameparser/locales/zh.py``.
+  credited in ``nameparser/locales/zh.py``;
+- the Brazilian Portuguese familiar forms, measured on the candidate
+  files of Brazil's Superior Electoral Court, the Tribunal Superior
+  Eleitoral (Creative Commons Attribution,
+  https://creativecommons.org/licenses/by/4.0/), credited in
+  ``nameparser/vocab/pt-BR.toml``.
 
 .. |Build Status| image:: https://github.com/derek73/python-nameparser/actions/workflows/python-package.yml/badge.svg
    :target: https://github.com/derek73/python-nameparser/actions/workflows/python-package.yml

@@ -1,9 +1,4 @@
-"""Substitution of user-configured dictionary entries into GraphQL argument literals.
-
-Bindings are keyed `<Type>.<field>.<argument>`, where `<Type>` is the type that declares the
-field, so a nested field's arguments are addressed exactly like a root field's. `*` stands for
-any type or field, a dotted suffix descends into input objects, and `[*]` targets list elements.
-"""
+"""Substitution of user-configured dictionary entries into GraphQL argument literals."""
 
 from __future__ import annotations
 
@@ -23,7 +18,7 @@ from schemathesis.config._dictionaries import (
     parse_graphql_path,
 )
 from schemathesis.core.transforms import format_body_path
-from schemathesis.generation.dictionaries import DictionaryDraw
+from schemathesis.generation.dictionaries import DictionaryDraw, draw_paired_entries, pair_dictionaries
 from schemathesis.specs.graphql._helpers import (
     _root_type_for,
     _unwrap,
@@ -39,8 +34,7 @@ if TYPE_CHECKING:
     from schemathesis.config import GenerationConfig
     from schemathesis.schemas import APIOperation
 
-# GraphQL scalar name -> the JSON Schema type its entries are coerced to. Scalars outside this
-# map (`Boolean`, enums, custom scalars) have no dictionary support.
+# JSON Schema type that entries for each scalar are coerced to; `Boolean`, enums and custom scalars get no dictionaries.
 _SCALAR_TYPE_KEYS: Final[dict[str, str]] = {
     "String": "string",
     "ID": "string",
@@ -75,13 +69,16 @@ def resolve_bindings(operation: APIOperation, generation: GenerationConfig) -> O
     # Precedence mirrors OpenAPI: op-specific argument > global argument > type-wide. Among argument
     # bindings, naming both the type and the field beats a `*` in either position.
     config = operation.schema.config
-    dictionaries = config.dictionaries
+    suggestions = operation.schema.suggestions
+    dictionaries = {**suggestions.dictionaries, **config.dictionaries}
     if not dictionaries:
         return _NO_BINDINGS
     operation_config = config.operations.get_for_operation(operation)
     ranked: list[tuple[tuple[int, int], _ArgumentBinding]] = []
     seen: set[str] = set()
-    for scope, source in ((1, operation_config.parameters), (0, config.parameters)):
+    sources = (operation_config.parameters, config.parameters, *suggestions.parameters(operation.label))
+    # The user's bindings rank above suggested values.
+    for scope, source in zip(range(1, 1 - len(sources), -1), sources, strict=True):
         for key, binding in source.items():
             if key in seen or not isinstance(binding, ParameterDictionaryBinding) or not is_graphql_binding_key(key):
                 continue
@@ -101,7 +98,7 @@ def resolve_bindings(operation: APIOperation, generation: GenerationConfig) -> O
     ranked.sort(key=lambda item: item[0], reverse=True)
     type_wide = {
         type_key: (dictionaries[binding.dictionary], binding.probability)
-        for type_key, binding in generation.dictionaries.items()
+        for type_key, binding in {**suggestions.types(operation.label), **generation.dictionaries}.items()
     }
     return OperationBindings(arguments=tuple(binding for _, binding in ranked), type_wide=type_wide)
 
@@ -122,7 +119,7 @@ def substitute_dictionaries(
     operation_label: str,
     random: Random,
 ) -> tuple[graphql.OperationDefinitionNode, list[DictionaryDraw]]:
-    """Replace argument literals with configured dictionary entries. Returns the draws applied too."""
+    """Replace argument literals with configured dictionary entries; also return the applied draws."""
     root = _root_type_for(client_schema, operation_node.operation)
     if root is None:
         return operation_node, []
@@ -151,8 +148,12 @@ def _walk(
             continue
         field_path = (*path, selection.name.value)
         field = (parent_type.name, selection.name.value)
+        paired = _draw_pairs(selection, field_def, field, field_path, context)
         arguments = list(selection.arguments or ())
         for position, argument in enumerate(selection.arguments or ()):
+            if argument.name.value in paired:
+                arguments[position] = replace_node(argument, value=paired[argument.name.value])
+                continue
             argument_definition = field_def.args.get(argument.name.value)
             assert argument_definition is not None, "a generated argument exists on its field"
             replaced = _substitute_value(
@@ -237,6 +238,65 @@ def _scalar_node(
     if not eligible:
         return None
     entry_index, entry_value = context.random.choice(eligible)
+    _record(context, dictionary, entry_index, entry_value, argument_path, body_path)
+    return scalar_value_node(scalar_name, entry_value)
+
+
+def _draw_pairs(
+    selection: graphql.FieldNode,
+    field_def: graphql.GraphQLField,
+    field: tuple[str, str],
+    field_path: tuple[str, ...],
+    context: _Context,
+) -> dict[str, graphql.ValueNode]:
+    """Values for scalar arguments bound to dictionaries whose entries remember each other, drawn together."""
+    bound: dict[str, tuple[_ArgumentBinding, str]] = {}
+    for argument in selection.arguments or ():
+        name = argument.name.value
+        argument_type = graphql.get_nullable_type(field_def.args[name].type)
+        binding = _find_argument_binding(context, field, (name,))
+        if (
+            binding is not None
+            and isinstance(argument_type, graphql.GraphQLScalarType)
+            and argument_type.name in _SCALAR_TYPE_KEYS
+        ):
+            bound[name] = (binding, argument_type.name)
+    # Only a dictionary whose entries remember values of another one leads a pair.
+    if not any(binding.dictionary.origin for binding, _ in bound.values()):
+        return {}
+    # The first argument bound to a dictionary takes part in pairing; another one bound to it draws on its own.
+    argument_for: dict[str, str] = {}
+    for name, (binding, _) in bound.items():
+        argument_for.setdefault(binding.dictionary.name, name)
+    # Values converted to each argument's type, by entry index.
+    eligible: dict[str, dict[int, EntryValue]] = {}
+    for name in argument_for.values():
+        binding, scalar_name = bound[name]
+        eligible[name] = dict(_eligible_entries(binding.dictionary, scalar_name, _SCALAR_TYPE_KEYS[scalar_name]))
+    pairs = pair_dictionaries(
+        {
+            dictionary_name: (bound[name][0].dictionary, bound[name][0].probability, eligible[name])
+            for dictionary_name, name in argument_for.items()
+        }
+    )
+    values: dict[str, graphql.ValueNode] = {}
+    for dictionary_name, entry_index in draw_paired_entries(context.random, pairs).items():
+        name = argument_for[dictionary_name]
+        binding, scalar_name = bound[name]
+        entry_value = eligible[name][entry_index]
+        _record(context, binding.dictionary, entry_index, entry_value, (name,), (*field_path, name))
+        values[name] = scalar_value_node(scalar_name, entry_value)
+    return values
+
+
+def _record(
+    context: _Context,
+    dictionary: DictionaryDefinition,
+    entry_index: int,
+    entry_value: EntryValue,
+    argument_path: tuple[str, ...],
+    body_path: tuple[str, ...],
+) -> None:
     context.draws.append(
         DictionaryDraw(
             dictionary=dictionary.name,
@@ -251,12 +311,11 @@ def _scalar_node(
             body_path=format_body_path(body_path),
         )
     )
-    return scalar_value_node(scalar_name, entry_value)
 
 
-def _find_binding(
-    context: _Context, field: tuple[str, str], argument_path: tuple[str, ...], type_key: str
-) -> tuple[DictionaryDefinition, float] | None:
+def _find_argument_binding(
+    context: _Context, field: tuple[str, str], argument_path: tuple[str, ...]
+) -> _ArgumentBinding | None:
     type_name, field_name = field
     for binding in context.bindings.arguments:
         path = binding.path
@@ -265,7 +324,16 @@ def _find_binding(
             and path.field_name in (WILDCARD, field_name)
             and path.argument == argument_path
         ):
-            return binding.dictionary, binding.probability
+            return binding
+    return None
+
+
+def _find_binding(
+    context: _Context, field: tuple[str, str], argument_path: tuple[str, ...], type_key: str
+) -> tuple[DictionaryDefinition, float] | None:
+    binding = _find_argument_binding(context, field, argument_path)
+    if binding is not None:
+        return binding.dictionary, binding.probability
     return context.bindings.type_wide.get(type_key)
 
 

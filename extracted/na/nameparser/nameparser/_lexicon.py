@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import itertools
+import re
 import sys
 import unicodedata
 import warnings
@@ -83,11 +84,27 @@ FULL_STOPS = ".．。｡"
 # letter, so deleting it changes no word's identity (#1151: `الدكتــور`
 # is the title `الدكتور`). Token text is never rewritten.
 _TATWEEL = "\u0640"
+# rules/T1: "at the edge the word is looked up without it"
+# The zero-width non-joiner and joiner shape the letters on either side
+# of them, so at a word's edge they shape nothing and are dropped when
+# the word is looked up, with the edge full stops (decisions/T1,
+# #1335). Inside a word they stay
+# (`آیت‌الله` is listed with its ZWNJ). Token text is never rewritten,
+# which keeps the ZWJ Malayalam writes at a word's end.
+_EDGE_JOINERS = "\u200c\u200d"
+_NON_ASCII_EDGES = FULL_STOPS + _EDGE_JOINERS
+
+
+def _a(kind: str) -> str:
+    """The article a message writes before a reading's kind: ``an``
+    before a vowel and before ``honorific``, whose h is silent."""
+    return "an" if kind[:1] in "aeiou" or kind == "honorific" else "a"
 
 
 def _normalize(word: str) -> str:
     """Lowercase, NFC-compose, strip whitespace and EDGE full stops
-    (FULL_STOPS, not the ASCII period alone -- #322). Interior periods
+    (FULL_STOPS, not the ASCII period alone -- #322), and in a non-ASCII
+    word an edge ZWNJ or ZWJ with them (#1335). Interior periods
     survive on purpose: 'J.R.' must not collapse to 'jr' and hit the
     periodless vocabulary (v1 parity, pinned live 2026-07-17).
     Suffix-ACRONYM membership alone uses the period-free form (see
@@ -103,6 +120,8 @@ def _normalize(word: str) -> str:
     is what v1's lc() used, preserving which cross-spellings match.
 
     Tatweel (U+0640) is deleted, in a non-ASCII word only (#1151).
+    A ZWNJ or ZWJ at the word's edge is stripped with the edge full
+    stops, in a non-ASCII word only (#1335); one inside the word stays.
 
     NFC, since #322, and only for a non-ASCII word (ASCII is already
     NFC, and this runs per token on the parse path --
@@ -120,12 +139,14 @@ def _normalize(word: str) -> str:
     would change under its owner. v1 never re-normalized, so this only
     matters now that storage and match-time share one fold."""
     word = word.lower()
+    edges = FULL_STOPS
     if not word.isascii():
         word = unicodedata.normalize("NFC", word)
         if _TATWEEL in word:
             word = word.replace(_TATWEEL, "")
+        edges = _NON_ASCII_EDGES
     while True:
-        stripped = word.strip().strip(FULL_STOPS)
+        stripped = word.strip().strip(edges)
         if stripped == word:
             return word
         word = stripped
@@ -263,6 +284,19 @@ def _reject_buffer(value: object, label: str, plural: str) -> None:
             f"{type(value).__name__} -- decode first, e.g. "
             f"raw.decode('utf-8')"
         )
+
+
+@functools.cache
+def _pair_names(category: str) -> frozenset[str]:
+    """Every name a shipped `category` reading (familiar or spelling)
+    lists as its pair's other name, `short_for` or `spelling_of`, read
+    from the reading index once: the names #1535's warning tells apart
+    from a word in no file, whatever pairs a lexicon has compiled."""
+    ri = _index_module()
+    prop = ri.MATCHING_LISTS[category]
+    return frozenset(
+        _normalize(name) for r in ri.index() if r.kind == category
+        for name in r.props.get(prop) or ())
 
 
 def _warn_at_caller(message: str) -> None:
@@ -596,6 +630,24 @@ class _LexiconSets:
     #: the two-word given names a bound word's `completed_by` lists
     #: ('عبد الله'), which rules/P12 joins past the first name word (#694)
     bound_phrases: frozenset[str]
+    #: the bound given names that complete with any plain name word
+    #: after them past the first name word, and the ones of those that
+    #: do so only in a name of four words or more (rules/P12, #1464)
+    bound_completes_any: frozenset[str]
+    bound_long_names_only: frozenset[str]
+    #: the words a bound pair writes second and joins from, and the
+    #: pairs a reading written `completes` lists ('ذو الغنى'); a word
+    #: with a reading listing none joins behind any plain word, at the
+    #: first name word too (rules/P12, #1072)
+    bound_seconds: frozenset[str]
+    bound_second_phrases: frozenset[str]
+    #: the words of `bound_seconds` every reading of which lists
+    #: `completes`, joining behind those words alone
+    bound_seconds_listed: frozenset[str]
+    #: the words that announce a second name the person is known by
+    #: (`@`, `urf`), which rules/N4 reads the words after as the
+    #: nickname (#1164)
+    alias_markers: frozenset[str]
 
 
 #: Lexicon field -> the compiled constant it is read from, for every
@@ -637,6 +689,12 @@ _COMPILED_FIELDS = {
     "dotted_titles": "DOTTED_TITLES",
     "glued_titles": "GLUED_TITLES",
     "bound_phrases": "BOUND_PHRASES",
+    "bound_completes_any": "BOUND_COMPLETES_ANY",
+    "bound_long_names_only": "BOUND_LONG_NAMES_ONLY",
+    "bound_seconds": "BOUND_SECONDS",
+    "bound_second_phrases": "BOUND_SECOND_PHRASES",
+    "bound_seconds_listed": "BOUND_SECONDS_LISTED",
+    "alias_markers": "ALIAS_MARKERS",
 }
 
 #: What the 2.x sets do not record: the kinds the views read (rules/R8,
@@ -699,6 +757,15 @@ _DROPPED = str.maketrans("", "", ".'`\u2019\u02bc\u02bb\u2018\u0640")
 #: below the pipeline, so the match's forms and the lexicon's pair index
 #: (`_forms`) read them alike; `_pipeline._vocab` reads them from here.
 _HYPHEN_CHARS = "-\u2010\u2011\u2012\u2013\u2212\ufe63\uff0d"
+#: A ZWNJ or ZWJ beside whitespace, a hyphen or the text's edge, as
+#: `_normalize` strips one at a token's edge (#1335). The hyphen counts
+#: because the match cuts a family name at its hyphens and folds each
+#: half (`_match._family_words`), so `Smith-Jones` with a ZWNJ before
+#: its hyphen folds alike whole and by halves; one between letters is
+#: kept.
+_NOT_AN_EDGE = r"[^\s" + "".join(f"\\u{ord(c):04x}" for c in _HYPHEN_CHARS) + "]"
+_EDGE_JOINER = re.compile(
+    rf"(?<!{_NOT_AN_EDGE})[\u200c\u200d]+|[\u200c\u200d]+(?!{_NOT_AN_EDGE})")
 _TO_HYPHEN_MINUS = str.maketrans(dict.fromkeys(_HYPHEN_CHARS, "-"))
 #: The scripts whose combining marks `_fold` drops as accents.
 _ACCENTED_SCRIPTS = ("LATIN ", "GREEK ", "CYRILLIC ")
@@ -729,14 +796,18 @@ def _fold(text: str) -> str:
     the marks are read, a mark after one then attaching to the letter
     before it, and again after casefolding, which can write one (U+0149
     `ŉ` casefolds to `ʼn`). The iota subscript U+0345 is a mark like any
-    other, so `ᾳ` folds to `α`. Last, the letters a keyboard lacks
-    are written as one types them (`_KEYBOARD`)."""
+    other, so `ᾳ` folds to `α`. A ZWNJ or ZWJ beside whitespace, a
+    hyphen or the text's edge is dropped with the full stops
+    (`_EDGE_JOINER`), as `_normalize` drops one at a token's edge. Last, the letters a keyboard lacks are written as one types them
+    (`_KEYBOARD`)."""
     if text.isascii():
         # no accent, no composition, and no apostrophe but the typed
         # one and the backtick
         return text.casefold().translate(_DROPPED)
-    decomposed = unicodedata.normalize(
-        "NFD", unicodedata.normalize("NFC", text).translate(_DROPPED))
+    dropped = unicodedata.normalize("NFC", text).translate(_DROPPED)
+    if "\u200c" in dropped or "\u200d" in dropped:
+        dropped = _EDGE_JOINER.sub("", dropped)
+    decomposed = unicodedata.normalize("NFD", dropped)
     kept = []
     accented = False
     for c in decomposed:
@@ -876,7 +947,7 @@ _UNSTATED = frozenset({"default", "cased"})
 _FLAG_PROPS = frozenset({
     "abbreviation", "acronym", "after_given", "may_be_initial",
     "title_case_is_name", "shared", "after_particle", "capital_opening",
-    "dotted"})
+    "dotted", "completes_any", "long_names_only"})
 
 
 class _Edit(NamedTuple):
@@ -928,6 +999,7 @@ def _unwritten(kind: str, prop: str) -> object:
 _LIST_PROPS: Mapping[str, str] = MappingProxyType({
     "attaches": "title kinds or title words, e.g. attaches=['military']",
     "completed_by": "single words, e.g. completed_by=['الله']",
+    "completes": "single words, e.g. completes=['ذو']",
     "short_for": "given names, e.g. short_for=['maxwell']",
     "spelling_of": "given names, e.g. spelling_of=['olga']",
 })
@@ -974,7 +1046,7 @@ def _prop_value(kind: str, prop: str, value: object) -> object:
         side = ("before" if _index_module().CATEGORY.get(kind) == "title"
                 else "after")
         if value != side:
-            raise ValueError(f"attached on a {kind!r} reading must be "
+            raise ValueError(f"attached on {_a(kind)} {kind!r} reading must be "
                              f"{side!r} (a {'title peeled off the start' if side == 'before' else 'tail peeled off the end'} "
                              f"of a name token) or None, got {value!r}")
         return value
@@ -1000,11 +1072,23 @@ def _prop_value(kind: str, prop: str, value: object) -> object:
                 f"normalizing to nothing, got {value!r}; write e.g. "
                 f"{prop}={['maxwell'] if prop == 'short_for' else ['olga']!r}")
         folded = tuple(sorted({_normalize(x) for x in words} - {""}))
-        if prop == "completed_by" and any(" " in w for w in folded):
-            # rules/P12 joins a bound word to the ONE word after it
-            raise ValueError(f"completed_by entries must be single words, "
-                             f"got {value!r}; list each completing word "
-                             f"on its own")
+        if prop in ("completed_by", "completes") and not folded:
+            # an empty list would leave `completes` unwritten, which
+            # joins behind ANY plain word, the widest reading; the build
+            # refuses it too (#1072)
+            cleared = ("joins it behind any plain word"
+                       if prop == "completes"
+                       else "leaves no listed word completing it")
+            raise ValueError(f"{prop} must list at least one word, got "
+                             f"{value!r}; list the words it pairs with, or "
+                             f"write {prop}=None to clear the list, which "
+                             f"{cleared}")
+        if prop in ("completed_by", "completes") and any(" " in w for w in folded):
+            # rules/P12 joins two words: a bound word to the one word
+            # after it (completed_by), a bound_second word to the one
+            # before it (completes)
+            raise ValueError(f"{prop} entries must be single words, "
+                             f"got {value!r}; list each word on its own")
         if prop in ("short_for", "spelling_of") and any(
                 " " in w for w in folded):
             # the match compares a given name word by word
@@ -1135,7 +1219,7 @@ def _edit_props(kind: str, props: Mapping[str, object]) -> _Props:
                 "write add(word, kind='given', after_particle=True)")
         if prop not in allowed:
             raise ValueError(
-                f"a {kind} reading takes "
+                f"{_a(kind)} {kind} reading takes "
                 + (", ".join(sorted(allowed)) or "no properties")
                 + f"; got {prop!r}")
         out[prop] = _prop_value(kind, prop, value)
@@ -1180,7 +1264,7 @@ def _make_edit(op: object, words: object, kind: object,
         if " " in w and not (k == "birth_marker" or (
                 category == "title" and ("addresses", "given") in p)):
             raise ValueError(
-                f"{w!r} is a phrase, which can never match as a {k}: only "
+                f"{w!r} is a phrase, which can never match as {_a(k)} {k}: only "
                 f"a birth_marker and a title with addresses='given' are "
                 f"matched as a whole run; add its words one by one")
         # the build refuses attached on a title phrase: the glued-title
@@ -1721,7 +1805,7 @@ def _check_base(base: object) -> object:
                 if name not in ri.indexed(kind):
                     raise ValueError(
                         f"a Lexicon snapshot gives {word!r}'s {kind} reading "
-                        f"the property {name!r}, which a {kind} reading "
+                        f"the property {name!r}, which {_a(kind)} {kind} reading "
                         f"does not take in this release")
                 try:
                     hash(value)
@@ -1923,8 +2007,8 @@ class LexiconReading:
     #: :class:`ReadingKind`, which is the parse's.
     kind: str
     #: The kind's category (``"title"``, ``"suffix"``, ``"particle"``,
-    #: ``"conjunction"``, ``"bound_given"``, ``"relation"``,
-    #: ``"name"``).
+    #: ``"conjunction"``, ``"bound_given"``, ``"bound_second"``,
+    #: ``"relation"``, ``"name"``, ``"familiar"``, ``"spelling"``).
     category: str
     #: The behavioral properties as sorted ``(name, value)`` pairs,
     #: spelled as the files spell them (``("addresses", "given")``), a
@@ -1945,7 +2029,7 @@ class LexiconReading:
                              f"kinds are {', '.join(ri.CATEGORY)}")
         if self.category != ri.CATEGORY[self.kind]:
             raise ValueError(
-                f"a {self.kind} reading's category is "
+                f"{_a(self.kind)} {self.kind} reading's category is "
                 f"{ri.CATEGORY[self.kind]!r}, got {self.category!r}")
         for name in ("properties", "languages"):
             if not isinstance(getattr(self, name), tuple):
@@ -2018,8 +2102,9 @@ class Lexicon:
     #: dropped (the tilde on n and the cedilla on c kept), so an entry
     #: written "jose" matches "José" too. No other rule reads it. Empty
     #: by default, so the switch reads as without it; a caller passes
-    #: a list of its own, and ``locales.ES`` carries a Spanish list, with
-    #: the switch on. Added in 3.0.
+    #: a list of its own; ``locales.ES`` and ``locales.ES_AR`` carry
+    #: Spanish lists and ``locales.PT_BR`` and ``locales.PT_PT`` a
+    #: Portuguese one, each with the switch on. Added in 3.0.
     given_names: frozenset[str] = frozenset()
     #: Lowercase word -> case mask used by capitalized(): the word's
     #: own letters and digits, each in the case it takes ("phd" ->
@@ -2429,14 +2514,18 @@ class Lexicon:
             ``nameparser._reading_index.CATEGORY`` (``"title"``,
             ``"office"``, ``"credential"``, ``"generation"``,
             ``"preposition"``, ``"conjunction"``, ``"bound_given"``,
-            ``"birth_marker"``, ``"given"``, ``"family"``, ...), and
+            ``"bound_second"`` (3.2), ``"birth_marker"``, ``"alias_marker"``
+            (3.2), ``"given"``,
+            ``"family"``, ...), and
             `properties` that kind's behavioral properties as the files
             spell them (``addresses="given"``, ``after_given=True``,
             ``abbreviation=True``, ``attaches=[...]``, ``acronym=...``, ``attached="after"`` on a suffix word reading
             and ``attached="before"`` on a one-word title reading (rules/W2
             and W6),
-            ``may_be_initial=True``, ``completed_by=[...]`` on a
-            ``bound_given`` reading, ``after_particle=True`` on a
+            ``may_be_initial=True``, ``completed_by=[...]``,
+            ``completes_any=True`` and ``long_names_only=True`` on a
+            ``bound_given`` reading, ``completes=[...]`` on a
+            ``bound_second`` reading, ``after_particle=True`` on a
             ``given`` reading, ``shared=True`` on a name reading,
             ``capital_opening=True`` on a particle reading,
             ``dotted=True`` on a title reading, and
@@ -2512,7 +2601,23 @@ class Lexicon:
         empty ``remove(*words, kind=...)`` never takes out a whole kind.
         Removing a reading the word does not hold changes nothing now,
         and is kept: a later choice of languages may turn that reading
-        on.
+        on. Where no vocabulary file holds the reading, on by default or
+        not, and no :meth:`add` earlier in this lexicon's log (a joined
+        lexicon's included) gave it, the edit can never take effect, and
+        the call warns with a ``UserWarning`` (#1535); a remove of every
+        word's readings and a ``familiar`` or ``spelling`` pair remove
+        are not judged. The message opens with the call and "changes
+        nothing", and says which case it is: a word holding other kinds
+        (they are listed, and the call to paste offered where one is
+        plainly meant, never a pair kind); a word held only in the
+        ``surnames`` or ``given_names`` list, which ``remove`` does not
+        edit (the ``dataclasses.replace`` that drops it); a word held
+        only as the other name of other words' ``familiar`` or
+        ``spelling`` pairs (the pair remove that reaches them); or a
+        word in no file and no earlier add. A fragment meant to remove a word
+        another lexicon adds warns, since ``remove`` cannot see the
+        lexicon it will be joined with: filter that warning by its
+        message, or do the remove on the joined lexicon.
 
         A ``familiar`` or ``spelling`` reading is a pair of given names,
         stored on one of the two and read by name matching both ways, so
@@ -2561,9 +2666,131 @@ class Lexicon:
                 "word's readings of it, e.g. remove(kind='title', "
                 "every=True)")
         edit = _make_edit("remove", words, kind, pairs)
+        for message in self._inert_removes(edit):
+            _warn_at_caller(message)
         return dataclasses.replace(self, _edits=self._edits + (edit,))
 
     # -- private helpers --------------------------------------------------
+
+    def _inert_removes(self, edit: _Edit) -> list[str]:
+        """A warning for each word of a `remove` that no vocabulary file
+        and no `add` earlier in this lexicon's log (a joined lexicon's
+        included) gives a reading of the kind asked (any reading, with
+        no kind), so that the edit can take effect under no choice of
+        languages (#1535). A file's reading counts whether it is on by
+        default or not, since a choice may turn it on. Read at `remove`
+        alone, never when a constructor replays the log or a pickle
+        loads. A remove of every word's readings (no words) and the
+        familiar and spelling pair removes, which match names by their
+        folded forms, are not judged. Each message opens with the call
+        and "changes nothing", so a caller filters one by it."""
+        ri = _index_module()
+        kind = edit.kind
+        if not edit.words or (kind is not None and ri.CATEGORY.get(
+                kind, kind) in ri.MATCHING_ONLY):
+            return []
+        added: dict[str, set[str]] = {}
+        for earlier in self._edits:
+            if earlier.op == "add" and earlier.kind is not None:
+                for w in earlier.words:
+                    added.setdefault(w, set()).add(earlier.kind)
+        messages = []
+        for w in dict.fromkeys(edit.words):
+            held = {r.kind for r in ri.readings_of(w)} | added.get(w, set())
+            if kind is None and held:
+                continue
+            if kind is not None and any(
+                    k == kind or ri.CATEGORY[k] == kind for k in held):
+                continue
+            call = (f"remove({w!r})" if kind is None
+                    else f"remove({w!r}, kind={kind!r})")
+            head = f"{call} changes nothing: "
+            if held:
+                messages.append(head + self._other_kinds(w, kind, held))
+            else:
+                messages.append(head + self._no_reading(w, kind, added))
+        return messages
+
+    def _other_kinds(self, w: str, kind: str | None,
+                     held: set[str]) -> str:
+        """Case (i) of #1535: the word holds readings, none of `kind`.
+        The call to paste is offered only where one kind is plainly the
+        one meant: the single held kind of the asked kind's category,
+        else the single held kind of all; a familiar or spelling kind is
+        never offered, its remove reaching name matching's pairs."""
+        ri = _index_module()
+        kinds = sorted(held)
+        candidates = [k for k in kinds if ri.CATEGORY[k] not in
+                      ri.MATCHING_ONLY]
+        same = [k for k in candidates
+                if ri.CATEGORY[k] == ri.CATEGORY.get(kind or "", kind)]
+        offer = (same[0] if len(same) == 1 else
+                 candidates[0] if not same and len(candidates) == 1 else None)
+        text = (f"{w!r} has no {kind!r} reading in any vocabulary file or "
+                f"earlier add(); it holds: {', '.join(kinds)}")
+        if offer is not None:
+            text += f". Did you mean remove({w!r}, kind={offer!r})?"
+        return text
+
+    def _no_reading(self, w: str, kind: str | None,
+                    added: dict[str, set[str]]) -> str:
+        """Cases (ii) and (iii) of #1535: the word holds no reading. It
+        may stand in the two lists, which remove() does not edit, be
+        only the other name of other words' familiar or spelling pairs,
+        which a remove of the pair kind takes, or be a suffix acronym or
+        a dotted title written with its full stops (``ph.d``, held as
+        ``phd``), where the bare word holds the kind asked; else it is
+        in no file."""
+        ri = _index_module()
+        lists = {"surnames": ("family", "name"), "given_names": ("given", "name")}
+        for list_field, kinds in lists.items():
+            if w in getattr(self, list_field) and (
+                    kind is None or kind in kinds):
+                return (f"{w!r} holds no reading, only an entry in this "
+                        f"lexicon's {list_field} list, which remove() does "
+                        f"not edit; drop it with dataclasses.replace("
+                        f"lexicon, {list_field}=lexicon.{list_field} - "
+                        f"{{{w!r}}})")
+        pair_kind = ("familiar" if self._familiar_forms(w)
+                     or w in _pair_names("familiar") else
+                     "spelling" if self._alternate_spellings(w)
+                     or w in _pair_names("spelling") else None)
+        if pair_kind is not None:
+            return (f"{w!r} holds no reading of its own, only the other "
+                    f"name of {pair_kind} pairs other words hold; "
+                    f"remove({w!r}, kind={pair_kind!r}) takes those pairs")
+        # only where the parse reads the dotted spelling as the bare word:
+        # a suffix acronym (M.D. as md) or a dotted title (U.S. as us),
+        # and the bare word holds the kind asked
+        bare = w.replace(".", "")
+        bare_kinds = ({r.kind for r in ri.readings_of(bare)}
+                      | added.get(bare, set()))
+        # the kind the dotted spelling is read by: a suffix acronym's
+        # suffix reading, a dotted title's title one (M.D. is md's
+        # credential, not its given reading, Muhammad written short)
+        read_as = {k for k in bare_kinds if ri.CATEGORY[k] == (
+            "suffix" if bare in self._sets.suffix_acronyms else "title")}
+        if bare != w and bare in (self._sets.suffix_acronyms
+                                  | self._sets.dotted_titles):
+            text = (f"the vocabulary writes {w!r} without its full stops, "
+                    f"as {bare!r}")
+            asked = [k for k in read_as if kind is not None
+                     and (k == kind or ri.CATEGORY[k] == kind)]
+            if kind is None and len(read_as) == 1:
+                offer: str | None = next(iter(read_as))
+            elif len(asked) == 1:
+                offer = kind
+            else:
+                offer = None
+            if offer is not None:
+                return text + (f": did you mean remove({bare!r}, "
+                               f"kind={offer!r})?")
+            return text + (", read with its full stops as "
+                           + ", ".join(sorted(read_as)))
+        return (f"{w!r} is in no vocabulary file and no earlier add() of "
+                f"this lexicon; check its spelling, or, where a lexicon "
+                f"this one is joined with adds it, remove it from the "
+                f"joined lexicon")
 
     def _pool(self) -> Pool:
         return self._files.pool()

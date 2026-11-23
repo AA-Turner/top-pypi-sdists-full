@@ -27,7 +27,7 @@ def _valid_credentials() -> bool:
 
 
 def wfc_login() -> OpenAPIApp:
-    # Rich body covers every token-extraction branch: string, coerced number, null, and non-string.
+    # The body covers every token-extraction branch: string, coerced number, null, and non-string.
     spec = build_schema(_PROTECTED)
     app = make_flask_app_from_schema(spec)
     _register_protected(app)
@@ -54,6 +54,24 @@ def wfc_login_failing() -> OpenAPIApp:
     @app.route("/api/login", methods=["POST"])
     def login() -> object:
         return jsonify({"error": "boom"}), 500
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def wfc_login_starting_up() -> OpenAPIApp:
+    # Answers 503 to the first logins, like an auth server that comes up after the API.
+    spec = build_schema(_PROTECTED)
+    app = make_flask_app_from_schema(spec)
+    _register_protected(app)
+    attempts = 0
+
+    @app.route("/api/login", methods=["POST"])
+    def login() -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts <= 2:
+            return jsonify({"error": "starting up"}), 503
+        return jsonify({"access_token": WFC_TOKEN})
 
     return OpenAPIApp(spec=spec, server=app, kind="flask")
 
@@ -202,8 +220,7 @@ def wfc_role_gated(deny_status: int = 403) -> OpenAPIApp:
 
     @app.route("/api/validated", methods=["POST"])
     def validated() -> object:
-        # Every other payload is rejected before the role is looked at, so the denials an escalation
-        # needs arrive interleaved with rejections whatever the generator happens to draw.
+        # Every other payload is rejected before the role check, so denials interleave with rejections for any draw.
         posted.append(1)
         if len(posted) % 2:
             return jsonify({"detail": "rejected"}), 409
@@ -219,8 +236,7 @@ def wfc_role_gated(deny_status: int = 403) -> OpenAPIApp:
 
 def wfc_expiring_token() -> OpenAPIApp:
     """Login issues a token that dies after `TOKEN_USES` requests; re-login mints a fresh one."""
-    # Schema examples give the operation a fixed number of requests, so the token expires regardless
-    # of how many cases the generator happens to draw on a given platform.
+    # Schema examples fix the request count, so the token expires however many cases a platform draws.
     spec = build_schema(
         {
             "/api/protected": {

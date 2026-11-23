@@ -381,3 +381,36 @@ access_request_decision:
 staff_break_glass:
   org_id: wildcard
   tier: wildcard
+# Staff permissions of PEP 370. No role holds them yet: the services start to accept
+# them next to the permissions they check today, and the staff roles get them afterwards.
+organization_directory:
+  # read: can list organization names and the names of their workspaces; no users.
+  # Narrower than organization, which opens the whole organization.
+  org_id: wildcard
+workspace_overview:
+  # read: can read one workspace's record: name, versions, config, feature gates and lifecycle state.
+  # Narrower than workspace_meta, which also opens the workspace's user lists and user groups.
+  org_id: wildcard
+  ws_id: wildcard
+workspace_module:
+  # read: can read module versions, specs and operations. Writes use workspace_config and workspace_release.
+  org_id: wildcard
+  ws_id: wildcard
+workspace_config:
+  # write: can change workspace and module config and feature gates. No customer role gets it.
+  org_id: wildcard
+  ws_id: wildcard
+workspace_release:
+  # write: can change the release version (base and modules), create a module, and cancel, fail or
+  # retry a module operation. Starts a deploy.
+  org_id: wildcard
+  ws_id: wildcard
+workspace_lifecycle:
+  # write: can move a workspace or module past DEACTIVATED and override the recommended waiting
+  # period. Deletes customer data.
+  org_id: wildcard
+  ws_id: wildcard
+admin_panel:
+  # read: can read the admin panel lists: an organization's users, sessions and API keys, and a
+  # workspace's category. Only the admin panel endpoints check it, next to internal_resources.
+  org_id: wildcard

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from hcli.lib.ida.plugin import get_ida_version_spec_from_list
 from hcli.lib.util.io import get_hcli_display_command
 
 
@@ -39,15 +40,18 @@ class PlatformIncompatibleError(PluginInstallationError):
 class IDAVersionIncompatibleError(PluginInstallationError):
     """Current IDA version is not supported by the plugin."""
 
-    def __init__(self, current: str, supported: Sequence[str]):
+    def __init__(self, current: str, supported: list[str], spec: str | None = None):
+        """Create the error.
+
+        Args:
+            current: the running IDA version.
+            supported: the known IDA versions that the spec matches.
+            spec: the plugin's `idaVersions` spec. When omitted, it is made from `supported`.
+        """
         self.current = current
         self.supported = supported
-        # Show first 10 supported versions to avoid overwhelming output
-        if len(supported) > 10:
-            versions_str = ", ".join(supported[:10]) + f" (and {len(supported) - 10} more)"
-        else:
-            versions_str = ", ".join(supported)
-        super().__init__(f"Plugin not compatible with IDA version '{current}'. Supported versions: {versions_str}")
+        self.spec = spec if spec is not None else get_ida_version_spec_from_list(supported)
+        super().__init__(f"Plugin not compatible with IDA version '{current}'. Supported versions: {self.spec}")
 
 
 class PythonVersionIncompatibleError(PluginInstallationError):

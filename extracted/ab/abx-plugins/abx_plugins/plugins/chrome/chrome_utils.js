@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const { pipeline } = require("node:stream/promises");
 const http = require("http");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
@@ -40,7 +41,16 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null, cachedBodies: sharedCachedBodies = null } = {}) {
+async function captureOriginalResponseBodies(page, {
+  resourceTypes = null,
+  session: suppliedSession = null,
+  directory: sharedDirectory = null,
+  documents = true,
+  durableCollector: sharedCollector = null,
+  pdfUrls: sharedPdfUrls = null,
+  cachedBodies: sharedCachedBodies = null,
+  errorPageRequests = new Set(),
+} = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
@@ -89,7 +99,14 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     listeners.push([event, callback]);
   };
   let observedHttp = false;
-  listen("Network.requestWillBeSent", ({ request }) => {
+  listen("Network.requestWillBeSent", ({ request, requestId, documentURL }) => {
+    // Chromium reports its error page assets as successful responses, even
+    // for a failed navigation. Use the document URL at request time because
+    // data URLs also occur in real pages and the frame can navigate again.
+    if (documentURL.startsWith("chrome-error:") || request.url.startsWith("chrome-error:")) {
+      errorPageRequests.add(requestId);
+      return;
+    }
     if (/^https?:\/\//i.test(request.url)) observedHttp = true;
   });
   const bodies = new Map();
@@ -183,6 +200,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   });
   listen("Network.loadingFinished", ({ requestId }) => streams.get(requestId)?.finish());
   listen("Network.loadingFailed", ({ requestId, errorText }) => {
+    errorPageRequests.delete(requestId);
     const stream = streams.get(requestId);
     if (stream) {
       stream.error = new Error(errorText);
@@ -210,7 +228,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     // finish before their blocked renderer can enable a stream. Ordinary and
     // large responses stream to disk instead of accumulating body buffers.
     listen("Network.requestWillBeSent", (event) => {
-      if (!/^https?:\/\//i.test(event.request.url) ||
+      if (errorPageRequests.has(event.requestId) || !/^https?:\/\//i.test(event.request.url) ||
           !event.type || event.type === "Document" ||
           (resourceTypes.length && !resourceTypes.includes(event.type.toLowerCase()))) return;
       const filename = path.join(directory, crypto.randomUUID());
@@ -337,7 +355,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls, cachedBodies });
+    const reader = captureOriginalResponseBodies(page, {
+      resourceTypes, session: child, directory, documents, durableCollector,
+      pdfUrls, cachedBodies, errorPageRequests,
+    });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -410,6 +431,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   }
   return {
     async read(response) {
+      if (errorPageRequests.has(response.request().id)) return null;
       // Synthetic data/blob responses have no HTTP wire-body cache. Keep
       // Puppeteer's existing body handling for these browser-owned resources.
       if (!/^https?:\/\//i.test(response.url())) return undefined;
@@ -3478,6 +3500,45 @@ async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs,
   }
 }
 
+async function copyBrowserDownload(src, dest) {
+  // libuv's copyFile sets the download's timestamps on the destination.
+  // On a versioned rclone/S3 mount that metadata update can copy the whole object.
+  const { mode } = await fs.promises.stat(src);
+  let output = dest;
+  let file;
+  try {
+    file = await fs.promises.open(output, "wx", mode & 0o777);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    // Keep the existing capture readable until its replacement has closed.
+    output = path.join(path.dirname(dest), `.${path.basename(dest)}.${crypto.randomUUID()}.tmp`);
+    file = await fs.promises.open(output, "wx", mode & 0o777);
+  }
+  try {
+    await pipeline(fs.createReadStream(src), file.createWriteStream());
+    if (output !== dest) await fs.promises.rename(output, dest);
+  } catch (error) {
+    await fs.promises.rm(output, { force: true }).catch(cleanupError => {
+      console.error(`Could not remove incomplete download ${output}: ${cleanupError.message}`);
+    });
+    throw error;
+  }
+}
+
+async function moveBrowserDownload(src, dest, onPhase = () => {}) {
+  onPhase("rename");
+  try {
+    await fs.promises.rename(src, dest);
+    return;
+  } catch (error) {
+    if (error.code !== "EXDEV") throw error;
+  }
+  onPhase("copy");
+  await copyBrowserDownload(src, dest);
+  onPhase("unlink");
+  await fs.promises.unlink(src);
+}
+
 /**
  * Wait for Chrome to finish the download with the exact requested filename.
  * The native downloadProgress event is the completion boundary; the destination file
@@ -6303,6 +6364,8 @@ module.exports = {
   getTargetIdFromPage,
   connectToPage,
   downloadBrowserResource,
+  copyBrowserDownload,
+  moveBrowserDownload,
   waitForNavigationComplete,
   readNavigatedUrls,
   waitForVisibleImages,

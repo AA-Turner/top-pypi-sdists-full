@@ -1035,6 +1035,8 @@ pub(super) fn leaf_list_read(
     value: &Value<'_, '_>,
     frame: &mut Frame<'_, '_>,
 ) -> Option<bool> {
+    #[cfg(test)]
+    super::taken::note(super::taken::Reading::LeafList);
     let ctx = frame.ctx;
     let plan = ctx.index.leaf(element)?;
     // An element's walk opens its level below the list's, and the plan's
@@ -1346,7 +1348,7 @@ fn pattern_list(
     value: &Value<'_, '_>,
     frame: &mut Frame<'_, '_>,
 ) -> bool {
-    let bounded = least > 0 || most < usize::MAX;
+    let bounded = (least, most) != (0, usize::MAX);
     let mut ok = true;
     let scan = scan_list(list, |_, item| {
         ok &= match exact_text(item) {
@@ -1824,6 +1826,8 @@ pub(super) fn literal_list_matches(
 #[cfg(any(Py_3_12, PyPy))]
 #[inline]
 fn snapshot_of<'py>(list: &Bound<'py, PyList>) -> PyResult<Bound<'py, PyTuple>> {
+    #[cfg(test)]
+    super::taken::note(super::taken::Reading::Snapshot);
     list.as_sequence().to_tuple()
 }
 
@@ -1846,6 +1850,8 @@ fn snapshot_of<'py>(list: &Bound<'py, PyList>) -> PyResult<Bound<'py, PyTuple>> 
     static IS_ENABLED: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     static DISABLE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     static ENABLE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    #[cfg(test)]
+    super::taken::note(super::taken::Reading::Snapshot);
     let py = list.py();
     let held = IS_ENABLED
         .import(py, "gc", "isenabled")?
@@ -2190,16 +2196,13 @@ pub(super) fn scan_list<'py>(
     with_critical_section(list.as_any(), || {
         let items = list.len();
         let mut iter = list.iter();
-        let mut seen = 0;
-        while seen < items {
+        for at in 0..items {
             if list.len() != items {
                 return Scan::Unreadable;
             }
             let Some(item) = iter.next() else {
                 break;
             };
-            let at = seen;
-            seen += 1;
             if visit(at, &item).is_break() {
                 return Scan::Stopped;
             }
@@ -2674,30 +2677,64 @@ const SNAPSHOT_MIN_ELEMENTS: usize = 16;
 /// The widest list a snapshot pays for; see [`SNAPSHOT_MIN_ELEMENTS`].
 const SNAPSHOT_MAX_ELEMENTS: usize = 262_144;
 
+/// The lengths of list a snapshot pays for, both ends included, on the
+/// interpreter this extension is built against: which reading is cheaper is a
+/// property of the interpreter, since what the copy saves is the pair of
+/// reference counts an owned handle writes ([`snapshot_pays`]).
+///
+/// `CPython` 3.14 makes the pair cheap enough that the copy is pure cost -- a
+/// ten-thousand element list reads 1.44 ns per element in place there and 1.65
+/// through a snapshot -- so its band is empty, the narrowest past the widest,
+/// and every list reads in place. Below 3.14 the pair dominates: 4.77 against
+/// 1.66, from [`SNAPSHOT_MIN_ELEMENTS`] to [`SNAPSHOT_MAX_ELEMENTS`]. The
+/// free-threaded build pays each count of the pair through a call into the
+/// interpreter, where the copy writes both inline: 6.63 against 2.05 on 3.14t,
+/// with the list held once for the whole scan, and the copy pays at every
+/// width -- three elements read 65 ns through it against 77 in place -- so its
+/// band starts at the empty list.
+pub(super) const SNAPSHOT_BAND: (usize, usize) = if cfg!(Py_GIL_DISABLED) {
+    (0, SNAPSHOT_MAX_ELEMENTS)
+} else if cfg!(Py_3_14) {
+    (1, 0)
+} else {
+    (SNAPSHOT_MIN_ELEMENTS, SNAPSHOT_MAX_ELEMENTS)
+};
+
 /// Whether a list of `len` elements is cheaper read through a snapshot than in
-/// place, on the interpreter this extension is built against.
+/// place, on the interpreter this extension is built against: whether its
+/// length lies in [`SNAPSHOT_BAND`].
 ///
 /// Reading an element out of a list hands back an *owned* handle: a reference
 /// count written when it is made and again when it drops, on an object the walk
 /// only type-tests. Copying the list into a tuple pays the same two writes in
 /// two tight loops inside the interpreter, and the tuple is frozen, so its
 /// elements are read borrowed and the walk pays neither.
-///
-/// Which is cheaper is a property of the interpreter. `CPython` 3.14 makes the
-/// pair cheap enough that the copy is pure cost -- a ten-thousand element list
-/// reads 1.44 ns per element in place there and 1.65 through a snapshot -- so
-/// it reads in place. Below 3.14 the pair dominates: 4.77 against 1.66. The
-/// free-threaded build pays each count of the pair through a call into the
-/// interpreter, where the copy writes both inline: 6.63 against 2.05 on 3.14t,
-/// with the list held once for the whole scan, and the copy pays at every
-/// width -- three elements read 65 ns through it against 77 in place -- so the
-/// lower end of the band does not apply there.
 const fn snapshot_pays(len: usize) -> bool {
-    if cfg!(Py_GIL_DISABLED) {
-        len <= SNAPSHOT_MAX_ELEMENTS
-    } else if cfg!(Py_3_14) {
-        false
-    } else {
-        len >= SNAPSHOT_MIN_ELEMENTS && len <= SNAPSHOT_MAX_ELEMENTS
+    in_band(len, SNAPSHOT_BAND)
+}
+
+/// Whether `len` lies between a band's two ends, both included: no length does
+/// in a band whose narrowest end is past its widest.
+const fn in_band(len: usize, (least, most): (usize, usize)) -> bool {
+    least <= len && len <= most
+}
+
+#[cfg(test)]
+mod tests {
+    use super::in_band;
+
+    /// A band holds both its ends and nothing one past either, and an empty
+    /// band holds nothing, the lengths at its two ends included.
+    #[test]
+    fn a_band_holds_its_ends_and_nothing_past_them() {
+        let band = (16, 20);
+        assert!(!in_band(15, band));
+        assert!(in_band(16, band));
+        assert!(in_band(20, band));
+        assert!(!in_band(21, band));
+        assert!(in_band(0, (0, 0)));
+        for len in [0, 1, usize::MAX] {
+            assert!(!in_band(len, (1, 0)), "{len}");
+        }
     }
 }

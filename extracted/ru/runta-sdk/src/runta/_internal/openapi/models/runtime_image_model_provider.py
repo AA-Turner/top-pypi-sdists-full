@@ -20,8 +20,8 @@ class RuntimeImageModelProvider:
     """
     Attributes:
         protocol_bindings (list[RuntimeImageProtocolBinding]): How each protocol this image speaks reaches a provider.
-        subscription_options (list[RuntimeImageSubscriptionOption]): Subscription credentials Runta signs in to on the
-            tenant's behalf. Empty when this image only accepts a credential the tenant supplies.
+        subscription_options (list[RuntimeImageSubscriptionOption]): Subscription credentials that Runta obtains for the
+            tenant. Empty if this image accepts only tenant-supplied credentials.
         allow_custom_base_url (bool): Whether this image's agent can be pointed at another endpoint.
         allow_runtime_sign_in (bool):
     """

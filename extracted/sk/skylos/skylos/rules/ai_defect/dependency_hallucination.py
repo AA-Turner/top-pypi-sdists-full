@@ -1051,31 +1051,54 @@ def _executable_script_sibling(mod, ctx, file_path, required_paths, *, diff_path
     importer = _contained_importer_path(ctx["repo_root"], file_path, diff_path=diff_path)
     if importer is None:
         return False
-    text = _project_source_text(ctx, importer)
-    if text is None or not text.startswith("#!") or "__package__" in text:
-        return False
-    try:
-        tree = ast.parse(text)
-    except (MemoryError, RecursionError, SyntaxError, ValueError):
-        return False
-    if any(
-        isinstance(node, ast.ImportFrom) and node.level for node in ast.walk(tree)
-    ):
-        # A relative import means the file also runs in package mode, where
-        # an absolute import of its sibling fails.
-        return False
+    # Every check must hold, so run the cheap per-module file checks before
+    # the per-script source checks. Most imports (the standard library
+    # included) have no sibling file and stop here.
     if not _context_has_local_python_file(ctx, importer.parent / f"{mod}.py"):
         return False
     if os.path.lexists(ctx["repo_root"] / importer.parent / mod):
         return False
+    if not _script_runs_only_as_file(ctx, importer):
+        return False
     return not _script_loaded_as_module(ctx, importer)
+
+
+def _script_runs_only_as_file(ctx, importer):
+    """Whether the source of ``importer`` marks it as a script run only as a
+    file: it starts with ``#!``, never names ``__package__`` and has no
+    relative import. Cached per importer, because a script reaches this once
+    for every module it imports and parsing a large script each time is slow."""
+    cache = ctx.setdefault("script_file_only_cache", {})
+    if importer in cache:
+        return cache[importer]
+    file_only = False
+    text = _project_source_text(ctx, importer)
+    if text is not None and text.startswith("#!") and "__package__" not in text:
+        try:
+            tree = ast.parse(text)
+        except (MemoryError, RecursionError, SyntaxError, ValueError):
+            tree = None
+        # A relative import means the file also runs in package mode, where
+        # an absolute import of its sibling fails.
+        file_only = tree is not None and not any(
+            isinstance(node, ast.ImportFrom) and node.level for node in ast.walk(tree)
+        )
+    cache[importer] = file_only
+    return file_only
 
 
 _LAUNCHER_SUFFIXES = frozenset(
     {".sh", ".bash", ".zsh", ".service", ".yml", ".yaml", ".toml", ".cfg",
      ".ini", ".json", ".conf", ".txt", ".md"}
 )  # fmt: skip
-_LAUNCHER_NAMES = frozenset({"Makefile", "Dockerfile", "Procfile", "Justfile"})
+_LAUNCHER_NAMES = frozenset(
+    {"makefile", "dockerfile", "procfile", "justfile", "jenkinsfile"}
+)
+_LAUNCHER_DOT_FOLDERS = frozenset(
+    {".github", ".gitlab", ".gitea", ".forgejo", ".circleci", ".buildkite",
+     ".woodpecker", ".semaphore", ".devcontainer"}
+)  # fmt: skip
+_LAUNCHER_FILE_BUDGET = 2000
 
 
 def _script_loaded_as_module(ctx, importer):
@@ -1113,16 +1136,20 @@ def _script_loaded_as_module(ctx, importer):
 
 def _launchers_name_module(ctx, module_run, entry_point):
     root = ctx["repo_root"]
-    budget = 2000
+    budget = _LAUNCHER_FILE_BUDGET
     for directory, folders, files in os.walk(root):
         folders[:] = [
             folder
             for folder in folders
-            if not folder.startswith(".") and folder not in DEFAULT_EXCLUDE_FOLDERS
+            if folder not in DEFAULT_EXCLUDE_FOLDERS
+            and (not folder.startswith(".") or folder in _LAUNCHER_DOT_FOLDERS)
         ]
         for name in files:
             path = Path(directory) / name
-            if path.suffix not in _LAUNCHER_SUFFIXES and name not in _LAUNCHER_NAMES:
+            if (
+                path.suffix not in _LAUNCHER_SUFFIXES
+                and name.lower() not in _LAUNCHER_NAMES
+            ):
                 continue
             budget -= 1
             if budget < 0:

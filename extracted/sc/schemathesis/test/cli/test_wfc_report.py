@@ -27,6 +27,7 @@ from schemathesis.openapi.checks import (
     UnsupportedMethodResponse,
     UseAfterFree,
 )
+from test.utils import load_ndjson
 
 WFC_DATA = resources.files("webfuzzing_commons").joinpath("data")
 WFC_REPORT_SCHEMA = yaml.safe_load(WFC_DATA.joinpath("report.yaml").read_text(encoding="utf-8"))
@@ -142,7 +143,8 @@ def test_failure_reported_once_is_one_test_case(ctx, cli, tmp_path):
     assert (len(report["testCases"]), len(report["faults"]["foundFaults"])) == (1, 1)
 
 
-def test_undeclared_method_fault_names_the_probed_method(ctx, cli, tmp_path):
+def test_undeclared_method_fault_belongs_to_declared_operation(ctx, cli, tmp_path):
+    # WFC requires every fault to name an operation listed in `endpointIds`.
     app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
     @app.route("/items", methods=["GET", "TRACE"])
@@ -154,7 +156,11 @@ def test_undeclared_method_fault_names_the_probed_method(ctx, cli, tmp_path):
         app, f"--report-wfc-path={path}", "--phases=coverage", "--checks=unsupported_method", "--max-examples=1"
     )
 
-    assert [fault["operationId"] for fault in load_report(path)["faults"]["foundFaults"]] == ["TRACE:/items"]
+    report = load_report(path)
+    assert [
+        (fault["operationId"], fault["faultCategories"][0]["context"]) for fault in report["faults"]["foundFaults"]
+    ] == [("GET:/items", "TRACE:/items -> UnsupportedMethodResponse: Wrong response to undeclared method")]
+    assert [case["name"] for case in report["testCases"]] == ["TRACE /items: Wrong response to undeclared method"]
 
 
 @pytest.mark.parametrize(
@@ -191,6 +197,7 @@ def test_only_anonymous_modifications_are_308(ctx, cli, tmp_path, accepts_anonym
         "--max-examples=1",
         "--phases=fuzzing",
         "--checks=ignored_auth",
+        "--no-shrink",
     )
 
     report = load_report(path)
@@ -242,6 +249,31 @@ def test_endpoint_ids_list_declared_operations(ctx, cli, tmp_path):
     rest = load_report(path)["problemDetails"]["rest"]
     assert rest["endpointIds"] == ["GET:/api/failure", "GET:/api/success"]
     assert [entry["endpointId"] for entry in rest["coveredHttpStatus"]] == ["GET:/api/success"]
+
+
+@pytest.mark.parametrize(
+    ("operation", "method"),
+    [
+        ({"query": {"responses": {"200": {"description": "OK"}}}}, "QUERY"),
+        ({"additionalOperations": {"COPY": {"responses": {"200": {"description": "OK"}}}}}, "COPY"),
+    ],
+    ids=["query", "additional-operations"],
+)
+def test_endpoint_ids_list_open_api_3_2_methods(ctx, cli, tmp_path, operation, method):
+    app, _ = ctx.openapi.make_flask_app({"/items": operation}, version="3.2.0")
+
+    @app.route("/items", methods=[method])
+    def items():
+        return jsonify({}), 200
+
+    path = tmp_path / "report.json"
+    cli.run_openapi_app(app, f"--report-wfc-path={path}", "--max-examples=1", "--phases=fuzzing")
+
+    rest = load_report(path)["problemDetails"]["rest"]
+    assert (rest["endpointIds"], rest["coveredHttpStatus"]) == (
+        [f"{method}:/items"],
+        [{"endpointId": f"{method}:/items", "testCaseId": f"{method}:/items", "httpStatus": [200]}],
+    )
 
 
 def test_one_case_can_carry_several_faults(ctx, cli, tmp_path):
@@ -375,11 +407,22 @@ def test_report_when_schema_never_loads(cli, tmp_path):
     schema.write_text("{{{ not yaml", encoding="utf-8")
     path = tmp_path / "report.json"
 
-    cli.run(str(schema), f"--report-wfc-path={path}")
+    cli.run(
+        str(schema),
+        f"--report-wfc-path={path}",
+        f"--report-har-path={tmp_path / 'report.har'}",
+        f"--report-ndjson-path={tmp_path / 'report.ndjson'}",
+    )
 
     report = load_report(path)
     jsonschema_rs.validate(WFC_REPORT_SCHEMA, report)
     assert (report["executionTimeInSeconds"], report["problemDetails"]["rest"]["endpointIds"]) == (0, [])
+    assert load_report(tmp_path / "report.har")["log"]["entries"] == []
+    assert [next(iter(event)) for event in load_ndjson(tmp_path / "report.ndjson")] == [
+        "Initialize",
+        "LoadingStarted",
+        "FatalError",
+    ]
 
 
 def test_report_when_run_stops_early(ctx, cli, tmp_path):

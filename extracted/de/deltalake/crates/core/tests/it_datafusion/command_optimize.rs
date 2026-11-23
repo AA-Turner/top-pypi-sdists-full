@@ -6,18 +6,25 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use arrow_array::{Int32Array, Int64Array, RecordBatch, StringArray};
+use arrow_array::{
+    ArrayRef, Int32Array, Int64Array, RecordBatch, StringArray, StringViewArray, UInt32Array,
+};
 use arrow_schema::{DataType as ArrowDataType, Field, Fields, Schema as ArrowSchema};
 use arrow_select::concat::concat_batches;
+use arrow_select::take::take;
 use bytes::Bytes;
 use datafusion::prelude::SessionContext;
+use deltalake_core::datafile::DeltaWriterProperties;
 use deltalake_core::delta_datafusion::DeltaSessionContext;
 use deltalake_core::ensure_table_uri;
 use deltalake_core::errors::DeltaTableError;
-use deltalake_core::kernel::transaction::{CommitBuilder, CommitProperties, TransactionError};
+use deltalake_core::kernel::transaction::{
+    CommitBuilder, CommitConflictError, CommitProperties, TransactionError,
+};
 use deltalake_core::kernel::{Action, Add, DataType, PrimitiveType, StructField, StructType};
+use deltalake_core::logstore::parquet_reader::ParquetObjectReader;
 use deltalake_core::logstore::{
-    CommitOrBytes, LogStore, LogStoreConfig, LogStoreRef, ObjectStoreRef, get_actions,
+    LogStore, LogStoreConfig, LogStoreRef, ObjectStoreRef, get_actions,
 };
 use deltalake_core::operations::optimize::{
     MetricDetails, Metrics, OptimizeType, PlannerStrategy, create_merge_plan,
@@ -30,14 +37,12 @@ use deltalake_core::{
 };
 use futures::TryStreamExt;
 use object_store::ObjectStoreExt as _;
-use parquet::arrow::async_reader::ParquetObjectReader;
 use parquet::arrow::{ArrowWriter, ParquetRecordBatchStreamBuilder};
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
 use rand::prelude::*;
 use serde_json::json;
 use tempfile::TempDir;
-use uuid::Uuid;
 
 struct Context {
     pub tmp_dir: TempDir,
@@ -442,6 +447,7 @@ async fn assert_optimize_preserves_live_rows_with_deletion_vectors(
                 .with_type(OptimizeType::ZOrder(columns))
                 .await?
         }
+        other => unreachable!("unexpected optimize type: {other:?}"),
     };
 
     assert_eq!(metrics.num_files_added, 1);
@@ -453,8 +459,8 @@ async fn assert_optimize_preserves_live_rows_with_deletion_vectors(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TrackedLogStoreCall {
-    Object(Option<Uuid>),
-    Root(Option<Uuid>),
+    Object,
+    Root,
 }
 
 #[derive(Debug)]
@@ -480,28 +486,6 @@ impl LogStore for OperationTrackingLogStore {
         self.inner.read_commit_entry(version).await
     }
 
-    async fn write_commit_entry(
-        &self,
-        version: deltalake_core::kernel::Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError> {
-        self.inner
-            .write_commit_entry(version, commit_or_bytes, operation_id)
-            .await
-    }
-
-    async fn abort_commit_entry(
-        &self,
-        version: deltalake_core::kernel::Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError> {
-        self.inner
-            .abort_commit_entry(version, commit_or_bytes, operation_id)
-            .await
-    }
-
     async fn get_latest_version(
         &self,
         start_version: deltalake_core::kernel::Version,
@@ -509,20 +493,25 @@ impl LogStore for OperationTrackingLogStore {
         self.inner.get_latest_version(start_version).await
     }
 
-    fn object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn object_store::ObjectStore> {
-        self.calls
-            .lock()
-            .unwrap()
-            .push(TrackedLogStoreCall::Object(operation_id));
-        self.inner.object_store(operation_id)
+    fn object_store(&self) -> Arc<dyn object_store::ObjectStore> {
+        self.calls.lock().unwrap().push(TrackedLogStoreCall::Object);
+        self.inner.object_store()
     }
 
-    fn root_object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn object_store::ObjectStore> {
-        self.calls
-            .lock()
-            .unwrap()
-            .push(TrackedLogStoreCall::Root(operation_id));
-        self.inner.root_object_store(operation_id)
+    fn root_object_store(&self) -> Arc<dyn object_store::ObjectStore> {
+        self.calls.lock().unwrap().push(TrackedLogStoreCall::Root);
+        self.inner.root_object_store()
+    }
+
+    fn committer(&self) -> Arc<dyn deltalake_core::logstore::Committer> {
+        self.inner.committer()
+    }
+
+    async fn begin_operation(
+        &self,
+    ) -> deltalake_core::errors::DeltaResult<Option<deltalake_core::logstore::OperationContext>>
+    {
+        self.inner.begin_operation().await
     }
 
     fn config(&self) -> &LogStoreConfig {
@@ -641,6 +630,46 @@ async fn test_optimize_non_partitioned_table() -> Result<(), Box<dyn Error>> {
     let parameters = last_commit.operation_parameters.clone().unwrap();
     assert_eq!(parameters["targetSize"], json!("2000000"));
     assert_eq!(parameters["predicate"], "[]");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_optimize_preserves_int96_timestamps_outside_nanosecond_range()
+-> Result<(), Box<dyn Error>> {
+    let tmp_dir = tempfile::tempdir()?;
+    fs_extra::dir::copy(
+        "../test/tests/data/table_with_edge_timestamps",
+        tmp_dir.path(),
+        &Default::default(),
+    )?;
+    let table_dir = tmp_dir.path().join("table_with_edge_timestamps");
+    let table_url = url::Url::from_directory_path(table_dir.canonicalize()?).unwrap();
+    let table = open_table(table_url).await?;
+
+    let (table, metrics) = table.optimize().await?;
+    assert_eq!(metrics.num_files_added, 1);
+
+    let ctx: SessionContext = DeltaSessionContext::default().into();
+    table.update_datafusion_session(&ctx.state())?;
+    ctx.register_table("demo", table.table_provider().await?)?;
+    let batches = ctx
+        .sql("SELECT \"BIG_DATE\", \"SOME_VALUE\" FROM demo")
+        .await?
+        .collect()
+        .await?;
+
+    datafusion::assert_batches_sorted_eq!(
+        [
+            "+----------------------+------------+",
+            "| BIG_DATE             | SOME_VALUE |",
+            "+----------------------+------------+",
+            "| 9999-12-30T00:00:00Z | 2          |",
+            "| 9999-12-31T00:00:00Z | 1          |",
+            "+----------------------+------------+",
+        ],
+        &batches
+    );
 
     Ok(())
 }
@@ -838,7 +867,7 @@ async fn test_optimize_with_partitions() -> Result<(), Box<dyn Error>> {
 }
 
 #[tokio::test]
-async fn test_optimize_selected_file_scans_register_operation_scoped_log_store()
+async fn test_optimize_execute_reads_and_writes_through_given_log_store()
 -> Result<(), Box<dyn Error>> {
     let table = DeltaTable::new_in_memory()
         .write(vec![tuples_to_batch(
@@ -869,13 +898,13 @@ async fn test_optimize_selected_file_scans_register_operation_scoped_log_store()
         tracked_table.snapshot()?.snapshot(),
         &[],
         Some(NonZeroU64::new(1_000_000).unwrap()),
-        WriterProperties::builder().build(),
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
         df_context.state(),
     )
     .await?;
 
     calls.lock().unwrap().clear();
-    let operation_id = Uuid::new_v4();
     let metrics = plan
         .execute(
             tracked_table.log_store(),
@@ -883,8 +912,6 @@ async fn test_optimize_selected_file_scans_register_operation_scoped_log_store()
             1,
             None,
             CommitProperties::default(),
-            operation_id,
-            None,
         )
         .await?;
 
@@ -893,16 +920,12 @@ async fn test_optimize_selected_file_scans_register_operation_scoped_log_store()
 
     let calls = calls.lock().unwrap().clone();
     assert!(
-        calls
-            .iter()
-            .any(|call| matches!(call, TrackedLogStoreCall::Root(Some(id)) if *id == operation_id)),
-        "expected optimize selected-file scans to register an operation-scoped root object store, got {calls:?}",
+        calls.contains(&TrackedLogStoreCall::Root),
+        "expected optimize selected-file scans to register the root object store of the given log store, got {calls:?}",
     );
     assert!(
-        calls.iter().any(
-            |call| matches!(call, TrackedLogStoreCall::Object(Some(id)) if *id == operation_id)
-        ),
-        "expected optimize execution to use an operation-scoped object store, got {calls:?}",
+        calls.contains(&TrackedLogStoreCall::Object),
+        "expected optimize execution to write through the object store of the given log store, got {calls:?}",
     );
 
     Ok(())
@@ -1021,7 +1044,8 @@ async fn test_conflict_for_remove_actions() -> Result<(), Box<dyn Error>> {
         dt.snapshot()?.snapshot(),
         &filter,
         None,
-        WriterProperties::builder().build(),
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
         df_context.state(),
     )
     .await?;
@@ -1045,8 +1069,6 @@ async fn test_conflict_for_remove_actions() -> Result<(), Box<dyn Error>> {
             1,
             None,
             CommitProperties::default(),
-            Uuid::new_v4(),
-            None,
         )
         .await;
 
@@ -1088,7 +1110,8 @@ async fn test_no_conflict_for_append_actions() -> Result<(), Box<dyn Error>> {
         dt.snapshot()?.snapshot(),
         &filter,
         None,
-        WriterProperties::builder().build(),
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
         df_context.state(),
     )
     .await?;
@@ -1111,8 +1134,6 @@ async fn test_no_conflict_for_append_actions() -> Result<(), Box<dyn Error>> {
             1,
             None,
             CommitProperties::default(),
-            Uuid::new_v4(),
-            None,
         )
         .await?;
     assert_eq!(metrics.num_files_added, 1);
@@ -1120,6 +1141,208 @@ async fn test_no_conflict_for_append_actions() -> Result<(), Box<dyn Error>> {
 
     dt.update_state().await.unwrap();
     assert_eq!(dt.version().unwrap(), version + 2);
+    Ok(())
+}
+
+#[tokio::test]
+/// Validate that optimize of one partition succeeds when files in another partition are removed
+async fn test_no_conflict_for_remove_actions_in_other_partition() -> Result<(), Box<dyn Error>> {
+    let context = setup_test(true).await?;
+    let mut dt = context.table;
+    let mut writer = RecordBatchWriter::for_table(&dt)?;
+
+    write(
+        &mut writer,
+        &mut dt,
+        tuples_to_batch(vec![(1, 2), (1, 3), (1, 4)], "2022-05-22")?,
+    )
+    .await?;
+
+    write(
+        &mut writer,
+        &mut dt,
+        tuples_to_batch(vec![(2, 2), (2, 3), (2, 4)], "2022-05-22")?,
+    )
+    .await?;
+
+    write(
+        &mut writer,
+        &mut dt,
+        tuples_to_batch(vec![(3, 2), (3, 3), (3, 4)], "2022-05-23")?,
+    )
+    .await?;
+
+    let version = dt.version().unwrap();
+
+    let df_context: SessionContext = DeltaSessionContext::default().into();
+
+    let filter = vec![("date", FilterOp::Eq, FilterValue::Scalar("2022-05-22"))];
+    let plan = create_merge_plan(
+        &dt.log_store(),
+        OptimizeType::Compact,
+        dt.snapshot()?.snapshot(),
+        &filter,
+        None,
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
+        df_context.state(),
+    )
+    .await?;
+
+    let uri = context.tmp_dir.path().to_str().to_owned().unwrap();
+    let table_url = ensure_table_uri(uri).unwrap();
+    let other_dt = deltalake_core::open_table(table_url).await?;
+    other_dt
+        .delete()
+        .with_predicate("date = '2022-05-23'")
+        .await?;
+
+    let metrics = plan
+        .execute(
+            dt.log_store(),
+            dt.snapshot()?.snapshot(),
+            1,
+            None,
+            CommitProperties::default(),
+        )
+        .await?;
+
+    assert_eq!(metrics.num_files_added, 1);
+    assert_eq!(metrics.num_files_removed, 2);
+
+    // the delete and the optimize both committed
+    dt.update_state().await.unwrap();
+    assert_eq!(dt.version().unwrap(), version + 2);
+
+    Ok(())
+}
+
+#[tokio::test]
+/// Validate that optimize with multiple commits fails when files of a later commit are removed
+async fn test_conflict_for_remove_actions_with_commit_interval() -> Result<(), Box<dyn Error>> {
+    let context = setup_test(true).await?;
+    let mut dt = context.table;
+    let mut writer = RecordBatchWriter::for_table(&dt)?;
+
+    for x in 1..=4 {
+        write(
+            &mut writer,
+            &mut dt,
+            tuples_to_batch(vec![(x, 2), (x, 3), (x, 4)], "2022-05-22")?,
+        )
+        .await?;
+    }
+
+    let version = dt.version().unwrap();
+
+    // two bins in one partition, which commit in snapshot file order (newest first):
+    // [x=4, x=3] then [x=2, x=1]
+    let sizes: Vec<u64> = dt
+        .snapshot()?
+        .log_data()
+        .into_iter()
+        .map(|add| u64::try_from(add.size()).unwrap())
+        .collect();
+    let target_size = NonZeroU64::new(sizes[0] + sizes[1] + 1).unwrap();
+
+    let df_context: SessionContext = DeltaSessionContext::default().into();
+
+    let plan = create_merge_plan(
+        &dt.log_store(),
+        OptimizeType::Compact,
+        dt.snapshot()?.snapshot(),
+        &[],
+        Some(target_size),
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
+        df_context.state(),
+    )
+    .await?;
+
+    let uri = context.tmp_dir.path().to_str().to_owned().unwrap();
+    let table_url = ensure_table_uri(uri).unwrap();
+    let other_dt = deltalake_core::open_table(table_url).await?;
+    other_dt.delete().with_predicate("x = 1").await?;
+
+    // the first commit only removes x=4 and x=3, but must still see the delete of x=1
+    let result = plan
+        .execute(
+            dt.log_store(),
+            dt.snapshot()?.snapshot(),
+            1,
+            Some(Duration::from_secs(0)),
+            CommitProperties::default(),
+        )
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(DeltaTableError::Transaction {
+                source: TransactionError::CommitConflict(CommitConflictError::ConcurrentDeleteRead)
+            })
+        ),
+        "{result:?}"
+    );
+    dt.update_state().await?;
+    assert_eq!(dt.version().unwrap(), version + 1);
+    Ok(())
+}
+
+#[tokio::test]
+/// Validate that z-order fails when a file it rewrites is removed concurrently
+async fn test_zorder_conflict_for_remove_actions() -> Result<(), Box<dyn Error>> {
+    let context = setup_test(true).await?;
+    let mut dt = context.table;
+    let mut writer = RecordBatchWriter::for_table(&dt)?;
+
+    for x in 1..=2 {
+        write(
+            &mut writer,
+            &mut dt,
+            tuples_to_batch(vec![(x, 2), (x, 3), (x, 4)], "2022-05-22")?,
+        )
+        .await?;
+    }
+
+    let df_context: SessionContext = DeltaSessionContext::default().into();
+
+    let plan = create_merge_plan(
+        &dt.log_store(),
+        OptimizeType::ZOrder(vec!["x".to_string()]),
+        dt.snapshot()?.snapshot(),
+        &[],
+        None,
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
+        df_context.state(),
+    )
+    .await?;
+
+    let uri = context.tmp_dir.path().to_str().to_owned().unwrap();
+    let table_url = ensure_table_uri(uri).unwrap();
+    let other_dt = deltalake_core::open_table(table_url).await?;
+    other_dt.delete().with_predicate("x = 2").await?;
+
+    let result = plan
+        .execute(
+            dt.log_store(),
+            dt.snapshot()?.snapshot(),
+            1,
+            None,
+            CommitProperties::default(),
+        )
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(DeltaTableError::Transaction {
+                source: TransactionError::CommitConflict(CommitConflictError::ConcurrentDeleteRead)
+            })
+        ),
+        "{result:?}"
+    );
     Ok(())
 }
 
@@ -1152,7 +1375,8 @@ async fn test_commit_interval() -> Result<(), Box<dyn Error>> {
         dt.snapshot()?.snapshot(),
         &[],
         None,
-        WriterProperties::builder().build(),
+        DeltaWriterProperties::default()
+            .with_parquet_properties(WriterProperties::builder().build()),
         context.state(),
     )
     .await?;
@@ -1164,8 +1388,6 @@ async fn test_commit_interval() -> Result<(), Box<dyn Error>> {
             1,
             Some(Duration::from_secs(0)), // this will cause as many commits as num_files_added
             CommitProperties::default(),
-            Uuid::new_v4(),
-            None,
         )
         .await?;
     assert_eq!(metrics.num_files_added, 2);
@@ -1912,7 +2134,7 @@ async fn test_zorder_unpartitioned() -> Result<(), Box<dyn Error>> {
         vec![
             Arc::new(Int32Array::from(vec![1, 2, 1, 1, 1, 2])),
             Arc::new(Int32Array::from(vec![1, 1, 2, 2, 2, 2])),
-            Arc::new(StringArray::from(vec![
+            Arc::new(StringViewArray::from(vec![
                 "1970-01-01",
                 "1970-01-04",
                 "1970-01-01",
@@ -2268,11 +2490,49 @@ async fn test_optimize_spark_written_nullable_nested_field() -> Result<(), Box<d
         .column_by_name("int_id")
         .unwrap()
         .as_any()
-        .downcast_ref::<arrow_array::StringArray>()
+        .downcast_ref::<arrow_array::StringViewArray>()
         .unwrap();
     let mut actual: Vec<&str> = int_id_col.iter().map(|v| v.expect("non-null")).collect();
     actual.sort_unstable();
     assert_eq!(actual, vec!["t1", "t2", "t3", "t4"]);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_optimize_partition_values_with_special_characters() -> Result<(), Box<dyn Error>> {
+    for value in ["a~b", "a b", "a%b", "a%20b", "a/b"] {
+        let context = setup_test(true).await?;
+        let mut dt = context.table;
+        let mut writer = RecordBatchWriter::for_table(&dt)?;
+        write(&mut writer, &mut dt, tuples_to_batch(vec![(1, 2)], value)?).await?;
+        write(&mut writer, &mut dt, tuples_to_batch(vec![(2, 3)], value)?).await?;
+
+        let (dt, metrics) = dt.optimize().await?;
+        assert_eq!(metrics.num_files_removed, 2, "partition value {value:?}");
+        assert_eq!(metrics.num_files_added, 1, "partition value {value:?}");
+        assert_eq!(dt.get_file_uris()?.count(), 1, "partition value {value:?}");
+    }
+    Ok(())
+}
+
+/// Issue <https://github.com/delta-io/delta-rs/issues/3790>: one 8192-row scan batch holds
+/// ~2.2 GB of strings, which overflowed i32 offsets when optimize cast it from Utf8View to Utf8.
+#[tokio::test]
+async fn test_zorder_batch_with_more_than_2gib_of_strings() -> Result<(), Box<dyn Error>> {
+    // 8500 views of one 268,435 byte string, so the ~2.3 GB is never materialized.
+    let value = StringViewArray::from(vec!["a".repeat(268_435)]);
+    let values = take(&value, &UInt32Array::from(vec![0; 8500]), None)?;
+    let ids: ArrayRef = Arc::new(Int32Array::from_iter_values(0..8500));
+    let batch = RecordBatch::try_from_iter([("id", ids), ("value", values)])?;
+    let table = DeltaTable::new_in_memory().write(vec![batch]).await?;
+
+    let (_, metrics) = table
+        .optimize()
+        .with_type(OptimizeType::ZOrder(vec!["id".to_string()]))
+        .await?;
+    assert_eq!(metrics.num_files_added, 1);
+    assert_eq!(metrics.num_files_removed, 1);
 
     Ok(())
 }

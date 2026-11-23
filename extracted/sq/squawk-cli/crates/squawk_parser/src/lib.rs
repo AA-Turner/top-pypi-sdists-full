@@ -24,10 +24,11 @@
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-use drop_bomb::DropBomb;
+use drop_bomb::DebugDropBomb;
 use event::Event;
 use grammar::OPERATOR_FIRST;
 use std::cell::Cell;
+use std::num::NonZeroU32;
 use token_set::TokenSet;
 mod event;
 mod generated;
@@ -49,36 +50,34 @@ pub use crate::{
     },
 };
 
-use crate::input::Input;
+use crate::input::{Input, InputView};
 pub use crate::output::Output;
 
 /// See [`Parser::start`].
 pub(crate) struct Marker {
     pos: u32,
-    bomb: DropBomb,
+    bomb: DebugDropBomb,
 }
 
 impl Marker {
     fn new(pos: u32) -> Marker {
         Marker {
             pos,
-            bomb: DropBomb::new("Marker must be either completed or abandoned"),
+            bomb: DebugDropBomb::new("Marker must be either completed or abandoned"),
         }
     }
 
     /// Finishes the syntax tree node and assigns `kind` to it,
-    /// and mark the create a `CompletedMarker` for possible future
+    /// and creates a `CompletedMarker` for possible future
     /// operation like `.precede()` to deal with `forward_parent`.
+    #[expect(clippy::inline_always)]
+    #[inline(always)]
     pub(crate) fn complete(mut self, p: &mut Parser<'_>, kind: SyntaxKind) -> CompletedMarker {
         self.bomb.defuse();
         let idx = self.pos as usize;
-        match &mut p.events[idx] {
-            Event::Start { kind: slot, .. } => {
-                *slot = kind;
-            }
-            _ => unreachable!(),
-        }
-        p.push_event(Event::Finish);
+        p.events[idx].complete_start(kind);
+        p.node_count += 1;
+        p.push_event(Event::finish());
         CompletedMarker::new(self.pos, kind)
     }
 
@@ -88,13 +87,7 @@ impl Marker {
         self.bomb.defuse();
         let idx = self.pos as usize;
         if idx == p.events.len() - 1 {
-            match p.events.pop() {
-                Some(Event::Start {
-                    kind: SyntaxKind::TOMBSTONE,
-                    forward_parent: None,
-                }) => (),
-                _ => unreachable!(),
-            }
+            assert_eq!(p.events.pop(), Some(Event::TOMBSTONE));
         }
     }
 }
@@ -109,41 +102,37 @@ impl CompletedMarker {
         CompletedMarker { pos, kind }
     }
 
-    /// This method allows to create a new node which starts
+    /// This method allows creating a new node which starts
     /// *before* the current one. That is, parser could start
     /// node `A`, then complete it, and then after parsing the
     /// whole `A`, decide that it should have started some node
-    /// `B` before starting `A`. `precede` allows to do exactly
+    /// `B` before starting `A`. `precede` allows doing exactly
     /// that. See also docs about
-    /// [`Event::Start::forward_parent`](crate::event::Event::Start::forward_parent).
+    /// [`Event`](crate::event::Event).
     ///
     /// Given completed events `[START, FINISH]` and its corresponding
     /// `CompletedMarker(pos: 0, _)`.
-    /// Append a new `START` events as `[START, FINISH, NEWSTART]`,
-    /// then mark `NEWSTART` as `START`'s parent with saving its relative
+    /// Append a new `START` event as `[START, FINISH, NEWSTART]`,
+    /// then mark `NEWSTART` as `START`'s parent while saving its relative
     /// distance to `NEWSTART` into `forward_parent`(=2 in this case);
     pub(crate) fn precede(self, p: &mut Parser<'_>) -> Marker {
         let new_pos = p.start();
         let idx = self.pos as usize;
-        match &mut p.events[idx] {
-            Event::Start { forward_parent, .. } => {
-                *forward_parent = Some(new_pos.pos - self.pos);
-            }
-            _ => unreachable!(),
-        }
+        let forward_parent = NonZeroU32::new(new_pos.pos - self.pos).unwrap();
+        p.events[idx].set_forward_parent(forward_parent);
         new_pos
     }
 
     /// Extends this completed marker *to the left* up to `m`.
     pub(crate) fn extend_to(self, p: &mut Parser<'_>, mut m: Marker) -> CompletedMarker {
         m.bomb.defuse();
-        let idx = m.pos as usize;
-        match &mut p.events[idx] {
-            Event::Start { forward_parent, .. } => {
-                *forward_parent = Some(self.pos - m.pos);
-            }
-            _ => unreachable!(),
+        let distance = self.pos - m.pos;
+        if distance == 1 {
+            return self;
         }
+        let idx = m.pos as usize;
+        let forward_parent = NonZeroU32::new(distance).unwrap();
+        p.events[idx].set_forward_parent(forward_parent);
         self
     }
 
@@ -167,24 +156,25 @@ impl EntryPoint {
             Self::SourceFile => grammar::entry_point(&mut p),
             Self::Plpgsql => plpgsql_grammar::plpgsql_entry_point(&mut p),
         }
-        let events = p.finish();
         // 3. forward parents
-        event::process(events)
+        event::process(p.events, p.errors, p.node_count)
     }
 }
 
 pub(crate) struct Parser<'t> {
-    inp: &'t Input,
+    inp: InputView<'t>,
     pos: usize,
-    limit: usize,
+    current_kind: SyntaxKind,
     events: Vec<Event>,
-    steps: Cell<u32>,
+    errors: Vec<String>,
+    node_count: usize,
+    steps_left: Cell<u32>,
 }
 
-const PARSER_STEP_LIMIT: usize = 15_000_000;
+const PARSER_STEP_LIMIT: u32 = 15_000_000;
 
 #[derive(Clone, Copy)]
-enum TrivaBetween {
+enum TriviaBetween {
     NotAllowed,
     Allowed,
 }
@@ -215,42 +205,46 @@ const SPECIAL_OP_CHARS: TokenSet = TokenSet::new(&[
 impl<'t> Parser<'t> {
     fn new(inp: &'t Input) -> Parser<'t> {
         Parser {
-            inp,
+            inp: inp.view(),
             pos: 0,
-            limit: usize::MAX,
+            current_kind: inp.view().kind(0),
             events: Vec::with_capacity(inp.len() * 4),
-            steps: Cell::new(0),
+            errors: vec![],
+            node_count: 0,
+            steps_left: Cell::new(PARSER_STEP_LIMIT),
         }
     }
 
     // Part of a hack to support pl/pgsql loops where we have to stop at `loop`
     pub(crate) fn with_limit<T>(&mut self, n: usize, f: impl FnOnce(&mut Parser<'t>) -> T) -> T {
-        let limit = self.limit;
-        self.limit = limit.min(self.pos + n);
+        let inp = self.inp;
+        self.inp = inp.limited(self.pos + n);
+        self.current_kind = self.inp.kind(self.pos);
         let res = f(self);
-        self.limit = limit;
+        self.inp = inp;
+        self.current_kind = self.inp.kind(self.pos);
         res
     }
 
     fn kind_at(&self, idx: usize) -> SyntaxKind {
-        if idx >= self.limit {
-            return SyntaxKind::EOF;
+        if idx == self.pos {
+            self.current_kind
+        } else {
+            self.inp.kind(idx)
         }
-        self.inp.kind(idx)
     }
 
     fn contextual_kind_at(&self, idx: usize) -> SyntaxKind {
-        if idx >= self.limit {
-            return SyntaxKind::EOF;
-        }
         self.inp.contextual_kind(idx)
     }
 
     fn is_joint_at(&self, idx: usize) -> bool {
-        idx + 1 < self.limit && self.inp.is_joint(idx)
+        idx + 1 < self.inp.len() && self.inp.is_joint(idx)
     }
 
     /// Consume the next token if `kind` matches.
+    #[expect(clippy::inline_always)]
+    #[inline(always)]
     pub(crate) fn eat(&mut self, kind: SyntaxKind) -> bool {
         if !self.at(kind) {
             return false;
@@ -502,13 +496,19 @@ impl<'t> Parser<'t> {
         true
     }
 
-    fn at_composite2(&self, n: usize, k1: SyntaxKind, k2: SyntaxKind, triva: TrivaBetween) -> bool {
+    fn at_composite2(
+        &self,
+        n: usize,
+        k1: SyntaxKind,
+        k2: SyntaxKind,
+        trivia: TriviaBetween,
+    ) -> bool {
         let tokens_match = self.kind_at(self.pos + n) == k1 && self.kind_at(self.pos + n + 1) == k2;
         // We need to do this so we can say that:
         // 1 > > 2, is not the same as 1 >> 2
-        match triva {
-            TrivaBetween::Allowed => tokens_match,
-            TrivaBetween::NotAllowed => {
+        match trivia {
+            TriviaBetween::Allowed => tokens_match,
+            TriviaBetween::NotAllowed => {
                 return tokens_match
                     && self.is_joint_at(self.pos + n)
                     && self.next_not_joined_op_at(n, n + 1);
@@ -595,7 +595,7 @@ impl<'t> Parser<'t> {
     /// belong to the same node.
     pub(crate) fn start(&mut self) -> Marker {
         let pos = u32::try_from(self.events.len()).unwrap();
-        self.push_event(Event::tombstone());
+        self.push_event(Event::TOMBSTONE);
         Marker::new(pos)
     }
 
@@ -670,16 +670,13 @@ impl<'t> Parser<'t> {
 
     fn do_bump(&mut self, kind: SyntaxKind, n_raw_tokens: u8) {
         self.pos += n_raw_tokens as usize;
-        self.steps.set(0);
-        self.push_event(Event::Token { kind, n_raw_tokens });
+        self.current_kind = self.inp.kind(self.pos);
+        self.steps_left.set(PARSER_STEP_LIMIT);
+        self.push_event(Event::token(kind, n_raw_tokens));
     }
 
     fn push_event(&mut self, event: Event) {
         self.events.push(event);
-    }
-
-    fn finish(self) -> Vec<Event> {
-        self.events
     }
 
     /// Emit error with the `message`
@@ -687,12 +684,14 @@ impl<'t> Parser<'t> {
     /// structured errors with spans and notes, like rustc
     /// does.
     pub(crate) fn error<T: Into<String>>(&mut self, message: T) {
-        let msg = message.into();
-        self.push_event(Event::Error { msg });
+        let index = u32::try_from(self.errors.len()).expect("too many parse errors");
+        self.errors.push(message.into());
+        self.push_event(Event::error(index));
     }
 
     /// Checks if the current token is `kind`.
     #[must_use]
+    #[inline]
     pub(crate) fn at(&self, kind: SyntaxKind) -> bool {
         self.nth_at(0, kind)
     }
@@ -716,70 +715,74 @@ impl<'t> Parser<'t> {
     }
 
     #[must_use]
+    #[inline]
     pub(crate) fn nth_at(&self, n: usize, kind: SyntaxKind) -> bool {
+        if kind >= SyntaxKind::ABORT_KW && kind <= SyntaxKind::WHITESPACE {
+            return self.kind_at(self.pos + n) == kind;
+        }
         match kind {
             // =>
             SyntaxKind::FAT_ARROW => self.at_composite2(
                 n,
                 SyntaxKind::EQ,
                 SyntaxKind::R_ANGLE,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // :=
             SyntaxKind::COLON_EQ => self.at_composite2(
                 n,
                 SyntaxKind::COLON,
                 SyntaxKind::EQ,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // ::
             SyntaxKind::COLON_COLON => self.at_composite2(
                 n,
                 SyntaxKind::COLON,
                 SyntaxKind::COLON,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // !=
             SyntaxKind::NEQ => self.at_composite2(
                 n,
                 SyntaxKind::BANG,
                 SyntaxKind::EQ,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // <>
             SyntaxKind::NEQB => self.at_composite2(
                 n,
                 SyntaxKind::L_ANGLE,
                 SyntaxKind::R_ANGLE,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // is not
             SyntaxKind::IS_NOT => self.at_composite2(
                 n,
                 SyntaxKind::IS_KW,
                 SyntaxKind::NOT_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // not like
             SyntaxKind::NOT_LIKE => self.at_composite2(
                 n,
                 SyntaxKind::NOT_KW,
                 SyntaxKind::LIKE_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // not ilike
             SyntaxKind::NOT_ILIKE => self.at_composite2(
                 n,
                 SyntaxKind::NOT_KW,
                 SyntaxKind::ILIKE_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // not in
             SyntaxKind::NOT_IN => self.at_composite2(
                 n,
                 SyntaxKind::NOT_KW,
                 SyntaxKind::IN_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // at time zone
             SyntaxKind::AT_TIME_ZONE => self.at_composite3(
@@ -793,7 +796,7 @@ impl<'t> Parser<'t> {
                 n,
                 SyntaxKind::AT_KW,
                 SyntaxKind::LOCAL_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // is distinct from
             SyntaxKind::IS_DISTINCT_FROM => self.at_composite3(
@@ -861,7 +864,7 @@ impl<'t> Parser<'t> {
                 n,
                 SyntaxKind::SIMILAR_KW,
                 SyntaxKind::TO_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // https://www.postgresql.org/docs/17/sql-expressions.html#SQL-EXPRESSIONS-OPERATOR-CALLS
             // TODO: is this right?
@@ -869,14 +872,14 @@ impl<'t> Parser<'t> {
                 n,
                 SyntaxKind::OPERATOR_KW,
                 SyntaxKind::L_PAREN,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // is json
             SyntaxKind::IS_JSON => self.at_composite2(
                 n,
                 SyntaxKind::IS_KW,
                 SyntaxKind::JSON_KW,
-                TrivaBetween::Allowed,
+                TriviaBetween::Allowed,
             ),
             // is not json
             SyntaxKind::IS_NOT_JSON => self.at_composite3(
@@ -950,28 +953,28 @@ impl<'t> Parser<'t> {
                 n,
                 SyntaxKind::L_ANGLE,
                 SyntaxKind::EQ,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // <=
             SyntaxKind::GTEQ => self.at_composite2(
                 n,
                 SyntaxKind::R_ANGLE,
                 SyntaxKind::EQ,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // << used for PL/pgSQL
             SyntaxKind::LESS_LESS => self.at_composite2(
                 n,
                 SyntaxKind::L_ANGLE,
                 SyntaxKind::L_ANGLE,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             // >>
             SyntaxKind::GREATER_GREATER => self.at_composite2(
                 n,
                 SyntaxKind::R_ANGLE,
                 SyntaxKind::R_ANGLE,
-                TrivaBetween::NotAllowed,
+                TriviaBetween::NotAllowed,
             ),
             SyntaxKind::CUSTOM_OP => {
                 // TODO: is this right?
@@ -997,13 +1000,104 @@ impl<'t> Parser<'t> {
     /// token.
     #[must_use]
     fn nth(&self, n: usize) -> SyntaxKind {
-        let steps = self.steps.get();
-        assert!(
-            (steps as usize) < PARSER_STEP_LIMIT,
-            "the parser seems stuck"
-        );
-        self.steps.set(steps + 1);
+        let steps_left = self.steps_left.get();
+        assert!(steps_left != 0, "the parser seems stuck");
+        self.steps_left.set(steps_left - 1);
 
         self.kind_at(self.pos + n)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_token_kinds_support_current_and_lookahead_checks() {
+        let kinds = (SyntaxKind::ABORT_KW as u16)..=(SyntaxKind::WHITESPACE as u16);
+        let mut input = Input::with_capacity(kinds.len());
+        for kind in kinds.clone() {
+            input.push(kind.into());
+        }
+        let mut parser = Parser::new(&input);
+        for kind in kinds {
+            let expected = SyntaxKind::from(kind);
+            assert!(parser.nth_at(0, expected));
+            assert!(!parser.nth_at(1, expected));
+            let next = if kind < SyntaxKind::WHITESPACE as u16 {
+                SyntaxKind::from(kind + 1)
+            } else {
+                SyntaxKind::EOF
+            };
+            assert!(parser.nth_at(1, next));
+            parser.bump_any();
+        }
+        assert!(parser.nth_at(0, SyntaxKind::EOF));
+    }
+
+    #[test]
+    fn cached_kind_tracks_composite_token_consumption() {
+        let lexed = LexedStr::new("select a::b + 1;");
+        let input = lexed.to_input();
+        let mut parser = Parser::new(&input);
+        parser.bump(SyntaxKind::SELECT_KW);
+        assert_eq!(parser.current(), SyntaxKind::IDENT);
+        parser.bump(SyntaxKind::IDENT);
+        assert_eq!(parser.current(), SyntaxKind::COLON);
+        assert!(!parser.eat(SyntaxKind::MINUS));
+        assert_eq!(parser.current(), SyntaxKind::COLON);
+        parser.bump(SyntaxKind::COLON_COLON);
+        assert_eq!(parser.current(), SyntaxKind::IDENT);
+        parser.bump(SyntaxKind::IDENT);
+        assert_eq!(parser.current(), SyntaxKind::PLUS);
+        parser.bump(SyntaxKind::PLUS);
+        assert_eq!(parser.current(), SyntaxKind::INT_NUMBER);
+        parser.bump_any();
+        assert_eq!(parser.current(), SyntaxKind::SEMICOLON);
+        parser.bump(SyntaxKind::SEMICOLON);
+        assert_eq!(parser.current(), SyntaxKind::EOF);
+        parser.bump_any();
+        assert_eq!(parser.current(), SyntaxKind::EOF);
+    }
+
+    #[test]
+    fn nested_input_limits_restore_token_metadata() {
+        let lexed = LexedStr::new("loop+1");
+        let input = lexed.to_input();
+        let mut parser = Parser::new(&input);
+        assert_eq!(parser.contextual_kind_at(0), SyntaxKind::LOOP_KW);
+        assert!(parser.is_joint_at(0));
+        assert!(parser.is_joint_at(1));
+        parser.with_limit(2, |parser| {
+            assert_eq!(parser.kind_at(2), SyntaxKind::EOF);
+            assert_eq!(parser.contextual_kind_at(2), SyntaxKind::EOF);
+            assert!(parser.is_joint_at(0));
+            assert!(!parser.is_joint_at(1));
+            parser.with_limit(1, |parser| {
+                assert_eq!(parser.kind_at(0), SyntaxKind::IDENT);
+                assert_eq!(parser.contextual_kind_at(0), SyntaxKind::LOOP_KW);
+                assert_eq!(parser.kind_at(1), SyntaxKind::EOF);
+                assert!(!parser.is_joint_at(0));
+                parser.with_limit(3, |parser| {
+                    assert_eq!(parser.kind_at(1), SyntaxKind::EOF);
+                });
+            });
+            assert_eq!(parser.kind_at(1), SyntaxKind::PLUS);
+            assert!(parser.is_joint_at(0));
+            assert!(!parser.is_joint_at(1));
+        });
+        assert_eq!(parser.kind_at(2), SyntaxKind::INT_NUMBER);
+        assert!(parser.is_joint_at(1));
+        parser.bump_any();
+        parser.with_limit(1, |parser| {
+            assert_eq!(parser.kind_at(1), SyntaxKind::PLUS);
+            assert_eq!(parser.kind_at(2), SyntaxKind::EOF);
+            assert!(!parser.is_joint_at(1));
+        });
+        parser.with_limit(0, |parser| {
+            assert_eq!(parser.current(), SyntaxKind::EOF);
+        });
+        assert_eq!(parser.current(), SyntaxKind::PLUS);
+        assert_eq!(parser.kind_at(2), SyntaxKind::INT_NUMBER);
     }
 }

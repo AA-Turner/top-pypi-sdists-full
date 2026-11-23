@@ -107,7 +107,6 @@ from conformance.suite.schema.catalog import (
 from conformance.suite.schema.disposition import (
     EnforcementTier,
     FixLocus,
-    RuleMechanism,
     RuleScope,
 )
 
@@ -125,7 +124,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ContractAmendsLegacyModule",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.9.0",
@@ -188,10 +186,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "deliberate delay is justified (e.g. phased migration tracked in a "
             "follow-on ticket).\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k001"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -225,7 +219,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="LegacyContractApi",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.9.0",
@@ -308,10 +301,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "**Suppress** with ``// conformance: ignore[K002] <reason>`` on "
             "the violating line or the comment-only line directly above it.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k002"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -338,7 +327,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ContractLockDrift",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.9.0",
@@ -398,10 +386,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``uri`` line in ``contract/PklProject`` (or the comment-only line "
             "directly above it) when a deliberate lag is justified.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k003"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -410,16 +394,15 @@ RULES: tuple[RuleDefinition, ...] = (
     RuleDefinition(
         id="K004",
         canonical_reference=(
-            "atlan-metabase-app app/generated/ — atlan.yaml at the repo root plus "
-            "_input.py and manifest.json in app/generated/, the three outputs K004 "
-            "checks. A contract/app.pkl with any of those missing means the repo's own "
+            "atlan-metabase-app atlan.yaml at the repo root plus "
+            "app/generated/_input.py and app/generated/manifest.json, the three "
+            "outputs K004 checks. A contract/app.pkl with any of those missing means the repo's own "
             "generate task has not run since the contract last changed."
         ),
         fix_locus=FixLocus.CONTRACT,
         scope=RuleScope.APP,
         name="MissingGeneratedArtifact",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.9.0",
@@ -494,10 +477,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``amends`` line of ``contract/app.pkl`` when an output is legitimately "
             "not produced for this app.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k004"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -515,7 +494,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="GeneratedArtifactBannerStripped",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.9.0",
@@ -566,10 +544,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "first line of the file (or the line above it) for an app that "
             "deliberately hand-maintains this artifact.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k005"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -589,7 +563,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ManifestContractFieldMismatch",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.13.0",
@@ -651,10 +624,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``Output`` class definition (or the comment-only line directly above "
             "it) when a mismatch is understood and deliberately deferred.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k006"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -673,7 +642,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ToolkitVersionOutdated",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         # Not the remediation lane's: the self-hosted Renovate runner opens the
         # toolkit bump and regenerates in postUpgradeTasks, so this rule only
@@ -717,10 +685,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``uri`` line (or the comment-only line directly above it) when a "
             "deliberate lag is justified.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k007"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -739,7 +703,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ToolkitSourceNonCanonical",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.12.0",
@@ -776,10 +739,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "**Suppress** with ``// conformance: ignore[K008] <reason>`` on the "
             "``uri`` line (or the comment-only line directly above it).\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k008"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -808,7 +767,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="UnresolvedScaffoldPlaceholder",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.12.0",
@@ -866,10 +824,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "available for text artifacts; a placeholder in a ``.json`` output has "
             "no comment syntax to suppress and must be regenerated.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k009"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -887,7 +841,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="E2EScaffoldingMissing",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.12.0",
@@ -922,10 +875,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``amends`` line of ``contract/app.pkl`` when the app legitimately ships "
             "no E2E scaffolding.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k010"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -951,7 +900,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="AppIdMissingFromContract",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.14.0",
@@ -1010,10 +958,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "publish. It exists only for the rare non-published app that still "
             "ships an ``atlan.yaml``.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k011"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1040,7 +984,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="GeneratePoeTaskMissing",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.14.0",
@@ -1091,10 +1034,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "for an app that is genuinely never published through the "
             "marketplace pipeline.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k012"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1114,7 +1053,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ManifestNodeAppNameMisattributed",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.18.0",
@@ -1194,10 +1132,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "a directive -- as with K009, the only resolution is to fix the "
             "contract and regenerate. Never hand-edit ``manifest.json``.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k013"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1214,7 +1148,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ReleaseModelUndeclared",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.18.0",
@@ -1294,10 +1227,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "suppression is rarely the right answer: declaring the value is one "
             "line and is the entire point of the rule.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k014"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1323,7 +1252,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="LegacyWorkflowTypeContractDrift",
         tier=EnforcementTier.BLOCK,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.23.0",
@@ -1424,10 +1352,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``App`` subclass. Suppressing leaves the two sites free to diverge, "
             "and P016 keeps routing off the manifest either way.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k015"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1444,7 +1368,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="EntrypointArtifactSchemaMissing",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.23.0",
@@ -1544,10 +1467,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "artifact no other app reads, and the wrong call for one that "
             "crosses an app boundary.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k016"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1567,7 +1486,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ArtifactSchemaWriterMismatch",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.23.0",
@@ -1662,10 +1580,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "the consuming side reading an assertion the producer does not "
             "honour.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k017"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1684,7 +1598,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ManifestArgNotDeclaredOnInputContract",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.24.0",
@@ -1825,10 +1738,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "it) — or, for an app that inherits a template's ``run()``, on the "
             "app class definition, where that finding is anchored.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k018"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1846,7 +1755,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="FormKeyMissingFromManifestArgs",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.24.0",
@@ -1907,10 +1815,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "directly above it) — for example a field the frontend consumes "
             "directly and deliberately never sends to the workflow.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k019"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -1928,7 +1832,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="ManifestArgsLegacyNestedEnvelope",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=False,
         since="0.24.0",
@@ -2002,10 +1905,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "envelope for now — a suppression here is a statement that the "
             "migration is scheduled, not that the shape is fine.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k020"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.GUIDE,
             target="programs/areas/contract-toolkit.prose.md",
@@ -2025,7 +1924,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="FilterFieldRejectsAeString",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.26.0",
@@ -2102,10 +2000,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "it) — for example when the string is genuinely coerced by a path the "
             "static check cannot follow.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k021"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -2122,7 +2016,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="EntrypointContractClassNameCollision",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.43.0",
@@ -2181,10 +2074,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "entrypoint method definition (or the comment-only line directly above "
             "it).\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k027"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -2208,7 +2097,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="DeploymentObjectStoreDisabled",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.56.0",
@@ -2262,10 +2150,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "``objectstore:`` line of ``atlan.yaml``. A suppression is almost "
             "never correct: no app built on the SDK starts without the store.\n"
         ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k029"
-        ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,
             target="programs/areas/contract-toolkit.prose.md",
@@ -2290,7 +2174,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="CredentialSecretStoreDisabled",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="contract-toolkit",
         autofixable=True,
         since="0.57.0",
@@ -2344,10 +2227,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "above it), or ``# conformance: ignore[K030] <reason>`` on the "
             "``secretstore:`` line of ``atlan.yaml``. A suppression is almost never "
             "correct: an app with credentials cannot resolve them without the store.\n"
-        ),
-        help_uri=(
-            "https://github.com/atlanhq/application-sdk/blob/main/"
-            "packages/conformance/conformance/docs/rules/contract-toolkit.md#k030"
         ),
         remediation_reference=RemediationReference(
             kind=RemediationKind.PRESCRIPTION,

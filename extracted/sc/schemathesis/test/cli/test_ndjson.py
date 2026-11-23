@@ -21,16 +21,15 @@ def ndjson_path(tmp_path):
 
 
 def get_event_type(event):
-    """Get the event type from externally tagged format."""
     return next(iter(event.keys()))
 
 
 def get_event_data(event):
-    """Get the event data from externally tagged format."""
     return next(iter(event.values()))
 
 
 LARGE_RESPONSE_BODY = json.dumps({"padding": "x" * 2000}).encode()
+SECRET = "secret-token"
 
 
 def test_ndjson_records_truncated_response_body(cli, ctx, ndjson_path):
@@ -122,25 +121,21 @@ def test_store_ndjson(ctx, cli, ndjson_path, hypothesis_max_examples):
     )
     events = load_ndjson(ndjson_path)
 
-    # First event should be Initialize
     assert get_event_type(events[0]) == "Initialize"
     init_data = get_event_data(events[0])
     assert "schemathesis_version" in init_data
     assert init_data["seed"] == 1
 
-    # Should have EngineStarted
     engine_started = [e for e in events if get_event_type(e) == "EngineStarted"]
     assert len(engine_started) == 1
 
-    # Should have PhaseStarted events
     phase_started = [e for e in events if get_event_type(e) == "PhaseStarted"]
     assert len(phase_started) >= 1
     assert any(get_event_type(e) == "PhaseFinished" for e in events)
 
-    # Should have ScenarioFinished events with recorder data
     scenario_finished = [e for e in events if get_event_type(e) == "ScenarioFinished"]
     assert len(scenario_finished) >= 1
-    # At least one scenario should have cases/checks/interactions (empty ones are omitted)
+    # The recorder omits empty `cases`, `checks` and `interactions`.
     has_data = False
     for event in scenario_finished:
         data = get_event_data(event)
@@ -150,7 +145,6 @@ def test_store_ndjson(ctx, cli, ndjson_path, hypothesis_max_examples):
             has_data = True
     assert has_data, "Expected at least one scenario with test data"
 
-    # Last event should be EngineFinished
     assert get_event_type(events[-1]) == "EngineFinished"
     assert "running_time" in get_event_data(events[-1])
 
@@ -260,8 +254,24 @@ def test_binary_body_base64(ctx, cli, ndjson_path):
     assert all(b"\x89PNG" in base64.b64decode(body["$base64"]) for body in bodies)
 
 
-def test_enum_serialization_without_sanitization(cli, ctx, ndjson_path):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+def test_serialization_without_sanitization(cli, ctx, ndjson_path):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "api_key",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string", "example": SECRET},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
 
     @app.route("/users")
     def users():
@@ -273,13 +283,19 @@ def test_enum_serialization_without_sanitization(cli, ctx, ndjson_path):
         "--max-examples=10",
         "--seed=1",
         "--phases=coverage",
+        "--mode=positive",
         "--output-sanitize=false",
     )
     events = load_ndjson(ndjson_path)
+    assert [
+        (node["value"]["query"], node["value"]["meta"]["raw_containers"])
+        for event in events
+        if get_event_type(event) == "ScenarioFinished"
+        for node in get_event_data(event)["recorder"]["cases"].values()
+    ] == [({"api_key": SECRET}, {"query": {"api_key": SECRET}})]
     assert get_event_type(events[0]) == "Initialize"
     assert get_event_type(events[-1]) == "EngineFinished"
 
-    # PhaseName enum should be serialized as string value
     phase_started = [e for e in events if get_event_type(e) == "PhaseStarted"]
     assert len(phase_started) >= 1
     for event in phase_started:
@@ -287,16 +303,13 @@ def test_enum_serialization_without_sanitization(cli, ctx, ndjson_path):
         phase = data["phase"]
         assert isinstance(phase["name"], str)
         assert phase["name"] in (
-            "probing",
-            "schema_analysis",
-            "auth_bootstrap",
+            "setup",
             "examples",
             "coverage",
             "fuzzing",
             "stateful",
         )
 
-    # Status enum should be serialized as string value
     phase_finished = [e for e in events if get_event_type(e) == "PhaseFinished"]
     assert len(phase_finished) >= 1
     for event in phase_finished:
@@ -343,7 +356,6 @@ def test_form_data_string_body(cli, ctx, ndjson_path):
     scenario_finished = [e for e in events if get_event_type(e) == "ScenarioFinished"]
     assert len(scenario_finished) >= 1
 
-    # Form data body should be base64 encoded
     found_form_request = False
     for event in scenario_finished:
         data = get_event_data(event)
@@ -358,25 +370,33 @@ def test_form_data_string_body(cli, ctx, ndjson_path):
 
 
 @pytest.mark.parametrize(
-    ("parameters", "args", "config", "expected"),
+    ("parameters", "args", "config", "expected", "raw_containers"),
     [
-        ([], ["-H", "Authorization: Bearer secret-token"], None, {"headers": {"Authorization": "[Filtered]"}}),
         (
-            [{"name": "api_key", "in": "query", "required": True, "schema": {"type": "string"}}],
+            [{"name": "X-API-Key", "in": "header", "required": True, "schema": {"type": "string", "example": SECRET}}],
+            ["-H", f"Authorization: Bearer {SECRET}"],
+            {"parameters": {"X-API-Key": SECRET}},
+            {"headers": {"Authorization": "[Filtered]", "X-API-Key": "[Filtered]"}},
+            {"header": {"X-API-Key": "[Filtered]"}},
+        ),
+        (
+            [{"name": "api_key", "in": "query", "required": True, "schema": {"type": "string", "example": SECRET}}],
             [],
-            {"parameters": {"api_key": "secret-token"}},
+            {"parameters": {"api_key": SECRET}},
+            {"query": {"api_key": "[Filtered]"}},
             {"query": {"api_key": "[Filtered]"}},
         ),
         (
-            [{"name": "session", "in": "cookie", "required": True, "schema": {"type": "string"}}],
+            [{"name": "session", "in": "cookie", "required": True, "schema": {"type": "string", "example": SECRET}}],
             [],
-            {"parameters": {"session": "secret-token"}},
+            {"parameters": {"session": SECRET}},
             {"cookies": {"session": "[Filtered]"}},
+            {"cookie": {"session": "[Filtered]"}},
         ),
     ],
     ids=["header", "query", "cookie"],
 )
-def test_recorded_cases_sanitized(cli, ctx, ndjson_path, parameters, args, config, expected):
+def test_recorded_cases_sanitized(cli, ctx, ndjson_path, parameters, args, config, expected, raw_containers):
     app, _ = ctx.openapi.make_flask_app(
         {"/foo": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
     )
@@ -389,20 +409,24 @@ def test_recorded_cases_sanitized(cli, ctx, ndjson_path, parameters, args, confi
         app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=1",
-        "--phases=fuzzing",
+        "--phases=coverage,fuzzing",
+        "--mode=positive",
         *args,
         config=config,
     )
-    assert "secret-token" not in ndjson_path.read_text()
+    assert SECRET not in ndjson_path.read_text()
     cases = [
         node["value"]
         for event in load_ndjson(ndjson_path)
         if get_event_type(event) == "ScenarioFinished"
         for node in get_event_data(event)["recorder"]["cases"].values()
     ]
-    assert cases
+    assert {case["meta"]["phase"]["name"] for case in cases} == {"coverage", "fuzzing"}
     for case in cases:
         assert {key: case[key] for key in expected} == expected
+    assert [case["meta"].get("raw_containers") for case in cases if case["meta"]["phase"]["name"] == "coverage"] == [
+        raw_containers
+    ]
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
@@ -429,7 +453,7 @@ def test_credentials_sanitized_in_command(ctx, testdir, ndjson_path):
 
 
 def test_stateful_with_extraction_failure(cli, ctx, ndjson_path):
-    # Link expression references non-existent field to trigger Err serialization
+    # The link references a missing field to produce an extraction error.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/users": {
@@ -490,13 +514,12 @@ def test_stateful_with_extraction_failure(cli, ctx, ndjson_path):
     assert get_event_type(events[0]) == "Initialize"
     assert get_event_type(events[-1]) == "EngineFinished"
 
-    # Stateful phase should run
     phase_started = [e for e in events if get_event_type(e) == "PhaseStarted"]
     assert any(get_event_data(e)["phase"]["name"] == "stateful" for e in phase_started)
 
 
 def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):
-    # Link references an array index that will be empty, triggering $unresolvable
+    # The link points at an index of an empty array, so extraction yields `$unresolvable`.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/tags": {
@@ -535,7 +558,6 @@ def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):
 
     @app.route("/tags")
     def list_tags():
-        # Return empty array - extraction of /data/0/id will be unresolvable
         return jsonify({"data": []})
 
     @app.route("/tags/<int:tag_id>")
@@ -551,7 +573,6 @@ def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):
     )
     events = load_ndjson(ndjson_path)
 
-    # Find ScenarioFinished events with transitions
     scenario_finished = [e for e in events if get_event_type(e) == "ScenarioFinished"]
     found_unresolvable = False
 
@@ -565,7 +586,6 @@ def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):
                     for param in location_params.values():
                         if param.get("value") == {"$unresolvable": True}:
                             found_unresolvable = True
-                            # Verify the structure
                             assert "definition" in param
                             assert "is_required" in param
 

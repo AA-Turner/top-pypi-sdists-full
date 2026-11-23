@@ -17,7 +17,7 @@ from tenacity.wait import wait_base
 
 from hcli.lib.console import stderr_console
 from hcli.lib.ida.plugin.repo import BasePluginRepo, Plugin, PluginArchiveIndex
-from hcli.lib.util.cache import get_cache_directory
+from hcli.lib.util.cache import PLUGINS_CACHE_KEY, get_cache_directory
 from hcli.lib.util.logging import m
 
 logger = logging.getLogger(__name__)
@@ -534,15 +534,15 @@ def parse_repository(repo_string: str) -> tuple[str, str]:
 
 
 def get_source_archive_cache_directory(owner: str, repo: str, commit_hash: str) -> Path:
-    return get_cache_directory(owner, repo, "source-archives", commit_hash)
+    return get_cache_directory(PLUGINS_CACHE_KEY, owner, repo, "source-archives", commit_hash)
 
 
 def get_release_asset_cache_directory(owner: str, repo: str, release_id: str) -> Path:
-    return get_cache_directory(owner, repo, "release-assets", release_id)
+    return get_cache_directory(PLUGINS_CACHE_KEY, owner, repo, "release-assets", release_id)
 
 
 def get_releases_metadata_cache_path(owner: str, repo: str) -> Path:
-    return get_cache_directory(owner, repo) / "releases.json"
+    return get_cache_directory(PLUGINS_CACHE_KEY, owner, repo) / "releases.json"
 
 
 def set_releases_metadata_cache(owner: str, repo: str, releases: GitHubReleases) -> None:
@@ -684,7 +684,7 @@ def get_source_archive(owner: str, repo: str, commit_hash: str, zip_url: str) ->
 
 
 def get_candidate_github_repos_cache_path() -> Path:
-    return get_cache_directory() / "candidate_repos.json"
+    return get_cache_directory(PLUGINS_CACHE_KEY) / "candidate_repos.json"
 
 
 def set_candidate_github_repos_cache(repos: list[str]) -> None:

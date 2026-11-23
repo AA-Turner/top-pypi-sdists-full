@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pypaperless
-Version: 6.0.3
+Version: 6.0.4
 Summary: Little api client for paperless(-ngx).
 Project-URL: Homepage, https://pypaperless.docs.tbsch.de
 Project-URL: Source Code, https://github.com/tb1337/pypaperless
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.12
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: pydantic-settings>=2.16.2
-Requires-Dist: pydantic>=2.14.2
+Requires-Dist: pydantic-settings>=2.16.3
+Requires-Dist: pydantic>=2.14.4
 Description-Content-Type: text/markdown
 
 # pypaperless

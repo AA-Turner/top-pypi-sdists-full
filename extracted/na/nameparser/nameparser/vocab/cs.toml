@@ -25,11 +25,15 @@ salutation = { issue = 606, gender = "f", after_given = true }
 
 [[word]]
 text = "bc"
-excluded = { academic = { reason = "bakalář, the Czech and Slovak Bachelor, but BC is the US nursing credential Board Certified, written after the name (APRN, BC; ACNP-BC): read as a title under a Czech choice it moved 23 of ClinicalTrials.gov's 536,981 officials, one a Czech Bc (Dagmar Koveslygetyova, Bc) and the rest that credential or initials (Lora L. Beebe, PhD, PMHNP, BC read title 'BC'; ACNP-BC recased 'ACNP-Bc'), measured 2026-10-30; written Bc. at the head of a name it reads as a title by its shape without a reading (rules/H2)", issue = 753, decided = 2026-10-30 } }
+academic = { default = false, issue = [753, 970], expands = "bakalář, Bachelor", note = "bakalář, the Czech and Slovak Bachelor. Excluded on 2026-10-30 because as a title under a Czech choice it moved 23 of ClinicalTrials.gov's 536,981 officials, one a Czech Bc and the rest the US nursing credential Board Certified (APRN, BC) or initials; re-weighed on 2026-11-21 by the rule that a choice is optimised for its language's names, those 23 being a US register read under a Czech choice. Under locales.CS it moves 51 of cz-candidates' 170,181 records to agreement and none away, the Bc. et Bc. pair most, and of every local corpus's names holding the word, 80 read differently (bc alone, measured 2026-11-21 against master 1e920d6f; recipe in the decisions entry): 59 Czech degrees now right, 5 names a trailing BC had reversed now right, and 16 costs, 9 initials B.C. (MOSS, BC reads title 'BC', no given name) and 7 the credential BC moved from suffix to title, 6 of them the nursing credential and 1 the BC of MB BC. No case mask: cased = 'Bc' recased ACNP-BC as ACNP-Bc under capitalized(force=True), and title case writes Bc. without one (decisions/vocabulary-model, the 2026-11-21 #970 entry)" }
 
 [[word]]
 text = "bca"
 academic = { default = false, cased = "BcA", issue = [753, 848], expands = "bakalář umění, Bachelor of Arts" }
+
+[[word]]
+text = "ing"
+academic = { default = false, issue = 970, expands = "inženýr, the engineering degree", note = "inženýr, the engineering degree, written before the name. Its given reading in mul.toml (Ing, a Chinese, Malaysian and Swedish given name) would make it a title only inside a title phrase (rules/H9), and a choice never drops a name reading, so locales.CS's fragment removes that reading; the family reading stays, keeping mul.toml's credential gated (Mr Tom Ing keeps family Ing). Under locales.CS, with bc, it moves 165 of cz-candidates' 170,181 records to agreement and 4 away (measured 2026-11-21 against master efdf0e16), the records whose Ing et Ing pair stood outside the title falling from 107 to 1, and the cost an Ing.Paed.IGIP or EUR ING written after the name read as a title. Among every local corpus's names holding the word, about 162 are the degree now read (140 written with its period or in a pair, about 22 bare) and about 19 open with Ing the given name, which reads title 'Ing' (Ing Wei Lim); Ing alone after a family comma (Lim, Ing) and Ing the surname at the head of a family comma (Ing Ho, Mei) read the title too (decisions/vocabulary-model, the 2026-11-21 #970 entry)" }
 
 [[word]]
 text = "judr"
@@ -124,8 +128,20 @@ text = "starší"
 generation = { issue = 661 }
 
 [[word]]
+text = "dis"
+credential = { issue = 969, expands = "diplomovaný specialista, the Czech tertiary professional diploma, written after the name", note = "cz-candidates: 3,248 of 170,181 Czech election candidates' records hold it in the box after the name (2026-10-30), 3,232 of them read as a title behind the comma; NPPES 2 (written DIS); ClinicalTrials.gov 1 official, after a comma (data 2026-11-18). The surname Dis is mul.toml's family reading, which gates the credential (rules/S4). No case mask (decided 2026-11-20): a mask applies in every role and would repair the surname to DiS (JAN DIS → Jan DiS), so a mixed-case spelling is left as written, and case repair of a name written in one case, like capitalized(force=True), writes DIS" }
+
+[[word]]
 text = "drsc"
-credential = { default = false, cased = "DrSc", issue = [753, 848], expands = "doktor věd, Doctor scientiarum, written after the name", note = "16 of ClinicalTrials.gov's 536,981 officials write it, all after a comma (data 2026-10-21)" }
+credential = { cased = "DrSc", issue = [753, 848, 969], expands = "doktor věd, Doctor scientiarum, written after the name", note = "on by default since 2026-11-20 (#969): no name reading (ORCID boxes hold it 5 times, the credential typed into a name box; no Census, SSA or PatentsView bearer), and Czech candidates write it after a comma, where unlisted it read as a title (12 records under the default, 2026-10-30); 16 of ClinicalTrials.gov's 536,981 officials write it, all after a comma (data 2026-10-21)" }
+
+[[word]]
+text = "ien"
+excluded = { credential = { reason = "IEn., written after the name by 3 Czech election candidates (cz-candidates, 2026-10-30), is the given name Ien: US SSA 16 births since 1880, a lower bound, years under 5 unrecorded (2026-11-20), so a credential reading would take a given name ending a name", issue = 969, decided = 2026-11-20 } }
+
+[[word]]
+text = "et"
+conjunction = { issue = 970, note = "Latin 'and', which Czech writes between two degrees of the same rank (Ing. et Ing., Mgr. et Mgr.); fr.toml's conjunction already reads it by default, so this copy moves no field but under a strict choice of cs, which drops fr.toml and read Ing. et Ing. Jan Novák as title 'Ing.', given 'et'; there et now joins any two words, as by default (Pierre et Marie Curie gives given 'Pierre et Marie'), and the word's Reading.languages gains cs (#970)" }
 
 [[word]]
 text = "roz"
@@ -145,27 +161,331 @@ note = "the masculine rozený awaits its own vetting; the abbreviation roz., sha
 # -- BEGIN generated by tools/vocab/familiar.py; edit the tool, not this block --
 
 [[word]]
+text = "ada"
+familiar = { short_for = ["adolf"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "alena"
+familiar = { short_for = ["lenka"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "alois"
+familiar = { short_for = ["lojza"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "anna"
+familiar = { short_for = ["nana"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "antoš"
+familiar = { short_for = ["antonín"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "bohouš"
+familiar = { short_for = ["bohumil", "bohuslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "bohuš"
+familiar = { short_for = ["bohumil"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "bolek"
+familiar = { short_for = ["boleslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "bořík"
+familiar = { short_for = ["bořivoj"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "bára"
+familiar = { short_for = ["barbora"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "běta"
+familiar = { short_for = ["alžběta"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "drahoš"
+familiar = { short_for = ["drahomír"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "eda"
+familiar = { short_for = ["eduard"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "emilie"
+familiar = { short_for = ["miluška"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "fanda"
+familiar = { short_for = ["františek"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "fanouš"
+familiar = { short_for = ["františek"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "ferdiš"
+familiar = { short_for = ["ferdinand"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "fero"
+familiar = { short_for = ["františek"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "franta"
+familiar = { short_for = ["františek"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "fráňa"
+familiar = { short_for = ["františek"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "hana"
+familiar = { short_for = ["hanka"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "ivo"
+familiar = { short_for = ["ivan"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
 text = "jan"
-familiar = { short_for = ["honza"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["honza", "jenda"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jarda"
+familiar = { short_for = ["jaroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jarek"
+familiar = { short_for = ["jaroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jarka"
+familiar = { short_for = ["jarmila"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jindra"
+familiar = { short_for = ["jindřich"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "jiri"
-familiar = { short_for = ["jirka"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["jirka"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "jiří"
-familiar = { short_for = ["jirka"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["jirka", "jiřík", "jura", "jíra"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "joe"
+familiar = { short_for = ["josef"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "josef"
+familiar = { short_for = ["joska", "jožka"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jožka"
+familiar = { short_for = ["josefa"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "jára"
+familiar = { short_for = ["jaroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "kiki"
+familiar = { short_for = ["kristýna"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "kája"
+familiar = { short_for = ["karel"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "laco"
+familiar = { short_for = ["ladislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "laďka"
+familiar = { short_for = ["ladislava"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "luboš"
+familiar = { short_for = ["lubomír"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "luděk"
+familiar = { short_for = ["ludvík"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "láďa"
+familiar = { short_for = ["ladislav", "vladimír", "vladislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "lída"
+familiar = { short_for = ["ludmila"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "marie"
+familiar = { short_for = ["maruška"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "max"
+familiar = { short_for = ["maxmilian"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "mirek"
-familiar = { short_for = ["miroslav"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["jaromír", "miroslav", "vladimír"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "mirka"
-familiar = { short_for = ["miroslava"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["miroslava"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "mirko"
+familiar = { short_for = ["miroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "máňa"
+familiar = { short_for = ["marie"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "míla"
+familiar = { short_for = ["bohumil", "bohumila", "milan", "miloslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "míra"
+familiar = { short_for = ["miroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "naďa"
+familiar = { short_for = ["naděžda"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "olda"
+familiar = { short_for = ["oldřich"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "ondra"
-familiar = { short_for = ["ondřej"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["ondřej"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "ota"
+familiar = { short_for = ["otakar"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "pepa"
+familiar = { short_for = ["josef"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "přemek"
+familiar = { short_for = ["přemysl"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "radek"
+familiar = { short_for = ["radoslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "riša"
+familiar = { short_for = ["richard"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "robo"
+familiar = { short_for = ["róbert"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "rosťa"
+familiar = { short_for = ["rostislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "ruda"
+familiar = { short_for = ["rudolf"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "sláva"
+familiar = { short_for = ["jaroslav", "miroslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "slávek"
+familiar = { short_for = ["jaroslav", "miloslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "standa"
+familiar = { short_for = ["stanislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "staněk"
+familiar = { short_for = ["stanislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "stáňa"
+familiar = { short_for = ["stanislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "sváťa"
+familiar = { short_for = ["svatopluk"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "tonda"
+familiar = { short_for = ["antonín"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "tony"
+familiar = { short_for = ["antonín"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "toník"
+familiar = { short_for = ["antonín"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "tylda"
+familiar = { short_for = ["matylda"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vašek"
+familiar = { short_for = ["václav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "venca"
+familiar = { short_for = ["václav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vilma"
+familiar = { short_for = ["vilhelmina"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vlado"
+familiar = { short_for = ["vladimir"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vláďa"
+familiar = { short_for = ["vladimír"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vojta"
+familiar = { short_for = ["vojtěch"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "vraťa"
+familiar = { short_for = ["vratislav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "váša"
+familiar = { short_for = ["václav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "víťa"
+familiar = { short_for = ["viktor", "vítězslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "zofia"
+familiar = { short_for = ["zosia"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "zuzka"
+familiar = { short_for = ["zuzana"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+
+[[word]]
+text = "čeněk"
+familiar = { short_for = ["vincenc"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 # -- END generated --

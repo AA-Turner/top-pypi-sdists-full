@@ -297,6 +297,151 @@ def test_arange(sss, shape, dtype, chunks, blocks, c_order):
         pass
 
 
+@pytest.mark.parametrize("c_order", [True, False])
+def test_eager_real_ramps_bypass_legacy_source_kernel(monkeypatch, c_order):
+    from importlib import import_module
+
+    def reject(*args, **kwargs):
+        pytest.fail("Eligible real ramps must not construct a legacy SourceKernel")
+
+    monkeypatch.setattr(import_module("blosc2.ndarray"), "SourceKernel", reject)
+    layout = {"chunks": (2, 4), "blocks": (1, 2), "shape": (3, 5), "c_order": c_order}
+    ramp = blosc2.arange(120, 135, dtype=np.int8, jit=False, **layout)
+    assert ramp.chunks == layout["chunks"]
+    assert ramp.blocks == layout["blocks"]
+    np.testing.assert_array_equal(ramp[:], np.arange(120, 135).astype(np.int8).reshape(3, 5))
+
+    ramp = blosc2.linspace(-3, 3, dtype=np.int32, jit=False, **layout)
+    expected = np.linspace(-3, 3, 15).astype(np.int32).reshape(3, 5)
+    np.testing.assert_array_equal(ramp[:], expected)
+
+    ramp = blosc2.linspace(0, 1, 17, fp_accuracy=blosc2.FPAccuracy.HIGH, jit=False)
+    np.testing.assert_allclose(ramp[:], np.linspace(0, 1, 17))
+
+    ramp = blosc2.arange(-2.2, 4, 0.6, dtype=np.int16, jit=False)
+    np.testing.assert_array_equal(ramp[:], (-2.2 + np.arange(11) * 0.6).astype(np.int16))
+
+    ramp = blosc2.linspace(-1, 1, 5, dtype=np.bool_, jit=False)
+    np.testing.assert_array_equal(ramp[:], [True, True, False, True, True])
+    ramp = blosc2.arange(-2, 3, dtype=np.bool_, jit=False)
+    np.testing.assert_array_equal(ramp[:], [True, True, False, True, True])
+
+
+@pytest.mark.parametrize(("constructor", "c_order"), [("arange", True), ("linspace", False)])
+def test_ramp_jit_resolves_before_dispatch(monkeypatch, constructor, c_order):
+    from importlib import import_module
+
+    ndarray = import_module("blosc2.ndarray")
+    calls = []
+
+    def capture_menudet(start, step, dtype, shape, execution, kwargs, **options):
+        calls.append((execution["jit"], kwargs["jit"]))
+
+    monkeypatch.setattr(ndarray, "_compute_menudet_ramp", capture_menudet)
+    # Real ramps retain logical C-order values for either traversal flag.
+    with blosc2.compute_options(jit=None):
+        # AOT-covered dtypes (float32/float64, integer-input integers) use
+        # miniexpr's direct AOT SIMD interpreter ramps without invoking JIT.
+        for dtype in (None, np.int32, np.uint8, np.float32, np.float64):
+            if constructor == "linspace" and dtype in (np.int32, np.uint8):
+                continue
+            for size, override, expected in (
+                (3_999_999, None, False),
+                (4_000_000, None, False),
+                (4_000_000, False, False),
+                (10, True, True),
+            ):
+                args = (size,) if constructor == "arange" else (0, 1, size)
+                getattr(blosc2, constructor)(*args, dtype=dtype, c_order=c_order, jit=override)
+                assert calls == [(expected, expected)]
+                calls.clear()
+
+        # Non-AOT ramps (e.g. bool or float-input integer ramps) still use the 4M JIT threshold.
+        for size, override, expected in (
+            (3_999_999, None, False),
+            (4_000_000, None, True),
+            (4_000_000, False, False),
+            (10, True, True),
+        ):
+            args = (size,) if constructor == "arange" else (0, 1, size)
+            getattr(blosc2, constructor)(*args, dtype=np.bool_, c_order=c_order, jit=override)
+            assert calls == [(expected, expected)]
+            calls.clear()
+
+
+@pytest.mark.parametrize(
+    ("dtype", "backend", "integer_inputs", "expected"),
+    [
+        (np.float32, None, False, False),
+        (np.float16, None, False, True),
+        (np.float64, "js", False, True),
+        (np.int32, None, True, False),
+        (np.int32, None, False, True),
+    ],
+)
+def test_ramp_auto_jit_requires_direct_aot(dtype, backend, integer_inputs, expected):
+    from importlib import import_module
+
+    ndarray = import_module("blosc2.ndarray")
+    execution = blosc2.jit_config.execution_options()
+    execution.update(jit=None, jit_backend=backend)
+    ndarray._resolve_ramp_jit(execution, 4_000_000, np.dtype(dtype), integer_inputs=integer_inputs)
+    assert execution["jit"] is expected
+
+
+@pytest.mark.parametrize(("constructor", "dtype"), [("arange", "int32"), ("linspace", "float64")])
+def test_eager_non_native_ramp_bypasses_legacy_source_kernel(monkeypatch, constructor, dtype):
+    from importlib import import_module
+
+    def reject(*args, **kwargs):
+        pytest.fail("Non-native real ramps must not construct a legacy SourceKernel")
+
+    monkeypatch.setattr(import_module("blosc2.ndarray"), "SourceKernel", reject)
+    native = np.dtype(dtype)
+    requested = native.newbyteorder("S")
+    args = (35,) if constructor == "arange" else (0, 34, 35)
+    ramp = getattr(blosc2, constructor)(
+        *args, shape=(5, 7), chunks=(3, 4), blocks=(2, 2), dtype=requested, jit=False
+    )
+    assert ramp.dtype == native
+    assert ramp.chunks == (3, 4)
+    assert ramp.blocks == (2, 2)
+    np.testing.assert_array_equal(ramp[:], np.arange(35, dtype=native).reshape(5, 7))
+
+
+@pytest.mark.parametrize(
+    ("constructor", "args", "dtype", "expected"),
+    [
+        ("arange", (-0.75, 2.25, 1.0), "uint8", [0, 0, 1]),
+        ("linspace", (-128.75, -126.75, 3), "int8", [-128, -127, -126]),
+    ],
+)
+@pytest.mark.parametrize("jit", [False, True])
+def test_eager_ramp_checks_integer_bounds_after_truncation(
+    monkeypatch, constructor, args, dtype, expected, jit
+):
+    from importlib import import_module
+
+    def reject(*args, **kwargs):
+        pytest.fail("In-range truncated values should use Menudet directly")
+
+    monkeypatch.setattr(import_module("blosc2.ndarray"), "SourceKernel", reject)
+    result = getattr(blosc2, constructor)(*args, dtype=dtype, chunks=(2,), blocks=(1,), jit=jit)
+    assert result.dtype == np.dtype(dtype)
+    assert result.chunks == (2,)
+    assert result.blocks == (1,)
+    np.testing.assert_array_equal(result[:], expected)
+
+
+@pytest.mark.parametrize(
+    ("constructor", "args", "dtype"),
+    [("arange", (127.0, 130.0, 1.0), "int8"), ("linspace", (-1.0, 2.0, 4), "uint8")],
+)
+def test_eager_ramp_rejects_out_of_range_float_to_integer(constructor, args, dtype):
+    with pytest.raises(blosc2.MenudetError, match="evaluation_error"):
+        getattr(blosc2, constructor)(*args, dtype=dtype, jit=False)
+
+
 @pytest.mark.parametrize(
     ("start", "stop", "step"),
     [

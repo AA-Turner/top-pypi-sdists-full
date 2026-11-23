@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, SerializeAsA
 
 from gxformat2.schema._input_parameter import input_parameter_class
 from gxformat2.schema.gxformat2 import (
+    BasedOnWork,
     BaseInputParameter,
     CreatorOrganization,
     CreatorPerson,
@@ -92,6 +93,59 @@ def resolve_source_reference(value: str, known_labels: Iterable[str]) -> SourceR
         parts = value.split("/", 1)
         return SourceReference(parts[0], parts[1])
     return SourceReference(value, "output")
+
+
+FrameField: TypeAlias = Literal["contains_steps", "contains_comments"]
+
+
+class UnresolvedFrameReference(NamedTuple):
+    """A frame ``contains_steps`` / ``contains_comments`` entry naming nothing in its workflow."""
+
+    comment_index: int
+    field: FrameField
+    entry_index: int
+    message: str
+
+
+class _FrameRefCheck(NamedTuple):
+    """How one frame membership field resolves its entries."""
+
+    field: FrameField
+    label_kind: str
+    index_noun: str
+    labels: set[str]
+    index_count: int
+    digit_strings_are_indices: bool
+
+    def problem(self, ref: object) -> str | None:
+        """Describe why ``ref`` doesn't resolve, or ``None``; labels win over indices."""
+        if isinstance(ref, bool) or not isinstance(ref, (int, str)):
+            return None
+        if isinstance(ref, str):
+            if ref in self.labels:
+                return None
+            if not (self.digit_strings_are_indices and _is_index_string(ref)):
+                return f"unknown {self.label_kind} label '{ref}'"
+        if _index_in_range(ref, self.index_count):
+            return None
+        return f"out-of-range {self.index_noun} index '{ref}'"
+
+
+def frame_description(frame: FrameComment, comment_index: int) -> str:
+    """Name a frame in messages by its title, then label, then comment index."""
+    name = frame.title or frame.label
+    return f"Frame '{name}'" if name else f"Frame {comment_index}"
+
+
+def _is_index_string(value: str) -> bool:
+    return value.isascii() and value.isdigit()
+
+
+def _index_in_range(ref: int | str, count: int) -> bool:
+    """Bounds-check an int or digit-string index; long strings skip ``int()``'s digit limit."""
+    if isinstance(ref, str) and len(ref.lstrip("0")) > len(str(count)):
+        return False
+    return 0 <= int(ref) < count
 
 
 class _DictMixin:
@@ -215,6 +269,7 @@ class NormalizedFormat2(_DictMixin, BaseModel):
     report: Report | None = Field(default=None)
     tags: list[str] = Field(default_factory=list)
     creator: list[CreatorPerson | CreatorOrganization] | None = Field(default=None)
+    is_based_on: list[BasedOnWork] | None = Field(default=None)
     license: str | None = Field(default=None)
     release: str | None = Field(default=None)
     uuid: str | None = Field(default=None)
@@ -229,6 +284,37 @@ class NormalizedFormat2(_DictMixin, BaseModel):
     def resolve_source(self, source: str) -> SourceReference:
         """Parse a source reference string (e.g. ``step/output``) against this workflow's labels."""
         return resolve_source_reference(source, self.known_labels)
+
+    @cached_property
+    def unresolved_frame_references(self) -> list[UnresolvedFrameReference]:
+        """Frame entries matching no label, or indexing past the steps/inputs (or comments) at this level.
+
+        ``contains_steps`` indices are native step ids: inputs first, then steps.
+        """
+        checks = (
+            _FrameRefCheck(
+                "contains_steps", "step or input", "step", self.known_labels, len(self.inputs) + len(self.steps), True
+            ),
+            _FrameRefCheck(
+                "contains_comments",
+                "comment",
+                "comment",
+                {c.label for c in self.comments if c.label},
+                len(self.comments),
+                False,
+            ),
+        )
+        unresolved: list[UnresolvedFrameReference] = []
+        for comment_index, comment in enumerate(self.comments):
+            if not isinstance(comment, FrameComment):
+                continue
+            for check in checks:
+                for entry_index, ref in enumerate(getattr(comment, check.field) or []):
+                    problem = check.problem(ref)
+                    if problem:
+                        message = f"{frame_description(comment, comment_index)} references {problem} in {check.field}"
+                        unresolved.append(UnresolvedFrameReference(comment_index, check.field, entry_index, message))
+        return unresolved
 
     @cached_property
     def _render_identity_by_key(self) -> dict[str, str]:
@@ -342,6 +428,7 @@ def _normalize_workflow(wf: GalaxyWorkflow, strict_structure: bool = False) -> N
         report=wf.report,
         tags=wf.tags or [],
         creator=wf.creator,
+        is_based_on=wf.is_based_on,
         license=wf.license,
         release=wf.release,
         uuid=wf.uuid,

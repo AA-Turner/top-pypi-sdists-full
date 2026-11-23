@@ -241,20 +241,21 @@ class plot_gen:
         the accumulated options and pinned bounds. The caller must hold
         `self._lock`. This is the expensive part of an update.
         """
-        self._dirty = False
-
         # Nothing to plot yet: keep default options and defer until data arrives
         # (this also makes a style-only update on an empty plot a no-op instead
         # of an error).
         if self._raw_ys is None:
+            self._dirty = False
             return
 
         # Always rebuild a fresh series from the raw data, so the validator's
         # in-place transforms (e.g. log scaling) are applied exactly once and
         # never compounded across repeated renders.
         previous = self.series
-        self.series = MultiSeries(xs=self._raw_xs, ys=self._raw_ys)
-        if len(self.series) == 0:
+        series = MultiSeries(xs=self._raw_xs, ys=self._raw_ys)
+        if len(series) == 0:
+            self.series = series
+            self._dirty = False
             return
 
         # If the data type of an axis flipped (e.g. float <-> datetime), any
@@ -262,10 +263,15 @@ class plot_gen:
         # dropped so it auto-ranges in the new space. Bounds supplied explicitly
         # since the last recompute are kept.
         explicit = self._pending_bound_values
-        if self.series.x_is_time_series != previous.x_is_time_series:
-            self._pinned_bounds -= {"x_min", "x_max"} - set(explicit)
-        if self.series.y_is_time_series != previous.y_is_time_series:
-            self._pinned_bounds -= {"y_min", "y_max"} - set(explicit)
+        pinned_bounds = self._pinned_bounds.copy()
+        if series.x_is_time_series != previous.x_is_time_series or (
+            (series.x_timezone is None) != (previous.x_timezone is None)
+        ):
+            pinned_bounds -= {"x_min", "x_max"} - set(explicit)
+        if series.y_is_time_series != previous.y_is_time_series or (
+            (series.y_timezone is None) != (previous.y_timezone is None)
+        ):
+            pinned_bounds -= {"y_min", "y_max"} - set(explicit)
 
         # Build the kwargs for the validator: persisted options + pending
         # explicit bounds + re-injected pinned bounds. Re-injected bounds come
@@ -274,17 +280,21 @@ class plot_gen:
         merged: dict = dict(self._option_kwargs)
         merged.update(explicit)
         reinjected = set()
-        for b in self._pinned_bounds:
+        for b in pinned_bounds:
             if b not in merged:
                 merged[b] = getattr(self.options, b)
                 reinjected.add(b)
 
-        self.options = validate_and_transform_options(
-            series=self.series,
+        options = validate_and_transform_options(
+            series=series,
             kwargs=merged,
             bounds_already_in_plot_space=frozenset(reinjected),
         )
+        self.series = series
+        self.options = options
+        self._pinned_bounds = pinned_bounds
         self._pending_bound_values = {}
+        self._dirty = False
 
     def _render(self, max_width: int | None = None) -> str:
         """
@@ -318,12 +328,12 @@ class plot_gen:
                     if "width" not in self._option_kwargs:
                         opts.width = max_width
                         opts._initial_width = max_width
-                header_buffer = sections.generate_header(opts)
                 (
                     x_axis_labels,
                     y_axis_labels,
                     pixel_character_matrix,
                 ) = sections.generate_body_raw_elements(self.series, opts)
+                header_buffer = sections.generate_header(opts)
                 body_buffer = sections.generate_body(
                     x_axis_labels, y_axis_labels, pixel_character_matrix, opts
                 )
@@ -443,6 +453,52 @@ def histogram_to_string(
     # Histograms usually make sense only with lines
     kwargs["lines"] = True
     return plot_to_string(xs=xs_histo, ys=ys_histo, **kwargs)
+
+
+def sparkline(
+    ys: Any,
+    width: int = 5,
+    *,
+    color: Any = None,
+    y_min: Any = None,
+    y_max: Any = None,
+) -> None:
+    """Print a filled Braille sparkline with optional color and fixed y bounds."""
+    print(sparkline_to_string(ys, width=width, color=color, y_min=y_min, y_max=y_max))
+
+
+def sparkline_to_string(
+    ys: Any,
+    width: int = 5,
+    *,
+    color: Any = None,
+    y_min: Any = None,
+    y_max: Any = None,
+) -> str:
+    """Return the same chart as `sparkline`, without a trailing newline.
+
+    Color uses the standard plot color formats. None uses the plot default.
+    Each y bound defaults to automatic scaling when None.
+    """
+    options = {
+        key: value
+        for key, value in {"color": color, "y_min": y_min, "y_max": y_max}.items()
+        if value is not None
+    }
+    return plot_to_string(
+        ys,
+        width=width,
+        height=1,
+        border=None,
+        fill="bottom",
+        lines=True,
+        x_labels=False,
+        y_labels=False,
+        x_gridlines=[],
+        y_gridlines=[],
+        character_set="braille",
+        **options,
+    )
 
 
 ###########

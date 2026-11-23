@@ -76,6 +76,7 @@ impl IdListHttpTransport {
             .download_id_list_file_api
             .as_deref()
             .map(url::Url::parse);
+        // Snapshot negotiation disables redirects, so it requires explicit opt-in.
         let snapshot_enabled = options.enable_id_list_elias_fano == Some(true)
             && matches!(&download_id_list_file_api, Some(Ok(endpoint)) if snapshot_http::supports_snapshots(endpoint));
 

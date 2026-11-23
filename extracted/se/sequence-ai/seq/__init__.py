@@ -241,14 +241,22 @@ def __getattr__(name: str):
     from sequence_ai._core.plugins import first, needs_cloud
 
 
+
+
+
+
+    if name in _CLOUD_NAMES:
+        api = first("seq.api")
+        if api is not None and name in getattr(api, "__all__", ()):
+            return getattr(api, name)
+        raise AttributeError(needs_cloud(f"seq.{name}"))
+
     spec = None if name.startswith("__") else importlib.util.find_spec(f"{__name__}.{name}")
     if name.startswith("__") or (spec is not None and spec.origin is not None):
         raise AttributeError(f"module 'seq' has no attribute {name!r}")
     api = first("seq.api")
     if api is not None and name in getattr(api, "__all__", ()):
         return getattr(api, name)
-    if name in _CLOUD_NAMES:
-        raise AttributeError(needs_cloud(f"seq.{name}"))
     raise AttributeError(f"module 'seq' has no attribute {name!r}")
 
 

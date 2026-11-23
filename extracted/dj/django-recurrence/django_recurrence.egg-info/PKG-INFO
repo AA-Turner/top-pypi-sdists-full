@@ -1,10 +1,13 @@
 Metadata-Version: 2.4
 Name: django-recurrence
-Version: 1.15
+Version: 1.15.1
 Summary: Django utility wrapping dateutil.rrule
 Author-email: Tamas Kemenczy <tamas.kemenczy@gmail.com>, Lino Helms <lino@lino.io>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/django-commons/django-recurrence
+Project-URL: Documentation, https://django-recurrence.readthedocs.io/
+Project-URL: Changelog, https://github.com/django-commons/django-recurrence/blob/master/CHANGES.rst
+Project-URL: Issues, https://github.com/django-commons/django-recurrence/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Plugins
 Classifier: Environment :: Web Environment

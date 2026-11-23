@@ -1,14 +1,10 @@
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_syntax::ast::{self, AstNode};
 
 use crate::{Linter, Rule, Violation, transactions::TablesCreatedInTransaction};
 
-pub(crate) fn adding_foreign_key_constraint(ctx: &mut Linter, parse: &Parse<SourceFile>) {
+pub(crate) fn adding_foreign_key_constraint(ctx: &mut Linter, file: &ast::SourceFile) {
     let message = "adding a foreign key constraint requires a table scan and a `share row exclusive` lock on both tables, which blocks writes to each table";
     let help = "add `not valid` to the constraint in one transaction and then `validate` the constraint in a separate transaction";
-    let file = parse.tree();
     let mut tables_created = TablesCreatedInTransaction::new(ctx.settings.assume_in_transaction);
     // TODO: use match_ast! like in #api_walkthrough
     for stmt in file.stmts() {
@@ -49,6 +45,9 @@ pub(crate) fn adding_foreign_key_constraint(ctx: &mut Linter, parse: &Parse<Sour
                                 }
                             }
                             ast::AlterTableAction::AddColumn(add_column) => {
+                                if tables_created.contains(&table_name) {
+                                    continue;
+                                }
                                 for constraint in add_column.constraints() {
                                     if matches!(
                                         constraint,
@@ -229,5 +228,14 @@ COMMIT;
         "#;
 
         assert_snapshot!(lint_errors(sql, Rule::AddingForeignKeyConstraint));
+    }
+
+    #[test]
+    fn add_column_to_table_created_in_transaction_ok() {
+        let sql = "begin;
+create table t (id bigint);
+alter table t add column a bigint references u (id);
+commit;";
+        lint_ok(sql, Rule::AddingForeignKeyConstraint);
     }
 }

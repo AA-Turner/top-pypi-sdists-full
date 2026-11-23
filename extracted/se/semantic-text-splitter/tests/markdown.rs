@@ -137,3 +137,21 @@ fn trimming_does_trim_block_level_indentation_if_only_one_item() {
         chunks
     );
 }
+
+#[cfg(feature = "markdown")]
+#[test]
+fn long_ascii_word_after_a_heading() {
+    let text = format!("# H\n\n{}", "aB09".repeat(1_024));
+    let splitter = MarkdownSplitter::new(1_000);
+    assert_eq!(
+        splitter.chunk_indices(&text).collect::<Vec<_>>(),
+        [
+            (0, "# H"),
+            (5, &text[5..1005]),
+            (1005, &text[1005..2005]),
+            (2005, &text[2005..3005]),
+            (3005, &text[3005..4005]),
+            (4005, &text[4005..]),
+        ]
+    );
+}

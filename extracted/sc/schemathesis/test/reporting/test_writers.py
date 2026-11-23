@@ -85,6 +85,7 @@ def test_writer_context_manager_no_error_without_open(writer_cls, kwargs):
         (["-H", "X-API-Key: s3cret"], ["-H", "X-API-Key: [Filtered]"]),
         (["--header=Authorization: Bearer s3cret"], ["--header=Authorization: [Filtered]"]),
         (["-H", "X-Trace-Id: keep-me"], ["-H", "X-Trace-Id: keep-me"]),
+        (["-H", "Cookie: sessionid=s3cret; lang=en"], ["-H", "Cookie: sessionid=[Filtered]; lang=en"]),
         (["-a", "admin:hunter2"], ["-a", "[Filtered]"]),
         (["--auth=admin:hunter2"], ["--auth=[Filtered]"]),
         (["--proxy", "http://user:pw@proxy:3128"], ["--proxy", "http://[Filtered]@proxy:3128"]),
@@ -103,6 +104,7 @@ def test_writer_context_manager_no_error_without_open(writer_cls, kwargs):
         "header-short",
         "header-joined",
         "header-benign",
+        "header-cookie",
         "auth-short",
         "auth-joined",
         "proxy",
@@ -136,6 +138,7 @@ def test_sanitize_args(args, expected):
         ("schemathesis.exe", "st -x"),
         ("/venv/lib/python/site-packages/schemathesis/__main__.py", "python -m schemathesis -x"),
         ("/venv/lib/python/site-packages/pytest/__main__.py", "python -m pytest -x"),
+        ("/venv/lib/python/site-packages/runner/__main__.py", "<unknown entrypoint>"),
         ("/venv/bin/python", "<unknown entrypoint>"),
     ],
     ids=[
@@ -150,6 +153,7 @@ def test_sanitize_args(args, expected):
         "schemathesis-exe",
         "python-m-schemathesis",
         "python-m-pytest",
+        "python-m-other-package",
         "unknown",
     ],
 )

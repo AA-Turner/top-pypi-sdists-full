@@ -4,11 +4,12 @@ import http.client
 import itertools
 import textwrap
 import traceback
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
 from enum import StrEnum
 from json import JSONDecodeError
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from schemathesis.core.output import (
     BINARY_PAYLOAD,
@@ -25,8 +26,7 @@ if TYPE_CHECKING:
 # Display label for failures produced by class-based checks' `after_run` (not tied to a case).
 RUN_CHECKS_LABEL = "Run checks"
 
-# Python 3.12 renamed several HTTP phrases per RFC 9110. Use the new names
-# consistently across all Python versions so snapshots don't vary by version.
+# Python 3.12+ uses the RFC 9110 phrases; use them on every Python version so output does not vary.
 _RFC9110_PHRASES: dict[int, str] = {
     413: "Content Too Large",
     414: "URI Too Long",
@@ -58,11 +58,8 @@ _SEVERITY_ORDER = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, S
 
 
 class Failure(AssertionError):
-    """API check failure."""
-
-    # Stable identity in reports; a code is never renumbered or reused.
-    # The hundreds digit says what went wrong, never the protocol: 1 response, 2 request handling, 3 stateful,
-    # 4 auth, 9 custom. A protocol-specific failure gets the next free code in its group.
+    # Stable report identity, never renumbered or reused. The hundreds digit says what went wrong, not the protocol:
+    # 1 response, 2 request handling, 3 stateful, 4 auth, 9 custom; protocol-specific failures take the next free code.
     code: ClassVar[str] = "ST901"
     # Checks that report this failure.
     checks: ClassVar[tuple[str, ...]] = ()
@@ -110,14 +107,16 @@ class Failure(AssertionError):
             "severity": self.severity.value,
         }
 
+    # The title breaks ties, e.g. two custom checks failing with the same message
     def __lt__(self, other: Failure) -> bool:
         return (
             self.severity,
             self.__class__.__name__,
             self.message,
-        ) < (other.severity, other.__class__.__name__, other.message)
+            self.title,
+        ) < (other.severity, other.__class__.__name__, other.message, other.title)
 
-    # Comparison & hashing is done purely on classes to simplify keeping the minimized failure during shrinking
+    # Hash by class alone, so shrinking keeps the minimized failure
     def __hash__(self) -> int:
         return hash(self.__class__)
 
@@ -128,16 +127,11 @@ class Failure(AssertionError):
 
     @property
     def _unique_key(self) -> str:
-        # Coarse but stable: one finding per operation per failure class. A message-derived key
-        # would change every time wording improves, which a stored key cannot survive.
+        # One finding per operation and failure class; a message-derived key would break stored keys on rewording.
         return ""
 
     def related_case_ids(self) -> tuple[str, ...]:
-        """Other case IDs whose request/response history is needed to reproduce this failure.
-
-        Default: none. Subclasses override when reproduction depends on a sibling case
-        (e.g. `UseAfterFree` references the prior DELETE).
-        """
+        """Other case IDs needed to reproduce this failure, e.g. the prior DELETE for `UseAfterFree`."""
         return ()
 
     def identity_roles(self) -> dict[str, str]:
@@ -203,8 +197,6 @@ class CustomFailure(Failure):
 
 
 class ResponseTimeExceeded(Failure):
-    """Response took longer than expected."""
-
     code = "ST112"
     checks = ("max_response_time",)
     kind_title = "Response time limit exceeded"
@@ -236,13 +228,11 @@ def is_reproducible_failure(failure: Failure) -> bool:
 
 
 class ServerError(Failure):
-    """Server responded with an error."""
-
     code = "ST101"
     checks = ("not_a_server_error",)
     kind_title = "Server error"
 
-    __slots__ = ("status_code",)
+    __slots__ = ("status_code", "origin")
 
     def __init__(
         self,
@@ -252,13 +242,18 @@ class ServerError(Failure):
         title: str | None = None,
         message: str = "",
         case_id: str | None = None,
+        origin: str | None = None,
     ) -> None:
         super().__init__(operation=operation, title=title, message=message, case_id=case_id, severity=Severity.CRITICAL)
         self.status_code = status_code
+        # What failed on the server, when known; different origins are different failures.
+        self.origin = origin
 
     @property
     def _unique_key(self) -> str:
-        return str(self.status_code)
+        if self.origin is None:
+            return str(self.status_code)
+        return f"{self.status_code}:{self.origin}"
 
 
 class AuthScenario(StrEnum):
@@ -313,8 +308,6 @@ class ContentTypeServerError(ServerError):
 
 
 class MalformedJson(Failure):
-    """Failed to deserialize JSON."""
-
     code = "ST109"
     checks = ("response_schema_conformance",)
     kind_title = "JSON deserialization error"
@@ -360,8 +353,6 @@ class MalformedJson(Failure):
 
 
 class AcceptedNegativeData(Failure):
-    """Response with negative data was accepted."""
-
     code = "ST201"
     checks = ("negative_data_rejection",)
     kind_title = "Schema-violating request accepted"
@@ -402,14 +393,44 @@ class FailureGroup(BaseExceptionGroup[Failure]):
 
 
 class _ReportedFailureGroup(FailureGroup, AssertionError):
-    """FailureGroup as reported to pytest so reporters classify it as a failed test."""
+    """FailureGroup that test runners and Hypothesis treat as a failed test, not as an interrupt."""
 
 
 _ReportedFailureGroup.__name__ = _ReportedFailureGroup.__qualname__ = "FailureGroup"
 
 
-def as_reported_failure(exc: FailureGroup) -> FailureGroup:
-    reported = _ReportedFailureGroup(list(exc.exceptions), exc.message)
+class _ReportedExceptionGroup(ExceptionGroup, AssertionError):
+    """Distinct check failures Hypothesis found in one test, which test runners treat as a failed test."""
+
+
+# Shown as the group Hypothesis raised
+_ReportedExceptionGroup.__name__ = _ReportedExceptionGroup.__qualname__ = "ExceptionGroup"
+_ReportedExceptionGroup.__module__ = "builtins"
+
+
+@contextmanager
+def reported_failures() -> Generator[None, None, None]:
+    """Re-raise check failures, alone or grouped by Hypothesis, as `AssertionError`s that reporters count as failed."""
+    __tracebackhide__ = True
+    try:
+        yield
+    except BaseExceptionGroup as exc:
+        if exc.split((FailureGroup, Failure))[1] is not None:
+            raise
+        raise as_reported_failure(exc) from None
+
+
+def as_reported_failure(exc: BaseExceptionGroup) -> BaseExceptionGroup:
+    """Copy of a group made of check failures that is also an `AssertionError`."""
+    reported: BaseExceptionGroup
+    if isinstance(exc, FailureGroup):
+        reported = _ReportedFailureGroup(list(exc.exceptions), exc.message)
+    else:
+        children = [
+            as_reported_failure(child) if isinstance(child, BaseExceptionGroup) else child for child in exc.exceptions
+        ]
+        # Reported groups are `AssertionError`s, and the other children are failures
+        reported = _ReportedExceptionGroup(exc.message, cast("list[Exception]", children))
     reported.__notes__ = list(getattr(exc, "__notes__", []))
     return reported.with_traceback(exc.__traceback__)
 
@@ -445,7 +466,6 @@ def reproducible_by_identity(failures: Sequence[Failure]) -> bool:
 
 
 def case_header(index: int, case_id: str) -> str:
-    """The heading of a numbered failure block."""
     return f"{index}. Test Case ID: {case_id}"
 
 
@@ -459,7 +479,6 @@ def format_failures(
     formatter: BlockFormatter | None = None,
     config: OutputConfig,
 ) -> str:
-    """Format failure information with custom styling."""
     formatter = formatter or (lambda _, x: x)
 
     if case_id is not None:
@@ -476,7 +495,6 @@ def format_failures(
                 output += textwrap.indent(failure.message, "    ")
         output += "\n"
 
-    # Response status
     if isinstance(response, Response):
         # A transport-provided status line already carries its own message, so it ends without a colon.
         if response.status_line is not None:

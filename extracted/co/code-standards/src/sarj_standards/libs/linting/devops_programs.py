@@ -25,7 +25,7 @@ from sarj_standards.libs.linting.toml_literals import TomlStringLocationError, p
 from sarj_standards.libs.typed_containers import is_object_list, is_object_mapping
 from sarj_standards.libs.yaml_boundary import mapping_items, sequence_items
 
-from .shell_ast import ShellParseError, make_shell_parser, parse_shell as parse_shell
+from .shell_ast import ShellParseError, ShellSyntaxError, make_shell_parser, parse_shell as parse_shell
 
 
 _OCTAL_ESCAPE_BYTE_MODULUS = 256
@@ -40,6 +40,7 @@ _MAX_DEPTH = 32
 _MAX_NODES = 100_000
 _WORKFLOW_PATH_COMPONENTS = 3
 _MAKE_UNKNOWN = "\0make_unknown\0"
+_MAKE_EMPTY = "\0make_empty\0"
 WORKFLOW_EXPRESSION_RE = re.compile(r"\$\{\{(?:[^'}]++|'(?:[^']++|'')*+'|}(?!}))*+\}\}")
 
 
@@ -280,7 +281,7 @@ def _container(node: Node) -> list[ExecutionBlock]:
     command, arguments = fields.get("command"), fields.get("args")
     command_argv, argument_argv = _argv(command), _argv(arguments)
     if command is None:
-        return []  # Image defaults cannot be inferred from configuration.
+        return []
     if command_argv is None:
         if isinstance(command, ScalarNode):
             return [_block(command)]
@@ -310,7 +311,9 @@ def _walk(node: Node, *, depth: int = 0) -> list[Node]:
     return result
 
 
-def _make_source(source: str, variables: Mapping[str, str] | None = None, depth: int = 0) -> str:
+def _make_source(
+    source: str, variables: Mapping[str, str] | None = None, depth: int = 0, *, preserve_empty: bool = False
+) -> str:
     if depth >= _MAX_DEPTH:
         msg = "Make variable expansion exceeds analysis bound"
         raise ProgramProjectionError(msg)
@@ -324,12 +327,12 @@ def _make_source(source: str, variables: Mapping[str, str] | None = None, depth:
         if source.startswith(("$(", "${"), index):
             cursor = _make_expansion_end(source, index)
             name = source[index + 2 : cursor - 1]
-            result.append(_make_variable_source(name, variables, depth))
+            result.append(_make_variable_source(name, variables, depth, preserve_empty=preserve_empty))
             index = cursor
             continue
         if source[index] == "$" and index + 1 < len(source):
             name = source[index + 1]
-            result.append(_make_variable_source(name, variables, depth))
+            result.append(_make_variable_source(name, variables, depth, preserve_empty=preserve_empty))
             index += 2
             continue
         result.append(source[index])
@@ -337,19 +340,22 @@ def _make_source(source: str, variables: Mapping[str, str] | None = None, depth:
     return "".join(result)
 
 
-def _make_variable_source(name: str, variables: Mapping[str, str] | None, depth: int) -> str:
+def _make_variable_source(
+    name: str, variables: Mapping[str, str] | None, depth: int, *, preserve_empty: bool = False
+) -> str:
     if name.lstrip().startswith(("shell ", "eval ")):
         return "$(embedded_make_program)"
     if variables is not None and name in variables:
-        return _make_source(variables[name], variables, depth + 1)
+        value = _make_source(variables[name], variables, depth + 1)
+        return _MAKE_EMPTY if preserve_empty and not value else value
     return _MAKE_UNKNOWN
 
 
 def _make_shell_source(source: str, shell_parser: ShellParser) -> str:
+    if _MAKE_EMPTY in source:
+        source = _make_empty_assignment_values(source, shell_parser)
     if _MAKE_UNKNOWN not in source:
         return source
-    # An internal marker carries provenance through recursive/simple aliases.
-    # Parse an equal-byte-length mask so authored marker-like text stays literal.
     masked = source.replace(_MAKE_UNKNOWN, "_" * len(_MAKE_UNKNOWN))
     raw = source.encode("utf-8")
     marker = _MAKE_UNKNOWN.encode()
@@ -367,6 +373,51 @@ def _make_shell_source(source: str, shell_parser: ShellParser) -> str:
     for position in reversed(positions):
         raw = raw[:position] + replacements[position] + raw[position + len(marker) :]
     return raw.decode("utf-8")
+
+
+def _make_empty_assignment_values(source: str, shell_parser: ShellParser) -> str:
+    parts = source.encode().split(_MAKE_EMPTY.encode())
+    raw = b"".join(parts)
+    positions = {offset for offset in accumulate(map(len, parts[:-1])) if raw[offset - 1 : offset] == b"="}
+    if not positions:
+        return raw.decode()
+    masked = raw.decode().replace(_MAKE_UNKNOWN, "_" * len(_MAKE_UNKNOWN))
+    try:
+        tree = shell_parser(masked)
+    except ShellSyntaxError:
+        return raw.decode()
+    except ShellParseError as error:
+        msg = f"Make empty value shell parser failed: {error}"
+        raise ProgramProjectionError(msg) from error
+    for offset in sorted(positions & _make_empty_assignment_ends(tree), reverse=True):
+        raw = raw[:offset] + b"''" + raw[offset:]
+    return raw.decode()
+
+
+def _make_empty_assignment_ends(
+    node: object,  # sarj-noqa: SARJ528 -- Validate the native shell AST before using assignment offsets.
+    depth: int = 0,
+) -> set[int]:
+    if depth >= _MAX_DEPTH:
+        msg = "Make empty value shell AST exceeds analysis bound"
+        raise ProgramProjectionError(msg)
+    if is_object_list(node):
+        return set[int]().union(*(_make_empty_assignment_ends(child, depth + 1) for child in node))
+    if not is_object_mapping(node):
+        return set()
+    ends: set[int] = set()
+    if node.get("Type") == "CallExpr":
+        for assignment in _nodes(node.get("Assigns")):
+            if assignment.get("Value") is None:
+                offset = _mapping(assignment.get("End")).get("Offset")
+                if type(offset) is not int or offset < 0:
+                    msg = "invalid Make empty assignment offset"
+                    raise ProgramProjectionError(msg)
+                ends.add(offset)
+    for key, value in node.items():
+        if key not in {"Pos", "End"}:
+            ends.update(_make_empty_assignment_ends(value, depth + 1))
+    return ends
 
 
 def _make_unknown_words(
@@ -391,7 +442,7 @@ def _make_unknown_words(
     if kind == "ParamExp" and (
         "Repl" in node or ("Exp" in node and _mapping(node["Exp"]).get("Op") in {"#", "##", "%", "%%"})
     ):
-        return  # Unknown patterns need glob semantics, not scalar word rendering.
+        return
     if kind == "DblQuoted":
         quote = '"'
     elif kind in {"CmdSubst", "ProcSubst"}:
@@ -432,9 +483,8 @@ def _make_unknown_word(
     quote: str,
 ) -> bytes | None:
     if "Hash" in node:
-        return b"make_expansion"  # Proven shell comment data cannot assert a value.
+        return b"make_expansion"
     if node.get("Type") == "SglQuoted":
-        # ANSI-C quote closure needs a different grammar.
         return None if node.get("Dollar") else b"'\"${SARJ_MAKE_UNKNOWN}\"'"
     if (len(preceding) - len(preceding.rstrip(b"\\"))) % 2:
         return None
@@ -505,7 +555,9 @@ class _MakeRecipes:
             self.blocks.append(
                 ExecutionBlock(
                     self.start,
-                    _make_shell_source(_make_source("\n".join(self.pending), variables), self.shell_parser),
+                    _make_shell_source(
+                        _make_source("\n".join(self.pending), variables, preserve_empty=True), self.shell_parser
+                    ),
                     interpreter=interpreter,
                 )
             )
@@ -577,7 +629,7 @@ class _DockerCursor:
         if match[2].casefold() != "from" and not command.startswith("["):
             command = self.read_heredoc(command)
         if match[2].casefold() == "copy":
-            return None  # COPY heredoc bodies write data, not instructions.
+            return None
         return _DockerInstruction(
             match[2].casefold(),
             command,
@@ -590,7 +642,7 @@ class _DockerCursor:
         line = self.lines[self.index]
         self.index += 1
         if line.lstrip().startswith("#"):
-            return line  # Parser directives/comments never continue instructions.
+            return line
         while line.endswith(self.escape) and self.index < len(self.lines):
             following = self.lines[self.index].lstrip()
             self.index += 1
@@ -625,7 +677,7 @@ def _mise_template(value: str, *, execution: bool) -> str:
         if token.startswith("{{") and re.fullmatch(r"-?\d+(?:\.\d+)?|true|false", expression):
             return expression
         if token.startswith("{{") and not execution and re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", expression):
-            return token  # Environment value references do not invoke a program.
+            return token
         msg = "mise executable template cannot be interpreted statically without running configuration"
         raise ProgramProjectionError(msg)
 
@@ -800,7 +852,7 @@ class _DockerStage:
             else:
                 self.entrypoint = _ExecEntrypoint(_docker_execution(instruction, self.shell))
             if not self.command_local:
-                self.command = None  # A new ENTRYPOINT clears inherited CMD.
+                self.command = None
         elif instruction.name == "cmd":
             self.command = (
                 _docker_execution(instruction, self.shell) if _docker_json_argv(instruction.command) != () else None
@@ -815,9 +867,9 @@ class _DockerStage:
         command = self.command
         match self.entrypoint:
             case _ShellEntrypoint(block=block):
-                return [*result, block]  # Shell-form ENTRYPOINT ignores CMD.
+                return [*result, block]
             case _AbsentEntrypoint.UNKNOWN:
-                return result  # External image ENTRYPOINT defaults are unknown.
+                return result
             case _AbsentEntrypoint.CLEARED:
                 return [*result, *([command] if command is not None else [])]
             case _ExecEntrypoint(block=entrypoint):
@@ -829,7 +881,7 @@ class _DockerStage:
         if command is None:
             return [*result, entrypoint]
         if classify_interpreter(entrypoint.argv).kind == "inline":
-            return [*result, entrypoint]  # CMD only supplies data to this declared source.
+            return [*result, entrypoint]
         command_argv = command.argv or ("/bin/sh", "-c", command.source)
         last = max((entrypoint, command), key=lambda block: block.end_line or block.line)
         return [
@@ -849,7 +901,6 @@ def _docker_blocks(relative: str, source: str) -> list[ExecutionBlock]:
     state = _DockerStage()
     stages: dict[str, _DockerStage] = {}
     stage = ""
-    # Docker's scanner splits on LF and trims trailing CR, preserving other data.
     lines = [line.rstrip("\r") for line in source.split("\n")] if "\r" in source else source.split("\n")
     cursor = _DockerCursor(lines, _docker_escape(lines))
     while cursor.index < len(cursor.lines):
@@ -950,7 +1001,6 @@ def _make_blocks(relative: str, source: str) -> list[ExecutionBlock]:
 
 
 def _physical_block_locations(relative: str, source: str, blocks: list[ExecutionBlock]) -> list[ExecutionBlock]:
-    # Native LF coordinates need translation only when CR is literal editor data.
     if "\r" not in source or source.count("\r") == source.count("\r\n"):
         return blocks
     document = SourceDocument(Path(relative), source)
@@ -983,7 +1033,6 @@ _MAKE_ASSIGNMENT = re.compile(r"(?:export\s+)?([A-Za-z_.][A-Za-z0-9_.]*)\s*(:::=
 
 
 def _make_without_comment_lines(lines: Sequence[str]) -> list[str]:
-    # Share logical assignment/comment ownership without losing physical slots.
     result: list[str] = []
     prefix = "\t"
     comment_continues = False
@@ -1221,8 +1270,6 @@ def _make_pattern_states(name: str, bindings: Mapping[str, _MakeVariables]) -> l
             continue
         for variable, value in state.values.items():
             if variable in values and values[variable] != value:
-                # GNU Make 3.81 uses declaration order; modern Make uses stem
-                # specificity. Configuration does not establish that version.
                 msg = "Make conflicting pattern variable precedence cannot be proven"
                 raise ProgramProjectionError(msg)
             values[variable] = value
@@ -1231,7 +1278,6 @@ def _make_pattern_states(name: str, bindings: Mapping[str, _MakeVariables]) -> l
 
 
 def _make_recipe_contexts(lines: Sequence[str]) -> dict[int, tuple[Mapping[str, str], ...]]:
-    # Ordinary Makefiles keep the existing global assignment fast path.
     if not any(
         not line.startswith("\t")
         and not line.lstrip().startswith("#")
@@ -1256,7 +1302,7 @@ def _yaml_blocks(relative: str, source: str, *, platform: str) -> list[Execution
         while loader.check_node():
             documents.append(loader.get_node())
     except yaml.YAMLError:
-        return []  # The YAML syntax adapter owns malformed document diagnostics.
+        return []
     finally:
         loader.dispose()  # pyright: ignore[reportUnknownMemberType] -- PyYAML loader cleanup boundary.
     blocks: list[ExecutionBlock] = []
@@ -1331,7 +1377,6 @@ def _compose_healthcheck_disabled(node: Node | None) -> bool:
     if node is None:
         return False
     if isinstance(node, ScalarNode) and node.tag in {"tag:yaml.org,2002:bool", "tag:yaml.org,2002:str"}:
-        # compose-go casts constant strings using its YAML boolean grammar.
         value = _scalar_text(node).lower()
         if value in {"true", "y", "yes", "on"}:
             return True
@@ -1523,7 +1568,6 @@ def _skaffold_artifact_blocks(fields: Mapping[str, Node], *, platform: str) -> l
     if "buildCommand" in custom:
         blocks.append(_skaffold_shell_block(_block(custom["buildCommand"]), platform=platform))
     dependencies = _table(custom.get("dependencies"))
-    # Skaffold prefers Dockerfile dependency extraction over a command.
     command = dependencies.get("command")
     if command is None or isinstance(dependencies.get("dockerfile"), MappingNode):
         return blocks
@@ -1532,7 +1576,6 @@ def _skaffold_artifact_blocks(fields: Mapping[str, Node], *, platform: str) -> l
         msg = "Skaffold dependency command must be a string"
         raise ProgramProjectionError(msg)
     if value:
-        # Upstream uses strings.Split, without shell quote processing.
         blocks.append(_argv_block(command, tuple(value.split(" "))))
     return blocks
 
@@ -1628,8 +1671,6 @@ def _shell_embeds_program(
     if depth >= _MAX_DEPTH:
         msg = "shell wrapper nesting exceeds analysis depth"
         raise ProgramProjectionError(msg)
-    # Workflow expressions are evaluated by Actions before shell parsing. Treat
-    # each expression as an opaque word, never interpret its contents as shell.
     source = WORKFLOW_EXPRESSION_RE.sub("workflow_expression", source)
     literal = source.strip("\n")
     if re.fullmatch(r"[-A-Za-z0-9_./:+@%, \t]+", literal) and classify_interpreter(literal.split()).kind == "external":
@@ -1666,12 +1707,12 @@ def _shell_statement_embeds_program(
         for item in (forwarded if forwarded is not None and word == "${forwarded-arguments}" else (word,))
     )
     if not argv:
-        return True  # Assignment-only blocks are programs, not invocations.
+        return True
     redirections = _nodes(statement.get("Redirs"))
     redirected: set[str] = set()
     sources = _shell_input_sources(redirections, input_sources, redirected=redirected)
     if _shell_exec_persists(argv):
-        input_sources.update(sources)  # Commandless exec installs redirections in this shell.
+        input_sources.update(sources)
         return False
     if (index := _shell_builtin_eval_index(argv)) is not None:
         result = _shell_eval_embeds_program(
@@ -1703,11 +1744,11 @@ def _shell_builtin_eval_index(words: tuple[str, ...]) -> int | None:
     try:
         selected = unwrap_command(words, allowed_wrappers=frozenset())
     except UnprovableCommandError:
-        return None  # The ordinary argv owner reports unsupported wrappers.
+        return None
     prefix = len(words) - len(selected)
     if selected[:1] == ("eval",) and all(word == "command" or word.startswith("-") for word in words[:prefix]):
         return prefix + 1
-    return None  # exec/env and external paths do not invoke shell builtins.
+    return None
 
 
 def _shell_eval_embeds_program(
@@ -1732,7 +1773,7 @@ def _shell_eval_embeds_program(
         else:
             literal.append(word)
     if tuple(literal[: len(prefix)]) != prefix:
-        return False  # A literal marker is data, not a forwarded shell parameter.
+        return False
     words = literal[len(prefix) :]
     if words and words[0] == "--":
         words = words[1:]
@@ -1747,7 +1788,6 @@ def _shell_input_sources(
     *,
     redirected: set[str],
 ) -> dict[str, bool]:
-    # Shell applies redirections left to right; only the final fd0 is stdin.
     descriptors = dict(inherited or {})
     for redirection in redirections:
         operation = str(redirection.get("Op", ""))

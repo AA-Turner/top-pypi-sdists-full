@@ -30,7 +30,7 @@
     moTitle: "Darf offen sein", moHint: "In dieser Zeit warnt das Dashboard nicht, wenn offen ist, z. B. ein Hoftor tagsüber. Gilt für alle Tablets.", moFrom: "von", moTo: "bis", moUntil: "darf offen sein bis {t}", moAllowed: "Darf gerade offen sein",
     half: "50 %", pullWindow: "Ziehen zum Bewegen",
     valveOpen: "Ventil {n} %", valveShut: "Ventil zu", idleNow: "heizt gerade nicht",
-    apWasher: "Waschmaschine", apDryer: "Trockner", apDishwasher: "Spülmaschine", apRuns: "läuft seit {t}", apLeft: "noch ca. {t}", apAlmost: "gleich fertig", apDoneWasher: "Wäsche fertig", apDoneDryer: "Trockner fertig", apDoneDishwasher: "Geschirr fertig", apAgo: "seit {t}",
+    apWasher: "Waschmaschine", apDryer: "Trockner", apDishwasher: "Spülmaschine", apRuns: "läuft seit {t}", apLeft: "noch ca. {t}", apAlmost: "gleich fertig", apEnd: "fertig um {t}", apNew: "neues Programm, wird gelernt", apDoneWasher: "Wäsche fertig", apDoneDryer: "Trockner fertig", apDoneDishwasher: "Geschirr fertig", apAgo: "seit {t}",
     apAsk: "Was hängt an „{name}“?", apAskLead: "Hier lief gerade ein langes Programm. Bei Waschmaschine, Trockner und Spülmaschine sagt das Tablet, wann es fertig ist.", apNone: "Nichts davon", apSeen: "Erledigt",
     smoke: "Rauchmelder", water: "Wassermelder", calm: "ruhig", smokeNow: "Rauch!", waterNow: "Wasser!", alSmoke: "Rauchalarm", alWater: "Wasseralarm", alIntrusion: "Einbruchalarm", alAlarm: "Alarm", alMute: "Ton aus", alSound: "Ton an", alHide: "Ausblenden", alShow: "Anzeigen", alSystemOff: "Alarmanlage aus",
     alSmokeTip: "Alle raus, Türen schließen, 112 anrufen.", alWaterTip: "Wasser abdrehen, Strom in der Nähe abschalten.", alIntrusionTip: "Bleib ruhig und ruf im Zweifel 110 an.", alAllCalm: "{n} Melder, alle ruhig", alDetectors: "Rauch- und Wassermelder",
@@ -124,7 +124,7 @@
     moTitle: "May be open", moHint: "During this time the dashboard does not warn when it is open, e.g. a yard gate by day. Applies to all tablets.", moFrom: "from", moTo: "to", moUntil: "may be open until {t}", moAllowed: "May be open now",
     half: "50 %", pullWindow: "Drag to move",
     valveOpen: "valve {n} %", valveShut: "valve closed", idleNow: "not heating right now",
-    apWasher: "Washing machine", apDryer: "Dryer", apDishwasher: "Dishwasher", apRuns: "running for {t}", apLeft: "about {t} left", apAlmost: "almost done", apDoneWasher: "Laundry done", apDoneDryer: "Dryer done", apDoneDishwasher: "Dishes done", apAgo: "for {t}",
+    apWasher: "Washing machine", apDryer: "Dryer", apDishwasher: "Dishwasher", apRuns: "running for {t}", apLeft: "about {t} left", apAlmost: "almost done", apEnd: "done at {t}", apNew: "new program, learning it", apDoneWasher: "Laundry done", apDoneDryer: "Dryer done", apDoneDishwasher: "Dishes done", apAgo: "for {t}",
     apAsk: "What is plugged into “{name}”?", apAskLead: "A long program just ran here. For a washing machine, dryer or dishwasher the tablet tells you when it is done.", apNone: "None of these", apSeen: "Done",
     smoke: "Smoke detector", water: "Water detector", calm: "calm", smokeNow: "Smoke!", waterNow: "Water!", alSmoke: "Smoke alarm", alWater: "Water alarm", alIntrusion: "Intrusion alarm", alAlarm: "Alarm", alMute: "Sound off", alSound: "Sound on", alHide: "Hide", alShow: "Show", alSystemOff: "Alarm system off",
     alSmokeTip: "Get everybody out, close the doors, call the fire brigade.", alWaterTip: "Turn off the water, switch off power nearby.", alIntrusionTip: "Stay calm and call the police if in doubt.", alAllCalm: "{n} detectors, all calm", alDetectors: "Smoke and water detectors",
@@ -549,6 +549,13 @@
       '<path d="' + area + '" fill="url(#' + id + ')"/><path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>' +
       '<circle cx="' + (end[0] / 23 * w).toFixed(1) + '" cy="' + (h - (end[1] - lo) / (hi - lo) * h).toFixed(1) + '" r="3" fill="' + color + '" vector-effect="non-scaling-stroke"/></svg>';
   }
+  // plugs which only measure: no switch, the power large
+  function measureTileBody(tile) {
+    var p = tile.state.power, w = p === undefined ? ["–", ""] : watt(p).split(" ");
+    return '<div class="n">' + esc(tile.name) + "</div>" +
+      '<div class="cval"><span class="big">' + esc(w[0]) + (w[1] ? "<small>" + esc(w[1]) + "</small>" : "") + "</span></div>" +
+      '<div class="s">' + I(KIND_ICON[tile.kind] || "plug", 14) + " " + esc(t("usage")) + "</div>";
+  }
   function climateTileBody(id, tile, look, editState) {
     var c = climateOf(tile), st = tile.state, humidOnly = c.temp === undefined;
     var main = humidOnly ? (c.humidity === undefined ? "–" : Math.round(c.humidity) + "<small>%</small>") : num(c.temp) + "<small>°</small>";
@@ -816,6 +823,8 @@
       body = climateTileBody(id, tile, look, editState);
     } else if (tile.kind === "media") {
       body = mediaTileBody(id, tile, look, editState);
+    } else if (tile.measure) {
+      body = measureTileBody(tile);
     } else {
       body = '<div class="ic' + (TAP_TOGGLES[tile.kind] && !tile.measure ? " sw" : "") + '">' + (tile.kind === "blind" ? winMini(tile.state.position) : I(look.icon)) + '</div><div><div class="n">' + esc(tile.name) + '</div><div class="s">' + esc(look.sub) + "</div></div>";
     }
@@ -829,7 +838,7 @@
       extra += '<div class="edit" data-edit="' + (editState === "hidden" ? "show" : "hide") + '">' + I(editState === "hidden" ? "plus" : "x") + "</div>";
       if (editState === "shown") { extra += '<div class="szbtn" data-size="' + esc(id) + '" aria-label="' + esc(t("tileSize")) + '">' + SIZE_LABEL[size] + "</div>"; }
     }
-    return '<button class="tile ' + look.cls + (climate ? " climate" : "") + (tile.kind === "media" ? " media" + (tile.state.art ? " hascover" : "") : "") + (tile.kind === "dimmer" || tile.kind === "blind" || tile.kind === "fan" ? " slidable" : "") + (wide ? " wide" : "") + (tall ? " tall" : "") + (S.pending[id] ? " pending" : "") + (editState === "hidden" ? " hiddenTile" : "") +
+    return '<button class="tile ' + look.cls + (climate ? " climate" : "") + (tile.measure && !climate && tile.kind !== "media" ? " measure" : "") + (tile.kind === "media" ? " media" + (tile.state.art ? " hascover" : "") : "") + (tile.kind === "dimmer" || tile.kind === "blind" || tile.kind === "fan" ? " slidable" : "") + (wide ? " wide" : "") + (tall ? " tall" : "") + (S.pending[id] ? " pending" : "") + (editState === "hidden" ? " hiddenTile" : "") +
       '" data-tile="' + esc(id) + '">' + body + extra + "</button>";
   }
 
@@ -1545,7 +1554,7 @@
       body += '<div class="group facts2">' + (st.temperature !== undefined ? '<div class="fact2"><b>' + num(st.temperature) + "°</b><span>" + esc(t("temperature")) + "</span></div>" : "") + (st.humidity !== undefined ? '<div class="fact2"><b>' + Math.round(st.humidity) + " %</b><span>" + esc(t("humidity")) + "</span></div>" : "") + "</div>";
     }
     if (VIEWS.indexOf(k) >= 0) { body += viewSheetHtml(tile); }
-    if (S.tablet && S.tablet.arrange && (VIEWS.indexOf(k) >= 0 || k === "switch" || k === "outlet")) { body += viewChoiceHtml(tile); }
+    if (S.tablet && S.tablet.arrange && (VIEWS.indexOf(k) >= 0 || ((k === "switch" || k === "outlet") && !tile.measure))) { body += viewChoiceHtml(tile); }
     if (tile.fan && k !== "fan") { body += fanHtml(st.fan); }
     if (S.tablet && !S.tablet.readonly && k !== "media") { body += noticeEditHtml(tile); }
     body += sheetTrendsHtml() + sheetHistoryHtml();
@@ -1671,7 +1680,7 @@
     var g = { light: [], switch: [], blind: [], climate: null, more: [] };
     roomTiles(room).forEach(function (id) {
       var tl = S.tiles[id];
-      if (tl.kind === "light" || tl.kind === "dimmer") { g.light.push(id); } else if (tl.kind === "switch" || tl.kind === "outlet") { g.switch.push(id); } else if (tl.kind === "blind") { g.blind.push(id); } else if (tl.kind === "thermostat" && (!g.climate || g.climate.kind !== "thermostat")) { if (g.climate) { g.more.push(g.climate.id); } g.climate = tl; } else if (tl.kind === "temperature" && !g.climate) { g.climate = tl; } else { g.more.push(id); }
+      if (tl.kind === "light" || tl.kind === "dimmer") { g.light.push(id); } else if ((tl.kind === "switch" || tl.kind === "outlet") && !tl.measure) { g.switch.push(id); } else if (tl.kind === "blind") { g.blind.push(id); } else if (tl.kind === "thermostat" && (!g.climate || g.climate.kind !== "thermostat")) { if (g.climate) { g.more.push(g.climate.id); } g.climate = tl; } else if (tl.kind === "temperature" && !g.climate) { g.climate = tl; } else { g.more.push(id); }
     });
     return g;
   }
@@ -2125,9 +2134,11 @@
         esc([d.name, t("apAgo", { t: minutesText(now - d.at) })].join(" · ")) + "</span></div>" + (ro ? "" : '<button class="pill" data-applseen="' + esc(d.id) + '">' + I("check", 18) + " " + esc(t("apSeen")) + "</button>") + "</div>";
     });
     shownList(a.running).forEach(function (r) {
-      var ran = now - r.since, frac = r.typical ? Math.min(0.97, ran / r.typical) : null, left = r.typical ? r.typical - ran : null;
+      // end: predicted from the learned programs, typical: median of the last ones
+      var ran = now - r.since, total = r.end ? r.end - r.since : r.typical, frac = total ? Math.min(0.97, ran / total) : null, left = total ? total - ran : null;
+      var leftText = r.new ? t("apNew") : left === null ? "" : left > 120 ? t("apLeft", { t: minutesText(left) }) + " · " + t("apEnd", { t: clockText(new Date((r.since + total) * 1000)) }) : t("apAlmost");
       rows += '<div class="row aprun"><div class="ic" style="background:#4DA3FF26;color:#4DA3FF">' + I("washer") + '</div><div class="t"><b>' + esc(t(AP_NAME[r.what])) + "</b><span>" +
-        esc([t("apRuns", { t: minutesText(ran) }), left === null ? "" : left > 120 ? t("apLeft", { t: minutesText(left) }) : t("apAlmost")].filter(Boolean).join(" · ")) + "</span>" +
+        esc([t("apRuns", { t: minutesText(ran) }), leftText].filter(Boolean).join(" · ")) + "</span>" +
         (frac !== null ? '<div class="apbar"><i style="width:' + Math.round(frac * 100) + '%"></i></div>' : "") + "</div></div>";
     });
     if (!ro) {

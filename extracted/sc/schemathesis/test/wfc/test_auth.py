@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from xml.etree import ElementTree
 
 import pytest
@@ -19,6 +20,7 @@ from schemathesis.wfc.converter import wfc_to_auth_provider
 from schemathesis.wfc.errors import WFCLoginError, WFCTokenExtractionError, WFCValidationError
 from schemathesis.wfc.escalation import escalating_provider, identity_assignments, restore_identity_assignments
 from schemathesis.wfc.loader import load_from_dict
+from schemathesis.wfc.providers import LoginEndpointAuthProvider
 from test.apps.catalog.openapi import wfc as wfc_apps
 from test.apps.catalog.openapi.wfc import WFC_PASSWORD, WFC_SESSION, WFC_TOKEN, WFC_USERNAME
 from test.utils import allure_results, load_ndjson, refusing_url
@@ -284,6 +286,14 @@ def test_wfc_login_non_2xx(cli, ctx, tmp_path):
     result = _run_wfc(cli, api, auth, max_examples=1)
     assert result.exit_code != 0
     assert "500" in result.stdout
+
+
+def test_wfc_login_waits_for_auth_server_to_start(cli, ctx, tmp_path):
+    api = ctx.openapi.serve(wfc_apps.wfc_login_starting_up())
+    auth = _write(tmp_path, {"auth": [{"name": "u", "loginEndpointAuth": _login(token=_token())}]})
+
+    assert _run_wfc(cli, api, auth).exit_code == 0
+    assert all(_header(c, "Authorization") == f"Bearer {WFC_TOKEN}" for c in _protected_calls(api))
 
 
 def test_wfc_login_body_not_json(cli, ctx, tmp_path):
@@ -665,13 +675,6 @@ def test_wfc_unreadable_file(cli, ctx, tmp_path):
     [
         {
             "verb": "POST",
-            "externalEndpointURL": "http://127.0.0.1:1/api/login",
-            "contentType": "application/json",
-            "payloadUserPwd": CREDENTIALS,
-            "token": _token(),
-        },
-        {
-            "verb": "POST",
             "externalEndpointURL": "http://[::1/api/login",
             "contentType": "application/json",
             "payloadUserPwd": CREDENTIALS,
@@ -679,7 +682,7 @@ def test_wfc_unreadable_file(cli, ctx, tmp_path):
         },
         _login(token=_token(), headers=[{"name": "X-Tenant", "value": "Zürich€"}]),
     ],
-    ids=["connection-refused", "malformed-url", "non-latin1-header"],
+    ids=["malformed-url", "non-latin1-header"],
 )
 def test_wfc_login_connection_error(cli, ctx, tmp_path, login):
     api = ctx.openapi.apps.wfc_login()
@@ -689,6 +692,44 @@ def test_wfc_login_connection_error(cli, ctx, tmp_path, login):
     assert result.exit_code != 0
     assert "login endpoint call failed" in result.stdout.lower()
     assert "Traceback" not in result.stdout
+
+
+def test_wfc_login_endpoint_that_never_comes_up_fails_after_the_startup_wait(ctx):
+    operation = ctx.openapi.load_operation("GET /api/protected", {"responses": {"200": {"description": "OK"}}})
+    with refusing_url() as url:
+        login = {
+            "verb": "POST",
+            "externalEndpointURL": f"{url}/api/login",
+            "contentType": "application/json",
+            "payloadUserPwd": CREDENTIALS,
+            "token": _token(),
+        }
+        config = load_from_dict({"auth": [{"name": "u", "loginEndpointAuth": login}]})[0].login_endpoint_auth
+        provider = LoginEndpointAuthProvider(config, startup_wait=0.2)
+        started = time.monotonic()
+        with pytest.raises(WFCLoginError, match="Login endpoint call failed"):
+            provider.get(operation.Case(), AuthContext(operation=operation, app=None))
+    assert time.monotonic() - started >= 0.2
+
+
+def test_wfc_login_endpoint_outage_after_a_login_fails_at_once(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    attempts = []
+
+    @app.route("/api/login", methods=["POST"])
+    def login() -> object:
+        attempts.append(None)
+        if len(attempts) == 1:
+            return jsonify({"access_token": WFC_TOKEN})
+        return jsonify({"error": "down"}), 503
+
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/api/protected"]["GET"]
+    provider = _provider_for(_login(token=_token()))
+    context = AuthContext(operation=operation, app=None)
+    assert provider.get(operation.Case(), context) == f"Bearer {WFC_TOKEN}"
+    with pytest.raises(WFCLoginError, match="status 503"):
+        provider.get(operation.Case(), context)
+    assert len(attempts) == 2
 
 
 def test_wfc_multiple_users_without_selection(cli, ctx, tmp_path):
@@ -1169,8 +1210,7 @@ EXPIRING_AUTH = {
 
 
 def test_escalating_provider_exposes_its_caching_providers(ctx, tmp_path):
-    # Reactive reauth is driven off the caching providers reachable from the schema; an escalating
-    # provider must not hide the ones it wraps, or a stale token can never be refreshed.
+    # Reactive reauth finds caching providers through the schema; an escalating provider must not hide them.
     auth = _write(tmp_path, EXPIRING_AUTH)
     schema = ctx.openapi.load_schema(
         {"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}},
@@ -1181,8 +1221,7 @@ def test_escalating_provider_exposes_its_caching_providers(ctx, tmp_path):
 
 
 def test_expired_token_is_refreshed_for_a_multi_user_document(cli, ctx, tmp_path):
-    # The identity stays valid; only its token dies. Without reactive reauth the run replays the dead
-    # token for the rest of the budget instead of logging in again.
+    # Only the token dies; without reactive reauth the run replays it for the rest of the budget instead of logging in.
     api = ctx.openapi.serve(wfc_apps.wfc_expiring_token())
     auth = _write(tmp_path, EXPIRING_AUTH)
 
@@ -1332,8 +1371,7 @@ def test_assignment_is_restored_from_cache(cli, ctx, tmp_path):
 
 
 def test_failure_names_the_identity(cli, ctx, tmp_path, snapshot_cli):
-    # With several identities in play, a report that does not say which one ran is ambiguous.
-    # The name alone is not actionable; the flag that reproduces it is.
+    # With several identities, the report needs the flag reproducing the one that ran; its name alone is not actionable.
     api = ctx.openapi.apps.wfc_role_gated()
     auth = _write(tmp_path, ROLE_AUTH)
     junit = tmp_path / "junit.xml"

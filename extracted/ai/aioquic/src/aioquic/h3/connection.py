@@ -12,6 +12,7 @@ from aioquic.buffer import (
     Buffer,
     BufferReadError,
     encode_uint_var,
+    size_uint_var,
 )
 from aioquic.h3.events import (
     DatagramReceived,
@@ -20,10 +21,14 @@ from aioquic.h3.events import (
     H3Event,
     Headers,
     HeadersReceived,
+    ResetReceived,
+    StopReceived,
     WebTransportStreamDataReceived,
 )
 from aioquic.h3.exceptions import (
-    H3Error,
+    DatagramCapacityError,
+    InvalidConnectionStateError,
+    InvalidErrorCodeError,
     InvalidStreamIdError,
     InvalidStreamStateError,
     InvalidStreamTypeError,
@@ -426,6 +431,7 @@ class H3Stream:
         self.buffer = b""
         self.receiving_ended = False
         self.sending_ended = False
+        self.terminated = False
         self.frame_received = False
         self.frame_size: int | None = None
         self.frame_type: int | None = None
@@ -440,6 +446,15 @@ class H3Stream:
 
     def is_ended(self) -> bool:
         return self.sending_ended and self.receiving_ended
+
+    def is_known_to_app(self) -> bool:
+        """
+        Whether the application has sent or received headers on the stream.
+        """
+        return (
+            self.headers_recv_state != HeadersState.INITIAL
+            or self.headers_send_state != HeadersState.INITIAL
+        )
 
 
 class H3Connection:
@@ -458,22 +473,41 @@ class H3Connection:
         pass it as a keyword argument instead.
 
     :param quic: A :class:`~aioquic.quic.connection.QuicConnection` instance.
-    :param enable_webtransport: Whether to enable WebTransport.
+    :param enable_datagrams: Whether to enable HTTP/3 datagrams (:rfc:`9297`).
+        The QUIC connection must accept DATAGRAM frames, see
+        :attr:`~aioquic.quic.configuration.QuicConfiguration.max_datagram_frame_size`.
+    :param enable_webtransport: Whether to enable WebTransport, which also enables
+        HTTP/3 datagrams.
     """
 
     @deprecate_positional_argument("enable_webtransport")
     def __init__(
-        self, quic: QuicConnection, *, enable_webtransport: bool = False
+        self,
+        quic: QuicConnection,
+        *,
+        enable_datagrams: bool = False,
+        enable_webtransport: bool = False,
     ) -> None:
+        # WebTransport relies on HTTP/3 datagrams, which rely on QUIC datagrams.
+        enable_datagrams = enable_datagrams or enable_webtransport
+        if enable_datagrams and not quic.configuration.max_datagram_frame_size:
+            raise ValueError(
+                "Cannot enable HTTP/3 datagrams unless QUIC accepts datagrams"
+            )
+
         # settings
         # We use no dynamic table, so header blocks never wait for its entries
         # and no stream data is held while they arrive (RFC 9204 sections 2.1.2
         # and 3.2.3).
         self._max_table_capacity = 0
         self._blocked_streams = 0
+        self._enable_datagrams = enable_datagrams
         self._enable_webtransport = enable_webtransport
 
         self._is_client = quic.configuration.is_client
+        # Once HTTP/3 closes the connection because of the peer's input, it stops
+        # parsing. This is not QuicConnection.is_closing(): events which QUIC
+        # queued before another close, such as a final response, are still valid.
         self._is_done = False
         self._quic = quic
         self._quic_logger: QuicLoggerTrace | None = quic._quic_logger
@@ -489,6 +523,11 @@ class H3Connection:
         # The maximum push ID received by a server, which never pushes.
         self._max_push_id: int | None = None
         self._received_goaway_id: int | None = None
+        self._sent_goaway_id: int | None = None
+
+        # The highest request stream ID whose headers a server passed to the
+        # application.
+        self._last_request_id: int | None = None
 
         self._local_control_stream_id: int | None = None
         self._local_decoder_stream_id: int | None = None
@@ -521,11 +560,13 @@ class H3Connection:
         :raises ~aioquic.h3.exceptions.InvalidStreamIdError:
             If the session ID is out of range.
         :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
-            If WebTransport is not enabled, or the session ID is not a
-            client-initiated bidirectional stream.
+            If the session ID is not a client-initiated bidirectional stream.
+        :raises ~aioquic.h3.exceptions.InvalidConnectionStateError:
+            If WebTransport is not enabled, or the connection is closing or
+            closed.
         """
         if not self._enable_webtransport:
-            raise InvalidStreamTypeError("WebTransport is not enabled")
+            raise InvalidConnectionStateError("WebTransport is not enabled")
 
         self._check_stream_id(session_id)
 
@@ -536,6 +577,8 @@ class H3Connection:
                 "WebTransport sessions can only be client-initiated bidirectional "
                 "streams"
             )
+
+        self._check_connection_not_closing()
 
         if is_unidirectional:
             stream_id = self._create_uni_stream(StreamType.WEBTRANSPORT)
@@ -562,6 +605,24 @@ class H3Connection:
             self._stream[stream_id] = stream
         return stream_id
 
+    def get_datagram_capacity(self, stream_id: int) -> int | None:
+        """
+        Return the largest payload which fits in a datagram for the specified
+        stream, or `None` if no datagram can be sent for it.
+
+        The value can change during the connection.
+
+        :param stream_id: The stream ID.
+        :raises ~aioquic.h3.exceptions.InvalidStreamIdError:
+            If the stream ID is out of range.
+        :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
+            If the stream is not a client-initiated bidirectional stream.
+        """
+        try:
+            return self._get_datagram_capacity(stream_id)
+        except (InvalidConnectionStateError, InvalidStreamStateError):
+            return None
+
     def handle_event(self, event: QuicEvent) -> list[H3Event]:
         """
         Handle a QUIC event and return a list of HTTP events.
@@ -576,9 +637,9 @@ class H3Connection:
                 elif isinstance(event, DatagramFrameReceived):
                     return self._receive_datagram(event.data)
                 elif isinstance(event, StopSendingReceived):
-                    self._receive_stop_sending(event.stream_id)
+                    return self._receive_stop_sending(event)
                 elif isinstance(event, StreamReset):
-                    self._receive_stream_reset(event.stream_id)
+                    return self._receive_stream_reset(event)
             except ProtocolError as exc:
                 self._is_done = True
                 self._quic.close(
@@ -599,16 +660,34 @@ class H3Connection:
             If the stream ID is out of range.
         :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
             If the stream is not a client-initiated bidirectional stream.
+        :raises ~aioquic.h3.exceptions.InvalidConnectionStateError:
+            If the connection is closing or closed, both endpoints have not yet
+            enabled HTTP/3 datagrams, or the peer does not accept QUIC datagrams or
+            its limit is too small.
+        :raises ~aioquic.h3.exceptions.InvalidStreamStateError:
+            If the datagram is sent before the headers, or on a stream which is not
+            open.
+        :raises ~aioquic.h3.exceptions.DatagramCapacityError:
+            If the payload exceeds the capacity.
         """
-        self._check_stream_id(stream_id)
+        capacity = self._get_datagram_capacity(stream_id)
+        if len(data) > capacity:
+            raise DatagramCapacityError(
+                f"Datagram of {len(data)} bytes exceeds the capacity of "
+                f"{capacity} bytes"
+            )
+        quarter_stream_id = stream_id // 4
 
-        # check stream ID is valid
-        if not stream_is_request_response(stream_id):
-            raise InvalidStreamTypeError(
-                "Datagrams can only be sent for client-initiated bidirectional streams"
+        # log datagram
+        if self._quic_logger is not None:
+            self._quic_logger.log_event(
+                name="http3:datagram_created",
+                data=self._quic_logger.encode_http3_datagram(
+                    length=len(data), quarter_stream_id=quarter_stream_id
+                ),
             )
 
-        self._quic.send_datagram_frame(encode_uint_var(stream_id // 4) + data)
+        self._quic.send_datagram_frame(encode_uint_var(quarter_stream_id) + data)
 
     def send_data(self, stream_id: int, data: bytes, end_stream: bool) -> None:
         """
@@ -623,15 +702,15 @@ class H3Connection:
             If the stream ID is out of range.
         :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
             If the stream is not a request stream.
+        :raises ~aioquic.h3.exceptions.InvalidConnectionStateError:
+            If the connection is closing or closed.
         :raises ~aioquic.h3.exceptions.InvalidStreamStateError:
-            If data is sent before the headers, after the trailers, or after the
-            stream was ended or reset.
+            If data is sent before the headers, after the trailers, or on a stream
+            which is not open.
         """
-        self._check_stream_type_for_sending(stream_id)
+        self._check_sending_allowed(stream_id)
 
         stream = self._stream.get(stream_id)
-        if stream is not None and stream.sending_ended:
-            raise InvalidStreamStateError("Cannot send after the stream was ended")
         if stream is None or stream.headers_send_state == HeadersState.INITIAL:
             raise InvalidStreamStateError("Cannot send data before the headers")
         if stream.headers_send_state == HeadersState.AFTER_TRAILERS:
@@ -646,12 +725,57 @@ class H3Connection:
                 ),
             )
 
-        self._send_request_stream_data(
+        self._quic.send_stream_data(
             stream_id, encode_frame(FrameType.DATA, data), end_stream
         )
         if end_stream:
             stream.sending_ended = True
             self._store_or_discard_stream(stream)
+
+    def send_goaway(self) -> None:
+        """
+        Send a GOAWAY frame to start shutting down the connection gracefully.
+
+        The requests already passed to the application can still be answered.
+        Requests on later streams are rejected with ``H3_REQUEST_REJECTED``, so
+        that the client can retry them on another connection. The connection
+        stays open.
+
+        .. aioquic_transmit::
+
+        :raises ~aioquic.h3.exceptions.InvalidConnectionStateError:
+            If called on a client, or once the connection is closing or closed.
+        """
+        # A client's GOAWAY carries a push ID (RFC 9114 section 5.2).
+        if self._is_client:
+            raise InvalidConnectionStateError(
+                "Cannot send GOAWAY from a client, as server push is not supported"
+            )
+
+        self._check_connection_not_closing()
+
+        # The first stream after the last request passed to the application.
+        if self._last_request_id is None:
+            stream_id = 0
+        else:
+            stream_id = self._last_request_id + 4
+        self._quic.send_stream_data(
+            self._local_control_stream_id,
+            encode_frame(FrameType.GOAWAY, encode_uint_var(stream_id)),
+        )
+        self._sent_goaway_id = stream_id
+
+        # Reject the requests already received in part. Later ones are rejected
+        # as they arrive (RFC 9114 section 5.2).
+        for stream in list(self._stream.values()):
+            if (
+                stream_is_request_response(stream.stream_id)
+                and stream.stream_id >= stream_id
+                and stream.frame_received
+                and stream.session_id is None
+                and not stream.terminated
+            ):
+                self._terminate_request(stream, ErrorCode.H3_REQUEST_REJECTED)
 
     def send_headers(
         self, stream_id: int, headers: Headers, end_stream: bool = False
@@ -668,21 +792,30 @@ class H3Connection:
             If the stream ID is out of range.
         :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
             If the stream is not a request stream.
+        :raises ~aioquic.h3.exceptions.InvalidConnectionStateError:
+            If the connection is closing or closed, a client starts a request
+            after receiving GOAWAY, or the peer stopped the QPACK encoder stream.
         :raises ~aioquic.h3.exceptions.InvalidStreamStateError:
-            If headers are sent after the trailers, after the stream was ended or
-            reset, or on a stream the peer has not opened, or an interim response
-            would end the stream.
-        :raises ~aioquic.h3.exceptions.H3Error:
-            If the peer stopped the QPACK encoder stream.
+            If headers are sent after the trailers or on a stream which is not
+            open, or an interim response would end the stream.
         """
-        self._check_stream_type_for_sending(stream_id)
+        self._check_sending_allowed(stream_id)
+
+        # A client must not start requests once it receives GOAWAY (RFC 9114
+        # section 5.2).
+        if (
+            self._is_client
+            and self._received_goaway_id is not None
+            and stream_id >= self._quic.get_next_available_stream_id()
+        ):
+            raise InvalidConnectionStateError(
+                "Cannot start a request after receiving GOAWAY"
+            )
 
         # The stream's state is only stored once the headers are sent.
         stream = self._stream.get(stream_id)
         if stream is None:
             stream = H3Stream(stream_id)
-        if stream.sending_ended:
-            raise InvalidStreamStateError("Cannot send after the stream was ended")
         if stream.headers_send_state == HeadersState.AFTER_TRAILERS:
             raise InvalidStreamStateError("Cannot send headers after the trailers")
 
@@ -708,7 +841,7 @@ class H3Connection:
                 ),
             )
 
-        self._send_request_stream_data(
+        self._quic.send_stream_data(
             stream_id, encode_frame(FrameType.HEADERS, frame_data), end_stream
         )
         if stream.headers_send_state != HeadersState.INITIAL:
@@ -730,6 +863,77 @@ class H3Connection:
         )
         raise NoAvailablePushIDError
 
+    def terminate_request(
+        self, stream_id: int, *, error_code: int | None = None
+    ) -> None:
+        """
+        Abruptly terminate the directions of a request stream which are still open.
+
+        This is how requests are cancelled (RFC 9114 section 4.1.1). The request or
+        response being sent is abandoned, the peer is asked to stop sending, and
+        what it still sends is dropped: no further events are reported for the
+        stream.
+
+        A client terminates a request whose response is no longer of interest. A
+        server terminates a request it cannot or chooses not to answer, with
+        ``ErrorCode.H3_REQUEST_REJECTED`` if it did not process the request, so
+        that the client can retry it.
+
+        By default, a server whose response has ended asks the client to stop
+        sending with ``ErrorCode.H3_NO_ERROR`` (RFC 9114 section 4.1), and
+        ``ErrorCode.H3_REQUEST_CANCELLED`` is used otherwise.
+
+        This method has no effect on a direction of the stream which has already
+        ended, on a request which was already terminated, or, on a server, on a
+        stream the client has not opened.
+
+        .. aioquic_transmit::
+
+        :param stream_id: The request's stream ID.
+        :param error_code: The HTTP/3 error code, or ``None`` for the default
+            described above.
+        :raises ~aioquic.h3.exceptions.InvalidStreamIdError:
+            If the stream ID is out of range.
+        :raises ~aioquic.h3.exceptions.InvalidErrorCodeError:
+            If the error code is out of range.
+        :raises ~aioquic.h3.exceptions.InvalidStreamTypeError:
+            If the stream is not a client-initiated bidirectional stream.
+        :raises ~aioquic.h3.exceptions.InvalidStreamStateError:
+            If a client terminates a stream it has not opened.
+        """
+        self._check_stream_id(stream_id)
+        if error_code is not None:
+            self._check_error_code(error_code)
+        if not stream_is_request_response(stream_id):
+            raise InvalidStreamTypeError("Only requests can be terminated")
+
+        # Without state, both directions of the stream have ended, or the client
+        # has not opened it.
+        stream = self._stream.get(stream_id)
+        if stream is not None:
+            if error_code is None:
+                # Once a server's response has ended, only the request remains, and
+                # stopping it is not an error (RFC 9114 section 4.1).
+                error_code = (
+                    ErrorCode.H3_NO_ERROR
+                    if not self._is_client and stream.sending_ended
+                    else ErrorCode.H3_REQUEST_CANCELLED
+                )
+            self._terminate_request(stream, error_code)
+        elif self._is_client and stream_id >= self._quic.get_next_available_stream_id():
+            # A client stream which carries nothing yet is not a request, and QUIC
+            # would open it, skipping the stream IDs before it.
+            raise InvalidStreamStateError(
+                "Cannot terminate a request which was not sent"
+            )
+
+    @property
+    def quic_connection(self) -> QuicConnection:
+        """
+        Return the QUIC connection this HTTP/3 connection runs on.
+        """
+        return self._quic
+
     @property
     def received_settings(self) -> dict[int, int] | None:
         """
@@ -750,6 +954,22 @@ class H3Connection:
         request's headers were passed to the application (RFC 9114 section 4.1).
         """
         self._quic.reset_stream(stream_id, ErrorCode.H3_REQUEST_INCOMPLETE)
+
+    def _check_connection_not_closing(self) -> None:
+        """
+        Check the connection is neither closing nor closed.
+        """
+        if self._quic.is_closing():
+            raise InvalidConnectionStateError(
+                "Cannot send once the connection is closing"
+            )
+
+    def _check_content_length(self, stream: H3Stream) -> None:
+        if (
+            stream.expected_content_length is not None
+            and stream.content_length != stream.expected_content_length
+        ):
+            raise MessageError("content-length does not match data size")
 
     def _check_control_frame_header(self, frame_type: int, frame_size: int) -> None:
         """
@@ -797,6 +1017,13 @@ class H3Connection:
             # RFC 9114 sections 7.2.1, 7.2.2, 7.2.5 and 7.2.8
             raise FrameUnexpected("Invalid frame type on control stream")
 
+    def _check_error_code(self, error_code: int) -> None:
+        """
+        Check the error code is one QUIC can represent (RFC 9000 section 20).
+        """
+        if not 0 <= error_code <= UINT_VAR_MAX:
+            raise InvalidErrorCodeError("Error code must be between 0 and 2^62 - 1")
+
     def _check_request_frame_header(
         self, stream: H3Stream, frame_type: int, frame_size: int
     ) -> None:
@@ -806,7 +1033,18 @@ class H3Connection:
         This is called as soon as the frame header is parsed, so that invalid
         frames are rejected without buffering their payload.
         """
-        if frame_type == FrameType.PUSH_PROMISE:
+        if (
+            self._is_client
+            and not stream_is_client_initiated(stream.stream_id)
+            and frame_type != FrameType.WEBTRANSPORT_STREAM
+        ):
+            # Server-initiated bidirectional streams are only accepted for
+            # WebTransport (RFC 9114 section 6.1), which opens them with
+            # WEBTRANSPORT_STREAM. Once it has, frames are no longer parsed.
+            raise StreamCreationError(
+                "Server-initiated bidirectional streams must be WebTransport streams"
+            )
+        elif frame_type == FrameType.PUSH_PROMISE:
             if self._is_client:
                 # We never send MAX_PUSH_ID, so any push ID is larger than the
                 # maximum push ID (RFC 9114 section 7.2.5).
@@ -843,22 +1081,12 @@ class H3Connection:
             # this makes them longer (RFC 9114 section 10.5.1).
             raise ExcessiveLoad("HEADERS frame is too large")
 
-    def _check_stream_id(self, stream_id: int) -> None:
+    def _check_sending_allowed(self, stream_id: int) -> None:
         """
-        Check the stream ID is one QUIC can represent (RFC 9000 section 2.1).
-        """
-        if not 0 <= stream_id <= UINT_VAR_MAX:
-            raise InvalidStreamIdError("Stream ID must be between 0 and 2^62 - 1")
-
-    def _check_stream_type_for_sending(self, stream_id: int) -> None:
-        """
-        Check the stream ID is in range and a request stream, before any state is
-        created for it.
+        Check headers and data can be sent on the stream, before any state is
+        created for it or anything is encoded.
         """
         self._check_stream_id(stream_id)
-        if stream_is_request_response(stream_id):
-            return
-
         if stream_is_unidirectional(stream_id) and (
             stream_is_client_initiated(stream_id) != self._is_client
         ):
@@ -869,9 +1097,47 @@ class H3Connection:
         # HTTP messages are only sent on request streams, not on server-initiated
         # bidirectional streams (RFC 9114 section 6.1) nor on our unidirectional
         # streams (RFC 9114 section 6.2), such as the control and QPACK streams.
-        raise InvalidStreamTypeError(
-            "Headers and data can only be sent on request streams"
-        )
+        if not stream_is_request_response(stream_id):
+            raise InvalidStreamTypeError(
+                "Headers and data can only be sent on request streams"
+            )
+
+        self._check_connection_not_closing()
+
+        # Only QUIC knows whether a stream without state, or one whose STOP_SENDING
+        # it has not reported yet, can still be sent on. HTTP/3 itself never sends
+        # again on a stream it handed over to WebTransport.
+        stream = self._stream.get(stream_id)
+        if not self._quic.can_send_stream_data(stream_id) or (
+            stream is not None and stream.sending_ended
+        ):
+            raise InvalidStreamStateError("Cannot send on a stream which is not open")
+
+    def _check_stream_creation(self, stream_id: int) -> None:
+        """
+        Check the peer is allowed to open the stream, before any state is created
+        for it.
+        """
+        # HTTP/3 does not use server-initiated bidirectional streams, unless an
+        # extension which uses them, such as WebTransport, was negotiated
+        # (RFC 9114 section 6.1). Only our own setting is checked, as such a
+        # stream can arrive before the server's SETTINGS.
+        if (
+            self._is_client
+            and not stream_is_unidirectional(stream_id)
+            and not stream_is_client_initiated(stream_id)
+            and not self._enable_webtransport
+        ):
+            raise StreamCreationError(
+                "Server-initiated bidirectional streams are not allowed"
+            )
+
+    def _check_stream_id(self, stream_id: int) -> None:
+        """
+        Check the stream ID is one QUIC can represent (RFC 9000 section 2.1).
+        """
+        if not 0 <= stream_id <= UINT_VAR_MAX:
+            raise InvalidStreamIdError("Stream ID must be between 0 and 2^62 - 1")
 
     def _create_uni_stream(self, stream_type: int) -> int:
         """
@@ -906,10 +1172,64 @@ class H3Connection:
         except StreamStateError as exc:
             # The peer stopped the stream, which closes the connection (RFC 9204
             # section 4.2).
-            raise H3Error(
+            raise InvalidConnectionStateError(
                 "Cannot send headers once the QPACK encoder stream was stopped"
             ) from exc
         return frame_data
+
+    def _get_datagram_capacity(self, stream_id: int) -> int:
+        """
+        Return the largest payload which fits in a datagram for the specified
+        stream, raising an H3 exception if no datagram can be sent for it.
+        """
+        self._check_stream_id(stream_id)
+        if not stream_is_request_response(stream_id):
+            raise InvalidStreamTypeError(
+                "Datagrams can only be sent for client-initiated bidirectional streams"
+            )
+
+        self._check_connection_not_closing()
+
+        # The stream's send side must be open (RFC 9297 section 2.1). QUIC may
+        # know of a STOP_SENDING which H3 has not handled yet, and HTTP/3 never
+        # sends again on a stream it handed over to WebTransport.
+        stream = self._stream.get(stream_id)
+        if (
+            stream is None
+            or stream.sending_ended
+            or not self._quic.can_send_stream_data(stream_id)
+        ):
+            raise InvalidStreamStateError(
+                "Cannot send a datagram for a stream which is not open"
+            )
+
+        # Datagrams belong to a request whose semantics define them (RFC 9297
+        # section 2), and the client only learns from the response headers whether
+        # the server accepted that request.
+        if stream.headers_send_state == HeadersState.INITIAL:
+            raise InvalidStreamStateError("Cannot send a datagram before the headers")
+
+        # Both endpoints must send SETTINGS_H3_DATAGRAM=1 (RFC 9297 section 2.1.1).
+        for settings in (self._sent_settings, self._received_settings):
+            if settings is None or settings.get(Setting.H3_DATAGRAM) != 1:
+                raise InvalidConnectionStateError(
+                    "Cannot send a datagram unless both endpoints enable HTTP/3 "
+                    "datagrams"
+                )
+
+        quic_capacity = self._quic.get_datagram_frame_capacity()
+        if quic_capacity is None:
+            raise InvalidConnectionStateError(
+                "Cannot send a datagram unless the peer accepts QUIC datagrams"
+            )
+
+        # The payload follows the quarter stream ID (RFC 9297 section 2.1).
+        quarter_stream_id_size = size_uint_var(stream_id // 4)
+        if quic_capacity < quarter_stream_id_size:
+            raise InvalidConnectionStateError(
+                "Cannot send a datagram, as the peer's QUIC datagram limit is too small"
+            )
+        return quic_capacity - quarter_stream_id_size
 
     def _get_local_settings(self) -> dict[int, int]:
         """
@@ -922,8 +1242,9 @@ class H3Connection:
             Setting.ENABLE_CONNECT_PROTOCOL: 1,
             Setting.DUMMY: 1,
         }
-        if self._enable_webtransport:
+        if self._enable_datagrams:
             settings[Setting.H3_DATAGRAM] = 1
+        if self._enable_webtransport:
             settings[Setting.ENABLE_WEBTRANSPORT] = 1
         return settings
 
@@ -976,13 +1297,6 @@ class H3Connection:
             if self._is_client:
                 return GoAwayReceived(stream_id=goaway_id)
         return None
-
-    def _check_content_length(self, stream: H3Stream) -> None:
-        if (
-            stream.expected_content_length is not None
-            and stream.content_length != stream.expected_content_length
-        ):
-            raise MessageError("content-length does not match data size")
 
     def _handle_request_frame(
         self,
@@ -1058,8 +1372,18 @@ class H3Connection:
 
             # update state and emit headers
             if stream.headers_recv_state == HeadersState.INITIAL:
+                # A client which stopped the response before its request headers
+                # arrived wants no answer, so the request is not passed on.
+                if not self._is_client and stream.sending_ended:
+                    self._terminate_request(stream, ErrorCode.H3_REQUEST_REJECTED)
+                    return http_events
                 if not interim:
                     stream.headers_recv_state = HeadersState.AFTER_HEADERS
+                if not self._is_client and (
+                    self._last_request_id is None
+                    or stream.stream_id > self._last_request_id
+                ):
+                    self._last_request_id = stream.stream_id
             else:
                 stream.headers_recv_state = HeadersState.AFTER_TRAILERS
             http_events.append(
@@ -1067,6 +1391,9 @@ class H3Connection:
                     headers=headers,
                     stream_id=stream.stream_id,
                     stream_ended=stream_ended,
+                    is_trailers=(
+                        stream.headers_recv_state == HeadersState.AFTER_TRAILERS
+                    ),
                 )
             )
         return http_events
@@ -1076,6 +1403,12 @@ class H3Connection:
         Handle the end of a request stream which is not conveyed by
         a DATA or HEADERS frame.
         """
+        if self._is_client and not stream_is_client_initiated(stream.stream_id):
+            # The server's stream ended before WEBTRANSPORT_STREAM, see
+            # _check_request_frame_header().
+            raise StreamCreationError(
+                "Server-initiated bidirectional streams must be WebTransport streams"
+            )
         if not self._is_client and stream.headers_recv_state == HeadersState.INITIAL:
             # The application never saw the request, so nothing would respond.
             self._abort_incomplete_request(stream.stream_id)
@@ -1142,19 +1475,52 @@ class H3Connection:
         """
         Handle a datagram.
         """
+        # The peer must not send QUIC datagrams until it has received our
+        # SETTINGS_H3_DATAGRAM=1 (RFC 9297 section 2.1.1), so without it they are
+        # not HTTP/3 datagrams.
+        if self._sent_settings.get(Setting.H3_DATAGRAM) != 1:
+            return []
+
         buf = Buffer(data=data)
         try:
             quarter_stream_id = buf.pull_uint_var()
         except BufferReadError:
             raise DatagramError("Could not parse quarter stream ID")
-        return [
-            DatagramReceived(data=data[buf.tell() :], stream_id=quarter_stream_id * 4)
-        ]
+        if quarter_stream_id > UINT_VAR_MAX // 4:
+            raise DatagramError("Quarter stream ID is too large")
+        payload = data[buf.tell() :]
 
-    def _receive_stop_sending(self, stream_id: int) -> None:
+        # log datagram
+        if self._quic_logger is not None:
+            self._quic_logger.log_event(
+                name="http3:datagram_parsed",
+                data=self._quic_logger.encode_http3_datagram(
+                    length=len(payload), quarter_stream_id=quarter_stream_id
+                ),
+            )
+
+        # Datagrams for a stream which does not exist yet, or whose receive side
+        # has ended, are dropped (RFC 9297 section 2.1), as are those of a
+        # terminated request.
+        stream_id = quarter_stream_id * 4
+        stream = self._stream.get(stream_id)
+        if stream is None or stream.receiving_ended or stream.terminated:
+            return []
+
+        # Datagrams are also dropped until the stream's headers have been received,
+        # as the request and its response define what the datagrams mean (RFC 9297
+        # section 2). This covers WebTransport streams, which never pass headers to
+        # the application.
+        if stream.headers_recv_state == HeadersState.INITIAL:
+            return []
+
+        return [DatagramReceived(data=payload, stream_id=stream_id)]
+
+    def _receive_stop_sending(self, event: StopSendingReceived) -> list[H3Event]:
         """
         Handle the peer asking us to stop sending on a stream.
         """
+        stream_id = event.stream_id
         if stream_id in (
             self._local_control_stream_id,
             self._local_decoder_stream_id,
@@ -1162,21 +1528,33 @@ class H3Connection:
         ):
             raise ClosedCriticalStream("Stopping a critical stream is not allowed")
 
-        # The QUIC layer has already reset the sending part of the stream.
+        # The QUIC layer has already reset the sending part of the stream. If
+        # the stream has no state yet, it picks this up when it is created.
+        http_events: list[H3Event] = []
         stream = self._stream.get(stream_id)
-        if stream is not None:
+        if stream is None:
+            self._check_stream_creation(stream_id)
+        else:
+            if not stream.sending_ended and stream.is_known_to_app():
+                http_events.append(
+                    StopReceived(error_code=event.error_code, stream_id=stream_id)
+                )
             stream.sending_ended = True
             self._store_or_discard_stream(stream)
+        return http_events
 
     def _receive_stream_data(self, event: StreamDataReceived) -> list[H3Event]:
         stream_id = event.stream_id
         stream = self._stream.get(stream_id)
         if stream is None:
+            self._check_stream_creation(stream_id)
             stream = H3Stream(stream_id)
-            if stream_is_unidirectional(stream_id):
-                # Only the peer's unidirectional streams have state, and we
-                # never send on them.
-                stream.sending_ended = True
+            # We never send on the peer's unidirectional streams, the only
+            # unidirectional streams with state, and sending on a request stream
+            # may already have ended, after a STOP_SENDING which came first.
+            stream.sending_ended = stream_is_unidirectional(stream_id) or (
+                not self._quic.can_send_stream_data(stream_id)
+            )
             self._stream[stream_id] = stream
         if stream_is_unidirectional(stream_id):
             http_events = self._receive_stream_data_uni(
@@ -1197,9 +1575,11 @@ class H3Connection:
         """
         http_events: list[H3Event] = []
 
-        stream.buffer += data
         if stream_ended:
             stream.receiving_ended = True
+        if stream.terminated:
+            return http_events
+        stream.buffer += data
 
         # shortcut for WEBTRANSPORT_STREAM frame fragments
         if (
@@ -1253,6 +1633,20 @@ class H3Connection:
                 except BufferReadError:
                     break
                 consumed = buf.tell()
+
+                # Requests at or above the ID of our GOAWAY are rejected (RFC 9114
+                # section 5.2). WebTransport streams are not requests.
+                if (
+                    not stream.frame_received
+                    and self._sent_goaway_id is not None
+                    and stream.stream_id >= self._sent_goaway_id
+                    and not (
+                        stream.frame_type == FrameType.WEBTRANSPORT_STREAM
+                        and self._enable_webtransport
+                    )
+                ):
+                    self._terminate_request(stream, ErrorCode.H3_REQUEST_REJECTED)
+                    return http_events
 
                 self._check_request_frame_header(
                     stream=stream,
@@ -1350,6 +1744,8 @@ class H3Connection:
                     ),
                 )
             )
+            if stream.terminated:
+                return http_events
 
         # remove processed data from buffer
         stream.buffer = stream.buffer[consumed:]
@@ -1519,10 +1915,11 @@ class H3Connection:
 
         return http_events
 
-    def _receive_stream_reset(self, stream_id: int) -> None:
+    def _receive_stream_reset(self, event: StreamReset) -> list[H3Event]:
         """
         Handle the peer resetting a stream.
         """
+        stream_id = event.stream_id
         if stream_id in (
             self._peer_control_stream_id,
             self._peer_decoder_stream_id,
@@ -1531,6 +1928,8 @@ class H3Connection:
             raise ClosedCriticalStream("Resetting a critical stream is not allowed")
 
         stream = self._stream.get(stream_id)
+        if stream is None:
+            self._check_stream_creation(stream_id)
 
         # Header blocks on the stream will not be decoded, let the peer's
         # encoder know (RFC 9204 section 4.4.2).
@@ -1538,7 +1937,16 @@ class H3Connection:
             decoder = self._decoder.cancel_stream(stream_id)
             self._quic.send_stream_data(self._local_decoder_stream_id, decoder)
 
+        http_events: list[H3Event] = []
         if stream is not None:
+            if (
+                not stream.receiving_ended
+                and not stream.terminated
+                and stream.is_known_to_app()
+            ):
+                http_events.append(
+                    ResetReceived(error_code=event.error_code, stream_id=stream_id)
+                )
             stream.buffer = b""
             stream.receiving_ended = True
 
@@ -1560,29 +1968,7 @@ class H3Connection:
 
         if stream is not None:
             self._store_or_discard_stream(stream)
-
-    def _send_request_stream_data(
-        self, stream_id: int, data: bytes, end_stream: bool
-    ) -> None:
-        """
-        Send data on a request stream, raising an H3 exception if QUIC refuses it.
-        """
-        try:
-            self._quic.send_stream_data(stream_id, data, end_stream)
-        except StreamStateError as exc:
-            message = {
-                "Cannot send data after FIN": "Cannot send after the stream was ended",
-                "Cannot send data after the stream was reset": (
-                    "Cannot send after the stream was reset"
-                ),
-                "Cannot send data on a finished stream": (
-                    "Cannot send after the stream was ended"
-                ),
-                "Cannot send data on unknown peer-initiated stream": (
-                    "Cannot send on a stream the peer has not opened"
-                ),
-            }.get(str(exc), str(exc))
-            raise InvalidStreamStateError(message) from exc
+        return http_events
 
     def _store_or_discard_stream(self, stream: H3Stream) -> None:
         """
@@ -1592,6 +1978,23 @@ class H3Connection:
             self._stream.pop(stream.stream_id, None)
         else:
             self._stream[stream.stream_id] = stream
+
+    def _terminate_request(self, stream: H3Stream, error_code: int) -> None:
+        """
+        Abruptly terminate the directions of a request stream which are still
+        open, and drop what the peer still sends (RFC 9114 section 4.1.1).
+        """
+        if stream.terminated:
+            return
+        stream.buffer = b""
+        stream.terminated = True
+        # A reset would abandon a complete message not yet acknowledged.
+        if not stream.sending_ended:
+            stream.sending_ended = True
+            self._quic.reset_stream(stream.stream_id, error_code)
+        if not stream.receiving_ended:
+            self._quic.stop_stream(stream.stream_id, error_code)
+        self._store_or_discard_stream(stream)
 
     def _validate_settings(self, settings: dict[int, int]) -> None:
         for setting in [

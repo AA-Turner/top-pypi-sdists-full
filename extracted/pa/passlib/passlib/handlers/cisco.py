@@ -1,38 +1,24 @@
-"""
-passlib.handlers.cisco -- Cisco password hashes
-"""
-#=============================================================================
-# imports
-#=============================================================================
-# core
+"""Cisco password hashes"""
+
 from binascii import hexlify, unhexlify
 from hashlib import md5
-import logging; log = logging.getLogger(__name__)
 from warnings import warn
-# site
-# pkg
-from passlib.utils import right_pad_string, to_unicode, repeat_string, to_bytes
-from passlib.utils.binary import h64
-from passlib.utils.compat import unicode, u, join_byte_values, \
-             join_byte_elems, iter_byte_values, uascii_to_str
+
 import passlib.utils.handlers as uh
-# local
+from passlib.utils import repeat_string, right_pad_string, to_unicode
+from passlib.utils.binary import h64
+
 __all__ = [
     "cisco_pix",
     "cisco_asa",
     "cisco_type7",
 ]
 
-#=============================================================================
-# utils
-#=============================================================================
 
 #: dummy bytes used by spoil_digest var in cisco_pix._calc_checksum()
-_DUMMY_BYTES = b'\xFF' * 32
+_DUMMY_BYTES = b"\xff" * 32
 
-#=============================================================================
-# cisco pix firewall hash
-#=============================================================================
+
 class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     """
     This class implements the password hash used by older Cisco PIX firewalls,
@@ -68,13 +54,10 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         to match Cisco behavior.  A number of :ref:`bugs <passlib-asa96-bug>` were fixed
         which caused prior releases to generate unverifiable hashes in certain cases.
     """
-    #===================================================================
-    # class attrs
-    #===================================================================
 
-    #--------------------
+    # --------------------
     # PasswordHash
-    #--------------------
+    # --------------------
     name = "cisco_pix"
 
     truncate_size = 16
@@ -84,22 +67,19 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     truncate_error = True
     truncate_verify_reject = True
 
-    #--------------------
+    # --------------------
     # GenericHandler
-    #--------------------
+    # --------------------
     checksum_size = 16
     checksum_chars = uh.HASH64_CHARS
 
-    #--------------------
+    # --------------------
     # custom
-    #--------------------
+    # --------------------
 
     #: control flag signalling "cisco_asa" mode, set by cisco_asa class
     _is_asa = False
 
-    #===================================================================
-    # methods
-    #===================================================================
     def _calc_checksum(self, secret):
         """
         This function implements the "encrypted" hash format used by Cisco
@@ -124,7 +104,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         # been observed when trying to actually *set* a non-ascii password
         # via ASDM, and access via SSH seems to strip 8-bit chars.
         #
-        if isinstance(secret, unicode):
+        if isinstance(secret, str):
             secret = secret.encode("utf-8")
 
         #
@@ -151,17 +131,18 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         if len(secret) > self.truncate_size:
             if self.use_defaults:
                 # called from hash()
-                msg = "Password too long (%s allows at most %d bytes)" % \
-                      (self.name, self.truncate_size)
+                msg = "Password too long (%s allows at most %d bytes)" % (
+                    self.name,
+                    self.truncate_size,
+                )
                 raise uh.exc.PasswordSizeError(self.truncate_size, msg=msg)
-            else:
-                # called from verify() --
-                # We don't want to throw error, or return early,
-                # as that would let attacker know too much.  Instead, we set a
-                # flag to add some dummy data into the md5 digest, so that
-                # output won't match truncated version of secret, or anything
-                # else that's fixed and predictable.
-                spoil_digest = secret + _DUMMY_BYTES
+            # called from verify() --
+            # We don't want to throw error, or return early,
+            # as that would let attacker know too much.  Instead, we set a
+            # flag to add some dummy data into the md5 digest, so that
+            # output won't match truncated version of secret, or anything
+            # else that's fixed and predictable.
+            spoil_digest = secret + _DUMMY_BYTES
 
         #
         # append user to secret
@@ -186,7 +167,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         #
         user = self.user
         if user:
-            if isinstance(user, unicode):
+            if isinstance(user, str):
                 user = user.encode("utf-8")
             if not asa or len(secret) < 28:
                 secret += repeat_string(user, 4)
@@ -199,7 +180,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         # where secret size in range(13,16), and user is present --
         # PIX will truncate to 16, ASA will truncate to 32.
         #
-        if asa and len(secret) > 16:
+        if asa and len(secret) > 16:  # noqa: SIM108
             pad_size = 32
         else:
             pad_size = 16
@@ -219,7 +200,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
         #       16 bytes, which may have been a general 'char password[]'
         #       size limit under PIX
         #
-        digest = join_byte_elems(c for i, c in enumerate(digest) if (i + 1) & 3)
+        digest = bytes(c for i, c in enumerate(digest) if (i + 1) & 3)
 
         #
         # encode using Hash64
@@ -240,10 +221,6 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     #     if user and size < 28:
     #         size += 4
     #     return size < 17
-
-    #===================================================================
-    # eoc
-    #===================================================================
 
 
 class cisco_asa(cisco_pix):
@@ -268,32 +245,23 @@ class cisco_asa(cisco_pix):
         to match Cisco behavior.  A number of :ref:`bugs <passlib-asa96-bug>` were fixed
         which caused prior releases to generate unverifiable hashes in certain cases.
     """
-    #===================================================================
-    # class attrs
-    #===================================================================
 
-    #--------------------
+    # --------------------
     # PasswordHash
-    #--------------------
+    # --------------------
     name = "cisco_asa"
 
-    #--------------------
+    # --------------------
     # TruncateMixin
-    #--------------------
+    # --------------------
     truncate_size = 32
 
-    #--------------------
+    # --------------------
     # cisco_pix
-    #--------------------
+    # --------------------
     _is_asa = True
 
-    #===================================================================
-    # eoc
-    #===================================================================
 
-#=============================================================================
-# type 7
-#=============================================================================
 class cisco_type7(uh.GenericHandler):
     """
     This class implements the "Type 7" password encoding used by Cisco IOS,
@@ -323,36 +291,30 @@ class cisco_type7(uh.GenericHandler):
 
     .. automethod:: decode
     """
-    #===================================================================
-    # class attrs
-    #===================================================================
 
-    #--------------------
+    # --------------------
     # PasswordHash
-    #--------------------
+    # --------------------
     name = "cisco_type7"
     setting_kwds = ("salt",)
 
-    #--------------------
+    # --------------------
     # GenericHandler
-    #--------------------
+    # --------------------
     checksum_chars = uh.UPPER_HEX_CHARS
 
-    #--------------------
+    # --------------------
     # HasSalt
-    #--------------------
+    # --------------------
 
     # NOTE: encoding could handle max_salt_value=99, but since key is only 52
     #       chars in size, not sure what appropriate behavior is for that edge case.
     min_salt_value = 0
     max_salt_value = 52
 
-    #===================================================================
-    # methods
-    #===================================================================
     @classmethod
     def using(cls, salt=None, **kwds):
-        subcls = super(cisco_type7, cls).using(**kwds)
+        subcls = super().using(**kwds)
         if salt is not None:
             salt = subcls._norm_salt(salt, relaxed=kwds.get("relaxed"))
             subcls._generate_salt = staticmethod(lambda: salt)
@@ -363,16 +325,16 @@ class cisco_type7(uh.GenericHandler):
         hash = to_unicode(hash, "ascii", "hash")
         if len(hash) < 2:
             raise uh.exc.InvalidHashError(cls)
-        salt = int(hash[:2]) # may throw ValueError
+        salt = int(hash[:2])  # may throw ValueError
         return cls(salt=salt, checksum=hash[2:].upper())
 
     def __init__(self, salt=None, **kwds):
-        super(cisco_type7, self).__init__(**kwds)
+        super().__init__(**kwds)
         if salt is not None:
             salt = self._norm_salt(salt)
         elif self.use_defaults:
             salt = self._generate_salt()
-            assert self._norm_salt(salt) == salt, "generated invalid salt: %r" % (salt,)
+            assert self._norm_salt(salt) == salt, f"generated invalid salt: {salt!r}"
         else:
             raise TypeError("no salt specified")
         self.salt = salt
@@ -392,20 +354,19 @@ class cisco_type7(uh.GenericHandler):
         if relaxed:
             warn(msg, uh.PasslibHashWarning)
             return 0 if salt < 0 else cls.max_salt_value
-        else:
-            raise ValueError(msg)
+        raise ValueError(msg)
 
     @staticmethod
     def _generate_salt():
         return uh.rng.randint(0, 15)
 
     def to_string(self):
-        return "%02d%s" % (self.salt, uascii_to_str(self.checksum))
+        return "%02d%s" % (self.salt, self.checksum)
 
     def _calc_checksum(self, secret):
         # XXX: no idea what unicode policy is, but all examples are
         # 7-bit ascii compatible, so using UTF-8
-        if isinstance(secret, unicode):
+        if isinstance(secret, str):
             secret = secret.encode("utf-8")
         return hexlify(self._cipher(secret, self.salt)).decode("ascii").upper()
 
@@ -423,18 +384,13 @@ class cisco_type7(uh.GenericHandler):
         return raw.decode(encoding) if encoding else raw
 
     # type7 uses a xor-based vingere variant, using the following secret key:
-    _key = u("dsfd;kfoA,.iyewrkldJKDHSUBsgvca69834ncxv9873254k;fg87")
+    _key = "dsfd;kfoA,.iyewrkldJKDHSUBsgvca69834ncxv9873254k;fg87"
 
     @classmethod
-    def _cipher(cls, data, salt):
+    def _cipher(cls, data: bytes, salt: int):
         """xor static key against data - encrypts & decrypts"""
         key = cls._key
         key_size = len(key)
-        return join_byte_values(
-            value ^ ord(key[(salt + idx) % key_size])
-            for idx, value in enumerate(iter_byte_values(data))
+        return bytes(
+            value ^ ord(key[(salt + idx) % key_size]) for idx, value in enumerate(data)
         )
-
-#=============================================================================
-# eof
-#=============================================================================

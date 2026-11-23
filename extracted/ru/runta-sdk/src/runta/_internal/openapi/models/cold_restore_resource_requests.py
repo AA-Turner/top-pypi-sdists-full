@@ -10,12 +10,11 @@ T = TypeVar("T", bound="ColdRestoreResourceRequests")
 
 @_attrs_define
 class ColdRestoreResourceRequests:
-    """CPU and baseline memory for a cold checkpoint restore.
+    """Legacy resource override type. Checkpoint restore rejects resource overrides.
 
     Attributes:
-        memory_mib (int): Baseline memory in MiB. This becomes the restored runtime's current memory. It may be smaller
-            or larger than the checkpoint.
-        vcpus (int): Virtual CPUs for the restored runtime. This may be smaller or larger than the checkpoint.
+        memory_mib (int): Legacy memory field. Checkpoint restore keeps the recorded memory.
+        vcpus (int): Legacy CPU field. Checkpoint restore keeps the recorded CPU count.
     """
 
     memory_mib: int

@@ -21,7 +21,9 @@
 """Module for getting BIP49 coins configuration."""
 
 # Imports
-from typing import Dict
+import warnings
+from types import MappingProxyType
+from typing import FrozenSet, Mapping
 
 from bip_utils.bip.conf.bip49.bip49_coins import Bip49Coins
 from bip_utils.bip.conf.bip49.bip49_conf import Bip49Conf
@@ -32,7 +34,7 @@ class Bip49ConfGetterConst:
     """Class container for BIP49 configuration getter constants."""
 
     # Map from Bip49Coins to configuration classes
-    COIN_TO_CONF: Dict[BipCoins, BipCoinConf] = {
+    COIN_TO_CONF: Mapping[BipCoins, BipCoinConf] = MappingProxyType({
         Bip49Coins.BITCOIN: Bip49Conf.BitcoinMainNet,
         Bip49Coins.BITCOIN_REGTEST: Bip49Conf.BitcoinRegTest,
         Bip49Coins.BITCOIN_TESTNET: Bip49Conf.BitcoinTestNet,
@@ -52,7 +54,26 @@ class Bip49ConfGetterConst:
         Bip49Coins.LITECOIN_TESTNET: Bip49Conf.LitecoinTestNet,
         Bip49Coins.ZCASH: Bip49Conf.ZcashMainNet,
         Bip49Coins.ZCASH_TESTNET: Bip49Conf.ZcashTestNet,
-    }
+    })
+
+    # These coins don't support SegWit, so BIP49 (P2SH-P2WPKH) addresses are not safe for them
+    # (see https://github.com/ebellocchia/bip_utils/issues/117)
+    COIN_TO_CONF_BIP49_WARN: FrozenSet[BipCoins] = frozenset({
+        Bip49Coins.BITCOIN_CASH,
+        Bip49Coins.BITCOIN_CASH_TESTNET,
+        Bip49Coins.BITCOIN_CASH_SLP,
+        Bip49Coins.BITCOIN_CASH_SLP_TESTNET,
+        Bip49Coins.BITCOIN_SV,
+        Bip49Coins.BITCOIN_SV_TESTNET,
+        Bip49Coins.DASH,
+        Bip49Coins.DASH_TESTNET,
+        Bip49Coins.DOGECOIN,
+        Bip49Coins.DOGECOIN_TESTNET,
+        Bip49Coins.ECASH,
+        Bip49Coins.ECASH_TESTNET,
+        Bip49Coins.ZCASH,
+        Bip49Coins.ZCASH_TESTNET,
+    })
 
 
 class Bip49ConfGetter:
@@ -65,6 +86,7 @@ class Bip49ConfGetter:
     def GetConfig(coin_type: BipCoins) -> BipCoinConf:
         """
         Get coin configuration.
+        A FutureWarning is issued for COIN_TO_CONF_BIP49_WARN coins (i.e. coins without SegWit support).
 
         Args:
             coin_type (BipCoins): Coin type
@@ -77,4 +99,12 @@ class Bip49ConfGetter:
         """
         if not isinstance(coin_type, Bip49Coins):
             raise TypeError("Coin type is not an enumerative of Bip49Coins")
+        if coin_type in Bip49ConfGetterConst.COIN_TO_CONF_BIP49_WARN:
+            warnings.warn(
+                f"BIP-0049 for {coin_type.name} should not be used. "
+                "The coin does not support SegWit, so the generated addresses are not safe for receiving funds.",
+                FutureWarning,
+                # Point to the caller of Bip49 construction methods (e.g. Bip49.FromSeed)
+                stacklevel=3,
+            )
         return Bip49ConfGetterConst.COIN_TO_CONF[coin_type]

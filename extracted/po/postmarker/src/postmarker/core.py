@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import requests
 
 from . import __version__
-from .exceptions import ClientError, SpamAssassinError
+from .exceptions import ClientError, PostmarkerException, SpamAssassinError, TransportError
 from .logging import get_logger
 from .models.base import BaseModelManager, attach_managers
 
@@ -37,6 +37,8 @@ DEFAULT_API = "https://api.postmarkapp.com/"
 STATUS_API = "https://status.postmarkapp.com/api/1.0/"
 SPAMCHECK_API = "https://spamcheck.postmarkapp.com/filter/"
 USER_AGENT = f"Postmarker/{__version__}"
+# Seconds per connect / read; `None` waits forever, which can hang a worker on a stalled connection
+DEFAULT_TIMEOUT = 30
 TEST_TOKEN = "POSTMARK_API_TEST"
 
 
@@ -66,7 +68,7 @@ class BaseClient:
         account_token: str | None = None,
         verbosity: int = 0,
         max_retries: int = 0,
-        timeout: float | tuple[float, float] | None = None,
+        timeout: float | tuple[float, float] | None = DEFAULT_TIMEOUT,
         logs_stream: TextIO = sys.stdout,
         root_api_url: str = DEFAULT_API,
         inline_css: bool | CSSInliner = False,
@@ -120,6 +122,20 @@ class BaseClient:
 
     def format_exception_message(self, data: dict[str, Any]) -> str:
         return "[{}] {}".format(data["ErrorCode"], data["Message"])
+
+    def _http_error(self, response: requests.Response | httpx2.Response, http_error: Exception) -> PostmarkerException:
+        try:
+            data = response.json()
+            return ClientError(self.format_exception_message(data), error_code=data["ErrorCode"])
+        except (ValueError, KeyError, TypeError):
+            # Not a Postmark error body, e.g. an HTML 502 from a proxy
+            return TransportError(str(http_error), status_code=response.status_code)
+
+    def _json(self, response: requests.Response | httpx2.Response) -> Any:
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise TransportError(f"Invalid JSON response: {exc}", status_code=response.status_code) from exc
 
 
 class PostmarkClient(BaseClient):
@@ -189,28 +205,26 @@ class PostmarkClient(BaseClient):
     ) -> Any:
         url = urljoin(root, endpoint)
         self.logger.debug("Request: %s %s, Data: %s", method, url, data)
-        response = self.session.request(
-            method,
-            url,
-            json=data,
-            params=kwargs,
-            headers=self._request_headers(headers),
-            timeout=self.timeout,
-        )
+        try:
+            response = self.session.request(
+                method,
+                url,
+                json=data,
+                params=kwargs,
+                headers=self._request_headers(headers),
+                timeout=self.timeout,
+            )
+        except requests.RequestException as exc:
+            raise TransportError(str(exc)) from exc
         self.logger.debug("Response: %s", response.text)
         self.check_response(response)
-        return response.json()
+        return self._json(response)
 
     def check_response(self, response: requests.Response) -> None:
         try:
             response.raise_for_status()
         except requests.HTTPError as http_error:
-            try:
-                data = response.json()
-            except ValueError as exc:
-                raise http_error from exc
-            message = self.format_exception_message(data)
-            raise ClientError(message, error_code=data["ErrorCode"]) from http_error
+            raise self._http_error(response, http_error) from http_error
 
 
 class AsyncPostmarkClient(BaseClient):
@@ -255,7 +269,7 @@ class AsyncPostmarkClient(BaseClient):
         account_token: str | None = None,
         verbosity: int = 0,
         max_retries: int = 0,
-        timeout: float | tuple[float, float] | None = None,
+        timeout: float | tuple[float, float] | None = DEFAULT_TIMEOUT,
         logs_stream: TextIO = sys.stdout,
         root_api_url: str = DEFAULT_API,
         inline_css: bool | CSSInliner = False,
@@ -338,7 +352,7 @@ class AsyncPostmarkClient(BaseClient):
         )
         self.logger.debug("Response: %s", response.text)
         self.check_response(response)
-        return response.json()
+        return self._json(response)
 
     async def _request(
         self,
@@ -364,13 +378,16 @@ class AsyncPostmarkClient(BaseClient):
         else:
             request_timeout = timeout
         # Merge into a query already in `url`, as requests does; httpx2 would replace it
-        return await self.session.request(
-            method,
-            httpx2.URL(url).copy_merge_params(encoded_params),
-            json=json,
-            headers=present_headers,
-            timeout=request_timeout,
-        )
+        try:
+            return await self.session.request(
+                method,
+                httpx2.URL(url).copy_merge_params(encoded_params),
+                json=json,
+                headers=present_headers,
+                timeout=request_timeout,
+            )
+        except httpx2.HTTPError as exc:
+            raise TransportError(str(exc)) from exc
 
     def check_response(self, response: httpx2.Response) -> None:
         import httpx2
@@ -378,9 +395,4 @@ class AsyncPostmarkClient(BaseClient):
         try:
             response.raise_for_status()
         except httpx2.HTTPStatusError as http_error:
-            try:
-                data = response.json()
-            except ValueError as exc:
-                raise http_error from exc
-            message = self.format_exception_message(data)
-            raise ClientError(message, error_code=data["ErrorCode"]) from http_error
+            raise self._http_error(response, http_error) from http_error

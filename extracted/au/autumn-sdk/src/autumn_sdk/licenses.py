@@ -215,6 +215,8 @@ class Licenses(BaseSDK):
         customer_id: str,
         entity_ids: List[str],
         license_plan_id: Optional[str] = None,
+        at: Optional[models.At] = "immediate",
+        reduce_quantity: Optional[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -225,6 +227,8 @@ class Licenses(BaseSDK):
         :param customer_id:
         :param entity_ids:
         :param license_plan_id: Scopes the release when an entity holds licenses of multiple plans.
+        :param at: When the seats are released. 'end_of_cycle' keeps each entity's access until the next renewal, then frees the seat.
+        :param reduce_quantity: Also lower the license's paid seats by the number of seats released. With 'end_of_cycle' the lower seat count applies at the next renewal.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -244,6 +248,8 @@ class Licenses(BaseSDK):
             customer_id=customer_id,
             license_plan_id=license_plan_id,
             entity_ids=entity_ids,
+            at=at,
+            reduce_quantity=reduce_quantity,
         )
 
         req = self._build_request(
@@ -311,6 +317,8 @@ class Licenses(BaseSDK):
         customer_id: str,
         entity_ids: List[str],
         license_plan_id: Optional[str] = None,
+        at: Optional[models.At] = "immediate",
+        reduce_quantity: Optional[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -321,6 +329,8 @@ class Licenses(BaseSDK):
         :param customer_id:
         :param entity_ids:
         :param license_plan_id: Scopes the release when an entity holds licenses of multiple plans.
+        :param at: When the seats are released. 'end_of_cycle' keeps each entity's access until the next renewal, then frees the seat.
+        :param reduce_quantity: Also lower the license's paid seats by the number of seats released. With 'end_of_cycle' the lower seat count applies at the next renewal.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -340,6 +350,8 @@ class Licenses(BaseSDK):
             customer_id=customer_id,
             license_plan_id=license_plan_id,
             entity_ids=entity_ids,
+            at=at,
+            reduce_quantity=reduce_quantity,
         )
 
         req = self._build_request_async(

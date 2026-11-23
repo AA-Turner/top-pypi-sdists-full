@@ -153,7 +153,7 @@ impl IdListMembership {
             }
         };
         self.ids
-            .apply_changeset(name, body, UpdateMode::Private(IdListEncoding::EliasFano));
+            .apply_changeset(name, body, IdListEncoding::EliasFano);
         Ok(())
     }
 
@@ -169,9 +169,13 @@ pub(crate) enum IdListEncoding {
     EliasFano,
 }
 
-pub(crate) enum UpdateMode {
-    Private(IdListEncoding),
-    SharedPublisher,
+impl IdListEncoding {
+    pub(crate) fn from_options(options: Option<&crate::StatsigOptions>) -> Self {
+        match options.and_then(|options| options.enable_id_list_elias_fano) {
+            Some(false) => Self::Hash,
+            _ => Self::EliasFano,
+        }
+    }
 }
 
 impl IdList {
@@ -190,7 +194,7 @@ impl IdList {
     pub(crate) fn build(
         previous: Option<&Self>,
         update: PreparedIdListUpdate,
-        mode: UpdateMode,
+        encoding: IdListEncoding,
     ) -> Self {
         match update {
             PreparedIdListUpdate::Base(list) => {
@@ -205,7 +209,7 @@ impl IdList {
                 let mut list = previous
                     .cloned()
                     .unwrap_or_else(|| Self::new(update.new_metadata.clone()));
-                list.apply_update_inner(update, mode);
+                list.apply_update_with_encoding(encoding, update);
                 list
             }
         }
@@ -230,20 +234,11 @@ impl IdList {
         self.apply_update_with_encoding(IdListEncoding::Hash, update);
     }
 
-    #[cfg(test)]
-    pub(super) fn apply_update_for_publish(&mut self, update: IdListUpdate) {
-        self.apply_update_inner(update, UpdateMode::SharedPublisher);
-    }
-
     pub(crate) fn apply_update_with_encoding(
         &mut self,
         encoding: IdListEncoding,
         update: IdListUpdate,
     ) {
-        self.apply_update_inner(update, UpdateMode::Private(encoding));
-    }
-
-    fn apply_update_inner(&mut self, update: IdListUpdate, mode: UpdateMode) {
         let changeset_data = unwrap_or_noop!(update.raw_changeset);
         let consumed = changeset_data.len() as u64;
         let updated_meta = update.new_metadata;
@@ -259,7 +254,7 @@ impl IdList {
         }
 
         self.ids
-            .apply_changeset(&self.metadata.name, changeset_data.into(), mode);
+            .apply_changeset(&self.metadata.name, changeset_data.into(), encoding);
         self.metadata.size += consumed;
     }
 
@@ -275,16 +270,12 @@ impl IdListIds {
         self: &mut Arc<Self>,
         name: &str,
         changeset: Cow<'_, str>,
-        mode: UpdateMode,
+        encoding: IdListEncoding,
     ) {
-        let policy = match mode {
-            UpdateMode::Private(IdListEncoding::Hash) => CompactionPolicy::Immediate,
-            UpdateMode::SharedPublisher => CompactionPolicy::Batch,
-            UpdateMode::Private(IdListEncoding::EliasFano) => {
-                return self.apply_private_elias_fano_changes(name, changeset);
-            }
-        };
-        self.apply_edits(parse_edits(&changeset), policy);
+        match encoding {
+            IdListEncoding::Hash => self.apply_edits(&changeset, CompactionPolicy::Immediate),
+            IdListEncoding::EliasFano => self.apply_private_elias_fano_changes(name, changeset),
+        }
     }
 
     fn apply_private_elias_fano_changes(
@@ -305,35 +296,21 @@ impl IdListIds {
             }
         }
 
-        // Keep the existing index shared when every edit is a no-op.
-        let mut edits = parse_edits(&changeset_data);
-        if let Some(first_change) = edits.find(|(id, present)| self.contains(id) != *present) {
-            self.apply_edits(
-                std::iter::once(first_change).chain(edits),
-                CompactionPolicy::Batch,
-            );
-        }
+        self.apply_edits(&changeset_data, CompactionPolicy::Batch);
         self.finish_private_batch(name);
     }
 
-    fn apply_edits<'a>(
-        self: &mut Arc<Self>,
-        edits: impl Iterator<Item = (&'a str, bool)>,
-        policy: CompactionPolicy,
-    ) {
-        let mut edits = edits.peekable();
-        if edits.peek().is_none() {
+    fn apply_edits(self: &mut Arc<Self>, changeset: &str, policy: CompactionPolicy) {
+        let mut edits = changeset.lines().filter_map(parse_edit);
+        // Delay copy-on-write until an edit changes membership.
+        let Some(first_change) = edits.find(|(id, present)| self.contains(id) != *present) else {
             return;
-        }
+        };
         let ids = Arc::make_mut(self);
-        for (id, present) in edits {
+        for (id, present) in std::iter::once(first_change).chain(edits) {
             ids.set(id, present, policy);
         }
     }
-}
-
-fn parse_edits(changeset_data: &str) -> impl Iterator<Item = (&str, bool)> {
-    changeset_data.lines().filter_map(parse_edit)
 }
 
 pub(super) fn is_complete_record_prefix(changeset: &str) -> bool {

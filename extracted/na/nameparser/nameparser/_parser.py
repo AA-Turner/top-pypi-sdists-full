@@ -244,7 +244,7 @@ class Parser:
             dropped = set(state.dropped)
             # Force the role BEFORE the entry pass: it keys on
             # Role.SUFFIX, and a bare value's sub-parse reads its words
-            # as a name ('RA PhD' is a title and a family there), so
+            # as a name ('VC PhD' is a title and a family there), so
             # inside the sub-parse it joined nothing. The sub-parse's
             # tags are KEPT, "joined" included: a within-piece mark
             # (the Ph. D. merge) is role-blind and right for every
@@ -314,14 +314,18 @@ class Parser:
         the base: a :class:`~nameparser.Suggestion` whose ``parser``
         reads the group. ``names`` is any iterable of str the caller
         declares to be one group (one source, one convention), read
-        once. Each name casts votes on its name order and its
-        patronymic shape, read with this parser's lexicon past the
+        once. Each name casts votes on its name order, its patronymic
+        shape and, where the switch is weighed (below),
+        ``two_family_names``, read with this parser's lexicon past the
         titles it lists at the head and the post-nominals at the end; a
         name of fewer than two words once those are read past casts
         none, and so does a name with a comma, unless only
         post-nominals follow the comma. A patronymic votes only where
-        the patronymic rule reads one, and a trailing initial
-        (``Smith J.``) only where at least three names, and 60% of the
+        the patronymic rule reads one, and an East Slavic one votes on
+        the order too, by where it stands: last for family-first
+        (``Sidorov Ivan Petrovich``), in the middle for given-first
+        (``Ivan Petrovich Sidorov``). A trailing initial
+        (``Smith J.``) votes only where at least three names, and 60% of the
         group's names holding a name word, end in initials no other
         signal in the same name contradicts. A capitals word of two
         or three letters ending a name in mixed case (``Armitage JO``),
@@ -347,17 +351,21 @@ class Parser:
         note says how many.
         A group decided East Slavic gets the rule and reads
         given-first, the order the rule reorders each name under,
-        unless its names' own votes decide family-first, which the rule
-        never overrides. One case keeps a declared order instead: under
-        a ``FAMILY_FIRST`` parser whose names' votes do not decide
+        unless its names' own votes decide family-first, as a list of
+        patronymics written last does, which the rule never overrides: there a
+        ``FAMILY_FIRST_GIVEN_LAST`` parser gets ``FAMILY_FIRST``, under
+        which the patronymic is not read as the given name (``Popov Ivan
+        Ivanovich``). One case keeps a declared order instead: under a
+        ``FAMILY_FIRST`` parser whose names' votes do not decide
         given-first, where more of the names carrying the patronymic
         write it last (``Sidorov Ivan Petrovich``) than in the middle
         (``Ivan Petrovich Sidorov``), the group keeps that order and
         gets the rule alone, which reorders no name there and fills the
         ``patronymic`` view; the names written the other way get no
         given-first order, and the patronymic evidence's note counts
-        them. A tie, and a ``FAMILY_FIRST_GIVEN_LAST`` parser,
-        get the given-first order with the rule. A Turkic group
+        them. A tie, and a ``FAMILY_FIRST_GIVEN_LAST`` parser whose
+        names' votes do not decide family-first, get the given-first
+        order with the rule. A Turkic group
         gets the rule alone, its order decided by its names' own votes.
         ``initials_as_family`` (rules/O8) is turned on where one run of
         letters ends at least two names and at least half of the names
@@ -383,48 +391,48 @@ class Parser:
         never turns it off, nor turns it on under a base with
         ``unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE``, beside which
         it cannot be set; it is decided apart from the order, which the
-        capitals in a name vote on as before. A setting the votes do not decide keeps this parser's value, so
+        capitals in a name vote on as before. ``two_family_names``
+        (rules/O6) is weighed last, and only where the rest of the
+        suggestion reads given-first with the East Slavic rule off: each
+        name is parsed with the switch off and on, and where the switch
+        takes a word into the family, a common surname there votes for
+        it (``García`` in ``Gabriel García Márquez``), a common given
+        name casts no vote (``María`` in ``Ana María López``), and a
+        father's name votes against it. It is turned on where at least
+        three names vote for it, more than 30% of every name the switch
+        would change and more than those against; a group never turns
+        it off; a father's name the switch would take disagrees with it.
+        A caller who knows a list is Spanish or Portuguese does better
+        with the language's pack (``locales.ES``, ``locales.PT_BR``,
+        ``locales.PT_PT``), whose given names the switch leaves out of
+        the family. A setting the votes do not
+        decide keeps this parser's value, so
         an empty group, or one with no votes, suggests no change. A
         bare str, bytes, a mapping or a non-str item raises TypeError.
 
-        Measured 2026-11-10, re-taken 2026-11-11, 2026-11-12,
-        2026-11-14, 2026-11-15 and 2026-11-16, with
-        tools/differential/suggest_measure.py on groups drawn from real
-        names written in a known order, 300 groups a size
-        (decisions/group-suggestion's 2026-11-16 ORDER FLOOR entry holds
-        the table): a group written in this parser's own order kept it
-        in at least 97% of groups at every size from 2 to 2,000 names,
-        under either base order, save three lists. ORCID holders who
-        typed their given name in capitals (``ANNA Smith``), which the
-        capitals signal reads as a family name, kept their given-first
-        order in 52% of groups of two and 4% of five (why, in that
-        file's 2026-11-12 CAPITALS entry). A list of
-        nothing but bylines written two or three joined initials first
-        (``AM Hoy``) kept it in at least 97% of groups at every size
-        measured, to 500 names (it holds 644), but 50 and 100 names,
-        where it kept it in 94.7% and 93.3%, the name tables voting on
-        a few of its names; ORCID's bylines of
-        every writing kept it in 95.3% and 96.7% at 100 and 200 names
-        and at least 97% at every other size.
-        Moving the base takes more names, and
-        how many depends on what the names carry: groups of Chinese,
-        Taiwanese, Korean, Czech, Polish or Italian names (the romanized
-        surnames and the common given names) were read right in 95% of
-        groups from 5 names; German, Dutch, Spanish, British, French,
-        Romanian and Vietnamese from 10; US, Japanese, Turkish,
-        Nigerian and Brazilian from 20; and Russian and Indian from
-        50. A group whose votes fall short of the thresholds keeps
-        the base rather than guess, so a smaller group moves it in fewer
-        of the draws. ``capitals_as_family``, measured 2026-11-12
-        (decisions/group-suggestion's CAPITALS entry): ORCID holders who
-        typed their family name in capitals were suggested it in at least
-        95% of groups from 4 names, and from 10 where many of the
-        surnames are two or three letters (holders in China, Korea,
-        Vietnam and Taiwan). Of the lists measured that do not write their
-        family names so, only ORCID holders who typed their given name in
-        capitals (``ANNA Smith``) were suggested it, which nothing in a
-        name tells apart; no other list was, ORCID's bylines (``AM Hoy``)
-        included. A name wholly in one case carries no evidence.
+        Measured on groups drawn from real names written in a known
+        order (:ref:`suggest-limits`; the dated tables are in the
+        source repository's docs/design/decisions/group-suggestion.md),
+        these figures give a general idea and will differ for every
+        dataset. A group written in this parser's own order kept it in
+        at least 95% of groups from 2 to 2,000 names, and in 97% for
+        nearly every kind, save three kinds of list: given names in
+        capitals (``ANNA Smith``), whose capitals read as a family name;
+        nothing but two or three joined initials (``AM Hoy``), which
+        kept it in just under 95% of groups of 50 and 93% of 100; and
+        nothing but given names that are common surnames elsewhere
+        (``Cooper``, ``Burke``), read the wrong way round. A group
+        written the other way round takes more names to move the base:
+        from 5 for Chinese, Taiwanese, Korean, Czech, Polish, Italian
+        and Russian names to 50 for Indian ones and 200 for Bangladeshi
+        ones. A group whose votes fall short of the thresholds keeps the
+        base rather than guess. ``capitals_as_family`` was suggested in
+        at least 95% of groups from 4 names for holders who typed their
+        family name in capitals, and from 10 where many of the surnames
+        are two or three letters (China, Korea, Vietnam and Taiwan); of
+        the lists that do not write their family names so, only the one
+        writing its given names in capitals was suggested it. A name
+        wholly in one case carries no evidence.
         """
         from nameparser._suggest import suggest
         return suggest(self, names)

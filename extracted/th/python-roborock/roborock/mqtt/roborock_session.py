@@ -12,7 +12,7 @@ import asyncio
 import datetime
 import logging
 import ssl
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 import aiomqtt
@@ -249,12 +249,17 @@ class RoborockMqttSession(MqttSession):
             raise
 
     @asynccontextmanager
-    async def _mqtt_client(self, params: MqttParams) -> aiomqtt.Client:
+    async def _mqtt_client(self, params: MqttParams) -> AsyncIterator[aiomqtt.Client]:
         """Connect to the MQTT broker and listen for messages."""
         _LOGGER.debug("Connecting to %s:%s for %s", params.host, params.port, params.username)
         tls_params = None
         if params.tls:
-            tls_params = TLSParameters(cert_reqs=ssl.CERT_REQUIRED if params.verify_tls else ssl.CERT_NONE)
+            # An explicit version avoids paho-mqtt < 2.2 reading ssl.PROTOCOL_TLSv1_2,
+            # which some Python builds do not define.
+            tls_params = TLSParameters(
+                cert_reqs=ssl.CERT_REQUIRED if params.verify_tls else ssl.CERT_NONE,
+                tls_version=ssl.PROTOCOL_TLS_CLIENT,
+            )
         try:
             async with aiomqtt.Client(
                 hostname=params.host,

@@ -211,7 +211,6 @@ def restated_over_region(
                 region,
                 keyspace,
                 environment,
-                one_pass=c.lineage.grouping.nulls_grouping_keys,
             )
         )
     ]

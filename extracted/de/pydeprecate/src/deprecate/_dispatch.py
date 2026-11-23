@@ -43,30 +43,20 @@ POSITIONAL_OR_KEYWORD = Parameter.POSITIONAL_OR_KEYWORD
 
 def _prepare_target_call(
     source: Callable,
-    target: Callable,
     kwargs: dict[str, Any],
     *,
-    target_arg_names: Optional[frozenset[str]] = None,
+    target_arg_names: frozenset[str],
     accepts_var_positional: bool = False,
     accepts_var_keyword: bool = False,
-) -> Callable:
-    """Validate mapped keyword arguments and return the target callable.
-
-    ``packing()`` normalises the target before ``wrapped_fn`` runs — class targets are remapped to
-    ``target.__init__`` — so by the time this function is called, ``target`` is always a plain callable, never a class.
+) -> None:
+    """Validate mapped keyword arguments against the precomputed target signature facts.
 
     Args:
         source: Deprecated callable being wrapped.
-        target: Target callable to invoke (shall not be a class).
         kwargs: Keyword arguments after mapping and defaults.
-        target_arg_names: Pre-computed target parameter names (see :func:`_build_call_facts`).  When
-            ``None`` the facts are derived from ``target`` on the spot — the decorator path always passes the
-            cached values so the fallback only runs for direct/test callers.
+        target_arg_names: Pre-computed target parameter names (see :func:`_build_call_facts`).
         accepts_var_positional: Whether ``target`` declares ``*args`` (from the same pre-computed facts).
         accepts_var_keyword: Whether ``target`` declares ``**kwargs`` (from the same pre-computed facts).
-
-    Returns:
-        ``target`` unchanged, after validating that it accepts ``kwargs``.
 
     Example:
         >>> from deprecate._dispatch import _prepare_target_call
@@ -74,17 +64,13 @@ def _prepare_target_call(
         ...     return a + b
         >>> def target(a: int, b: int) -> int:
         ...     return a - b
-        >>> _prepare_target_call(source, target, {"c": 1})
+        >>> facts = _build_call_facts(source, target, None)
+        >>> _prepare_target_call(source, {"c": 1}, target_arg_names=facts.target_all_param_names)
         Traceback (most recent call last):
         ...
         TypeError: Failed mapping of `source`, arguments not accepted by target: ['c']
 
     """
-    if target_arg_names is None:
-        target_facts = _signature_facts(target, empty_on_error=True)
-        target_arg_names = target_facts.names
-        accepts_var_positional, accepts_var_keyword = target_facts.var_positional, target_facts.var_keyword
-
     missed = [arg for arg in kwargs if arg not in target_arg_names]
     if missed and not accepts_var_keyword:
         if not accepts_var_positional:
@@ -93,7 +79,6 @@ def _prepare_target_call(
             f"Failed mapping of `{source.__name__}`, arguments not accepted by target (target accepts *args but "
             f"these keyword arguments are not allowed): {missed}"
         )
-    return target
 
 
 def _raise_positional_arity_error(
@@ -242,42 +227,23 @@ def _update_kwargs_with_args(fn_args: tuple[Any, ...], fn_kwargs: dict[str, Any]
     return updated_kwargs
 
 
-def _update_kwargs_with_defaults(defaults: Mapping[str, Any], fn_kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Merge function default values with provided keyword arguments.
-
-    This helper fills in the default parameter values, read from the signature when the function was decorated, for
-    any parameters not explicitly provided.  Provided kwargs take precedence over defaults.
-
-    Args:
-        defaults: Each parameter that has a default, mapped to that default, in declaration order.
-        fn_kwargs: Dictionary of keyword arguments provided by caller.
-
-    Returns:
-        Dictionary with defaults merged with provided kwargs, where provided values override defaults.
-
-    Example:
-        >>> from pprint import pprint
-        >>> def example_func(a=1, b=2, c=3): pass
-        >>> pprint(_update_kwargs_with_defaults(_signature_facts(example_func).defaults, {'b': 20}))
-        {'a': 1, 'b': 20, 'c': 3}
-
-    Note:
-        Parameters without defaults (inspect.Parameter.empty) are not included in the result.
-
-    """
-    return {**defaults, **fn_kwargs}
-
-
 def _renamed_defaults_owned_by_target(
     normalized_target: Union[Callable[..., Any], TargetMode],
     args_mapping: Mapping[str, Optional[str]],
 ) -> frozenset[str]:
     """Return the source parameter names whose default an ``args_mapping`` rename makes stale.
 
-    A source default for a renamed argument survives :func:`_update_kwargs_with_defaults` and would be forwarded under
-    the new name, silently overriding the target's own default. Two kinds of name are stale: a source parameter that
-    already carries a rename's *new* name, and a renamed *old* name whose new name has a default on the target. Only a
-    callable target with a non-empty mapping can have any.
+    A source default for a renamed argument survives the defaults merge and would be forwarded under the new name,
+    silently overriding the target's own default. Two kinds of name are stale: a source parameter that already carries a
+    rename's *new* name, and a renamed *old* name whose new name has a default on the target. Only a callable target
+    with a non-empty mapping can have any.
+
+    Example:
+        >>> def new(x, y=1): pass
+        >>> sorted(_renamed_defaults_owned_by_target(new, {"old": "y"}))
+        ['old', 'y']
+        >>> _renamed_defaults_owned_by_target(new, {})
+        frozenset()
 
     """
     if not args_mapping or not callable(normalized_target):
@@ -324,6 +290,11 @@ def _derive_forward_defaults(
         TypeError: When the target's signature cannot be read.
         ValueError: When the target's signature cannot be read.
 
+    Example:
+        >>> def new(x, y=1): pass
+        >>> _derive_forward_defaults(new, None)
+        _ForwardDefaults(stale_renamed=frozenset(), partial_bound=frozenset())
+
     """
     stale_renamed = _renamed_defaults_owned_by_target(normalized_target, args_mapping or {})
     partial_bound = frozenset().union(*(layer.keywords for layer in _partial_chain(normalized_target)))
@@ -344,9 +315,9 @@ def _precompute_forward_defaults(
         args_mapping: The wrapper's ``args_mapping``, or ``None``.
 
     Returns:
-        The facts, or ``None`` when the target's signature cannot be read. Passing ``None`` on makes the call path
-        derive them itself, so the error an unreadable signature raises still surfaces on the first forwarded call
-        and decoration (import time) never fails because of it.
+        The facts, or ``None`` when this target-signature read fails. The call path raises any signature error
+        already stored in the call facts; otherwise it retries the derivation. Separate reads can disagree when a
+        callable exposes a dynamic signature. Decoration never fails because of an unreadable target signature.
 
     Example:
         >>> from functools import partial
@@ -396,8 +367,15 @@ def _merge_source_defaults(
     Returns:
         The caller's arguments plus every source default the target does not own.
 
+    Example:
+        >>> def new(x, y=2): pass
+        >>> _merge_source_defaults({"old": 1, "z": 9}, new, {}, {"old": "y"})
+        {'z': 9}
+        >>> _merge_source_defaults({"old": 1, "z": 9}, new, {"old": 5}, {"old": "y"})
+        {'old': 5, 'z': 9}
+
     """
-    full_defaults = _update_kwargs_with_defaults(source_defaults, kwargs)
+    full_defaults = {**source_defaults, **kwargs}
     if forward_defaults is None:
         forward_defaults = _derive_forward_defaults(normalized_target, args_mapping)
     stale_renamed, partial_bound = forward_defaults
@@ -409,6 +387,60 @@ def _merge_source_defaults(
         for name, value in full_defaults.items()
         if name in kwargs or (name not in stale_renamed and (mapping.get(name) or name) not in partial_bound)
     }
+
+
+def _take_keyword_overflow(
+    overflow_names: frozenset[str],
+    mapping: Optional[Mapping[str, Optional[str]]],
+    kwargs: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Split off the caller's keywords that the source binds to its ``**kwargs`` instead of a positional-only slot.
+
+    Python never binds a keyword to a POSITIONAL_ONLY parameter: in ``def f(x=1, /, **kwargs)``, ``f(x=99)`` keeps the
+    default ``x`` and puts ``x=99`` into ``kwargs``.  The wrapper converts positionals to keywords internally and later
+    splits positional-only names back out, so a caller keyword under such a name would otherwise take the slot.  A
+    deprecated name (an ``args_mapping`` key) is never split off: the caller passed it to have it renamed.
+
+    Args:
+        overflow_names: :attr:`~deprecate._types._CallFacts.source_keyword_overflow` — the source's positional-only
+            names when it declares ``**kwargs``, otherwise empty.
+        mapping: The wrapper's ``args_mapping``.
+        kwargs: The caller's keyword arguments.
+
+    Returns:
+        Tuple of ``(kwargs, overflow)``: the keywords left for the rest of the plan, and the split-off keywords in
+        caller order.  ``kwargs`` is returned unchanged when nothing is split off.
+
+    Example:
+        >>> _take_keyword_overflow(frozenset({"x"}), {"old": "new"}, {"old": 1, "x": 99})
+        ({'old': 1}, {'x': 99})
+
+    """
+    names = overflow_names.intersection(kwargs).difference(mapping or ())
+    if not names:
+        return kwargs, {}
+    kept = {key: value for key, value in kwargs.items() if key not in names}
+    return kept, {key: value for key, value in kwargs.items() if key in names}
+
+
+def _merge_keyword_overflow(kw_args: dict[str, Any], overflow: Mapping[str, Any]) -> dict[str, Any]:
+    """Hand the split-off ``**kwargs`` keywords of :func:`_take_keyword_overflow` back to the final call as keywords.
+
+    Raises:
+        TypeError: When the final keywords already hold one of these names, as Python raises for a keyword passed
+            twice.
+
+    Example:
+        >>> _merge_keyword_overflow({"flag": 1}, {"x": 99})
+        {'flag': 1, 'x': 99}
+
+    """
+    if not overflow:
+        return kw_args
+    clash = sorted(overflow.keys() & kw_args.keys())
+    if clash:
+        raise TypeError(f"got multiple values for keyword argument '{clash[0]}'")
+    return {**kw_args, **overflow}
 
 
 def _split_positional_only_kwargs(
@@ -452,6 +484,10 @@ def _split_positional_only_kwargs(
     Raises:
         TypeError: When a positional-only name is present in ``resolved_kwargs`` while an earlier
             positional-only parameter is absent — forwarding positionally would misbind the value.
+
+    Example:
+        >>> _split_positional_only_kwargs(("a", "b", "c"), {"a": 1, "b": 2, "c": 3}, frozenset({"a", "b"}))
+        ([1, 2], {'c': 3})
 
     """
     kw_args = dict(resolved_kwargs)
@@ -503,7 +539,7 @@ class _WrapperContext:
         skip_if: The ``skip_if`` condition, evaluated on every call by :func:`~deprecate.messaging._eval_skip_if`.
         is_stacked: ``True`` when ``source`` is itself a ``@deprecated`` wrapper.
         forward_defaults: Decoration-time facts for the forwarded-call path (see
-            :func:`_precompute_forward_defaults`); ``None`` derives them on every forwarded call.
+            :func:`_precompute_forward_defaults`); ``None`` retries derivation unless the call facts stored an error.
         remap_active: Derived; ``True`` when ``args_mapping`` and ``args_extra`` apply to the target, that is for
             ``TargetMode.ARGS_REMAP`` and for a callable target.
         cycle_guarded: Derived; ``True`` when the target is callable, so every call runs under the target-chain cycle
@@ -630,6 +666,8 @@ def _check_classmethod_receiver(ctx: _WrapperContext, kwargs: Mapping[str, Any])
     elif not isinstance(receiver, type):
         problem = f"its first parameter `{name}` received a value of type `{type(receiver).__name__}`, not a class"
     elif (
+        # the caller also passed the target's own receiver name as a keyword and it is not just a mapped alias
+        # of the source receiver, so it would collide with the forwarded receiver
         target_name is not None
         and target_name != name
         and target_name in kwargs
@@ -750,35 +788,13 @@ def _enter_cycle_guard(ctx: _WrapperContext) -> _CycleGuardHandle:
     return entry, _cycle_detection.set(chain)
 
 
-def _exit_cycle_guard(ctx: _WrapperContext, handle: _CycleGuardHandle) -> None:
-    """Undo :func:`_enter_cycle_guard`: expire the call's entry and restore the chain from before the call.
-
-    ``ctx`` is not read; it stays so both guard functions take the wrapper context the same way.
-
-    """
+def _exit_cycle_guard(handle: _CycleGuardHandle) -> None:
+    """Undo :func:`_enter_cycle_guard`: expire the call's entry and restore the chain from before the call."""
     if handle is None:
         return
     entry, token = handle
     entry.active = False
     _cycle_detection.reset(token)
-
-
-def _leading_positional_slots(func: Callable[..., Any]) -> tuple[tuple[str, ...], bool]:
-    """Return ``func``'s leading positional parameter names and whether a ``*args`` parameter ends them.
-
-    Raises:
-        TypeError: When the signature of ``func`` cannot be read.
-        ValueError: When the signature of ``func`` cannot be read.
-
-    Example:
-        >>> def target(a, /, b, *rest, c=1): pass
-        >>> _leading_positional_slots(target)
-        (('a', 'b'), True)
-
-    """
-    # Positional parameters precede ``*args`` in every signature, so they are exactly the leading positional slots.
-    facts = _signature_facts(func)
-    return facts.positional_names, facts.var_positional
 
 
 def _target_signature_facts(
@@ -907,6 +923,7 @@ def _build_call_facts(
         source_var_positional_prefix=source_facts.var_positional_index or 0,
         source_positional_only=source_facts.positional_only,
         source_positional_only_order=source_facts.order if source_facts.positional_only else (),
+        source_keyword_overflow=source_facts.positional_only if source_facts.var_keyword else frozenset(),
         target_all_param_names=target_facts.names,
         target_accepts_var_positional=target_facts.var_positional,
         target_accepts_var_keyword=target_facts.var_keyword,
@@ -946,7 +963,7 @@ def _resolve_forward_kwargs(
     source, target, mapping, extra = ctx.source, ctx.target, ctx.cfg.args_mapping, ctx.cfg.args_extra
     if reason_callable:
         if ctx.forward_defaults is None:
-            # Not derivable at decoration because the target signature is unreadable: raise that error now.
+            # Raise a stored signature error first; if the separate defaults read alone failed, the merge retries it.
             _raise_target_signature_error(ctx.facts)
         kwargs = _merge_source_defaults(ctx.facts.source_defaults, target, kwargs, mapping, ctx.forward_defaults)
     # Taken out after the defaults merge, which fills a defaulted receiver by its source name; a target without a
@@ -968,18 +985,14 @@ def _resolve_forward_kwargs(
     if kwargs:
         # Empty cached names can mean an unreadable signature, not a target that rejects every keyword.
         _raise_target_signature_error(facts)
-    # ``None`` means the facts were not precomputed (a hand-built ``_CallFacts``); _prepare_target_call recomputes
-    # them from the target. ``frozenset()`` is a valid cached value for zero-arg targets — it gates on identity
-    # (``is not None``), not truthiness, to preserve the zero-arg cache hit.
-    target_func = _prepare_target_call(
+    _prepare_target_call(
         source,
-        target,
         kwargs,
         target_arg_names=facts.target_all_param_names,
         accepts_var_positional=facts.target_accepts_var_positional,
         accepts_var_keyword=facts.target_accepts_var_keyword,
     )
-    return kwargs, target_func
+    return kwargs, target
 
 
 def _skips_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> bool:
@@ -1007,11 +1020,14 @@ def _skips_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: Mappin
         ``True`` when the wrapper may call ``ctx.source(*args, **kwargs)`` directly.
 
     """
+    # neither fast path applies: the call needs the full warn-and-forward machinery
     if not (ctx.fast_notify or ctx.fast_remap):
         return False
     state, facts = ctx.state, ctx.facts
     misconfig_due = ctx.cfg.misconfigured and ctx.stream and not state.warned_misconfigured
     limit = facts.source_positional_limit
+    # bail out to the full path when a misconfiguration warning is still due or more positionals
+    # were passed than the source accepts
     if misconfig_due or (limit is not None and len(args) > limit):
         return False
     if ctx.fast_notify:
@@ -1101,6 +1117,8 @@ def _emit_call_warning(
     state, cfg, num_warns = ctx.state, ctx.cfg, ctx.num_warns
     fatal = _resolve_as_exception(cfg.as_exception)
     should_warn, arguments = fatal, reason_argument
+    # warn only when strict mode is off, a stream is attached, and the budget is not spent yet:
+    # unlimited, a reason argument present, or fewer warnings emitted than allowed
     if not fatal and ctx.stream and (num_warns < 0 or reason_argument or state.warned_calls < num_warns):
         with state.lock:
             if reason_callable:
@@ -1167,7 +1185,11 @@ def _build_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[s
     verbatim = _is_verbatim_call(ctx.target, ctx.cfg, args, kwargs, facts.source_positional_names)
     # *args sources need the unremapped tuple; remapping happens on kwargs only.
     original_kwargs = dict(kwargs)
+    keyword_overflow: dict[str, Any] = {}
     if not verbatim:
+        # Held out before positionals become keywords, so a keyword named like a positional-only parameter can never
+        # take that parameter's slot; it is handed back as a keyword when the call is made.
+        kwargs, keyword_overflow = _take_keyword_overflow(facts.source_keyword_overflow, ctx.cfg.args_mapping, kwargs)
         kwargs = _update_kwargs_with_args(args, kwargs, facts)
     if ctx.source_receiver is not None:
         # A classmethod descriptor target needs a class as the receiver; reject any other value before warning.
@@ -1183,9 +1205,9 @@ def _build_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[s
         short_circuit=False,
         original_kwargs=original_kwargs,
         resolved_kwargs=kwargs,
-        reason_argument=reason_argument,
         target_func=target_func,
         verbatim=verbatim,
+        keyword_overflow=keyword_overflow,
     )
 
 
@@ -1208,7 +1230,7 @@ def _reorder_kwargs_for_surplus(
     Args:
         ctx: The wrapper's context; the slots come from ``ctx.facts.target_positional_names`` and
             ``target_accepts_var_positional``, and the source named in the curated ``TypeError`` is ``ctx.source``.
-        target_func: The forwarding target; its signature is read only when hand-built facts carry no slot names.
+        target_func: The forwarding target, used to name it in surplus-arity errors.
         surplus: Positional tail beyond the source's named positional parameters
             (``args[ctx.facts.source_var_positional_prefix:]``).
         resolved_kwargs: Final kwargs assembled by :func:`_build_call_plan`.
@@ -1224,10 +1246,9 @@ def _reorder_kwargs_for_surplus(
     positional_names = ctx.facts.target_positional_names
     accepts_var_positional = ctx.facts.target_accepts_var_positional
     if positional_names is None:
-        # A target signature unreadable at decoration raises its error on this forwarded call; hand-built facts carry
-        # no slot names and no error, so the slots are read from the target here.
+        # Only an unreadable target signature leaves these names unset; preserve its decoration-time error.
         _raise_target_signature_error(ctx.facts)
-        positional_names, accepts_var_positional = _leading_positional_slots(target_func)
+    assert positional_names is not None  # noqa: S101 — successful decoration always precomputes the slots
     source = ctx.source
     kw_args = dict(resolved_kwargs)
     pos_args: list[Any] = []
@@ -1308,12 +1329,14 @@ def _resolve_source_call_shape(
         return list(args), plan.original_kwargs
     facts = ctx.facts
     if facts.source_has_var_positional:
+        # Built from the caller's own keywords, so the ``**kwargs``-bound keywords are already among them.
         return _var_positional_source_call(ctx, plan, args)
     if facts.source_positional_only:
-        return _split_positional_only_kwargs(
+        pos_args, kw_args = _split_positional_only_kwargs(
             facts.source_positional_only_order, plan.resolved_kwargs, facts.source_positional_only
         )
-    return [], plan.resolved_kwargs
+        return pos_args, _merge_keyword_overflow(kw_args, plan.keyword_overflow)
+    return [], _merge_keyword_overflow(plan.resolved_kwargs, plan.keyword_overflow)
 
 
 def _resolve_target_call_shape(
@@ -1336,12 +1359,13 @@ def _resolve_target_call_shape(
     surplus = args[facts.source_var_positional_prefix :] if facts.source_has_var_positional else ()
     if surplus:
         pos_args, kw_args = _reorder_kwargs_for_surplus(ctx, target_func, surplus, plan.resolved_kwargs)
-        return [*pos_args, *surplus], kw_args
+        return [*pos_args, *surplus], _merge_keyword_overflow(kw_args, plan.keyword_overflow)
     if facts.target_positional_only:
-        return _split_positional_only_kwargs(
+        pos_args, kw_args = _split_positional_only_kwargs(
             facts.target_positional_only_order, plan.resolved_kwargs, facts.target_positional_only
         )
-    return [], plan.resolved_kwargs
+        return pos_args, _merge_keyword_overflow(kw_args, plan.keyword_overflow)
+    return [], _merge_keyword_overflow(plan.resolved_kwargs, plan.keyword_overflow)
 
 
 async def _invoke_async(ctx: _WrapperContext, plan: _CallPlan, args: tuple[Any, ...]) -> Any:  # noqa: ANN401

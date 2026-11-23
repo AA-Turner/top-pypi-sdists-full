@@ -127,12 +127,11 @@ def test_only_the_two_apexes_still_ask_razor_for_a_node_gap():
     assert needing == ["0013", "0033"]
 
 
-def test_an_addressed_interior_node_another_wire_lands_on_refuses():
-    """A delta gap drives ONE wire's knot; a T-junction there needs the cut.
-
-    No capture writes one — all 78 addressed interior nodes in the corpus are
-    nodes their own wire alone passes through — so this is the case that must
-    refuse rather than quietly model the stem as unconnected.
+def test_an_addressed_interior_node_another_wire_lands_on_is_a_junction():
+    """A delta gap drives ONE wire's knot, so a T at an addressed node used to
+    refuse on the delta-gap spelling. Since momwire#2093 every basis cuts the
+    wire where another wire's node lands, so the node is a three-end junction
+    on both spellings and its source is the node gap there.
     """
     tee = (
         "CM T junction addressed at the stem's landing node\n"
@@ -147,8 +146,30 @@ def test_an_addressed_interior_node_another_wire_lands_on_refuses():
     )
     deck = parse_nec5(tee)
     structure = _serve.structure_of(deck)
-    # bspline cuts wire 1 and welds all three ends into one junction.
-    assert len(_serve.build_mesh(deck, structure, solver_class=BSplineSolver).gaps) == 1
+    for solver_class in (BSplineSolver, RazorSolver):
+        mesh = _serve.build_mesh(deck, structure, solver_class=solver_class)
+        assert [len(j) for j in mesh.junctions] == [3]
+        assert len(mesh.gaps) == 1 and not mesh.feeds
+
+
+def test_an_addressed_node_on_overlapping_wires_refuses():
+    """Overlapping metal is not a junction (`_junction_cuts`), so an address
+    inside the overlap is still a knot other element ends meet at, which the
+    delta gap cannot drive."""
+    overlap = (
+        "CM collinear wires overlapping over two elements\n"
+        "CE\n"
+        "GW 1,4,0.,-2.,0.,0.,2.,0.,.001\n"
+        "GW 2,2,0.,0.,0.,0.,2.,0.,.001\n"
+        "GE 0,-1\n"
+        "FR 0,1,0,0,30.\n"
+        "GN -1\n"
+        "EX 4,1,3,0,1.,0.\n"
+        "EN\n"
+    )
+    deck = parse_nec5(overlap)
+    structure = _serve.structure_of(deck)
+    assert _serve._junction_cuts(structure, frozenset()) == {}
     with pytest.raises(_serve.ServeRefusal, match="element ends meet"):
         _serve.build_mesh(deck, structure, solver_class=RazorSolver)
 
@@ -335,7 +356,7 @@ def test_razor_nec5_serves_every_capture_but_the_three_named(cid):
     capability refusals through :func:`~momwire.dropin.nec5._serve.serve` rather
     than letting a constructor raise into EZNEC's face.
     """
-    text = render(deck_text(cid), basis="razor-nec5")
+    text = render(deck_text(cid), basis="razor2p")
     assert ("NEC ERROR" in text) == (cid in UNSERVED)
 
 
@@ -362,7 +383,7 @@ def test_the_five_wire_apex_lands_on_the_licensed_engine(razor_seam=None):
     is what makes it a check on the apex PORT.
     """
     reference = input_impedance(printout_text("0013"))
-    served = input_impedance(render(deck_text("0013"), basis="razor-nec5"))
+    served = input_impedance(render(deck_text("0013"), basis="razor2p"))
     bspline = input_impedance(render(deck_text("0013")))
     assert reference == pytest.approx(55.621 + 8.273j, abs=1e-3)
     assert abs(served - reference) / abs(reference) < 1e-4
@@ -409,7 +430,7 @@ def test_razor_nec5_lands_on_the_licensed_engine_it_is_a_twin_of(cid):
     corpus the served decks sit a median 0.00 % and a worst 0.03 % away;
     these four are pinned so the claim has a gate.
     """
-    served = input_impedance(render(deck_text(cid), basis="razor-nec5"))
+    served = input_impedance(render(deck_text(cid), basis="razor2p"))
     reference = input_impedance(printout_text(cid))
     assert reference is not None and served is not None
     assert abs(served - reference) / abs(reference) < 1e-3
@@ -426,7 +447,7 @@ def test_the_w7el_triple_still_answers_series_where_it_must():
     reproduces the pair through the delta-gap spelling.
     """
     z = {
-        cid: input_impedance(render(deck_text(cid), basis="razor-nec5"))
+        cid: input_impedance(render(deck_text(cid), basis="razor2p"))
         for cid in ("0012", "0014", "0016", "0017")
     }
     assert z["0012"] == z["0014"] == z["0016"]  # one point, two tags, one answer
@@ -444,7 +465,7 @@ def test_the_current_table_is_not_printed_180_degrees_out(cid):
     turn.  Read on the largest currents in the table, where a phase is
     meaningful.
     """
-    served = _wire_currents(render(deck_text(cid), basis="razor-nec5"))
+    served = _wire_currents(render(deck_text(cid), basis="razor2p"))
     reference = _wire_currents(printout_text(cid))
     assert len(served) == len(reference) and served
     pairs = sorted(zip(reference, served), key=lambda p: -abs(p[0]))[:5]

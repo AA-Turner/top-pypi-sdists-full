@@ -37,6 +37,7 @@ from redis.exceptions import (
     DataError,
     InvalidPipelineStack,
     InvalidResponse,
+    MaxClientsReachedError,
     MaxConnectionsError,
     OutOfMemoryError,
     PubSubError,
@@ -64,7 +65,7 @@ def int_or_str(value):
         return value
 
 
-__version__ = "8.1.0"
+__version__ = "8.2.0"
 
 VERSION = tuple(map(int_or_str, __version__.split(".")))
 
@@ -100,6 +101,7 @@ __all__ = [
     "SubkeyspaceeventChannel",
     "SubkeyspaceitemChannel",
     "get_channel_type",
+    "MaxClientsReachedError",
     "MaxConnectionsError",
     "OutOfMemoryError",
     "PubSubError",

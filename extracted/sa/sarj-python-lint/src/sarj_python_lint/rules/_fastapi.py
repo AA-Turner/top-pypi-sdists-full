@@ -120,10 +120,13 @@ def flat_name(node: ast.expr) -> str:
 
 
 def _binding_name(node: ast.expr) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "self":
-        return f"self.{node.attr}"
+    match node:
+        case ast.Name():
+            return node.id
+        case ast.Attribute() if isinstance(node.value, ast.Name) and node.value.id == "self":
+            return f"self.{node.attr}"
+        case _:
+            pass
     return ""
 
 
@@ -327,21 +330,25 @@ class FastapiIndex:
                 for target in targets
                 for name in self._target_names(target)
             )
-        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name is not None:
-            self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
-        elif isinstance(node, ast.MatchMapping) and node.rest is not None:
-            self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.rest))
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self._bind_function_names(node)
-        elif isinstance(node, ast.ClassDef):
-            self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            self.bound_names.update(
-                _ReceiverKey(self._node_scopes[id(node)], alias.asname or alias.name.split(".")[0])
-                for alias in node.names
-            )
-        elif isinstance(node, ast.ExceptHandler) and node.name is not None:
-            self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
+            return
+        match node:
+            case ast.MatchAs() | ast.MatchStar() if node.name is not None:
+                self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
+            case ast.MatchMapping() if node.rest is not None:
+                self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.rest))
+            case ast.FunctionDef() | ast.AsyncFunctionDef():
+                self._bind_function_names(node)
+            case ast.ClassDef():
+                self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
+            case ast.Import() | ast.ImportFrom():
+                self.bound_names.update(
+                    _ReceiverKey(self._node_scopes[id(node)], alias.asname or alias.name.split(".")[0])
+                    for alias in node.names
+                )
+            case ast.ExceptHandler() if node.name is not None:
+                self.bound_names.add(_ReceiverKey(self._node_scopes[id(node)], node.name))
+            case _:
+                pass
 
     def _binding_scope(self, node: ast.AST) -> int:
         scope = self._node_scopes[id(node)]
@@ -370,12 +377,16 @@ class FastapiIndex:
             name = _binding_name(node.targets[0])
             if name:
                 return self._assignment_scope(node, name), name, node.value
-        elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            name = _binding_name(node.target)
-            if name:
-                return self._assignment_scope(node, name), name, node.value
-        elif isinstance(node, ast.TypeAlias):
-            return self._node_scopes[id(node)], node.name.id, node.value
+        else:
+            match node:
+                case ast.AnnAssign() if node.value is not None:
+                    name = _binding_name(node.target)
+                    if name:
+                        return self._assignment_scope(node, name), name, node.value
+                case ast.TypeAlias():
+                    return self._node_scopes[id(node)], node.name.id, node.value
+                case _:
+                    pass
         return None
 
     def _resolve_alias(self, key: _ReceiverKey, value: ast.expr) -> bool:
@@ -460,7 +471,6 @@ class FastapiIndex:
         local_scope = self._node_scopes.get(id(node), 0)
         scope: int | None = local_scope
         while scope is not None and scope != 0:
-            # Method bodies do not close over their class namespace.
             if (scope == local_scope or scope not in self._class_scopes) and _ReceiverKey(
                 scope, root
             ) in self.bound_names:
@@ -646,12 +656,15 @@ class FastapiIndex:
         if not isinstance(node, (ast.Name, ast.Attribute)) or self._is_shadowed_in_enclosing_scope(node):
             return None
         qualified = self.imports.resolved_qualified_name(node)
-        if isinstance(node, ast.Name) and qualified is None:
-            binding = self.imports.bindings.get(node.id)
-            return binding.module if binding is not None and binding.symbol is None else None
-        if isinstance(node, ast.Attribute) and qualified is None:
-            module = self.imports.resolved_qualified_name(node.value)
-            return f"{module}.{node.attr}" if module is not None else None
+        match node:
+            case ast.Name() if qualified is None:
+                binding = self.imports.bindings.get(node.id)
+                return binding.module if binding is not None and binding.symbol is None else None
+            case ast.Attribute() if qualified is None:
+                module = self.imports.resolved_qualified_name(node.value)
+                return f"{module}.{node.attr}" if module is not None else None
+            case _:
+                pass
         return qualified
 
     def _status_provider(self, node: ast.expr) -> str | None:
@@ -665,7 +678,6 @@ class FastapiIndex:
                 if binding is not None and binding.symbol is None and binding.module != "fastapi.status"
                 else None
             )
-        # FastAPI exports Starlette's status module rather than a status submodule.
         if qualified == "fastapi.status":
             return "starlette.status"
         return qualified if qualified in {"starlette.status", "http.HTTPStatus"} else None
@@ -823,7 +835,6 @@ class FastapiIndex:
         if isinstance(node, ast.Attribute):
             root = self._root_name(node)
         node_scope = self._node_scopes.get(id(node), 0)
-        # Method bodies do not close over intervening class namespaces during annotation lookup.
         scope: int | None = node_scope
         while scope is not None and scope != 0:
             if (scope == node_scope or scope not in self._class_scopes) and _ReceiverKey(
@@ -1010,7 +1021,6 @@ def _resolve_module_path_without_checkout(current: Path, reference: _ImportedRef
             if package != current.parent and not current.is_relative_to(package):
                 continue
             candidates.update(_existing_module_files(ancestor.joinpath(*module_parts), ancestor))
-        # A detached module directory is an import root; its parents may contain unrelated modules.
         candidates.update(_existing_module_files(current.parent.joinpath(*module_parts), current.parent))
     return next(iter(candidates)) if len(candidates) == 1 else None
 
@@ -1144,10 +1154,13 @@ def _binding_expression(binding: ast.stmt | None, symbol: str) -> ast.expr | Non
         target = binding.targets[0]
         if isinstance(target, ast.Name) and target.id == symbol:
             return binding.value
-    if isinstance(binding, ast.AnnAssign) and isinstance(binding.target, ast.Name) and binding.target.id == symbol:
-        return binding.value
-    if isinstance(binding, ast.TypeAlias) and binding.name.id == symbol:
-        return binding.value
+    match binding:
+        case ast.AnnAssign() if isinstance(binding.target, ast.Name) and binding.target.id == symbol:
+            return binding.value
+        case ast.TypeAlias() if binding.name.id == symbol:
+            return binding.value
+        case _:
+            pass
     return None
 
 

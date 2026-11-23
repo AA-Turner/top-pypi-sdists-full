@@ -1,0 +1,348 @@
+// via // https://github.com/rust-lang/rust/blob/ed3711ea29398b09483e4e2a3930567e9ba81d93/compiler/rustc_span/src/edit_distance.rs
+
+//! Edit distances.
+//!
+//! The [edit distance] is a metric for measuring the difference between two strings.
+//!
+//! [edit distance]: https://en.wikipedia.org/wiki/Edit_distance
+
+// The current implementation is the restricted Damerau-Levenshtein algorithm. It is restricted
+// because it does not permit modifying characters that have already been transposed. The specific
+// algorithm should not matter to the caller of the methods, which is why it is not noted in the
+// documentation.
+
+use std::{cmp, mem};
+
+use smallvec::{SmallVec, smallvec};
+
+/// Finds the [edit distance] between two strings.
+///
+/// Returns `None` if the distance exceeds the limit.
+///
+/// [edit distance]: https://en.wikipedia.org/wiki/Edit_distance
+fn edit_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
+    if a.is_ascii() && b.is_ascii() {
+        let a = a.as_bytes();
+        let b = b.as_bytes();
+        if a.len().abs_diff(b.len()) > limit || bag_distance(a, b) > limit {
+            return None;
+        }
+        return edit_distance_slices(a, b, limit);
+    }
+    let a = a.chars().collect::<Vec<_>>();
+    let b = b.chars().collect::<Vec<_>>();
+    edit_distance_slices(&a, &b, limit)
+}
+
+fn bag_distance(a: &[u8], b: &[u8]) -> usize {
+    let mut counts = [0i32; 128];
+    for &c in a {
+        counts[usize::from(c)] += 1;
+    }
+    for &c in b {
+        counts[usize::from(c)] -= 1;
+    }
+    let mut extra = 0;
+    let mut missing = 0;
+    for count in counts {
+        if count > 0 {
+            extra += count.unsigned_abs();
+        } else {
+            missing += count.unsigned_abs();
+        }
+    }
+    cmp::max(extra, missing) as usize
+}
+
+fn edit_distance_slices<'a, T: PartialEq>(
+    mut a: &'a [T],
+    mut b: &'a [T],
+    limit: usize,
+) -> Option<usize> {
+    // Ensure that `b` is the shorter string, minimizing memory use.
+    if a.len() < b.len() {
+        mem::swap(&mut a, &mut b);
+    }
+
+    let min_dist = a.len() - b.len();
+    // If we know the limit will be exceeded, we can return early.
+    if min_dist > limit {
+        return None;
+    }
+
+    // Strip common prefix.
+    while let Some(((b_char, b_rest), (a_char, a_rest))) = b.split_first().zip(a.split_first())
+        && a_char == b_char
+    {
+        a = a_rest;
+        b = b_rest;
+    }
+    // Strip common suffix.
+    while let Some(((b_char, b_rest), (a_char, a_rest))) = b.split_last().zip(a.split_last())
+        && a_char == b_char
+    {
+        a = a_rest;
+        b = b_rest;
+    }
+
+    // If either string is empty, the distance is the length of the other.
+    // We know that `b` is the shorter string, so we don't need to check `a`.
+    if b.is_empty() {
+        return Some(min_dist);
+    }
+
+    let mut prev_prev_row: SmallVec<[usize; 64]> = smallvec![usize::MAX; b.len() + 1];
+    let mut prev_row: SmallVec<[usize; 64]> = (0..=b.len()).collect();
+    let mut current_row: SmallVec<[usize; 64]> = smallvec![0; b.len() + 1];
+    let mut prev_prev = &mut prev_prev_row[..];
+    let mut prev = &mut prev_row[..];
+    let mut current = &mut current_row[..];
+
+    let mut prev_min = 0;
+    // row by row
+    for i in 1..=a.len() {
+        current[0] = i;
+        let mut current_min = i;
+        let a_idx = i - 1;
+
+        // column by column
+        for j in 1..=b.len() {
+            let b_idx = j - 1;
+
+            // There is no cost to substitute a character with itself.
+            let substitution_cost = usize::from(a[a_idx] != b[b_idx]);
+
+            current[j] = cmp::min(
+                // deletion
+                prev[j] + 1,
+                cmp::min(
+                    // insertion
+                    current[j - 1] + 1,
+                    // substitution
+                    prev[j - 1] + substitution_cost,
+                ),
+            );
+
+            if (i > 1) && (j > 1) && (a[a_idx] == b[b_idx - 1]) && (a[a_idx - 1] == b[b_idx]) {
+                // transposition
+                current[j] = cmp::min(current[j], prev_prev[j - 2] + 1);
+            }
+            current_min = cmp::min(current_min, current[j]);
+        }
+
+        if current_min > limit && prev_min >= limit {
+            return None;
+        }
+        prev_min = current_min;
+
+        // Rotate the buffers, reusing the memory.
+        [prev_prev, prev, current] = [prev, current, prev_prev];
+    }
+
+    // `prev` because we already rotated the buffers.
+    let distance = prev[b.len()];
+    (distance <= limit).then_some(distance)
+}
+
+/// Provides a word similarity score between two words that accounts for substrings being more
+/// meaningful than a typical edit distance. The lower the score, the closer the match. 0 is an
+/// identical match.
+///
+/// Uses the edit distance between the two strings and removes the cost of the length difference.
+/// If this is 0 then it is either a substring match or a full word match, in the substring match
+/// case we detect this and return `1`. To prevent finding meaningless substrings, eg. "in" in
+/// "shrink", we only perform this subtraction of length difference if one of the words is not
+/// greater than twice the length of the other. For cases where the words are close in size but not
+/// an exact substring then the cost of the length difference is discounted by half.
+///
+/// Returns `None` if the distance exceeds the limit.
+fn edit_distance_with_substrings(a: &str, b: &str, limit: usize) -> Option<usize> {
+    let n = a.chars().count();
+    let m = b.chars().count();
+
+    // Check one isn't less than half the length of the other. If this is true then there is a
+    // big difference in length.
+    let big_len_diff = (n * 2) < m || (m * 2) < n;
+    let len_diff = m.abs_diff(n);
+    let distance = edit_distance(a, b, limit + len_diff)?;
+
+    // This is the crux, subtracting length difference means exact substring matches will now be 0
+    let score = distance - len_diff;
+
+    // If the score is 0 but the words have different lengths then it's a substring match not a full
+    // word match
+    let score = if score == 0 && len_diff > 0 && !big_len_diff {
+        1 // Exact substring match, but not a total word match so return non-zero
+    } else if !big_len_diff {
+        // Not a big difference in length, discount cost of length difference
+        score + len_diff.div_ceil(2)
+    } else {
+        // A big difference in length, add back the difference in length to the score
+        score + len_diff
+    };
+
+    (score <= limit).then_some(score)
+}
+
+/// Finds the best match for given word in the given iterator where substrings are meaningful.
+///
+/// A version of [`find_best_match_for_name`] that uses [`edit_distance_with_substrings`] as the
+/// score for word similarity. This takes an optional distance limit which defaults to one-third of
+/// the given word.
+///
+/// We use case insensitive comparison to improve accuracy on an edge case with a lower(upper)case
+/// letters mismatch.
+pub(crate) fn find_best_match_for_name_with_substrings<'a, T: Copy>(
+    candidates: impl Iterator<Item = T>,
+    name: impl Fn(T) -> &'a str,
+    lookup: &str,
+    dist: Option<usize>,
+) -> Option<T> {
+    find_best_match_for_name_impl(true, candidates, &name, lookup, dist)
+}
+
+pub(crate) fn find_best_match_for_name<'a, T: Copy>(
+    candidates: impl Iterator<Item = T>,
+    name: impl Fn(T) -> &'a str,
+    lookup: &str,
+    dist: Option<usize>,
+) -> Option<T> {
+    find_best_match_for_name_impl(false, candidates, &name, lookup, dist)
+}
+
+#[cold]
+fn find_best_match_for_name_impl<'a, T: Copy, F: Fn(T) -> &'a str>(
+    use_substring_score: bool,
+    candidates: impl Iterator<Item = T>,
+    name: &F,
+    lookup: &str,
+    dist: Option<usize>,
+) -> Option<T> {
+    // Priority of matches:
+    // 1. Exact case insensitive match
+    // 2. Edit distance match
+    // 3. Sorted word match
+    //
+    // These are found in a single pass. An edit distance of 0 implies a case insensitive match,
+    // so returning on the first case insensitive match keeps the priority.
+
+    // `fn edit_distance()` uses `chars()` to calculate edit distance, so we must
+    // also use `chars()` (and not `str::len()`) to calculate length here.
+    let lookup_len = lookup.chars().count();
+    let lookup_sorted_by_words = sort_by_words(lookup);
+
+    let mut dist = dist.unwrap_or_else(|| cmp::max(lookup_len, 3) / 3);
+    let mut best = None;
+    let mut sorted_words_match = None;
+    // store the candidates with the same distance, currently only for `use_substring_score`.
+    let mut next_candidates = vec![];
+    for c in candidates {
+        let candidate_name = name(c);
+        if eq_uppercase(candidate_name, lookup) {
+            return Some(c);
+        }
+        if is_sorted_words_match(candidate_name, lookup, &lookup_sorted_by_words) {
+            sorted_words_match = Some(c);
+        }
+        match if use_substring_score {
+            edit_distance_with_substrings(lookup, candidate_name, dist)
+        } else {
+            edit_distance(lookup, candidate_name, dist)
+        } {
+            Some(0) => return Some(c),
+            Some(d) => {
+                if use_substring_score {
+                    if d < dist {
+                        dist = d;
+                        next_candidates.clear();
+                    } else {
+                        // `d == dist` here, we need to store the candidates with the same distance
+                        // so we won't decrease the distance in the next loop.
+                    }
+                    next_candidates.push(c);
+                } else {
+                    dist = d - 1;
+                }
+                best = Some(c);
+            }
+            None => {}
+        }
+    }
+
+    // We have a tie among several candidates, try to select the best among them ignoring substrings.
+    // For example, the candidates list `force_capture`, `capture`, and user inputted `forced_capture`,
+    // we select `force_capture` with an extra round of edit distance calculation.
+    if next_candidates.len() > 1 {
+        debug_assert!(use_substring_score);
+        best = find_best_match_for_name_impl(
+            false,
+            next_candidates.iter().copied(),
+            name,
+            lookup,
+            Some(lookup.len()),
+        );
+    }
+    best.or(sorted_words_match)
+}
+
+fn eq_uppercase(a: &str, b: &str) -> bool {
+    if a.is_ascii() && b.is_ascii() {
+        return a.eq_ignore_ascii_case(b);
+    }
+    a.chars()
+        .flat_map(char::to_uppercase)
+        .eq(b.chars().flat_map(char::to_uppercase))
+}
+
+fn is_sorted_words_match(name: &str, lookup: &str, lookup_sorted_by_words: &[&str]) -> bool {
+    name.len() == lookup.len()
+        && name.split('_').count() == lookup_sorted_by_words.len()
+        && *sort_by_words(name) == *lookup_sorted_by_words
+}
+
+fn sort_by_words(name: &str) -> SmallVec<[&str; 8]> {
+    let mut split_words: SmallVec<[&str; 8]> = name.split('_').collect();
+    // We are sorting primitive &strs and can use unstable sort here.
+    split_words.sort_unstable();
+    split_words
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_snapshot;
+
+    use super::{find_best_match_for_name, find_best_match_for_name_with_substrings};
+
+    fn best(candidates: &[&str], lookup: &str) -> String {
+        find_best_match_for_name_with_substrings(candidates.iter().copied(), |c| c, lookup, None)
+            .unwrap_or("no match")
+            .to_string()
+    }
+
+    fn best_without_substrings(candidates: &[&str], lookup: &str) -> String {
+        find_best_match_for_name(candidates.iter().copied(), |c| c, lookup, None)
+            .unwrap_or("no match")
+            .to_string()
+    }
+
+    #[test]
+    fn suggestions() {
+        assert_snapshot!(best(&["apple", "banana"], "app"), @"apple");
+        assert_snapshot!(best(&["apple", "banana"], "appel"), @"apple");
+        assert_snapshot!(best(&["apple", "banana"], "APPLE"), @"apple");
+        assert_snapshot!(best(&["created_at"], "at_created"), @"created_at");
+        assert_snapshot!(best(&["apple", "banana"], "zzz"), @"no match");
+        assert_snapshot!(best(&["id"], "x"), @"no match");
+        assert_snapshot!(best(&["a"], "b"), @"a");
+        assert_snapshot!(best(&["force_capture", "capture"], "forced_capture"), @"force_capture");
+    }
+
+    #[test]
+    fn suggestions_without_substrings() {
+        assert_snapshot!(best_without_substrings(&["apple", "banana"], "appel"), @"apple");
+        assert_snapshot!(best_without_substrings(&["apple", "banana"], "APPLE"), @"apple");
+        assert_snapshot!(best_without_substrings(&["apple", "banana"], "app"), @"no match");
+        assert_snapshot!(best_without_substrings(&["floor"], "foo"), @"no match");
+        assert_snapshot!(best_without_substrings(&["created_at"], "at_created"), @"created_at");
+    }
+}

@@ -3,6 +3,7 @@ import logging
 import pickle
 import sys
 from contextlib import nullcontext
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,6 +22,7 @@ from kernels import (
     KernelizedLayers,
     KernelizeFallback,
     LayerRepository,
+    LocalFuncRepository,
     LocalLayerRepository,
     LockedFuncRepository,
     LockedLayerRepository,
@@ -32,14 +34,14 @@ from kernels import (
     use_kernel_mapping,
     use_kernelized_func,
 )
-from kernels._rust import KernelDependency, KernelLock, KernelLocks, KernelVersion
-from kernels.install import (
+from kernels._internals.install import (
     install_kernel,
 )
-from kernels.layer.layer import (
+from kernels._internals.layer.layer import (
     _KERNEL_MAPPING,
     _validate_layer,
 )
+from kernels._rust import KernelDependency, KernelLock, KernelLocks, KernelVersion
 
 
 @pytest.fixture
@@ -453,7 +455,7 @@ def test_missing_kernel_build_falls_back(monkeypatch, caplog):
 
     with (
         use_kernel_mapping(mapping, inherit_mapping=False),
-        caplog.at_level(logging.INFO, logger="kernels.layer.layer"),
+        caplog.at_level(logging.INFO, logger="kernels._internals.layer.layer"),
     ):
         kernelize(layer, device="cuda", mode=Mode.INFERENCE, use_fallback=KernelizeFallback.ALL)
     assert "Kernel for layer `SiluAndMul` on cuda could not be loaded" in caplog.text
@@ -472,7 +474,7 @@ def test_kernel_condition_skips_kernelization(caplog):
 
     silu_and_mul = SiluAndMulConditionSkipped()
 
-    with caplog.at_level(logging.INFO, logger="kernels.layer.kernelize"):
+    with caplog.at_level(logging.INFO, logger="kernels._internals.layer.kernelize"):
         kernelize(silu_and_mul, device="cuda", mode=Mode.INFERENCE, use_fallback=False)
 
     assert (
@@ -728,7 +730,7 @@ def test_layer_repository_forwards_user_agent(monkeypatch, user_agent):
         calls.append((repo_id, kwargs))
         return SimpleNamespace(layers=SimpleNamespace(SiluAndMul=SiluAndMul))
 
-    monkeypatch.setattr("kernels.layer.layer.get_kernel", get_kernel)
+    monkeypatch.setattr("kernels._internals.layer.layer.get_kernel", get_kernel)
     repo = LayerRepository(
         repo_id="kernels-test/silu-and-mul",
         layer_name="SiluAndMul",
@@ -745,6 +747,7 @@ def test_layer_repository_forwards_user_agent(monkeypatch, user_agent):
                 "version": None,
                 "trust_remote_code": False,
                 "user_agent": user_agent,
+                "check_arch": True,
             },
         )
     ]
@@ -1465,7 +1468,7 @@ def stub_kernel(monkeypatch):
     def _get_layer_memoize(repo, module_class):
         return _KernelizedStub
 
-    monkeypatch.setattr("kernels.layer.layer._get_layer_memoize", _get_layer_memoize)
+    monkeypatch.setattr("kernels._internals.layer.layer._get_layer_memoize", _get_layer_memoize)
 
 
 def _stub_repo(layer_name: str) -> LayerRepository:
@@ -1598,16 +1601,52 @@ def test_kernelize_torch_device_rocm(stub_kernel, monkeypatch, is_rocm):
     assert model[0]._kernel_repo == (repo_rocm if is_rocm else repo_cuda)
 
 
-def test_locked_repositories_are_picklable():
-    lockfile = Path(__file__).parent / "layer_locking" / "kernels.lock"
-    layer_repo = LockedLayerRepository("kernels-test/versions", layer_name="Version", lockfile=lockfile)
-    func_repo = LockedFuncRepository("kernels-test/versions", func_name="version", lockfile=lockfile)
+@pytest.fixture(
+    params=[
+        LayerRepository,
+        FuncRepository,
+        LocalLayerRepository,
+        LocalFuncRepository,
+        LockedLayerRepository,
+        LockedFuncRepository,
+    ]
+)
+def repository_factory(request, tmp_path):
+    repository = request.param
+    kwargs = (
+        {"layer_name": "Version"}
+        if repository in (LayerRepository, LocalLayerRepository, LockedLayerRepository)
+        else {"func_name": "version"}
+    )
+    if repository in (LocalLayerRepository, LocalFuncRepository):
+        return partial(repository, tmp_path, **kwargs)
+    if repository in (LockedLayerRepository, LockedFuncRepository):
+        kwargs["lockfile"] = Path(__file__).parent / "layer_locking" / "kernels.lock"
+    else:
+        kwargs["version"] = 2
+    return partial(repository, "kernels-test/versions", **kwargs)
 
-    for repo in (layer_repo, func_repo):
-        for restore in (copy.deepcopy, lambda repo: pickle.loads(pickle.dumps(repo))):
-            restored = restore(repo)
-            assert restored == repo
-            assert str(restored) == str(repo)
+
+@pytest.mark.parametrize("check_arch", [True, False])
+def test_repositories_are_picklable(repository_factory, check_arch):
+    repo = repository_factory(check_arch=check_arch)
+
+    for restore in (copy.deepcopy, lambda repo: pickle.loads(pickle.dumps(repo))):
+        restored = restore(repo)
+        assert restored == repo
+        assert hash(restored) == hash(repo)
+        assert str(restored) == str(repo)
+
+
+def test_repository_arch_check_affects_equality(repository_factory):
+    default = repository_factory()
+    checked = repository_factory(check_arch=True)
+    unchecked = repository_factory(check_arch=False)
+
+    assert default == checked
+    assert hash(default) == hash(checked)
+    assert checked != unchecked
+    assert len({default, checked, unchecked}) == 2
 
 
 def test_locked_repository_restores_rust_objects(tmp_path):

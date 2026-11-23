@@ -207,3 +207,208 @@ def test_sweep_z_bar(tmp_path):
         sweep(night, z)
         f = triage.triage(night, base, tmp_path / "none.json")["findings"]
         assert (f[0]["severity"] if f else None) == want, z
+
+
+def _printout(night: Path, key: str, text: str) -> None:
+    d = night / "py-avx2-T1"
+    d.mkdir(exist_ok=True)
+    (d / f"{key}.py").write_text(text)
+
+
+_BODY = " NEC\n momwire {v} {basis} avx2\n IMPEDANCE {z}\n"
+
+
+def _drift(tmp_path, *, base_label, label, v0, v1, basis0, basis1, z0, z1):
+    base = _night(tmp_path / "base", [_row(base_label, "d", key="kb", py_sha="b")])
+    night = _night(tmp_path / "night", [_row(label, "d", key="kn", py_sha="n")])
+    _printout(base, "kb", _BODY.format(v=v0, basis=basis0, z=z0))
+    _printout(night, "kn", _BODY.format(v=v1, basis=basis1, z=z1))
+    return [
+        f
+        for f in triage.triage(night, base, tmp_path / "none.json")["findings"]
+        if f["kind"] == "py-drift"
+    ]
+
+
+def test_py_drift_masks_the_identity_line(tmp_path):
+    """A release reads as 'a number moved 8.42e-02' on every deck when line 2's
+    version is compared as numbers (0.87.1 -> 0.95.1, the 11-07..11-21 reds)."""
+    f = _drift(
+        tmp_path, base_label="e", label="e", v0="0.87.1", v1="0.95.1",
+        basis0="razor-2p", basis1="razor2p", z0="7.1521E+01", z1="7.1521E+01",
+    )  # fmt: skip
+    assert f == []
+
+
+def test_py_drift_still_sees_a_number_off_the_identity_line(tmp_path):
+    f = _drift(
+        tmp_path, base_label="e", label="e", v0="0.87.1", v1="0.95.1",
+        basis0="bspline", basis1="bspline", z0="7.1521E+01", z1="7.2000E+01",
+    )  # fmt: skip
+    assert [x["severity"] for x in f] == ["severe"]
+
+
+def test_a_base_from_before_the_rename_pairs_with_the_new_label(tmp_path):
+    """momwire#2091: without the label map the base has no row for
+    nec5-razor2p and the drift check compares nothing, in silence."""
+    f = _drift(
+        tmp_path, base_label="nec5-razor-2p", label="nec5-razor2p",
+        v0="0.95.1", v1="0.96.0", basis0="razor-2p", basis1="razor2p",
+        z0="7.1521E+01", z1="7.2000E+01",
+    )  # fmt: skip
+    assert [(x["exe"], x["severity"]) for x in f] == [("nec5-razor2p", "severe")]
+
+
+def test_accept_moves_the_base_and_records_why(tmp_path, monkeypatch):
+    monkeypatch.setattr(nightly, "ROOT", tmp_path)
+    monkeypatch.setattr(nightly, "STATE", tmp_path / "state.json")
+    night = _night(tmp_path / "red", [_row("e", "d")], sha="2" * 40)
+    (night / "triage.json").write_text(json.dumps({"counts": {"severe": 3}}))
+    state = {"last_green": {"sha": "1" * 40, "date": "2026-11-07", "dir": "old"}}
+    assert nightly.accept(night, "reviewed: intended", state) == 0
+    s = json.loads((tmp_path / "state.json").read_text())
+    assert s["last_green"] == {"sha": "2" * 40, "date": "2026-11-06", "dir": str(night)}
+    (rec,) = map(json.loads, (tmp_path / "accepted.jsonl").read_text().splitlines())
+    assert rec["note"] == "reviewed: intended"
+    assert rec["replaces"]["date"] == "2026-11-07" and rec["counts"] == {"severe": 3}
+
+
+def test_the_nightlys_temporaries_live_under_its_root(tmp_path, monkeypatch):
+    assert nightly.TMP.is_relative_to(nightly.ROOT)
+    assert nightly.PYTEST_BASETEMP.is_relative_to(nightly.ROOT)
+    monkeypatch.setattr(nightly, "TMP", tmp_path / "tmp")
+    assert nightly.env_base()["TMPDIR"] == str(tmp_path / "tmp")
+    assert (tmp_path / "tmp").is_dir()
+
+
+def test_the_sweep_times_a_cold_sommerfeld_cache_of_its_own(tmp_path, monkeypatch):
+    """The Sommerfeld disk cache is keyed on the build, so a night on a new
+    commit was cold and a repeat night warm (wire.beverage 1.40 s against
+    0.18 s), and the sweep compared the two as a regression."""
+    seen = {}
+    monkeypatch.setattr(nightly, "TMP", tmp_path / "tmp")
+    monkeypatch.setattr(nightly, "MW", tmp_path / "mw")
+    (tmp_path / "mw").mkdir()
+    monkeypatch.setattr(nightly, "git", lambda *a: "f" * 40)
+
+    def fake_sh(cmd, **kw):
+        cache = Path(kw["env"]["MOMWIRE_SOMM_CACHE_DIR"])
+        seen.update(kw, empty=cache.is_dir() and not any(cache.iterdir()))
+
+    monkeypatch.setattr(nightly, "sh", fake_sh)
+    night = tmp_path / "night"
+    stale = night / "somm-cache" / "old.npz"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("x")
+    nightly.run_sweep(night, tmp_path / "harness", None)
+    cache = Path(seen["env"]["MOMWIRE_SOMM_CACHE_DIR"])
+    assert cache == night.resolve() / "somm-cache"
+    assert seen["empty"]  # the sweep ran on an empty cache
+    assert not cache.exists()  # and it is gone after the sweep
+
+
+import report_tools  # noqa: E402
+
+
+def test_the_report_agent_can_only_read(tmp_path):
+    cmd = nightly.agent_command(tmp_path / "n", tmp_path / "b", "c" * 40, ["avx2-T1"])
+    allowed = cmd[cmd.index("--allowedTools") + 1 : cmd.index("--disallowedTools")]
+    denied = cmd[cmd.index("--disallowedTools") + 1 :]
+    # the allowed list is a whitelist only in the default mode (an account
+    # in auto mode would otherwise approve more)
+    assert cmd[cmd.index("--permission-mode") + 1] == "default"
+    assert not {"Write", "Edit", "NotebookEdit"} & set(allowed)
+    assert {"Write", "Edit", "NotebookEdit"} <= set(denied)
+    bash = [t for t in allowed if t.startswith("Bash(")]
+    tools = nightly.HERE / "report_tools.py"
+    assert sorted(bash) == sorted(
+        [f"Bash(git -C {nightly.MW} {v}:*)" for v in ("log", "show", "diff")]
+        + [f"Bash(python3 {tools}:*)"]
+    )
+    prompt = cmd[cmd.index("-p") + 1]
+    assert "{" not in prompt.replace("{%", "")  # every placeholder filled
+    assert str(tmp_path / "n") in prompt and "c" * 40 in prompt
+
+
+def _fake_claude(monkeypatch, bindir: Path, body: str) -> None:
+    """An absolute path, so env_base()'s ~/.local/bin can never put the real
+    CLI first: a test must not start a real agent."""
+    bindir.mkdir()
+    exe = bindir / "claude"
+    exe.write_text(f"#!/bin/sh\n{body}\n")
+    exe.chmod(0o755)
+    monkeypatch.setattr(nightly, "CLAUDE", str(exe))
+
+
+def test_the_report_agent_writes_report_md(tmp_path, monkeypatch):
+    _fake_claude(monkeypatch, tmp_path / "bin", "echo '# no regression'")
+    monkeypatch.setattr(nightly, "TMP", tmp_path / "tmp")
+    monkeypatch.setattr(nightly, "log", lambda *_: None)
+    night = tmp_path / "night"
+    night.mkdir()
+    nightly.agent_report(night, tmp_path, "c" * 40, ["avx2-T1"])
+    assert (night / "report.md").read_text() == "# no regression\n"
+
+
+def test_the_report_agent_never_fails_the_night(tmp_path, monkeypatch):
+    _fake_claude(monkeypatch, tmp_path / "bin", "echo boom >&2; exit 3")
+    monkeypatch.setattr(nightly, "TMP", tmp_path / "tmp")
+    monkeypatch.setattr(nightly, "log", lambda *_: None)
+    night = tmp_path / "night"
+    night.mkdir()
+    nightly.agent_report(night, tmp_path, "c" * 40, ["avx2-T1"])  # no raise
+    assert not (night / "report.md").exists()
+    assert "boom" in (night / "report-agent.log").read_text()
+    monkeypatch.setenv(nightly.AGENT_ENV, "0")
+    _fake_claude(monkeypatch, tmp_path / "bin2", "echo '# should not run'")
+    nightly.agent_report(night, tmp_path, "c" * 40, ["avx2-T1"])
+    assert not (night / "report.md").exists()
+
+
+def test_report_tools_read_and_never_write(tmp_path):
+    base = _night(tmp_path / "base", [_row("e", "d", key="kb", py_sha="b")])
+    night = _night(tmp_path / "night", [_row("e", "d", key="kn", py_sha="n")])
+    _printout(base, "kb", _BODY.format(v="0.87.1", basis="bspline", z="7.1521E+01"))
+    _printout(night, "kn", _BODY.format(v="0.95.1", basis="bspline", z="7.2000E+01"))
+    (night / "triage.json").write_text(
+        json.dumps(
+            dict(status="red", base="1" * 40, base_date="2026-11-06",
+                 counts={"severe": 1},
+                 findings=[triage.finding("py-drift", "severe", "x", cell="avx2-T1",
+                                          exe="e", deck="d")])
+        )
+    )  # fmt: skip
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    s = report_tools.summary(night)
+    assert "[1] kind=py-drift severity=severe exe=e cell=avx2-T1" in s
+    d = report_tools.diff(night, base, "e", "d")
+    assert "-" + " IMPEDANCE 7.1521E+01" in d and "+ IMPEDANCE 7.2000E+01" in d
+    assert "0.87.1" not in d and "0.95.1" not in d  # line 2 masked
+    m = report_tools.masked(night, base)
+    assert "differ only on line 2: 0" in m and "differ elsewhere: 1" in m
+    lines = report_tools.nights(tmp_path).splitlines()
+    assert [x.split()[0] for x in lines] == ["base", "night"]
+    assert "red" in lines[1] and '"severe": 1' in lines[1]
+    after = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert before == after
+
+
+def test_printouts_read_a_packed_night_in_one_pass(tmp_path):
+    import tarfile
+
+    night = tmp_path / "n"
+    (night / "py-avx2-T1").mkdir(parents=True)
+    for k in ("a", "b", "c"):
+        (night / "py-avx2-T1" / f"{k}.py").write_text(f"printout {k}\n")
+    with tarfile.open(night / "py-avx2-T1.tar.xz", "w:xz") as tf:
+        tf.add(night / "py-avx2-T1", arcname="py-avx2-T1")
+    for k in ("a", "b", "c"):
+        (night / "py-avx2-T1" / f"{k}.py").unlink()
+    (night / "py-avx2-T1").rmdir()
+    p = triage.Printouts(night)
+    assert [p.get(k) for k in ("c", "a", "b", "zz")] == [
+        b"printout c\n",
+        b"printout a\n",
+        b"printout b\n",
+        None,
+    ]

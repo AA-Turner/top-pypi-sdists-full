@@ -184,39 +184,49 @@ class RecurrenceField(forms.CharField):
 
 
 _recurrence_javascript_catalog_url = None
+_recurrence_javascript_catalog_view = None
 
 
 def find_recurrence_i18n_js_catalog():
-    # used cached version
-    global _recurrence_javascript_catalog_url
+    """
+    Return the URL of a `JavaScriptCatalog` view in the URLconf that
+    serves the translations of django-recurrence, or `None`.
+    """
+    global _recurrence_javascript_catalog_view
     if _recurrence_javascript_catalog_url:
         return _recurrence_javascript_catalog_url
 
-    # first try to use the dynamic form of the javascript_catalog view
-    if hasattr(i18n, 'javascript_catalog'):
-        try:
-            return urls.reverse(
-                i18n.javascript_catalog, kwargs={'packages': 'recurrence'})
-        except urls.NoReverseMatch:
-            pass
+    def serves_recurrence(callback):
+        view_class = getattr(callback, 'view_class', None)
+        if view_class is None or not issubclass(view_class, i18n.JavaScriptCatalog):
+            return False
+        if issubclass(view_class, i18n.JSONCatalog):
+            return False
+        packages = callback.view_initkwargs.get('packages', view_class.packages)
+        # without packages the view serves every installed application
+        return packages is None or 'recurrence' in packages
 
-    # then scan the entire urlconf for a javascript_catalague pattern
-    # that manually selects recurrence as one of the packages to include
-    def check_urlpatterns(urlpatterns):
+    def find_view(urlpatterns, namespace=''):
         for pattern in urlpatterns:
             if hasattr(pattern, 'url_patterns'):
-                match = check_urlpatterns(pattern.url_patterns)
-                if match:
-                    return match
-            elif (hasattr(i18n, 'javascript_catalog') and pattern.callback == i18n.javascript_catalog and
-                  'recurrence' in pattern.default_args.get('packages', [])):
-                if pattern.name:
-                    return urls.reverse(pattern.name)
-                else:
-                    return urls.reverse(pattern.callback)
+                prefix = namespace
+                if pattern.namespace:
+                    prefix += pattern.namespace + ':'
+                view = find_view(pattern.url_patterns, prefix)
+                if view:
+                    return view
+            elif serves_recurrence(pattern.callback):
+                view = namespace + pattern.name if pattern.name else pattern.callback
+                try:
+                    urls.reverse(view)
+                except urls.NoReverseMatch:
+                    continue
+                return view
 
-    root_urlconf = __import__(settings.ROOT_URLCONF, {}, {}, [''])
-    url = check_urlpatterns(root_urlconf.urlpatterns)
-    # cache it for subsequent use
-    _recurrence_javascript_catalog_url = url
-    return url
+    # The view is looked up once. Its URL is reversed on every call,
+    # as it can depend on the active language.
+    if _recurrence_javascript_catalog_view is None:
+        view = find_view(urls.get_resolver().url_patterns)
+        _recurrence_javascript_catalog_view = view or False
+    if _recurrence_javascript_catalog_view:
+        return urls.reverse(_recurrence_javascript_catalog_view)

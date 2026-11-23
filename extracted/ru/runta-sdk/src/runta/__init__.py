@@ -81,6 +81,8 @@ class RuntimeStatus(str, Enum):
     """The runtime is being created."""
     DELETING = "deleting"
     """The runtime is being deleted."""
+    DELETED = "deleted"
+    """The runtime has been deleted."""
     ERROR = "error"
     """The runtime entered an error state."""
     CRASHED = "crashed"
@@ -134,16 +136,23 @@ class IngressSpec:
     """Ingress protocol, such as `tcp` or `http`."""
     runtime_port: int
     """Port exposed by the runtime."""
+    hostname_label: str | None = None
+    """Optional custom hostname label on deployments that support it."""
 
     def to_json(self) -> dict[str, Any]:
         """Serialize this ingress spec for an API request."""
-        return {"protocol": self.protocol, "runtime_port": self.runtime_port}
+        data = {"protocol": self.protocol, "runtime_port": self.runtime_port}
+        if self.hostname_label is not None:
+            data["hostname_label"] = self.hostname_label
+        return data
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "IngressSpec":
         """Create an ingress spec from an API response payload."""
         return cls(
-            protocol=str(data["protocol"]), runtime_port=int(data["runtime_port"])
+            protocol=str(data["protocol"]),
+            runtime_port=int(data["runtime_port"]),
+            hostname_label=data.get("hostname_label"),
         )
 
 
@@ -202,19 +211,27 @@ class RuntimeResourceRequests:
 
 @dataclass(slots=True)
 class RuntimeResourceLimits:
-    """Maximum runtime memory allocation."""
+    """Maximum runtime memory and CPU allocation."""
 
     memory_mib: int
     """Maximum runtime memory in MiB."""
+    vcpus: int | None = None
+    """Maximum virtual CPUs, when returned or explicitly configured."""
 
     def to_json(self) -> dict[str, Any]:
         """Serialize these runtime resource limits for an API request."""
-        return {"memory_mib": self.memory_mib}
+        data = {"memory_mib": self.memory_mib}
+        if self.vcpus is not None:
+            data["vcpus"] = self.vcpus
+        return data
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "RuntimeResourceLimits":
         """Create runtime resource limits from an API response payload."""
-        return cls(memory_mib=int(data["memory_mib"]))
+        return cls(
+            memory_mib=int(data["memory_mib"]),
+            vcpus=int(data["vcpus"]) if data.get("vcpus") is not None else None,
+        )
 
 
 @dataclass(slots=True)
@@ -566,8 +583,8 @@ class RuntimeManager(_SdkOwnedHandle):
         name: str | None = None,
         *,
         checkpoint_id: str | None = None,
-        vcpus: int = 1,
-        memory_mib: int = 1024,
+        vcpus: int | None = None,
+        memory_mib: int | None = None,
         memory_max_mib: int | None = None,
         resources: CreateRuntimeResources | Mapping[str, object] | None = None,
         ingress_specs: Sequence[IngressSpec | Mapping[str, object]] | None = None,
@@ -586,13 +603,12 @@ class RuntimeManager(_SdkOwnedHandle):
             name: Optional display name for the runtime.
             checkpoint_id: Checkpoint UUID to restore into the new runtime.
             vcpus: Requested virtual CPU count for fresh creation when
-                `resources` is not supplied.
+                `resources` is not supplied. Defaults to 1; omit for restore.
             memory_mib: Requested memory in MiB for fresh creation when
-                `resources` is not supplied.
+                `resources` is not supplied. Defaults to 1024; omit for restore.
             memory_max_mib: Optional maximum memory allocation for fresh creation.
-            resources: Structured resource requests and limits. For cold checkpoint
-                restores, supply this to override CPU and memory; omit it to retain
-                the checkpoint's resources. Live checkpoints reject overrides.
+            resources: Structured resource requests and limits for fresh creation.
+                Checkpoint restores keep recorded resources and reject overrides.
             ingress_specs: Ports and protocols to expose from the runtime.
             egress_policy: Initial outbound network policy.
             idle_suspend_after_secs: Idle time before automatic suspension.
@@ -611,6 +627,7 @@ class RuntimeManager(_SdkOwnedHandle):
             The newly created runtime handle.
 
         Raises:
+            ValueError: If resource overrides are supplied for a checkpoint restore.
             ApiError: If the control plane rejects the create request.
             TimeoutError: If `wait` is true and the runtime is not ready in time.
 
@@ -671,8 +688,8 @@ class AsyncRuntimeManager(_SdkOwnedHandle):
         name: str | None = None,
         *,
         checkpoint_id: str | None = None,
-        vcpus: int = 1,
-        memory_mib: int = 1024,
+        vcpus: int | None = None,
+        memory_mib: int | None = None,
         memory_max_mib: int | None = None,
         resources: CreateRuntimeResources | Mapping[str, object] | None = None,
         ingress_specs: Sequence[IngressSpec | Mapping[str, object]] | None = None,
@@ -691,13 +708,12 @@ class AsyncRuntimeManager(_SdkOwnedHandle):
             name: Optional display name for the runtime.
             checkpoint_id: Checkpoint UUID to restore into the new runtime.
             vcpus: Requested virtual CPU count for fresh creation when
-                `resources` is not supplied.
+                `resources` is not supplied. Defaults to 1; omit for restore.
             memory_mib: Requested memory in MiB for fresh creation when
-                `resources` is not supplied.
+                `resources` is not supplied. Defaults to 1024; omit for restore.
             memory_max_mib: Optional maximum memory allocation for fresh creation.
-            resources: Structured resource requests and limits. For cold checkpoint
-                restores, supply this to override CPU and memory; omit it to retain
-                the checkpoint's resources. Live checkpoints reject overrides.
+            resources: Structured resource requests and limits for fresh creation.
+                Checkpoint restores keep recorded resources and reject overrides.
             ingress_specs: Ports and protocols to expose from the runtime.
             egress_policy: Initial outbound network policy.
             idle_suspend_after_secs: Idle time before automatic suspension.
@@ -716,6 +732,7 @@ class AsyncRuntimeManager(_SdkOwnedHandle):
             The newly created asynchronous runtime handle.
 
         Raises:
+            ValueError: If resource overrides are supplied for a checkpoint restore.
             ApiError: If the control plane rejects the create request.
             TimeoutError: If `wait` is true and the runtime is not ready in time.
 
@@ -1086,6 +1103,7 @@ class Runtime:
                 RuntimeStatus.ERROR,
                 RuntimeStatus.CRASHED,
                 RuntimeStatus.DELETING,
+                RuntimeStatus.DELETED,
             }:
                 raise RuntimeError(
                     f"runtime {self.id} entered {last_status.value} state"
@@ -1221,7 +1239,7 @@ class Runtime:
     def restore(
         self, checkpoint_id: str, *, name: str | None = None, **options: Any
     ) -> Runtime:
-        """Create a runtime from one of this runtime’s checkpoints."""
+        """Create a runtime from a checkpoint, preserving its recorded resources."""
         return self._client.runtimes.create(
             name or self.name, checkpoint_id=checkpoint_id, **options
         )
@@ -1452,6 +1470,7 @@ class AsyncRuntime:
                 RuntimeStatus.ERROR,
                 RuntimeStatus.CRASHED,
                 RuntimeStatus.DELETING,
+                RuntimeStatus.DELETED,
             }:
                 raise RuntimeError(
                     f"runtime {self.id} entered {last_status.value} state"
@@ -1515,7 +1534,7 @@ class AsyncRuntime:
     async def restore(
         self, checkpoint_id: str, *, name: str | None = None, **options: Any
     ) -> AsyncRuntime:
-        """Create a runtime from one of this runtime’s checkpoints."""
+        """Create a runtime from a checkpoint, preserving its recorded resources."""
         return await self._client.runtimes.create(
             name or self.name, checkpoint_id=checkpoint_id, **options
         )

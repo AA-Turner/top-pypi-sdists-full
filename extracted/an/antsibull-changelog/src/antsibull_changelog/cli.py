@@ -21,7 +21,7 @@ import subprocess
 import sys
 import traceback
 from collections.abc import Callable
-from typing import Literal, cast, overload
+from typing import Any, Literal, cast, overload
 
 try:
     import argcomplete
@@ -38,6 +38,7 @@ from .config import (
     ChangelogConfig,
     ChangelogOutput,
     CollectionDetails,
+    OutputTextFormat,
     PathsConfig,
     TextFormat,
 )
@@ -203,10 +204,11 @@ def create_argparser(program_name: str) -> argparse.ArgumentParser:
     common_build.add_argument(
         "--ansible-doc-bin", help="path to ansible-doc (overrides autodetect)"
     )
-    common_build.add_argument(
+    # pylint: disable-next=fixme
+    common_build.add_argument(  # TODO: remove!
         "--use-ansible-doc",
         action="store_true",
-        help="always use ansible-doc to find plugins",
+        help="always use ansible-doc to find plugins (deprecated)",
     )
     common_build.add_argument(
         "--refresh",
@@ -287,6 +289,11 @@ def create_argparser(program_name: str) -> argparse.ArgumentParser:
         help="If specified, will write the changelog in the given format. Must be specified"
         " if --output is specified and the configuration file mentions multiple output"
         " formats.",
+    )
+    generate_parser.add_argument(
+        "--output-no-section-ids",
+        action="store_true",
+        help="If specified, no section IDs will be generated. Is only used for MarkDown output.",
     )
 
     reformat_parser = subparsers.add_parser(
@@ -469,7 +476,8 @@ def do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
     args_refresh_fragments: RefreshFragments | None,
     args_refresh: bool,
     args_reload_plugins: bool,
-    args_use_ansible_doc: bool,
+    # pylint: disable-next=fixme
+    args_use_ansible_doc: bool = False,  # TODO: add runtime deprecation
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -486,7 +494,8 @@ def do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
     args_refresh_fragments: RefreshFragments | None,
     args_refresh: bool,
     args_reload_plugins: bool,
-    args_use_ansible_doc: bool,
+    # pylint: disable-next=fixme
+    args_use_ansible_doc: bool = False,  # TODO: add runtime deprecation
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -502,7 +511,8 @@ def do_refresh(  # pylint: disable=too-many-arguments,too-many-locals
     args_refresh_fragments: RefreshFragments | None,
     args_refresh: bool,
     args_reload_plugins: bool,
-    args_use_ansible_doc: bool,
+    # pylint: disable-next=unused-argument,fixme
+    args_use_ansible_doc: bool = False,  # TODO: add runtime deprecation
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -528,7 +538,6 @@ def do_refresh(  # pylint: disable=too-many-arguments,too-many-locals
                 config=config,
                 version=changes.latest_version,
                 force_reload=args_reload_plugins,
-                use_ansible_doc=args_use_ansible_doc,
                 add_plugin_period=config.add_plugin_period,
             )
         allow_removals = refresh_plugins == "allow-removal"
@@ -674,12 +683,21 @@ def _get_version_and_codename(
     return version, codename
 
 
+def _depr_use_ansible_doc(args: argparse.Namespace) -> None:
+    if args.use_ansible_doc:
+        LOGGER.warning(
+            "The --use-ansible-doc argument is deprecated. "
+            "It will be removed and become a syntax error in a future release."
+        )
+
+
 def command_release(args: argparse.Namespace) -> int:
     """
     Add a new release to a changelog.
 
     :arg args: Parsed arguments
     """
+    _depr_use_ansible_doc(args)
     ansible_doc_bin: str | None = args.ansible_doc_bin
     paths = set_paths(is_collection=args.is_collection, ansible_doc_bin=ansible_doc_bin)
 
@@ -710,7 +728,6 @@ def command_release(args: argparse.Namespace) -> int:
         config=config,
         version=version,
         force_reload=args.reload_plugins,
-        use_ansible_doc=args.use_ansible_doc,
         add_plugin_period=config.add_plugin_period,
     )
     fragments = load_fragments(paths, config)
@@ -727,7 +744,6 @@ def command_release(args: argparse.Namespace) -> int:
         args_refresh_fragments=args.refresh_fragments,
         args_refresh=args.refresh,
         args_reload_plugins=args.reload_plugins,
-        args_use_ansible_doc=args.use_ansible_doc,
         paths=paths,
         collection_details=collection_details,
         config=config,
@@ -761,7 +777,7 @@ def command_release(args: argparse.Namespace) -> int:
 
 def _get_outputs(
     config: ChangelogConfig, *, output: str | None, output_format: str | None
-):
+) -> list[ChangelogOutput]:
     if output is not None:
         if output_format is None:
             output_format_choices = {doc_output.format for doc_output in config.output}
@@ -773,32 +789,40 @@ def _get_outputs(
             output_format = list(output_format_choices)[0].to_extension()
         return [
             ChangelogOutput(
-                file=output, format=TextFormat.from_extension(output_format)
+                file=output, format=OutputTextFormat.from_extension(output_format)
             )
         ]
 
     if output_format:
-        text_format = TextFormat.from_extension(output_format)
+        output_text_format = OutputTextFormat.from_extension(output_format)
+        text_format: TextFormat | None
+        try:
+            text_format = TextFormat.from_extension(output_format)
+        except ValueError:
+            text_format = None
         return [
             doc_output
             for doc_output in config.output
-            if doc_output.format == text_format
+            if doc_output.format in (output_text_format, text_format)
         ]
 
     return config.output
 
 
+# pylint: disable-next=too-many-locals
 def command_generate(args: argparse.Namespace) -> int:
     """
     (Re-)generate the reStructuredText version of the changelog.
 
     :arg args: Parsed arguments
     """
+    _depr_use_ansible_doc(args)
     ansible_doc_bin: str | None = args.ansible_doc_bin
     paths = set_paths(is_collection=args.is_collection, ansible_doc_bin=ansible_doc_bin)
     version: str | None = args.version
     output: str | None = args.output
     only_latest: bool = args.only_latest
+    output_no_section_ids: bool = args.output_no_section_ids
     output_format: str | None = args.output_format
 
     collection_details = CollectionDetails(paths)
@@ -823,7 +847,6 @@ def command_generate(args: argparse.Namespace) -> int:
         args_refresh_fragments=args.refresh_fragments,
         args_refresh=args.refresh,
         args_reload_plugins=args.reload_plugins,
-        args_use_ansible_doc=args.use_ansible_doc,
         paths=paths,
         collection_details=collection_details,
         config=config,
@@ -840,6 +863,12 @@ def command_generate(args: argparse.Namespace) -> int:
         )
     doc_outputs = _get_outputs(config, output=output, output_format=output_format)
     for doc_output in doc_outputs:
+        renderer_kwargs: dict[str, Any] = {}
+        if output_no_section_ids and doc_output.format in (
+            TextFormat.MARKDOWN,
+            OutputTextFormat.MARKDOWN,
+        ):
+            renderer_kwargs["add_section_ids"] = False
         generate_changelog(
             paths,
             config,
@@ -847,6 +876,7 @@ def command_generate(args: argparse.Namespace) -> int:
             doc_output,
             flatmap=flatmap,
             only_latest=only_latest,
+            renderer_kwargs=renderer_kwargs,
         )
 
     return C.RC_SUCCESS

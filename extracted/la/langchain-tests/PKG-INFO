@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-tests
-Version: 1.1.9
+Version: 1.2.0
 Summary: Standard tests for LangChain implementations
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
@@ -11,30 +11,30 @@ Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>=1.4.0
+Requires-Python: <4.0.0,>=3.11.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: langchain-core<2.0.0,>=1.4.7
 Requires-Dist: numpy>=1.26.2; python_version < '3.13'
 Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
-Requires-Dist: pytest-asyncio<2.0.0,>=1.3.0
-Requires-Dist: pytest-benchmark
+Requires-Dist: pytest-asyncio>=1.3.0
+Requires-Dist: pytest-benchmark>=5.3.1
 Requires-Dist: pytest-codspeed
 Requires-Dist: pytest-recording
-Requires-Dist: pytest-socket<1.0.0,>=0.7.0
-Requires-Dist: pytest<10.0.0,>=9.0.3
-Requires-Dist: syrupy<6.0.0,>=5.0.0
-Requires-Dist: vcrpy<9.0.0,>=8.0.0
+Requires-Dist: pytest-socket>=0.7.0
+Requires-Dist: pytest>=9.0.3
+Requires-Dist: syrupy>=5.0.0
+Requires-Dist: vcrpy>=8.2.1
 Description-Content-Type: text/markdown
 
 # 🦜️🔗 langchain-tests
@@ -49,7 +49,7 @@ Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langc
 ## Quick Install
 
 ```bash
-pip install langchain-tests
+uv add langchain-tests
 ```
 
 ## 🤔 What is this?
@@ -128,5 +128,5 @@ as required is optional.
 
 - `chat_model_class` (required): The class of the chat model to be tested
 - `chat_model_params`: The keyword arguments to pass to the chat model constructor
-- `chat_model_has_tool_calling`: Whether the chat model can call tools. By default, this is set to `hasattr(chat_model_class, 'bind_tools)`
-- `chat_model_has_structured_output`: Whether the chat model can structured output. By default, this is set to `hasattr(chat_model_class, 'with_structured_output')`
+- `chat_model_has_tool_calling`: Whether the chat model can call tools. By default, this is set to `hasattr(chat_model_class, 'bind_tools')`
+- `chat_model_has_structured_output`: Whether the chat model can produce structured output. By default, this is set to `hasattr(chat_model_class, 'with_structured_output')`

@@ -11,6 +11,10 @@ pub(crate) struct RemoteIdListRevisions {
 }
 
 impl RemoteIdListRevisions {
+    pub(super) fn clear(&self) {
+        self.lists.store(Arc::default());
+    }
+
     pub(crate) fn get(&self, list: &str) -> Option<Arc<MembershipRevision>> {
         self.lists.load().get(list).cloned()
     }

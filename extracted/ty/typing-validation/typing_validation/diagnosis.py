@@ -23,7 +23,7 @@ here is the value the validator saw, undisturbed.
 # path to diagnostics duty.
 
 import enum
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Buffer, Collection, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import (
     NewType,
@@ -37,6 +37,7 @@ from typing import (
     Tuple,
     Union,
 )
+from ._compat import is_bytestring_origin
 from ._display import safe_repr, safe_str
 from .nodes import TypeForm, TypeNode, node_for
 from .plugins import registered_validator
@@ -60,6 +61,9 @@ class Detail(enum.Enum):
     NOT_NONE = "not None"
     """The type is ``None`` and the value is not."""
 
+    NOT_THE_SENTINEL = "not the sentinel"
+    """The type is a sentinel (PEP 661) and the value is not that object."""
+
     NO_LITERAL = "no matching literal"
     """The value equals none of the literals, at its own type."""
 
@@ -71,6 +75,9 @@ class Detail(enum.Enum):
 
     NON_STRING_KEY = "key is not a string"
     """A ``TypedDict`` key that is not a string."""
+
+    UNEXPECTED_KEY = "key not allowed"
+    """A key that a closed ``TypedDict`` does not declare."""
 
     NOT_A_CLASS = "not a class"
     """``Type[T]`` was given something that is not a class."""
@@ -236,7 +243,11 @@ class ValidationFailure:
 # it, and this is the only place that decides what to show.
 
 
-_NAMELESS_DETAILS = (Detail.MISSING_KEY, Detail.NON_STRING_KEY)
+_NAMELESS_DETAILS = (
+    Detail.MISSING_KEY,
+    Detail.NON_STRING_KEY,
+    Detail.UNEXPECTED_KEY,
+)
 """
 The details whose message never names the type it is about.
 
@@ -270,9 +281,11 @@ def _plural(n: int, noun: str, /) -> str:
 def _says(f: ValidationFailure, /) -> str:
     """What went wrong, in one line, at the place worth looking at."""
     if f.detail is Detail.MISSING_KEY:
-        return f"missing required key {safe_repr(f.location.at)}"  # type: ignore[union-attr]
+        return f"missing required key {safe_repr(_missing_key(f.val, f.t))}"
     if f.detail is Detail.NON_STRING_KEY:
         return f"keys must be strings, got {type(f.val).__name__}"
+    if f.detail is Detail.UNEXPECTED_KEY:
+        return f"key not allowed: {safe_repr(_unexpected_key(f.val, f.t))}"
     if f.detail is Detail.WRONG_LENGTH:
         return f"expected {_show(f.t)}, got {_plural(len(f.val), 'element')}"
     if f.detail is Detail.NO_LITERAL:
@@ -294,7 +307,7 @@ def _says(f: ValidationFailure, /) -> str:
     )
 
 
-def _step(f: ValidationFailure, /) -> str:
+def _step(f: ValidationFailure, container: Any, /) -> str:
     """How to reach this failure from the value that contains it, in code."""
     if f.location is None:
         return ""
@@ -311,6 +324,10 @@ def _step(f: ValidationFailure, /) -> str:
     if place is Place.VALUE_AT:
         return f"[{safe_repr(at)}]"
     if place is Place.FIELD:
+        # A TypedDict's fields are keys of a mapping; a named tuple's are
+        # attributes. Both are fields, but they are not reached the same way.
+        if isinstance(container, Mapping):
+            return f"[{safe_repr(at)}]"
         return f".{at}"
     return ""
 
@@ -337,7 +354,7 @@ def _locate(root: ValidationFailure, /) -> tuple[str, ValidationFailure]:
     while True:
         if f.detail is Detail.IN_COMPONENT and f.causes:
             child = f.causes[0]
-            step = _step(child)
+            step = _step(child, f.val)
             f = child
             if step:
                 path += step
@@ -496,6 +513,10 @@ def _expand(val: Any, t: Any, location: Location | None, /) -> _Frame:
         if val is None:
             return _ok(val, t, location)
         return _bad(val, t, location, Detail.NOT_NONE)
+    if form is TypeForm.SENTINEL:
+        if val is t:
+            return _ok(val, t, location)
+        return _bad(val, t, location, Detail.NOT_THE_SENTINEL)
     if form is TypeForm.CLASS or form is TypeForm.PROTOCOL:
         if isinstance(val, _isinstance_target(node)):
             return _ok(val, t, location)
@@ -613,7 +634,11 @@ says both — ``UserId``, and then the ``int`` it turned out not to be.
 def _isinstance_target(node: TypeNode, /) -> Any:
     t = node.t
     origin = get_origin(t)
-    return t if origin is None else origin
+    if origin is None:
+        return t
+    if is_bytestring_origin(origin):
+        return Buffer
+    return origin
 
 
 def _expand_tuple(
@@ -645,24 +670,42 @@ def _expand_typed_dict(
 ) -> _Frame:
     if not isinstance(val, Mapping):
         return _bad(val, t, location, Detail.NOT_AN_INSTANCE)
-    for key in t.__required_keys__:
-        if key not in val:
-            return _bad(
-                val,
-                t,
-                Location(Place.FIELD, key) if location is None else location,
-                Detail.MISSING_KEY,
-            )
+    if _missing_key(val, t) is not None:
+        return _bad(val, t, location, Detail.MISSING_KEY)
     fields = dict(zip(node.labels or (), node.children))
+    extra = node.extra_items
     frame = _ok(val, t, location)
     for key, item in val.items():
         if not isinstance(key, str):
             return _bad(val, t, location, Detail.NON_STRING_KEY)
         child = fields.get(key)
-        if child is None:
-            continue
-        frame.todo.append((item, child.t, Location(Place.FIELD, key)))
+        if child is not None:
+            frame.todo.append((item, child.t, Location(Place.FIELD, key)))
+        elif node.closed:
+            return _bad(val, t, location, Detail.UNEXPECTED_KEY)
+        elif extra is not None:
+            frame.todo.append((item, extra.t, Location(Place.VALUE_AT, key)))
     return frame
+
+
+def _unexpected_key(val: Any, t: Any, /) -> str | None:
+    """The first key of a mapping, in its own order, that a ``TypedDict`` lacks."""
+    for key in val:
+        if isinstance(key, str) and key not in t.__annotations__:
+            return key
+    return None
+
+
+def _missing_key(val: Any, t: Any, /) -> str | None:
+    """
+    The first required key of a ``TypedDict`` that a mapping lacks, in sorted
+    order so that the one reported does not vary from run to run.
+    """
+    keys: list[str] = sorted(t.__required_keys__)
+    for key in keys:
+        if key not in val:
+            return key
+    return None
 
 
 def _expand_type_of(

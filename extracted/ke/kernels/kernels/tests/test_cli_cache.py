@@ -8,8 +8,8 @@ import sys
 import pytest
 from huggingface_hub import scan_cache_dir
 
-from kernels.cli import cache as cache_cli
-from kernels.cli import main
+from kernels._internals.cli import cache as cache_cli
+from kernels._internals.cli import main
 
 REPO_ID = "kernels-community/example"
 COMMIT = "a" * 40
@@ -310,7 +310,8 @@ def test_cache_ls_uses_the_configured_cache_directory(cache_dir, tmp_path, monke
 def test_cache_ls_uses_hugging_face_cache_environment_variables(tmp_path, env_var):
     cache_dir = tmp_path if env_var == "HF_HUB_CACHE" else tmp_path / "hub"
     make_snapshot(cache_dir)
-    env = {key: value for key, value in os.environ.items() if key not in {"KERNELS_CACHE", "HF_HUB_CACHE", "HF_HOME"}}
+    scrubbed = {"KERNELS_CACHE", "HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE", "HF_HOME"}
+    env = {key: value for key, value in os.environ.items() if key not in scrubbed}
     env[env_var] = str(tmp_path)
     env["HF_HUB_OFFLINE"] = "1"
     result = subprocess.run(

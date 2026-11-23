@@ -1,6 +1,14 @@
 schema = 1
 
 [[word]]
+text = "alhaj"
+style = { issue = 1469, decided = 2026-11-19, expands = "al-hajj, one who has made the Hajj, written before the name in Pakistan and Bangladesh", note = "opening a name it was the title wherever counted (UK PSC 2, JRC-Names 1, ORCID 1), save an ORCID byline writing the family name Alhaj first; ORCID's 2025 extract holds it in 17 given boxes (Sudan 5) and 269 family boxes, a surname written last, which a leading title does not reach (2026-11-19)" }
+
+[[word]]
+text = "alhajj"
+style = { same_as = "alhaj", issue = 1469, decided = 2026-11-19, expands = "al-hajj, the spelling Bangladesh's parliament writes", note = "ORCID's 2025 extract holds it in 5 given boxes and 47 family boxes; no corpus name opens with it (2026-11-19)" }
+
+[[word]]
 text = "hajji"
 style = { expands = "one who has made the Hajj" }
 
@@ -13,6 +21,8 @@ family = { us_census_2010 = 6462, wikidata = 60, as_of = 2026-10-27, note = "US 
 [[word]]
 text = "cheikh"
 style = { addresses = "given", gender = "m", same_as = "sheikh", expands = "the French transliteration, 'Cheikh Anta Diop'" }
+given = { note = "a given name in the Maghreb and Mauritania, counted 2026-11-21 (tools/name_usage.py --boxes): ORCID given boxes Mauritania 13 (3.79%), Algeria 9, Morocco 4, Tunisia 1; fr.toml's readings carry the Senegalese and Wikidata totals. Without it strict ar, which drops fr.toml's given reading, read it as a title opening a name (rules/H9): against strict ar, the reading fixes 12 ORCID records of Algeria, Morocco and Mauritania and breaks none (config_diff.py score on 81a24221) (#1463)" }
+family = { note = "a family name in the Maghreb and Mauritania, counted 2026-11-21 (tools/name_usage.py --boxes): ORCID family boxes Tunisia 17, Algeria 14, Morocco 11, Mauritania 7; it moves no role, and names ar in Reading.languages where strict ar read a family Cheikh with no file (#1463)" }
 
 [[word]]
 text = "shaik"
@@ -70,6 +80,30 @@ text = "شيخ"
 excluded = { style = { reason = "bare, it collides with the common female given name Shaikha; الشيخ, with the article, ships", issue = 269 } }
 
 [[word]]
+text = "أ"
+academic = { addresses = "given", expands = "Ustadh (أستاذ) written short: professor, or Mr.", note = "written short with a full stop (the fold leaves the bare letter, which reads as the title too); Arabic script writes no initials (decisions/script-properties), so it swallows none: ORCID's Arabic-script names open with أ. 15 times, every one before a name; the King Saud directory 6 of 401 (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "ا"
+academic = { addresses = "given", same_as = "أ", expands = "Ustadh written short, its alif without the hamza", note = "ORCID Arabic-script records open with ا. 5 times and write it in ا.م.د. and ا.د. (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "أ.د"
+academic = { addresses = "given", expands = "professor doctor (أستاذ دكتور) written short", note = "ORCID Arabic-script records open with it 40 times; the King Saud directory 23 of 401; Egypt's House of Representatives 2 (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "ا.د"
+academic = { addresses = "given", same_as = "أ.د", expands = "professor doctor written short, its alif without the hamza", note = "ORCID Arabic-script records open with it 3 times (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "أ.م.د"
+academic = { addresses = "given", expands = "assistant professor doctor (أستاذ مساعد دكتور) written short", note = "ORCID Arabic-script records open with it 11 times (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "ا.م.د"
+academic = { addresses = "given", same_as = "أ.م.د", expands = "assistant professor doctor written short, its alif without the hamza", note = "ORCID Arabic-script records open with it 4 times (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
 text = "أستاذ"
 academic = { addresses = "given", gender = "m", issue = 269, expands = "professor" }
 
@@ -80,6 +114,10 @@ academic = { addresses = "given", gender = "f", issue = 269, expands = "professo
 [[word]]
 text = "الأستاذ"
 academic = { addresses = "given", gender = "m", issue = 269, expands = "the professor; also an honorific, Mr." }
+
+[[word]]
+text = "الاستاذ"
+academic = { addresses = "given", same_as = "الأستاذ", expands = "the professor, its alif without the hamza", note = "ORCID Arabic-script records open with it 10 times (most before الدكتور), Egypt's House of Representatives once; every one moves to the title and none from a name (2026-11-19)", issue = 1149, decided = 2026-11-19 }
 
 [[word]]
 text = "الأستاذة"
@@ -102,12 +140,12 @@ text = "الدکتورة"
 academic = { addresses = "given", gender = "f", same_as = "الدكتورة", issue = 1151, expands = "the doctor, Persian letters ی and ک" }
 
 [[word]]
-text = "د"
-excluded = { academic = { reason = "the abbreviation د.: the edge-period fold leaves bare د, a single letter that would swallow initials (the bare-κ trap)", issue = 269 } }
-
-[[word]]
 text = "دكتور"
 academic = { addresses = "given", gender = "m", issue = 269, expands = "doctor" }
+
+[[word]]
+text = "د"
+academic = { addresses = "given", same_as = "دكتور", expands = "Dr., دكتور written short", note = "written short with a full stop (the fold leaves the bare letter, which reads as the title too); Arabic script writes no initials (decisions/script-properties), so it swallows none: ORCID's Arabic-script names open with د. 190 times and with a bare د 33; Egypt's House of Representatives with د 13 and د. 7; the King Saud directory 63 of 401 (2026-11-19)", issue = 1149, decided = 2026-11-19 }
 
 [[word]]
 text = "دکتور"
@@ -120,6 +158,18 @@ academic = { addresses = "given", gender = "f", issue = 269, expands = "doctor" 
 [[word]]
 text = "دکتورة"
 academic = { addresses = "given", gender = "f", same_as = "دكتورة", issue = 1151, expands = "doctor, Persian letters ی and ک" }
+
+[[word]]
+text = "م"
+academic = { addresses = "given", expands = "lecturer (مدرس) or engineer (مهندس) written short", note = "written short with a full stop (the fold leaves the bare letter, which reads as the title too); Arabic script writes no initials (decisions/script-properties), so it swallows none: ORCID's Arabic-script names open with م. 11 times; Egypt's House of Representatives with a bare م 3 (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "م.د"
+academic = { addresses = "given", expands = "lecturer doctor (مدرس دكتور) written short", note = "ORCID Arabic-script records open with it 11 times (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "م.م"
+academic = { addresses = "given", expands = "assistant lecturer (مدرس مساعد) written short", note = "ORCID Arabic-script records open with it 22 times (2026-11-19)", issue = 1149, decided = 2026-11-19 }
 
 [[word]]
 text = "مهندس"
@@ -136,12 +186,20 @@ given = { us_ssa = 2398, wikidata = 141, as_of = 2026-10-26, note = "US SSA: mal
 family = { us_census_2010 = 1241, wikidata = 13, as_of = 2026-10-26 }
 
 [[word]]
+text = "moulana"
+religious = { issue = 1469, decided = 2026-11-19, expands = "mawlana, a cleric, the spelling of Pakistani and Bangladeshi lists", note = "opening a name it was the title wherever counted (Pakistan's National Assembly 2, UK PSC 3, JRC-Names 1); ORCID's 2025 extract holds it in 6 given boxes and 16 family boxes (2026-11-19). The spelling maulana is left out, an Indonesian given name and surname (decisions/indic-honorifics, 2026-11-19 #1469)" }
+
+[[word]]
 text = "mufti"
 religious = {}
 
 [[word]]
 text = "murshid"
 religious = { expands = "a Sufi guide" }
+
+[[word]]
+text = "qari"
+religious = { issue = 1469, decided = 2026-11-19, expands = "a reciter of the Quran", note = "opening a name it was the title wherever counted (ORCID 1, UK PSC 5, JRC-Names 53); ORCID's 2025 extract holds it in 9 given boxes (Pakistan 4) and 43 family boxes, a surname written last (Saudi Arabia 10); US SSA 10 births (2026-11-19)" }
 
 [[word]]
 text = "الحاج"
@@ -172,8 +230,28 @@ text = "سلطان"
 excluded = { nobility = { reason = "Sultan is a common given name", issue = 269 } }
 
 [[word]]
+text = "اللواء"
+military = { addresses = "given", expands = "the major general", note = "opens 4 names of Egypt's House of Representatives, each moving to the title and none from a name (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "لواء"
+military = { addresses = "given", same_as = "اللواء", expands = "major general, without the article", note = "opens 2 names of Egypt's House of Representatives, each moving to the title (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
 text = "vizier"
 office = {}
+
+[[word]]
+text = "السفيرة"
+office = { addresses = "given", gender = "f", expands = "the ambassador", note = "opens 1 name of Egypt's House of Representatives, moving to the title (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "المستشار"
+office = { addresses = "given", gender = "m", expands = "the counsellor, a judge's title in Egypt", note = "opens 1 name of Egypt's House of Representatives, moving to the title (2026-11-19)", issue = 1149, decided = 2026-11-19 }
+
+[[word]]
+text = "المستشارة"
+office = { addresses = "given", gender = "f", expands = "the counsellor, a judge's title in Egypt", note = "opens 1 name of Egypt's House of Representatives, moving to the title (2026-11-19)", issue = 1149, decided = 2026-11-19 }
 
 [[word]]
 text = "الأب"
@@ -565,23 +643,28 @@ note = "formal script attaches و to the following word (وفاطمة), so a sta
 text = "abd"
 [word.bound_given]
 expands = "servant of"
-note = "the bare transliteration, which abdul/abdel/abdal do not match: 'abd Allah Smith' and 'Abd al-Rahman Smith' read given 'abd Allah' and 'Abd al-Rahman'; the three-token 'abd al rahman smith' is not joined, al being a particle that chains forward. Also the credential ABD in en.toml; position decides at the two ends but not in a family comma's given slot (decisions/P5)"
+completes_any = true
+note = "the bare transliteration, which abdul/abdel/abdal do not match: 'abd Allah Smith' and 'Abd al-Rahman Smith' read given 'abd Allah' and 'Abd al-Rahman'; the three-token 'abd al rahman smith' is not joined, al being a particle that chains forward. Also the credential ABD in en.toml; position decides at the two ends but not in a family comma's given slot (decisions/P5), save before a plain name word there, which it completes ('Haddad, Nadia Abd Karim' reads middle 'Abd Karim'). completes_any: joined with any plain name word after it past the first name word, the pair placed by position (rules/P12, #1464)"
 
 [[word]]
 text = "abdul"
-bound_given = { expands = "servant of the" }
+[word.bound_given]
+expands = "servant of the"
+completes_any = true
+long_names_only = true
+note = "completes_any: joined with any plain name word after it past the first name word, the pair placed by position (rules/P12, #1464). long_names_only: only in a name of four name words or more, for the filers of a three-word X Abdul Y split it both ways, by the boxes filed for abdul between two words in the three-word names of each population (2026-11-19): family 'Abdul Y' against family 'Y', ORCID Malaysia 183 to 2, Pakistan 35 to 14, Iraq 31 to 1, Bangladesh 10 to 60; PSC British 43 to 172, Pakistani 27 to 29, Indian 10 to 21, Bangladeshi 1 to 21; PatentsView Malaysia 8 to 9, Saudi Arabia 2 to 11 (decisions/P12)"
 
 [[word]]
 text = "abdal"
-bound_given = { expands = "servant of the", same_as = "abdul" }
+bound_given = { expands = "servant of the", same_as = "abdul", completes_any = true }
 
 [[word]]
 text = "abdel"
-bound_given = { expands = "servant of the", same_as = "abdul" }
+bound_given = { expands = "servant of the", same_as = "abdul", completes_any = true }
 
 [[word]]
 text = "abou"
-bound_given = { expands = "father of", same_as = "abu" }
+bound_given = { expands = "father of", same_as = "abu", completes_any = true }
 
 [[word]]
 text = "umm"
@@ -616,12 +699,14 @@ completed_by = [
     "الاول",
     "الاکرم",
     "البارئ",
+    "البارى",
     "الباري",
     "الباری",
     "الباسط",
     "الباطن",
     "الباعث",
     "الباقر",
+    "الباقى",
     "الباقي",
     "الباقی",
     "البديع",
@@ -650,6 +735,7 @@ completed_by = [
     "الحلیم",
     "الحميد",
     "الحمید",
+    "الحى",
     "الحي",
     "الحکم",
     "الحکیم",
@@ -683,6 +769,7 @@ completed_by = [
     "السميع",
     "السمیع",
     "السند",
+    "الشافى",
     "الشافي",
     "الشافی",
     "الشكور",
@@ -694,9 +781,11 @@ completed_by = [
     "الصمد",
     "الضار",
     "الظاهر",
+    "العاطى",
     "العاطي",
     "العاطی",
     "العال",
+    "العالى",
     "العالي",
     "العالی",
     "العباس",
@@ -706,12 +795,14 @@ completed_by = [
     "العظيم",
     "العظیم",
     "العفو",
+    "العلى",
     "العلي",
     "العليم",
     "العلی",
     "العلیم",
     "الغفار",
     "الغفور",
+    "الغنى",
     "الغني",
     "الغنی",
     "الفتاح",
@@ -721,11 +812,13 @@ completed_by = [
     "القدير",
     "القدیر",
     "القهار",
+    "القوى",
     "القوي",
     "القوی",
     "القيوم",
     "القیوم",
     "الكاظم",
+    "الكافى",
     "الكافي",
     "الكبير",
     "الكريم",
@@ -740,8 +833,10 @@ completed_by = [
     "المالک",
     "المانع",
     "المبدئ",
+    "المبدى",
     "المبدي",
     "المبدی",
+    "المتعالى",
     "المتعالي",
     "المتعالی",
     "المتكبر",
@@ -753,9 +848,11 @@ completed_by = [
     "المجیب",
     "المجید",
     "المحسن",
+    "المحصى",
     "المحصي",
     "المحصی",
     "المحمود",
+    "المحيى",
     "المحيي",
     "المحیی",
     "المذل",
@@ -765,10 +862,12 @@ completed_by = [
     "المطلب",
     "المعبود",
     "المعز",
+    "المعطى",
     "المعطي",
     "المعطی",
     "المعيد",
     "المعید",
+    "المغنى",
     "المغني",
     "المغنی",
     "المقتدر",
@@ -784,6 +883,7 @@ completed_by = [
     "المنان",
     "المنتقم",
     "المنعم",
+    "المهدى",
     "المهدي",
     "المهدی",
     "المهيمن",
@@ -791,23 +891,28 @@ completed_by = [
     "الموجود",
     "الموخر",
     "المولى",
+    "المولي",
     "المولی",
     "المومن",
     "الناصر",
     "النافع",
+    "النبى",
     "النبي",
     "النبی",
     "النور",
+    "الهادى",
     "الهادي",
     "الهادی",
     "الواجد",
     "الواحد",
     "الوارث",
     "الواسع",
+    "الوالى",
     "الوالي",
     "الوالی",
     "الودود",
     "الوكيل",
+    "الولى",
     "الولي",
     "الولی",
     "الوهاب",
@@ -817,69 +922,85 @@ completed_by = [
     "الکبیر",
     "الکریم",
 ]
-note = "\"abd\" (servant of): the script writes Abdul Rahman as two words, عبد + الرحمن, the article attaching to the word after it, so عبد alone covers the abdul/abdel/abdal spellings -- عبد الرحمن -> given \"عبد الرحمن\". completed_by lists the words that make it one name unit past the first name word (rules/P12): the 97 one-word names of God, الله, 27 other divine epithets and 14 devotional completions (المطلب, النبي, الحسين, المسيح) found after it in ORCID and JRC-Names, each with its hamza-less and Persian spellings -- سعيد عبد الله -> family \"عبد الله\". An unlisted word after it is left alone: a short given name stands alone there (نوال عبد هاشم), and a nisba surname opens with the article too (عبد القريشي; 2026-11-04, #694, decisions/P12). The Latin abdul lists none: there the pair is a middle name as often as a family (decisions/P12)"
-issue = [269, 694]
+note = "\"abd\" (servant of): the script writes Abdul Rahman as two words, عبد + الرحمن, the article attaching to the word after it, so عبد alone covers the abdul/abdel/abdal spellings -- عبد الرحمن -> given \"عبد الرحمن\". completed_by lists the words that make it one name unit past the first name word (rules/P12): the 97 one-word names of God, الله, 27 other divine epithets and 14 devotional completions (المطلب, النبي, الحسين, المسيح) found after it in ORCID and JRC-Names, each with its hamza-less and Persian spellings and, for each word ending in ي, the spelling with a final ى that Egyptian names write, with المولي for المولى, the converse (#1337) -- سعيد عبد الله -> family \"عبد الله\". An unlisted word after it is left alone: a short given name stands alone there (نوال عبد هاشم), and a nisba surname opens with the article too (عبد القريشي; 2026-11-04, #694, decisions/P12). The Latin spellings list none, being written completes_any instead (#1464), and a word written second joins the word before it from its own bound_second reading (الدين, الله, #1072; decisions/P12)"
+issue = [269, 694, 1337]
+
+[[word]]
+text = "الدين"
+bound_second = { expands = "of the faith", issue = 1072, note = "behind any plain word, the word before it varying (عز، نور، صلاح، علاء، سعد، ...: 70 distinct first words in the local corpora, several given names alone); the pair is the given name where it opens the name and the family where it ends it, counted in Arabic script 2026-11-19: Egypt's House 10 opening and 7 ending, all read split before; JRC-Names 73 opening and 21 ending; ORCID 38 opening and 20 ending (distinct names, a two-word name counted as opening, which the join leaves apart; decisions/P12's recipe; rules/P12, #1072)" }
+
+[[word]]
+text = "الغنى"
+bound_second = { expands = "the Self-Sufficient, a name of God", completes = ["ذو"], issue = 1072, note = "joined behind ذو alone: ذو الغنى, a given name (rules/P12, #1072)" }
+
+[[word]]
+text = "الفقار"
+bound_second = { expands = "the vertebrae, Dhu al-Fiqar", completes = ["ذو"], issue = 1072, note = "joined behind ذو alone: ذو الفقار, a given name (rules/P12, #1072)" }
+
+[[word]]
+text = "الله"
+bound_second = { expands = "God", issue = 1072, note = "behind any plain word but عبد, which P12 joins forward from its own list (فتح، نصر، شكر، فضل، ...: 99 distinct first words in the local corpora); counted in Arabic script 2026-11-19: Egypt's House 8 ending, all read split before; JRC-Names 88 opening and 28 ending; ORCID 19 opening and 21 ending (distinct names, a two-word name counted as opening, which the join leaves apart; decisions/P12's recipe; rules/P12, #1072)" }
 
 # -- BEGIN generated by tools/vocab/familiar.py; edit the tool, not this block --
 
 [[word]]
 text = "avi"
-familiar = { short_for = ["abraham", "avraham"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["abraham", "avraham"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hakim"
-familiar = { short_for = ["abdulhakim"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["abdulhakim"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "misha"
-familiar = { short_for = ["michael"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["michael"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "abdullah"
-spelling = { spelling_of = ["abdallah"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["abdallah"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "ahmed"
-spelling = { spelling_of = ["ahmad"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["ahmad"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hany"
-spelling = { spelling_of = ["hani"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["hani"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hisham"
-spelling = { spelling_of = ["hesham"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["hesham"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hussam"
-spelling = { spelling_of = ["husam"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["husam"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "khalid"
-spelling = { spelling_of = ["khaled"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["khaled"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "mohamed"
-spelling = { spelling_of = ["mohamad"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["mohamad"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "mohammad"
-spelling = { spelling_of = ["mohamed"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["mohamed"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "mohammed"
-spelling = { spelling_of = ["mohamed", "mohammad"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["mohamed", "mohammad"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "muhammad"
-spelling = { spelling_of = ["mohamed"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["mohamed"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "sayed"
-spelling = { spelling_of = ["elsayed"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["elsayed"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "yasser"
-spelling = { spelling_of = ["yaser"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["yaser"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 # -- END generated --

@@ -11,10 +11,10 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 import enum
 import importlib
 import re
-import types
 import warnings
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from collections.abc import Callable, Sequence
+from functools import partial
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     from packaging.version import Version
@@ -22,8 +22,9 @@ if TYPE_CHECKING:
 from deprecate._frames import _caller_stacklevel
 from deprecate.audit._findings import _Check, _Finding, _make_finding, _Rule
 from deprecate.audit._scan import find_deprecation_wrappers
+from deprecate.audit._static import StaticScanResult, _static_result_rows
 from deprecate.audit._version import _resolve_package_version
-from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject, validate_deprecation_wrapper
+from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject
 
 
 class DeprecationStatus(str, enum.Enum):
@@ -196,60 +197,6 @@ def _parse_version(version_string: str) -> "Version":
         ) from err
 
 
-def _check_deprecated_wrapper_expiry(func: Union[Callable, types.ModuleType], current_version: str) -> None:
-    """Check if a deprecated wrapper has passed its scheduled removal version.
-
-    This is an internal helper function used by :func:`~deprecate.audit.validate_deprecation_expiry`.
-    It verifies that deprecated code is actually removed when it reaches its scheduled removal deadline.
-
-    The function validates that the wrapper is properly decorated, extracts the removal version from its metadata,
-    and compares it against the current version using semantic versioning. If the current version is greater than or
-    equal to the scheduled removal version, it raises an AssertionError indicating the code must be deleted.
-
-    Args:
-        func: The deprecated callable to check. Must have a ``__deprecation_config__`` attribute set by the
-            ``@deprecated`` decorator.
-        current_version: The current version of the package (e.g., "2.0.0"). Should follow PEP 440 versioning
-            conventions.
-
-    Raises:
-        ValueError: If the wrapper has missing or invalid ``__deprecation_config__`` metadata (expected
-            :class:`~deprecate._types.DeprecationConfig`).
-        ValueError: If the ``remove_in`` field is missing from the deprecation metadata.
-        AssertionError: If the current version is greater than or equal to the scheduled removal version, indicating
-            the code should have been removed.
-
-    """
-    # First validate that the wrapper has proper deprecation metadata
-    info = validate_deprecation_wrapper(func)
-
-    # Extract the remove_in version from the metadata
-    remove_in = info.deprecated_info.remove_in
-    if not remove_in:
-        raise ValueError(
-            f"{_format_subject(info)} does not have a 'remove_in' version specified in its deprecation metadata."
-        )
-
-    # Parse both versions for proper semantic version comparison
-    # Let ImportError propagate with its helpful install message
-    try:
-        current_ver = _parse_version(current_version)
-    except ValueError as err:
-        raise ValueError(f"Invalid current_version '{current_version}': {err}") from err
-
-    try:
-        remove_ver = _parse_version(remove_in)
-    except ValueError as err:
-        raise ValueError(f"Invalid remove_in '{remove_in}' for {_format_subject(info)}: {err}") from err
-
-    # Check if the current version has reached or passed the removal deadline
-    if current_ver >= remove_ver:
-        raise AssertionError(
-            f"{_format_subject(info)} was scheduled for removal in version {remove_in} "
-            f"but still exists in version {current_version}. Please delete this deprecated code."
-        )
-
-
 def _get_package_version(package_name: str) -> str:
     """Auto-detect the version of a package for the audit API, raising when it cannot be determined.
 
@@ -296,10 +243,48 @@ def _check_expiry_for_callables(results: list[DeprecationWrapperInfo], current_v
     return [finding.message for finding in _expiry_findings(results, current_version)]
 
 
-def _expiry_findings(results: list[DeprecationWrapperInfo], current_version: str) -> list[_Finding]:
+def _warn_version_skip(message: str, callback: Optional[Callable[[], None]]) -> None:
+    """Record a skipped version check before warning, swallowing only its own warning when recorded.
+
+    A warning promoted to an error is suppressed only when a callback recorded the gap. Failures from a custom
+    warning hook propagate, while the gap remains recorded.
+
+    Examples:
+        >>> import warnings
+        >>> skipped = []
+        >>> with warnings.catch_warnings():
+        ...     warnings.simplefilter("error", UserWarning)
+        ...     _warn_version_skip("invalid version", partial(skipped.append, "gap"))
+        >>> skipped
+        ['gap']
+
+    """
+    if callback is not None:
+        callback()
+    warning = UserWarning(message)
+    try:
+        warnings.warn(warning, stacklevel=_caller_stacklevel())
+    except UserWarning as ex:
+        # Suppress only this warning under an error filter, never a custom warning hook's own failure.
+        if callback is None or ex is not warning:
+            raise
+
+
+def _expiry_findings(
+    results: list[DeprecationWrapperInfo],
+    current_version: str,
+    *,
+    on_unparsable: Optional[Callable[[DeprecationWrapperInfo], None]] = None,
+) -> list[_Finding]:
     """Return one ``expired`` finding per wrapper whose ``remove_in`` is at or before *current_version*.
 
     A wrapper with an unparsable ``remove_in`` is skipped with a warning, so one typo never aborts the batch.
+
+    Args:
+        results: Pre-scanned wrapper info list.
+        current_version: Current package version string for comparison (PEP 440).
+        on_unparsable: Called with each wrapper skipped for an unparsable ``remove_in``, before its warning, so a
+            caller can record the skip on a channel the audited package cannot silence (the CLI records a gap).
 
     Raises:
         ImportError: If the ``packaging`` library is not installed.
@@ -316,13 +301,14 @@ def _expiry_findings(results: list[DeprecationWrapperInfo], current_version: str
             remove_ver = _parse_version(remove_in)
         except ValueError:
             # An unparsable ``remove_in`` (e.g. a typo) would make the wrapper permanently un-expirable and the
-            # batch gate would never flag it. Warn per skip so the misconfiguration is visible rather than silent
-            # — the single-callable path raises; here a warning keeps the batch scan going for the rest.
-            warnings.warn(
+            # batch gate would never flag it. Warn per skip so the misconfiguration is visible rather than silent,
+            # while the batch scan keeps going for the rest.
+            message = (
                 f"{_format_subject(info)} has an unparsable `remove_in` version `{remove_in}`; "
-                "its expiry cannot be checked until the version string is fixed.",
-                stacklevel=_caller_stacklevel(),
+                "its expiry cannot be checked until the version string is fixed."
             )
+            callback = partial(on_unparsable, info) if on_unparsable is not None else None
+            _warn_version_skip(message, callback)
             continue
         if current_ver >= remove_ver:
             message = (
@@ -334,7 +320,7 @@ def _expiry_findings(results: list[DeprecationWrapperInfo], current_version: str
 
 
 def validate_deprecation_expiry(
-    module: Union[Any, str],  # noqa: ANN401
+    module: Union[Any, str, StaticScanResult],  # noqa: ANN401
     current_version: Optional[str] = None,
     recursive: bool = True,
     include_members: bool = True,
@@ -347,18 +333,21 @@ def validate_deprecation_expiry(
     their scheduled removal version. It's designed for CI/CD pipelines to automatically detect and report zombie code
     across a codebase.
 
-    The function uses :func:`~deprecate.audit.find_deprecation_wrappers` to discover all deprecated wrappers,
-    then checks each one against
-    the current version. Any wrappers that have reached or passed their removal deadline are collected and reported.
+    For module inputs, the function uses :func:`~deprecate.audit.find_deprecation_wrappers` to discover deprecated
+    wrappers; a static result supplies its already-scanned rows. Wrappers that have reached or passed their removal
+    deadline are collected and reported.
 
     Args:
         module: A Python module or package to scan. Can be:
             - Imported module object (e.g., ``import my_package; validate_deprecation_expiry(my_package, "2.0")``)
             - String module path (e.g., ``validate_deprecation_expiry("my_package.submodule", "2.0")``)
+            - :class:`~deprecate.audit.StaticScanResult`, checked without imports or another scan; only rows with
+              resolved expiry settings are checked. Inspect its ``gaps`` for incomplete coverage.
         current_version: The current version of your package to compare against removal deadlines (e.g., ``"2.0.0"``).
             If None, auto-detects the version of the top-level package of the module path (e.g. ``"mypackage"``
             for ``"mypackage.submodule"``) the way the CLI does: installed metadata under the import name, then
             under the distribution that ships it, then the package's string ``__version__``.
+            For a static result, uses its ``version`` instead, raising ``ImportError`` if it is unavailable.
         recursive: If True (default), recursively scan submodules. If False, only scan the top-level module.
         include_members: If True (default), also scan deprecated class members (methods, constructors,
             classmethods, staticmethods, properties) — matching the discovery default of
@@ -371,6 +360,17 @@ def validate_deprecation_expiry(
     Returns:
         List of error messages for callables that have expired (past their removal deadline).
         Empty list if all deprecated callables are still within their deprecation period.
+
+    Raises:
+        ImportError: If ``packaging`` is not installed, or if ``current_version`` is ``None`` and no version can be
+            resolved for the package. A string module path that cannot be imported raises ``ModuleNotFoundError``
+            (an ``ImportError`` subclass).
+        ValueError: If ``current_version`` is not a valid PEP 440 version, if ``module`` is an empty string, or if
+            ``current_version`` is ``None`` and ``module`` is an object without a ``__name__``. Also raised for a
+            static result with ``recursive=False`` or ``include_members=False``: scan options are already fixed.
+        Exception: Any other error raised by the import-time code of a string module path (for example a
+            ``RuntimeError``) propagates unchanged, with or without ``current_version``. With ``current_version=None``
+            the import runs before the version lookup, so this error is reported instead of a missing version.
 
     Example:
         >>> # Check a specific module with version before any deadlines
@@ -393,11 +393,32 @@ def validate_deprecation_expiry(
         - Can be integrated into test suites or pre-commit hooks
 
     """
-    # Determine module name for auto-version detection
-    module_name = module if isinstance(module, str) else getattr(module, "__name__", None)
+    static_rows = None
+    if isinstance(module, StaticScanResult):
+        # Import the reader's resolution rules only for static results, preserving ordinary audit import cost.
+        from deprecate._static.checks import _resolved
+        from deprecate._static.consts import _EXPIRY_KEYWORDS
 
-    # Auto-detect version if not provided
-    if current_version is None:
+        static_rows = _resolved(
+            _static_result_rows(module, recursive=recursive, include_members=include_members, exclude=exclude),
+            _EXPIRY_KEYWORDS,
+        )
+        if current_version is None:
+            current_version = module.version
+        if current_version is None:
+            raise ImportError(
+                "Could not determine version for the static scan. Please provide current_version explicitly."
+            )
+    elif current_version is None:
+        # The package name comes from the path the caller passed, never from the imported object, which may replace
+        # itself in ``sys.modules`` or carry another package's ``__name__``.
+        module_name = module if isinstance(module, str) else getattr(module, "__name__", None)
+        # Import a module path before looking up its version: the version resolver swallows import failures, so a
+        # package whose own import fails would be reported as having no version instead of with its real error.
+        if isinstance(module, str):
+            module = importlib.import_module(module)
+        # Only a non-``str`` module object lacking a usable ``__name__`` gets here: an empty path string already
+        # raised ``ValueError: Empty module name`` from the import above.
         if not module_name:
             raise ValueError(
                 "Cannot auto-detect version: module object has no __name__ attribute. "
@@ -413,18 +434,24 @@ def validate_deprecation_expiry(
     except ValueError as err:
         raise ValueError(f"Invalid current_version '{current_version}': {err}") from err
 
-    # Handle string module path
-    if isinstance(module, str):
-        module = importlib.import_module(module)
-
     return _check_expiry_for_callables(
-        find_deprecation_wrappers(module, recursive=recursive, include_members=include_members, exclude=exclude),
+        static_rows
+        if static_rows is not None
+        else find_deprecation_wrappers(module, recursive=recursive, include_members=include_members, exclude=exclude),
         current_version,
     )
 
 
 def _safe_parse_version(version: str) -> Optional["Version"]:
-    """Best-effort version parser for report status evaluation."""
+    """Best-effort version parser for report status evaluation: ``None`` for an empty or unparsable string.
+
+    Examples:
+        >>> _safe_parse_version("") is None
+        True
+        >>> _safe_parse_version("not a version") is None
+        True
+
+    """
     if not version:
         return None
     try:
@@ -434,7 +461,15 @@ def _safe_parse_version(version: str) -> Optional["Version"]:
 
 
 def _format_version(version: Optional[str], *, missing: str = "—") -> str:
-    """Format version values with a stable ``v`` prefix for report output."""
+    """Format version values with a stable ``v`` prefix for report output.
+
+    Examples:
+        >>> _format_version("1.2.0"), _format_version("v1.2.0")
+        ('v1.2.0', 'v1.2.0')
+        >>> _format_version(None), _format_version("", missing="n/a")
+        ('—', 'n/a')
+
+    """
     if not version:
         return missing
     # Strip a single left-anchored leading ``v``/``V`` (``lstrip`` would remove *all* leading v's).
@@ -461,22 +496,21 @@ def _get_deprecation_status(info: DeprecationWrapperInfo, current_version: Optio
     remove_version = _safe_parse_version(remove_in)
     if remove_version is None:
         return DeprecationStatus.INVALID_REMOVAL_TARGET
+    return _removal_status(current_version, remove_version)
 
+
+def _removal_status(current_version: "Version", remove_version: "Version") -> DeprecationStatus:
+    """Classify a release against a parsed removal version: past it, about to reach it, or still before it."""
     if current_version >= remove_version:
         return DeprecationStatus.PAST_REMOVAL_DATE
-
     # Pre-release of the same base release as remove_in gets an elevated status:
     # dev/alpha/beta → REMOVAL_IMMINENT; rc → REMOVE_BEFORE_RELEASE.
-    # base_version strips pre/post/dev/local markers so "1.8" == "1.8.0" compare equal.
-    if current_version.is_prerelease:
-        try:
-            _VersionType = type(current_version)  # noqa: N806
-            same_base = _VersionType(current_version.base_version) == _VersionType(remove_version.base_version)
-        except Exception:
-            same_base = False
-        if same_base:
-            if current_version.pre is not None and current_version.pre[0] == "rc":
-                return DeprecationStatus.REMOVE_BEFORE_RELEASE
-            return DeprecationStatus.REMOVAL_IMMINENT
-
-    return DeprecationStatus.ACTIVE_WARNING
+    # base_version strips pre/post/dev/local markers and always re-parses, so "1.8" == "1.8.0" compare equal.
+    version_type = type(current_version)
+    same_base = version_type(current_version.base_version) == version_type(remove_version.base_version)
+    # a final release, or a pre-release of some other release line, is still in its ordinary warning period
+    if not (current_version.is_prerelease and same_base):
+        return DeprecationStatus.ACTIVE_WARNING
+    if current_version.pre is not None and current_version.pre[0] == "rc":
+        return DeprecationStatus.REMOVE_BEFORE_RELEASE
+    return DeprecationStatus.REMOVAL_IMMINENT

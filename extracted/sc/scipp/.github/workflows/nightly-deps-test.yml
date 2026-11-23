@@ -30,25 +30,29 @@ jobs:
       - uses: egor-tensin/vs-shell@v2  # MSVC dev environment for the dev env's Ninja C++ build.
 
       - name: ccache  # serves the dev env build; see pr_and_main.yml
-        uses: hendrikmuhs/ccache-action@v1.2.24
+        uses: hendrikmuhs/ccache-action@v1.2.25
         with:
           key: ${{ matrix.variant.os }}
           max-size: 1G
 
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      - uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.76.0
+          pixi-version: v0.82.1
           environments: dev test
           frozen: true
           cache: true
+
+      - run: pixi run -e dev configure
 
       - run: pixi run -e dev cpp-test
 
       - name: Install nightly dependencies and run tests
         # `python -m pip` guarantees the environment's interpreter; a bare
         # `pip` would fall through PATH to the runner's system pip and the
-        # nightlies would never reach the test environment.
+        # nightlies would never reach the test environment. `--upgrade` is
+        # required because the locked releases are already installed: without
+        # it pip reports "Requirement already satisfied" and keeps them.
         run: |
-          pixi run -e test python -m pip install --pre --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --extra-index-url https://pypi.org/simple numpy scipy h5py pandas xarray
+          pixi run -e test python -m pip install --pre --upgrade --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --extra-index-url https://pypi.org/simple numpy scipy h5py pandas xarray
           pixi run -e test python -c 'import numpy, scipy, h5py, pandas, xarray; print("numpy", numpy.__version__, "scipy", scipy.__version__, "h5py", h5py.__version__, "pandas", pandas.__version__, "xarray", xarray.__version__)'
           pixi run -e test test

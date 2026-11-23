@@ -479,7 +479,7 @@ class TiktokShopProductReviewsReview(BaseModel):
     country: str = Field(description="Reviewer's country code.")
     created_utc: float = Field(
         alias="createdUtc",
-        description="Review time as epoch milliseconds. Populated whenever the provider has data for the entity.",
+        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds. When the review was posted. Populated whenever the provider has data for the entity.",
     )
     id: str = Field(
         description="Review identifier. Populated whenever the provider has data for the entity."

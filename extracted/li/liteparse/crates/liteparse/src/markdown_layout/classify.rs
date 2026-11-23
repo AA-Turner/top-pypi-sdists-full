@@ -123,6 +123,17 @@ fn without_stray_sideways(line: &ProjectedLine) -> Option<ProjectedLine> {
         }
         text.push_str(piece);
     }
+    // The stray glyph's item leaves with it; unaligned indices are dropped rather than guessed.
+    let span_item_indices = if line.span_item_indices.len() == line.spans.len() {
+        line.spans
+            .iter()
+            .zip(&line.span_item_indices)
+            .filter(|(s, _)| !is_sideways(s.rotation))
+            .map(|(_, &i)| i)
+            .collect()
+    } else {
+        Vec::new()
+    };
     let bbox = upright
         .iter()
         .map(|s| Rect {
@@ -137,6 +148,7 @@ fn without_stray_sideways(line: &ProjectedLine) -> Option<ProjectedLine> {
         indent_x: bbox.x,
         bbox,
         spans: upright.into_iter().cloned().collect(),
+        span_item_indices,
         ..line.clone()
     })
 }
@@ -270,6 +282,138 @@ pub fn classify_page_with_filters(
         .position(|line| line.region_path == crate::projection::NUMERIC_FOOTER_PATH)
         .unwrap_or(lines.len());
     let (lines, footer_lines) = lines.split_at(footer_start);
+    // Learned table model (`table_model`): its tables replace the heuristic detectors wherever
+    // they lie. A projected line whose centre falls inside a model table is that table's text:
+    // drop it from the region pipeline (so no detector re-finds it) and emit the table as a
+    // y-positioned interruption, like the global ruled pass below.
+    let mut model_tables: Vec<(f32, PositionedBlock)> = Vec::new();
+    let mut model_edits: std::collections::HashMap<usize, Option<ProjectedLine>> =
+        std::collections::HashMap::new();
+    let pboxes = if page.model_tables.is_empty() {
+        Vec::new()
+    } else {
+        line_page_boxes(page, lines)
+    };
+    for t in &page.model_tables {
+        let b = &t.bbox;
+        let (x0, y0, x1, y1) = (
+            b.x - 1.0,
+            b.y - 1.0,
+            b.x + b.width + 1.0,
+            b.y + b.height + 1.0,
+        );
+        let inside: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                // page coordinates: the model's boxes are in page space, while a projected line's
+                // box can be in the projection's reflowed space (regions re-stacked: a Federal
+                // Register page's lines sat ~780 pt below their text) - its spans keep the page's
+                let o = &pboxes[*i];
+                let (cx, cy) = (o.x + o.width / 2.0, o.y + o.height / 2.0);
+                x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if inside.is_empty() {
+            continue;
+        }
+        // a header band printed just above the table joins it (table_fix::absorb_header_band)
+        let mut grid = t.grid.clone();
+        for i in super::table_fix::absorb_header_band(&mut grid, lines, &pboxes, &model_edits) {
+            model_edits.insert(i, None);
+        }
+        let t = &crate::table_model::ModelTable {
+            bbox: t.bbox.clone(),
+            grid,
+        };
+        // Grid text is matched back to the lines span by span, as multisets of `text_char`s (cell
+        // and span word boundaries differ, and combining marks split "words"): covered spans are
+        // the table's, any span whose text the model left outside the table survives as a
+        // (reduced) line, so nothing is silently dropped and nothing is emitted twice.
+        let mut pool: std::collections::HashMap<char, usize> = std::collections::HashMap::new();
+        for c in &t.grid.cells {
+            for ch in c.text.chars().filter(|&ch| text_char(ch)) {
+                *pool.entry(ch).or_default() += 1;
+            }
+        }
+        let mut edits: Vec<(usize, Option<ProjectedLine>)> = Vec::new();
+        for &i in &inside {
+            let line = &lines[i];
+            let mut rest: Vec<TextItem> = Vec::new();
+            for sp in &line.spans {
+                let mut need: std::collections::HashMap<char, usize> =
+                    std::collections::HashMap::new();
+                for ch in sp.text.chars().filter(|&ch| text_char(ch)) {
+                    *need.entry(ch).or_default() += 1;
+                }
+                if need
+                    .iter()
+                    .all(|(ch, &n)| pool.get(ch).is_some_and(|&have| have >= n))
+                {
+                    for (ch, n) in need {
+                        *pool.get_mut(&ch).unwrap() -= n;
+                    }
+                } else {
+                    rest.push(sp.clone());
+                }
+            }
+            if rest.len() == line.spans.len() {
+                continue;
+            }
+            edits.push((i, residual_line(line, rest)));
+        }
+        if edits.is_empty() {
+            continue;
+        }
+        let (rows, header_rows) = t.grid.to_span_rows();
+        // placed in the flow at its first line's (projected) position, which equals b.y unless
+        // the projection moved the region
+        let flow_y = inside
+            .iter()
+            .map(|&i| lines[i].bbox.y)
+            .fold(f32::INFINITY, f32::min)
+            .min(if inside.is_empty() {
+                b.y
+            } else {
+                f32::INFINITY
+            });
+        model_tables.push((
+            flow_y,
+            PositionedBlock::new(Block::MergedTable { rows, header_rows }, Some(b.clone())),
+        ));
+        // Leftover text inside the table's box is emitted in place as plain paragraphs: handed
+        // back to the region pipeline it can be re-detected as a table spanning (and swallowing)
+        // the model's own.
+        for (i, rest) in edits {
+            if let Some(l) = rest {
+                let y = l.bbox.y;
+                let text = super::inline::escape_inline(&l.text);
+                let block = Block::Paragraph {
+                    text,
+                    bold: l.all_bold,
+                    italic: l.all_italic,
+                };
+                model_tables.push((y, PositionedBlock::new(block, Some(l.bbox.clone()))));
+            }
+            model_edits.insert(i, None);
+        }
+    }
+    let model_owned: Option<Vec<ProjectedLine>> = if model_edits.is_empty() {
+        None
+    } else {
+        Some(
+            lines
+                .iter()
+                .enumerate()
+                .filter_map(|(i, l)| match model_edits.get(&i) {
+                    Some(edit) => edit.clone(),
+                    None => Some(l.clone()),
+                })
+                .collect(),
+        )
+    };
+    let lines: &[ProjectedLine] = model_owned.as_deref().unwrap_or(lines);
 
     // Global ruled-table pass. `detect_ruled_tables` is otherwise called per
     // xy_cut leaf, but a ruled table whose rows scatter across several leaves
@@ -340,11 +484,18 @@ pub fn classify_page_with_filters(
         if table_column_count(&run.block) < 2 {
             continue;
         }
+        let own: Vec<ProjectedLine> = consumed.iter().map(|&i| lines[i].clone()).collect();
+        if model_vetoes_table(page, &own) {
+            continue;
+        }
         let top_y = consumed
             .iter()
             .map(|&i| lines[i].bbox.y)
             .fold(f32::INFINITY, f32::min);
-        global_ruled_tables.push((top_y, PositionedBlock::new(run.block, run.bbox)));
+        global_ruled_tables.push((
+            top_y,
+            PositionedBlock::sourced(run.block, run.bbox, run.item_indices),
+        ));
         global_ruled_consumed.extend(consumed);
     }
     let global_ruled_owned: Option<Vec<ProjectedLine>> = if global_ruled_consumed.is_empty() {
@@ -426,6 +577,7 @@ pub fn classify_page_with_filters(
             all_interruptions.push((r.bbox.y, Interruption::Figure(r.clone())));
         }
     }
+    global_ruled_tables.extend(model_tables);
     for (y, block) in global_ruled_tables {
         all_interruptions.push((y, Interruption::Table(block)));
     }
@@ -510,14 +662,18 @@ pub fn classify_page_with_filters(
     // Appending here gives the footer its own final paragraph, outside table
     // detection and cross-column paragraph continuation.
     let mut blocks = stitch_regions(blocks, &region_boundaries);
+    for b in blocks.iter_mut() {
+        super::table_fix::fix_block(&mut b.block);
+    }
     blocks.extend(footer_lines.iter().map(|line| {
-        PositionedBlock::new(
+        PositionedBlock::sourced(
             Block::Paragraph {
                 text: line.text.clone(),
                 bold: false,
                 italic: false,
             },
             Some(line.bbox.clone()),
+            line.span_item_indices.clone(),
         )
     }));
     blocks
@@ -548,7 +704,7 @@ fn positioned_interruption(kind: Interruption) -> PositionedBlock {
 #[derive(Default)]
 struct FlowState {
     paragraph: Option<ParaAccum>,
-    code: Option<(Vec<String>, Option<Rect>)>,
+    code: Option<(Vec<String>, Option<Rect>, Vec<usize>)>,
     list_base_indent: Option<f32>,
     last_list_item_idx: Option<usize>,
     last_list_line: Option<usize>,
@@ -565,21 +721,69 @@ impl FlowState {
 
     /// Emit the active paragraph (if it has non-blank content) and clear it.
     fn flush_paragraph(&mut self, blocks: &mut Vec<PositionedBlock>) {
-        if let Some(acc) = self.paragraph.take()
+        if let Some(mut acc) = self.paragraph.take()
             && !acc.raw.trim().is_empty()
         {
             let bbox = acc.bbox.clone();
-            blocks.push(PositionedBlock::new(paragraph_from_accum(acc), bbox));
+            let items = std::mem::take(&mut acc.item_indices);
+            blocks.push(PositionedBlock::sourced(
+                paragraph_from_accum(acc),
+                bbox,
+                items,
+            ));
         }
     }
 
     /// Emit the active code run (if non-empty) and clear it.
     fn flush_code(&mut self, blocks: &mut Vec<PositionedBlock>) {
-        if let Some((lines, bbox)) = self.code.take()
+        if let Some((lines, bbox, items)) = self.code.take()
             && !lines.is_empty()
         {
             let lang = detect_code_language(&lines);
-            blocks.push(PositionedBlock::new(Block::CodeBlock { lines, lang }, bbox));
+            // Monospace body text (typewriter / Courier documents, forms, catalogues) is not code: emit it as
+            // paragraphs, breaking where a line ends a sentence and the next starts a new one. Fencing it kept
+            // every hard line break and a guessed language tag.
+            if lang.is_none() && mono_run_reads_as_prose(&lines) {
+                let mut para: Vec<&str> = Vec::new();
+                let flush = |para: &mut Vec<&str>, blocks: &mut Vec<PositionedBlock>| {
+                    if !para.is_empty() {
+                        let text = super::inline::escape_inline(&para.join(" "));
+                        blocks.push(PositionedBlock::new(
+                            Block::Paragraph {
+                                text,
+                                bold: false,
+                                italic: false,
+                            },
+                            bbox.clone(),
+                        ));
+                        para.clear();
+                    }
+                };
+                for l in lines.iter().map(|l| l.trim()) {
+                    if l.is_empty() {
+                        flush(&mut para, blocks);
+                        continue;
+                    }
+                    let starts_new = l.chars().next().is_some_and(|c| {
+                        c.is_uppercase() || c.is_ascii_digit() || "•-*".contains(c)
+                    });
+                    if starts_new
+                        && para
+                            .last()
+                            .is_some_and(|p| p.ends_with(['.', '!', '?', ':', ')']))
+                    {
+                        flush(&mut para, blocks);
+                    }
+                    para.push(l);
+                }
+                flush(&mut para, blocks);
+                return;
+            }
+            blocks.push(PositionedBlock::sourced(
+                Block::CodeBlock { lines, lang },
+                bbox,
+                items,
+            ));
         }
     }
 
@@ -636,9 +840,33 @@ fn classify_region(
     // graphics are still consulted for ruled-table detection because path
     // objects are page-coordinate; the detector intersects them against the
     // sub-list's line bboxes anyway.
-    let ruled_runs = detect_ruled_tables(lines, rule_segments, page.page_width, page.page_height);
-    let borderless_runs = precomputed_tables
-        .unwrap_or_else(|| detect_tables_banded(lines, rule_segments, page.page_height));
+    // When the learned table model ran on the page (it labels every unit), its tables already
+    // replace the heuristics where they lie; elsewhere the heuristic detectors can still fire on
+    // text the model judged not to be a table (multi-column prose read as a grid).
+    // There only tables whose cells don't read as prose columns are kept (`Smart`).
+    let heuristic = heuristic_tables_mode(page);
+    let ruled_runs = match heuristic {
+        // bordered text panels read as ruled tables too: same prose test as the borderless runs
+        HeuristicTables::Smart => {
+            detect_ruled_tables(lines, rule_segments, page.page_width, page.page_height)
+                .into_iter()
+                .filter(|run| !table_block_is_prose(&run.block))
+                .collect()
+        }
+        HeuristicTables::On => {
+            detect_ruled_tables(lines, rule_segments, page.page_width, page.page_height)
+        }
+    };
+    let borderless_runs = match heuristic {
+        HeuristicTables::On => precomputed_tables
+            .unwrap_or_else(|| detect_tables_banded(lines, rule_segments, page.page_height)),
+        // keep the borderless detector's tables unless their cells read as prose columns
+        HeuristicTables::Smart => precomputed_tables
+            .unwrap_or_else(|| detect_tables_banded(lines, rule_segments, page.page_height))
+            .into_iter()
+            .filter(|run| !table_block_is_prose(&run.block))
+            .collect(),
+    };
     // A table that carries under 70% of the text of the lines it spans loses
     // the rest, since the loop below skips the span. Handing back lines no
     // cell took a word from cannot help when every line shares a word with
@@ -646,6 +874,10 @@ fn classify_region(
     let table_runs: Vec<_> = merge_table_runs(ruled_runs, borderless_runs)
         .into_iter()
         .filter(|run| super::tables::run_text_kept(run, lines).is_none_or(|kept| kept >= 0.7))
+        .filter(|run| {
+            heuristic != HeuristicTables::Smart
+                || !model_vetoes_table(page, &lines[run.start..run.end])
+        })
         .collect();
 
     // Region-wide pre-pass: which line indices carry a lettered/roman marker
@@ -680,9 +912,12 @@ fn classify_region(
             .iter()
             .any(|(top, bot)| y >= *top - 2.0 && y <= *bot + 2.0)
     };
+    // Figures and rules inside a table's band would split it, so they go. A table never does:
+    // its lines were already pulled out of the flow, so dropping it loses them (a TableNet table
+    // whose band a smaller heuristic table overlaps vanished from the page).
     let mut region_interruptions: Vec<(f32, Interruption)> = interruptions
         .into_iter()
-        .filter(|(y, _)| !in_table_band(*y))
+        .filter(|(y, kind)| matches!(kind, Interruption::Table(_)) || !in_table_band(*y))
         .collect();
     region_interruptions.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut interruptions = region_interruptions.into_iter().peekable();
@@ -720,9 +955,12 @@ fn classify_region(
             // Lines in the span that no cell took a word from (a note under
             // the table, a column the grid left out) go the same way.
             let left_out = super::tables::lines_left_out(&run, lines);
-            run.interstitials.extend(left_out.into_iter().map(|i| Cell {
-                text: lines[i].text.clone(),
-                bbox: Some(lines[i].bbox.clone()),
+            run.interstitials.extend(left_out.into_iter().map(|i| {
+                Cell::sourced(
+                    lines[i].text.clone(),
+                    lines[i].bbox.clone(),
+                    super::tables::line_items_in_reading_order(&lines[i]),
+                )
             }));
             // Prose lines the run stepped over between its header and body
             // sit inside `[run.start, run.end)`, which this loop skips — emit
@@ -733,16 +971,21 @@ fn classify_region(
                 if note.text.is_empty() {
                     continue;
                 }
-                blocks.push(PositionedBlock::new(
+                blocks.push(PositionedBlock::sourced(
                     Block::Paragraph {
                         text: escape_inline(&collapse_whitespace(&note.text)),
                         bold: false,
                         italic: false,
                     },
                     note.bbox,
+                    note.text_item_indices,
                 ));
             }
-            blocks.push(PositionedBlock::new(run.block, run.bbox));
+            blocks.push(PositionedBlock::sourced(
+                run.block,
+                run.bbox,
+                run.item_indices,
+            ));
             idx = run.end;
             continue;
         }
@@ -785,6 +1028,7 @@ fn classify_region(
             let code = state.code.get_or_insert_with(Default::default);
             code.0.push(line.text.trim_end().to_string());
             Rect::extend(&mut code.1, &line.bbox);
+            code.2.extend_from_slice(&line.span_item_indices);
             continue;
         }
         // Any non-mono line ends the current code block (if any).
@@ -798,9 +1042,10 @@ fn classify_region(
             state.reset_list();
             heading_run = None;
             if is_rule {
-                blocks.push(PositionedBlock::new(
+                blocks.push(PositionedBlock::sourced(
                     Block::HorizontalRule,
                     Some(line.bbox.clone()),
+                    line.span_item_indices.clone(),
                 ));
             }
             if debug {
@@ -915,8 +1160,50 @@ fn classify_region(
         if is_first_toc_title {
             toc_title_emitted = true;
         }
+        // Learned block classes (joint layout model): a confident "text" call demotes a
+        // font-size heading, a confident heading call promotes a line no size rule caught (scans
+        // with no font sizes, body-size headings). Tagged / outline levels stay authoritative.
+        let model = model_heading(page, line);
+        // a promoted line must not be the next line of the paragraph above (a wrapped sentence's
+        // tail or a continuation line the model scored as heading-like)
+        let continues_live_paragraph = state
+            .paragraph
+            .as_ref()
+            .map(|p| &p.last)
+            .or(state.last_list_line.map(|i| &lines[i]))
+            .is_some_and(|p| continues_paragraph(p, line));
+        // Demotion trusts the model over the font only where the font is weak evidence: a
+        // height-estimated size (scans, OCR) jitters into the heading map, while a real Tf size
+        // well above body is a heading the model may simply not know the style of (question
+        // headings, slide titles).
+        let demote = model.is_some_and(|m| m.0 <= m.3) && line.font_size_is_estimated;
+        let size_level = size_level.filter(|_| !demote);
+        let model_level = model
+            .filter(|&(ph, _, promote, _)| {
+                outline_level.is_none()
+                    && size_level.is_none()
+                    && !toc_suppress
+                    && ph >= promote
+                    && text.chars().count() <= HEADING_MAX_TEXT_CHARS
+                    && !is_caption_line(text)
+                    && !continues_live_paragraph
+                    // a sentence's end, or a ")" closing a "(" on an earlier line, is prose torn
+                    // from a paragraph, not a heading
+                    && !ends_sentence_final(text)
+                    && !open_hyphen_scan
+                    && text.matches(')').count() <= text.matches('(').count()
+            })
+            .map(|(ph, pt, _, _)| {
+                if pt * 2.0 > ph {
+                    1
+                } else {
+                    heading_level_for(heading_size_of(line), heading_map)
+                        .unwrap_or((heading_map.len() as u8 + 1).clamp(1, MAX_HEADING_LEVELS as u8))
+                }
+            });
         let level = outline_level
             .or(size_level)
+            .or(model_level)
             .or(toc_title_level)
             .map(|l| l.clamp(1, MAX_HEADING_LEVELS as u8));
         let mut demoted_heading = false;
@@ -950,7 +1237,7 @@ fn classify_region(
                         text: htext,
                     },
                 bbox: heading_bbox,
-                ..
+                text_item_indices: heading_items,
             }) = blocks.last_mut()
             && *last_level == *run_level
         {
@@ -971,6 +1258,7 @@ fn classify_region(
                     );
                 }
                 append_inline_continuation(htext, text, &collapse_whitespace(text));
+                heading_items.extend_from_slice(&line.span_item_indices);
                 heading_run = Some((run_level, line_idx));
                 continue;
             }
@@ -993,6 +1281,7 @@ fn classify_region(
                             level: last_level,
                             text: htext,
                         },
+                    text_item_indices: heading_items,
                     ..
                 }) = blocks.last_mut()
                 && *last_level == level
@@ -1009,6 +1298,7 @@ fn classify_region(
                 let combined_chars = htext.chars().count() + 1 + text.chars().count();
                 if combined_chars > HEADING_MAX_TEXT_CHARS {
                     let demoted = std::mem::take(htext);
+                    let item_indices = std::mem::take(heading_items);
                     blocks.pop();
                     state.paragraph = Some(ParaAccum {
                         raw: demoted.clone(),
@@ -1016,11 +1306,13 @@ fn classify_region(
                         last: lines[*run_idx].clone(),
                         uniform: None,
                         bbox: Some(lines[*run_idx].bbox.clone()),
+                        item_indices,
                     });
                     heading_run = None;
                     demoted_heading = true;
                 } else {
                     append_inline_continuation(htext, text, &collapse_whitespace(text));
+                    heading_items.extend_from_slice(&line.span_item_indices);
                     heading_run = Some((level, line_idx));
                     continue;
                 }
@@ -1037,12 +1329,13 @@ fn classify_region(
                         line.dominant_font_size,
                     );
                 }
-                blocks.push(PositionedBlock::new(
+                blocks.push(PositionedBlock::sourced(
                     Block::Heading {
                         level,
                         text: collapse_whitespace(text),
                     },
                     Some(line.bbox.clone()),
+                    line.span_item_indices.clone(),
                 ));
                 heading_run = Some((level, line_idx));
                 continue;
@@ -1085,12 +1378,13 @@ fn classify_region(
                 state.flush_paragraph(&mut blocks);
                 state.reset_list();
                 let level = (heading_map.len() as u8 + 1).clamp(1, MAX_HEADING_LEVELS as u8);
-                blocks.push(PositionedBlock::new(
+                blocks.push(PositionedBlock::sourced(
                     Block::Heading {
                         level,
                         text: collapse_whitespace(text),
                     },
                     Some(line.bbox.clone()),
+                    line.span_item_indices.clone(),
                 ));
                 continue;
             }
@@ -1107,7 +1401,7 @@ fn classify_region(
             // which still contain the marker span — render the line and then
             // peel the marker off the front of the rendered string.
             let item_text = render_list_item_text(line, &marker, rest);
-            blocks.push(PositionedBlock::new(
+            blocks.push(PositionedBlock::sourced(
                 Block::ListItem {
                     ordered,
                     marker,
@@ -1117,6 +1411,7 @@ fn classify_region(
                     italic: false,
                 },
                 Some(line.bbox.clone()),
+                line.span_item_indices.clone(),
             ));
             continue;
         }
@@ -1139,6 +1434,8 @@ fn classify_region(
             append_inline_continuation(prev_text, text, &cont_inline);
             // The wrapped line belongs to the same item, so it grows its box.
             Rect::extend(&mut item.bbox, &line.bbox);
+            item.text_item_indices
+                .extend_from_slice(&line.span_item_indices);
             state.last_list_line = Some(line_idx);
             continue;
         }
@@ -1154,7 +1451,10 @@ fn classify_region(
             .map(|p| &p.last)
             .or(state.last_list_line.map(|i| &lines[i]));
         let next_for_gap = lines.get(idx);
-        if !toc_suppress && looks_like_bold_heading(line, prev_for_gap, next_for_gap) {
+        if !toc_suppress
+            && looks_like_bold_heading(line, prev_for_gap, next_for_gap)
+            && !model_heading(page, line).is_some_and(|m| m.0 <= m.3)
+        {
             state.flush_paragraph(&mut blocks);
             state.reset_list();
             // Level: one deeper than the deepest size-based level we already
@@ -1170,12 +1470,13 @@ fn classify_region(
                     line.dominant_font_size,
                 );
             }
-            blocks.push(PositionedBlock::new(
+            blocks.push(PositionedBlock::sourced(
                 Block::Heading {
                     level,
                     text: collapse_whitespace(text),
                 },
                 Some(line.bbox.clone()),
+                line.span_item_indices.clone(),
             ));
             // Arm the heading_run so a wrapped continuation on the next line
             // merges into this heading instead of emitting as a second one.
@@ -1207,6 +1508,7 @@ fn classify_region(
                     bbox: Some(line.bbox.clone()),
                     last: line.clone(),
                     uniform,
+                    item_indices: line.span_item_indices.clone(),
                 });
             }
         }
@@ -1260,6 +1562,34 @@ fn is_divider_symbol(c: char) -> bool {
 /// strong, language-specific signals; otherwise `None` (bare fence). This
 /// feeds markdown consumers that key off the language tag (e.g. syntax
 /// highlighting).
+/// A monospace run that reads as prose rather than code: lines of several words, almost no code punctuation.
+fn mono_run_reads_as_prose(lines: &[String]) -> bool {
+    let nonempty: Vec<&str> = lines
+        .iter()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    if nonempty.is_empty() {
+        return false;
+    }
+    let words: usize = nonempty.iter().map(|l| l.split_whitespace().count()).sum();
+    let chars: usize = nonempty
+        .iter()
+        .map(|l| l.chars().filter(|c| !c.is_whitespace()).count())
+        .sum();
+    let symbols: usize = nonempty
+        .iter()
+        .map(|l| l.chars().filter(|c| "{}[];=<>|\\$^~`".contains(*c)).count())
+        .sum();
+    let wordy_lines = nonempty
+        .iter()
+        .filter(|l| l.split_whitespace().count() >= 4)
+        .count();
+    (words as f32 / nonempty.len() as f32) >= 4.0
+        && (symbols as f32) < 0.02 * chars as f32
+        && wordy_lines * 2 >= nonempty.len()
+}
+
 fn detect_code_language(lines: &[String]) -> Option<String> {
     let body = lines.join("\n");
     let trimmed = body.trim_start();
@@ -1384,6 +1714,8 @@ fn stitch_regions(blocks: Vec<PositionedBlock>, region_starts: &[usize]) -> Vec<
                 prev_text.pop(); // the '-'
                 prev_text.push_str(cur_text.trim_start());
                 prev.bbox = merged_bbox;
+                prev.text_item_indices
+                    .extend_from_slice(&block.text_item_indices);
                 continue;
             }
             // A hard hyphen (`pyridine-3-` + `carbonitrile`): one token, hyphen kept.
@@ -1393,6 +1725,8 @@ fn stitch_regions(blocks: Vec<PositionedBlock>, region_starts: &[usize]) -> Vec<
                 }
                 prev_text.push_str(cur_text.trim_start());
                 prev.bbox = merged_bbox;
+                prev.text_item_indices
+                    .extend_from_slice(&block.text_item_indices);
                 continue;
             }
             let ends_open = !prev_trim.ends_with(|c: char| {
@@ -1405,6 +1739,8 @@ fn stitch_regions(blocks: Vec<PositionedBlock>, region_starts: &[usize]) -> Vec<
                 prev_text.push(' ');
                 prev_text.push_str(cur_text.trim_start());
                 prev.bbox = merged_bbox;
+                prev.text_item_indices
+                    .extend_from_slice(&block.text_item_indices);
                 continue;
             }
         }
@@ -1914,6 +2250,38 @@ mod tests {
     }
 
     #[test]
+    fn a_stray_sideways_glyph_leaves_with_its_item() {
+        let mut l = line_with_spans(
+            &[
+                ("L", 50.0),
+                ("Current", 80.0),
+                ("A-001", 150.0),
+                ("Smith", 230.0),
+            ],
+            155.0,
+            10.0,
+        );
+        l.spans[0].rotation = 90.0;
+        l.span_item_indices = vec![4, 5, 6, 7];
+        let upright = without_stray_sideways(&l).unwrap();
+        assert_eq!(upright.text, "Current A-001 Smith");
+        assert_eq!(upright.span_item_indices, vec![5, 6, 7]);
+    }
+
+    #[test]
+    fn a_detached_numeric_footer_keeps_its_items() {
+        let mut body = line("Body text of the page.", 50.0, 100.0, 10.0, 10.0);
+        body.span_item_indices = vec![0];
+        let mut footer = line("12", 300.0, 760.0, 10.0, 10.0);
+        footer.region_path = crate::projection::NUMERIC_FOOTER_PATH.to_vec();
+        footer.span_item_indices = vec![1];
+        let blocks = classify_page(&page(vec![body, footer]), &[]);
+        let last = blocks.last().unwrap();
+        assert!(matches!(&last.block, Block::Paragraph { text, .. } if text == "12"));
+        assert_eq!(last.text_item_indices, vec![1]);
+    }
+
+    #[test]
     fn full_format_strips_header_footer() {
         let pages = vec![
             header_footer_page(1, "Acme Confidential", "Page 1 of 2", "First page body."),
@@ -2035,4 +2403,452 @@ mod tests {
             .expect("second heading line dropped");
         assert!(body < follow, "reading order lost: {md:?}");
     }
+
+    fn tag(mut l: crate::types::ProjectedLine, idx: usize) -> crate::types::ProjectedLine {
+        l.span_item_indices = vec![idx];
+        l
+    }
+
+    #[test]
+    fn blocks_carry_the_items_they_were_read_from() {
+        let p = page(vec![
+            tag(
+                line("Title of the document goes here", 50.0, 50.0, 18.0, 18.0),
+                0,
+            ),
+            tag(
+                line("First sentence of the para-", 50.0, 80.0, 10.0, 10.0),
+                1,
+            ),
+            tag(line("graph continues here.", 50.0, 92.0, 10.0, 10.0), 2),
+            tag(line("Another paragraph.", 50.0, 130.0, 10.0, 10.0), 3),
+        ]);
+        let pages = vec![p];
+        let body = compute_body_size(&pages);
+        let map = build_heading_map(&pages, body);
+        let blocks = classify_page(&pages[0], &map);
+        assert_eq!(blocks.len(), 3);
+        assert!(matches!(blocks[0].block, Block::Heading { .. }));
+        assert_eq!(blocks[0].text_item_indices, vec![0]);
+        assert_eq!(blocks[1].text_item_indices, vec![1, 2]);
+        assert_eq!(blocks[2].text_item_indices, vec![3]);
+    }
+
+    #[test]
+    fn demoted_heading_keeps_its_items() {
+        // A heading-sized first line under the length cap, then a
+        // continuation that tips the run over `HEADING_MAX_TEXT_CHARS`: the
+        // heading demotes to a paragraph that must carry both lines' items.
+        let long_a = "A rather long citation-style opening line that scores as a heading on its own because it stays just under the cap";
+        let long_b = "But the continuation line pushes the combined run far over the limit";
+        assert!(long_a.chars().count() <= HEADING_MAX_TEXT_CHARS);
+        assert!(long_a.chars().count() + 1 + long_b.chars().count() > HEADING_MAX_TEXT_CHARS);
+        let mut lines_v = vec![
+            tag(line(long_a, 50.0, 50.0, 14.0, 14.0), 0),
+            tag(line(long_b, 50.0, 66.0, 14.0, 14.0), 1),
+        ];
+        for i in 0..10 {
+            lines_v.push(tag(
+                line(
+                    "plain body text keeps the size map honest and body-dominant here.",
+                    50.0,
+                    300.0 + i as f32 * 12.0,
+                    10.0,
+                    10.0,
+                ),
+                2 + i,
+            ));
+        }
+        let pages = vec![page(lines_v.clone())];
+        let body = compute_body_size(&pages);
+        let map = build_heading_map(&pages, body);
+        let mut solo = lines_v;
+        solo.remove(1);
+        assert!(matches!(
+            classify_page(&page(solo), &map)[0].block,
+            Block::Heading { .. }
+        ));
+        let blocks = classify_page(&pages[0], &map);
+        assert!(matches!(blocks[0].block, Block::Paragraph { .. }));
+        assert_eq!(blocks[0].text_item_indices, vec![0, 1]);
+    }
+
+    #[test]
+    fn list_continuation_extends_item_indices() {
+        let p = page(vec![
+            tag(line("Intro line.", 50.0, 50.0, 10.0, 10.0), 0),
+            tag(line("• bullet starts here and", 60.0, 80.0, 10.0, 10.0), 1),
+            tag(line("wraps onto a second line", 60.0, 92.0, 10.0, 10.0), 2),
+        ]);
+        let blocks = classify_page(&p, &[]);
+        let item = blocks
+            .iter()
+            .find(|b| matches!(b.block, Block::ListItem { .. }))
+            .expect("expected a list item");
+        assert_eq!(item.text_item_indices, vec![1, 2]);
+    }
+
+    #[test]
+    fn a_line_no_ruled_cell_took_keeps_its_items() {
+        // The note hangs off the grid's left edge, so no cell takes it; it
+        // comes back as a paragraph ahead of the table.
+        let ys = [100.0_f32, 130.0, 160.0, 190.0, 220.0];
+        let mut graphics = Vec::new();
+        for y in ys {
+            graphics.push(stroke(50.0, y, 350.0, y, 0.5));
+        }
+        for x in [50.0_f32, 150.0, 250.0, 350.0] {
+            graphics.push(stroke(x, 100.0, x, 220.0, 0.5));
+        }
+        let rows = [
+            ["Part", "Qty", "Price"],
+            ["Bolt", "2,000", "$1.20"],
+            ["Nut", "3,000", "$0.80"],
+            ["Washer", "1,500", "$0.40"],
+        ];
+        let mut lines = Vec::new();
+        for (r, row) in rows.iter().enumerate() {
+            let y = ys[r] + 10.0;
+            let mut l =
+                line_with_spans(&[(row[0], 60.0), (row[1], 160.0), (row[2], 260.0)], y, 10.0);
+            l.span_item_indices = (3 * r..3 * r + 3).collect();
+            lines.push(l);
+            if r == 1 {
+                let mut note = line_with_spans(&[("Overhanging", 0.0)], y + 10.0, 10.0);
+                note.span_item_indices = vec![99];
+                lines.push(note);
+            }
+        }
+        let blocks = classify_page(&page_with_graphics(lines, graphics), &[]);
+        assert!(
+            blocks
+                .iter()
+                .any(|b| matches!(b.block, Block::Table { .. })),
+            "no table: {blocks:?}"
+        );
+        let note = blocks
+            .iter()
+            .find(|b| matches!(&b.block, Block::Paragraph { text, .. } if text == "Overhanging"))
+            .unwrap_or_else(|| panic!("left-out line missing: {blocks:?}"));
+        assert_eq!(note.text_item_indices, vec![99]);
+    }
+
+    #[test]
+    fn stitch_regions_hard_hyphen_join_unions_items() {
+        let mut a = tag(line("treated with pyridine-3-", 50.0, 700.0, 10.0, 10.0), 0);
+        a.region_path = vec![0];
+        let mut b = tag(line("carbonitrile in water.", 320.0, 50.0, 10.0, 10.0), 1);
+        b.region_path = vec![1];
+        let blocks = classify_page(&page(vec![a, b]), &[]);
+        assert_eq!(blocks.len(), 1, "expected a single stitched paragraph");
+        let Block::Paragraph { text, .. } = &blocks[0].block else {
+            panic!("expected a paragraph: {blocks:?}");
+        };
+        assert!(text.contains("pyridine-3-carbonitrile"), "{text}");
+        assert_eq!(blocks[0].text_item_indices, vec![0, 1]);
+    }
+
+    #[test]
+    fn stitch_regions_unions_items_across_leaves() {
+        let mut a = tag(
+            line("The sentence continues without", 50.0, 700.0, 10.0, 10.0),
+            0,
+        );
+        a.region_path = vec![0];
+        let mut b = tag(line("ending punctuation here.", 320.0, 50.0, 10.0, 10.0), 1);
+        b.region_path = vec![1];
+        let blocks = classify_page(&page(vec![a, b]), &[]);
+        assert_eq!(blocks.len(), 1, "expected a single stitched paragraph");
+        assert_eq!(blocks[0].text_item_indices, vec![0, 1]);
+    }
+}
+
+/// `line` cut down to the spans in `rest` (text and box rebuilt from them); `None` when empty.
+fn residual_line(line: &ProjectedLine, rest: Vec<TextItem>) -> Option<ProjectedLine> {
+    if rest.iter().all(|sp| sp.text.trim().is_empty()) {
+        return None;
+    }
+    let mut l = line.clone();
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for sp in &rest {
+        x0 = x0.min(sp.x);
+        y0 = y0.min(sp.y);
+        x1 = x1.max(sp.x + sp.width);
+        y1 = y1.max(sp.y + sp.height);
+    }
+    l.text = rest
+        .iter()
+        .map(|sp| sp.text.trim())
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    l.bbox = Rect {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    };
+    l.indent_x = x0;
+    l.spans = rest;
+    Some(l)
+}
+
+/// Characters that identify text when matching a model table's cells back to its lines:
+/// letters, digits and any non-ASCII glyph (combining marks), never ASCII punctuation - units
+/// drop leader dots and the like, which would leave a covered line looking uncovered.
+fn text_char(ch: char) -> bool {
+    ch.is_alphanumeric() || (!ch.is_ascii() && !ch.is_whitespace())
+}
+
+/// Which heuristic table detectors run on a page: all of them, or (`Smart`, on pages the learned
+/// table model ran on) only tables whose cells don't read as prose columns.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HeuristicTables {
+    On,
+    Smart,
+}
+
+/// A heuristic table whose cells read as multi-column prose: mostly non-numeric cells whose
+/// text runs on down each column (a cell that doesn't end a sentence over one that
+/// starts lowercase). The same test as `table_model::Grid::is_prose`; the borderless
+/// detector's false tables on multi-column reports look like this, real tables don't.
+fn table_block_is_prose(block: &Block) -> bool {
+    let grid: Vec<Vec<&str>> = match block {
+        Block::Table { header, rows } => header
+            .iter()
+            .chain(rows.iter())
+            .map(|r| r.iter().map(|c| c.text.as_str()).collect())
+            .collect(),
+        Block::MergedTable { rows, .. } => rows
+            .iter()
+            .map(|r| r.iter().map(|c| c.text.as_str()).collect())
+            .collect(),
+        _ => return false,
+    };
+    let words = |t: &str| t.split_whitespace().count();
+    let cells: Vec<&str> = grid
+        .iter()
+        .flatten()
+        .copied()
+        .filter(|t| !t.trim().is_empty())
+        .collect();
+    if cells.len() < 6 {
+        return false;
+    }
+    let mut wc: Vec<usize> = cells.iter().map(|t| words(t)).collect();
+    wc.sort_unstable();
+    let median_words = wc[wc.len() / 2];
+    if median_words < 2 {
+        return false;
+    }
+    let numeric = cells
+        .iter()
+        .filter(|t| words(t) <= 3 && t.chars().any(|ch| ch.is_ascii_digit()))
+        .count();
+    if numeric * 10 >= cells.len() * 3 {
+        return false;
+    }
+    let n_cols = grid.iter().map(|r| r.len()).max().unwrap_or(0);
+    let (mut pairs, mut flow) = (0usize, 0usize);
+    for q in 0..n_cols {
+        let col: Vec<(usize, &str)> = grid
+            .iter()
+            .enumerate()
+            .filter_map(|(i, r)| r.get(q).filter(|t| !t.trim().is_empty()).map(|t| (i, *t)))
+            .collect();
+        for w in col.windows(2) {
+            if w[1].0 > w[0].0 + 2 {
+                continue;
+            }
+            pairs += 1;
+            let open = !w[0].1.trim_end().ends_with(['.', '!', '?', ':', ';']);
+            let lower = w[1]
+                .1
+                .trim_start()
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_lowercase());
+            flow += (open && lower) as usize;
+        }
+    }
+    // long cells (4+ words) need 40% of adjacent pairs to flow; short line fragments (narrow
+    // prose columns split one line per row, 2-3 words a cell) need 60%
+    pairs >= 3
+        && (if median_words >= 4 {
+            flow * 10 >= pairs * 4
+        } else {
+            flow * 10 >= pairs * 6
+        })
+}
+
+/// Which heuristic table detectors run on `page` (see the per-region detection above). Only
+/// pages the learned table model ran on (non-empty `model_classes`) are affected.
+fn heuristic_tables_mode(page: &ParsedPage) -> HeuristicTables {
+    if page.model_classes.is_empty() {
+        return HeuristicTables::On;
+    }
+    // `Smart` keeps the borderless heuristic's real tables that TableNet misses (scores better on
+    // table benchmarks than running no heuristic detectors)
+    HeuristicTables::Smart
+}
+
+/// Mean P(Table) of the layout model over the units centred in `boxes` (page space), weighted
+/// by their characters. None without a layout model or when no unit lies inside.
+fn model_table_prob(page: &ParsedPage, boxes: &[Rect]) -> Option<f32> {
+    if page.model_classes.is_empty() {
+        return None;
+    }
+    let (mut w, mut p) = (0f32, 0f32);
+    for u in &page.model_classes {
+        let (cx, cy) = (
+            u.bbox.x + u.bbox.width / 2.0,
+            u.bbox.y + u.bbox.height / 2.0,
+        );
+        if boxes.iter().any(|b| {
+            b.x - 1.0 <= cx
+                && cx <= b.x + b.width + 1.0
+                && b.y - 1.0 <= cy
+                && cy <= b.y + b.height + 1.0
+        }) {
+            let k = u.chars.max(1) as f32;
+            w += k;
+            p += k * u.probs[6];
+        }
+    }
+    (w > 0.0).then(|| p / w)
+}
+
+/// A heuristic table the layout model reads as not a table: its mean P(Table) over the table's
+/// own lines (`lines`) is under 0.3. Heuristic tables only see lines no model table claimed, so
+/// these are aligned prose, stat panels, timelines and the like read as grids; their lines fall
+/// through to paragraphs. A higher threshold (0.5) scored the same; limiting the check to short
+/// (<= 3-row) tables kept half the gain, since some false tables are large.
+fn model_vetoes_table(page: &ParsedPage, lines: &[ProjectedLine]) -> bool {
+    model_table_prob(page, &line_page_boxes(page, lines)).is_some_and(|p| p < 0.3)
+}
+
+/// The joint layout model's view of a line: (P(heading or title), P(title), promote threshold,
+/// demote threshold) - probabilities averaged over the units centred in the line, weighted by
+/// their characters. None without a layout model.
+fn model_heading(page: &ParsedPage, line: &ProjectedLine) -> Option<(f32, f32, f32, f32)> {
+    if page.model_classes.is_empty() {
+        return None;
+    }
+    let (promote, demote) = (0.6, 0.15);
+    let b = &line.bbox;
+    let (x0, y0, x1, y1) = (
+        b.x - 1.0,
+        b.y - 1.0,
+        b.x + b.width + 1.0,
+        b.y + b.height + 1.0,
+    );
+    let (mut w, mut ph, mut pt) = (0f32, 0f32, 0f32);
+    for u in &page.model_classes {
+        let (cx, cy) = (
+            u.bbox.x + u.bbox.width / 2.0,
+            u.bbox.y + u.bbox.height / 2.0,
+        );
+        if x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1 {
+            let k = u.chars.max(1) as f32;
+            w += k;
+            ph += k * (u.probs[1] + u.probs[2]);
+            pt += k * u.probs[2];
+        }
+    }
+    (w > 0.0).then(|| (ph / w, pt / w, promote, demote))
+}
+
+/// A projected (upright-frame) box mapped back to page space through the page's
+/// `projected_item_frames`: the union of the original boxes of the items whose projected
+/// centres fall inside it. None when no item does.
+fn frame_page_box(b: &Rect, frames: &[(Rect, Rect)]) -> Option<Rect> {
+    let mut out: Option<Rect> = None;
+    for (proj, orig) in frames {
+        let (cx, cy) = (proj.x + proj.width / 2.0, proj.y + proj.height / 2.0);
+        if b.x - 1.0 <= cx
+            && cx <= b.x + b.width + 1.0
+            && b.y - 1.0 <= cy
+            && cy <= b.y + b.height + 1.0
+        {
+            Rect::extend(&mut out, orig);
+        }
+    }
+    out
+}
+
+/// Each projected line's box in the page space the layout model ran in: [`page_boxes`], or on a page
+/// whose text projection turned upright (rotated content) the original boxes of its items, since no
+/// vertical shift maps the upright frame back to the page.
+pub(crate) fn line_page_boxes(page: &ParsedPage, lines: &[ProjectedLine]) -> Vec<Rect> {
+    let mut b = page_boxes(page, lines);
+    if !page.projected_item_frames.is_empty() {
+        for (pb, line) in b.iter_mut().zip(lines) {
+            if let Some(r) = frame_page_box(&line.bbox, &page.projected_item_frames) {
+                *pb = r;
+            }
+        }
+    }
+    b
+}
+
+/// Each projected line's box in page coordinates. The projection can move text in y (a rotated
+/// margin stamp - Federal Register pages - pushes every later group ~a page down), while the
+/// model's tables are in page space; x, width and text are kept, so each span is matched to its
+/// original text item and the line is shifted back by its most common offset (a span that
+/// matches several items, e.g. the same "2022 ...." row in three tables, takes the offset most
+/// common on the page).
+pub(super) fn page_boxes(page: &ParsedPage, lines: &[ProjectedLine]) -> Vec<Rect> {
+    use std::collections::HashMap;
+    let key = |t: &str, x: f32, w: f32| {
+        (
+            t.to_string(),
+            (x * 4.0).round() as i64,
+            (w * 4.0).round() as i64,
+        )
+    };
+    let mut orig: HashMap<(String, i64, i64), Vec<f32>> = HashMap::new();
+    for it in &page.text_items {
+        orig.entry(key(&it.text, it.x, it.width))
+            .or_default()
+            .push(it.y);
+    }
+    let cands: Vec<Vec<i64>> = lines
+        .iter()
+        .map(|l| {
+            l.spans
+                .iter()
+                .flat_map(|sp| {
+                    orig.get(&key(&sp.text, sp.x, sp.width))
+                        .into_iter()
+                        .flatten()
+                        .map(move |y| ((sp.y - y) * 2.0).round() as i64)
+                })
+                .collect()
+        })
+        .collect();
+    let mut hist: HashMap<i64, usize> = HashMap::new();
+    for c in &cands {
+        let mut u = c.clone();
+        u.sort_unstable();
+        u.dedup();
+        for d in u {
+            *hist.entry(d).or_default() += 1;
+        }
+    }
+    lines
+        .iter()
+        .zip(&cands)
+        .map(|(l, c)| {
+            let dy = c
+                .iter()
+                .max_by_key(|d| (hist.get(d).copied().unwrap_or(0), -(d.abs())))
+                .map_or(0.0, |&d| d as f32 / 2.0);
+            Rect {
+                x: l.bbox.x,
+                y: l.bbox.y - dy,
+                width: l.bbox.width,
+                height: l.bbox.height,
+            }
+        })
+        .collect()
 }

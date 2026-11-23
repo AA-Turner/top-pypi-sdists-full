@@ -24,11 +24,6 @@ from aioquic.quic.logger import QuicFileLogger
 from aioquic.quic.packet import QuicProtocolVersion
 from aioquic.tls import CipherSuite, SessionTicket
 
-try:
-    import uvloop
-except ImportError:
-    uvloop = None
-
 logger = logging.getLogger("client")
 
 HttpConnection = H0Connection | H3Connection
@@ -138,10 +133,10 @@ class HttpClient(QuicConnectionProtocol):
         self._request_waiter: dict[int, asyncio.Future[deque[H3Event]]] = {}
         self._websockets: dict[int, WebSocket] = {}
 
-        if self._quic.configuration.alpn_protocols[0].startswith("hq-"):
-            self._http = H0Connection(self._quic)
+        if self.quic_connection.configuration.alpn_protocols[0].startswith("hq-"):
+            self._http = H0Connection(self.quic_connection)
         else:
-            self._http = H3Connection(self._quic)
+            self._http = H3Connection(self.quic_connection)
 
     async def get(self, url: str, headers: dict | None = None) -> deque[H3Event]:
         """
@@ -168,7 +163,7 @@ class HttpClient(QuicConnectionProtocol):
         Open a WebSocket.
         """
         request = HttpRequest(method="CONNECT", url=URL(url))
-        stream_id = self._quic.get_next_available_stream_id()
+        stream_id = self.quic_connection.get_next_available_stream_id()
         websocket = WebSocket(
             http=self._http, stream_id=stream_id, transmit=self.transmit
         )
@@ -233,7 +228,7 @@ class HttpClient(QuicConnectionProtocol):
             self._websockets.clear()
 
     async def _request(self, request: HttpRequest) -> deque[H3Event]:
-        stream_id = self._quic.get_next_available_stream_id()
+        stream_id = self.quic_connection.get_next_available_stream_id()
         self._http.send_headers(
             stream_id=stream_id,
             headers=[
@@ -582,8 +577,6 @@ if __name__ == "__main__":
     if args.certificate is not None:
         configuration.load_cert_chain(args.certificate, args.private_key)
 
-    if uvloop is not None:
-        uvloop.install()
     asyncio.run(
         main(
             configuration=configuration,

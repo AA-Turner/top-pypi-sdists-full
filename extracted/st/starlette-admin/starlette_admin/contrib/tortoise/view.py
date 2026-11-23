@@ -47,7 +47,7 @@ from tortoise.queryset import QuerySet
 _log = get_logger(__name__)
 
 
-class ModelView(BaseModelView):
+class ModelView(BaseModelView[str]):
     """A view for managing Tortoise ORM models."""
 
     def __init__(
@@ -125,7 +125,7 @@ class ModelView(BaseModelView):
         """
         meta = self._meta
         for name in meta.fk_fields | meta.o2o_fields | meta.m2m_fields:
-            if meta.fields_map[name].related_model is None:  # ty: ignore[unresolved-attribute]
+            if meta.fields_map[name].related_model is None:  # ty: ignore[missing-attribute]
                 raise InvalidModelError(
                     f"Relations of {self.model.__name__} are not initialized."
                     ' Call Tortoise.init_models(["path.to.models"], "models")'
@@ -424,7 +424,7 @@ class ModelView(BaseModelView):
         raise exc
 
 
-class InlineModelView(BaseInlineModelView, ModelView):
+class InlineModelView(BaseInlineModelView[str], ModelView):
     """Inline editing of Tortoise-backed related records inside a parent form.
 
     Declare ``model`` as a class attribute. The FK is either set explicitly
@@ -481,7 +481,7 @@ class InlineModelView(BaseInlineModelView, ModelView):
         candidates = [
             name
             for name in meta.fk_fields | meta.o2o_fields
-            if meta.fields_map[name].related_model is parent_model  # ty: ignore[unresolved-attribute]
+            if meta.fields_map[name].related_model is parent_model  # ty: ignore[missing-attribute]
         ]
         if len(candidates) == 1:
             source = relation_source_field(self.model, candidates[0])

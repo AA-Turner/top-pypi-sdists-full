@@ -1328,8 +1328,7 @@ class ReportingProducer:
         rows = await self._read_rows(request, manifest)
         # ``now`` freezes dispatch/lease/cutoff decisions, not publication.
         # A conforming source can observe finality while acquisition is running.
-        # Every successful scheduled read, even unchanged content, reaches the
-        # atomic revision/observation/checkpoint commit with this fresh anchor.
+        # Every successful scheduled read reaches the atomic observation/checkpoint commit.
         published_at = self._clock()
         if _utc(published_at) < _utc(now):
             raise LedgerConflictError(
@@ -1866,29 +1865,72 @@ class ReportingProducer:
         # An object-bound revision uploads its chunks before the ledger transaction,
         # never inside it, so a slow store cannot hold the account lock.
         staging = self._store if isinstance(self._store, ReportingRowStagingStore) else None
+        retained = None
+        if (
+            acquisition is not None
+            and finality == "snapshot"
+            and acquisition.predecessor_revision_id
+        ):
+            predecessor = await self._store.get_revision(
+                account_id=obligation.account_id,
+                reporting_revision_id=acquisition.predecessor_revision_id,
+            )
+            if predecessor is None:
+                raise LedgerConflictError("HISTORY_UNAVAILABLE", "snapshot predecessor is missing")
+            predecessor_content_sha256 = revision_content_sha256(
+                reporting_revision_id=predecessor.reporting_revision_id,
+                row_count=revision.row_count,
+                control_totals=revision.control_totals,
+                reporting_rows=rows,
+                control_total_evidence=(
+                    revision.managed_control_totals
+                    if predecessor.managed_control_totals is not None
+                    else None
+                ),
+            )
+            if (
+                predecessor.readable
+                and predecessor.source_manifest_sha256
+                == manifest.content_fingerprint.split(":", 1)[-1]
+                and predecessor.revision_content_sha256 == predecessor_content_sha256
+            ):
+                retained = predecessor
         staged = staging is not None and bool(await staging.stage_revision_rows(revision, rows))
         try:
             committed = await self._commit_publication(
-                obligation, manifest, revision, rows, finality, now, acquisition
+                obligation,
+                manifest,
+                revision,
+                rows,
+                finality,
+                now,
+                acquisition,
+                retained_revision_id=retained.reporting_revision_id
+                if retained is not None
+                else None,
             )
         finally:
             if staged and staging is not None:
                 staging.discard_staged_revision_rows(revision)
-        turn.revisions_committed.append(committed.reporting_revision_id)
+        if retained is None or committed.reporting_revision_id != retained.reporting_revision_id:
+            turn.revisions_committed.append(committed.reporting_revision_id)
         return committed
 
     async def _commit_publication(
         self,
         obligation: ReportingObligationRecord,
         manifest: SourceBatchManifestV1,
-        revision: ReportingRevisionRecord,
+        revision: ReportingRevisionRecord | None,
         rows: Sequence[dict[str, Any]],
         finality: str,
         now: datetime,
         acquisition: ProvisionalAcquisition | None,
+        *,
+        retained_revision_id: str | None = None,
     ) -> ReportingRevisionRecord:
         async with self._revision_publication(obligation, manifest.offering_id):
             if acquisition is None:
+                assert revision is not None
                 committed = await self._store.commit_revision(revision, rows)
             else:
                 # ``now`` is the publication anchor, sampled after row acquisition.
@@ -1902,10 +1944,15 @@ class ReportingProducer:
                     if finality == "snapshot" and checked_at < _utc(boundary)
                     else None
                 )
+                if retained_revision_id is not None:
+                    observation_revision_id = retained_revision_id
+                else:
+                    assert revision is not None
+                    observation_revision_id = revision.reporting_revision_id
                 committed = await self._observation_store().commit_provisional_observation(
                     ProvisionalObservation(
                         acquisition,
-                        revision.reporting_revision_id,
+                        observation_revision_id,
                         checked_at,
                         _utc(boundary),
                         next_due,

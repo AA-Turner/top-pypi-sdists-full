@@ -70,6 +70,7 @@ async fn recovery_cancels_only_the_current_fallback_even_during_http() {
                 spec: format!("streaming-{last_updated}"),
                 last_updated,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
         let mut update = timeout(Duration::from_secs(2), updates_rx.recv())
@@ -146,6 +147,7 @@ async fn start_accepts_updates_before_recording_the_worker_handle() {
                             spec: version.to_string(),
                             last_updated: version,
                             zstd_dict_id: None,
+                            spec_bytes: None,
                         }))
                         .await;
                     published.recv().await.unwrap().unwrap();
@@ -190,6 +192,7 @@ async fn shutdown_joins_retrying_stream_and_stops_active_fallback() {
             spec: "healthy".into(),
             last_updated: 1,
             zstd_dict_id: None,
+            spec_bytes: None,
         }))
         .await;
     adapter

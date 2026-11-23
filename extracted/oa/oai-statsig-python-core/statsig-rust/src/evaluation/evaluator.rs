@@ -129,6 +129,12 @@ impl Evaluator {
             }
         }
 
+        if matches!(spec_type, SpecType::Gate | SpecType::DynamicConfig) {
+            ctx.result.served_version = spec
+                .served_version()
+                .filter(|version| Some(*version) != spec.version());
+        }
+
         if let Some(is_active) = spec.is_active() {
             ctx.result.is_experiment_active = is_active;
         }
@@ -900,10 +906,12 @@ fn evaluate_nested_gate<'a>(
 
             let parent_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
             let parent_analytical_gates = ctx.result.has_seen_analytical_gates.take();
+            let parent_served_version = ctx.result.served_version;
             let sampling_metadata_revision = ctx.sampling_metadata_revision;
 
             let recognition = Evaluator::evaluate_with_name(ctx, gate_name, &SpecType::Gate);
             ctx.nested_count = parent_nested_count;
+            ctx.result.served_version = parent_served_version;
             let nested_analytical_gates = ctx.result.has_seen_analytical_gates;
             ctx.result.has_seen_analytical_gates =
                 merge_analytical_gate_flags(parent_analytical_gates, nested_analytical_gates);

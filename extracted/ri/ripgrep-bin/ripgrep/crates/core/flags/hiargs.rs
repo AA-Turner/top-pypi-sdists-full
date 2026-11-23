@@ -7,8 +7,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
+
 use {
-    bstr::BString,
+    bstr::{BString, ByteSlice, io::BufReadExt},
     grep::printer::{ColorSpecs, SummaryKind},
 };
 
@@ -16,8 +18,9 @@ use crate::{
     flags::lowargs::{
         BinaryMode, BoundaryMode, BufferMode, CaseMode, ColorChoice,
         ContextMode, ContextSeparator, EncodingMode, EngineChoice,
-        FieldContextSeparator, FieldMatchSeparator, LowArgs, MmapMode, Mode,
-        PatternSource, SearchMode, SortMode, SortModeKind, TypeChange,
+        FieldContextSeparator, FieldMatchSeparator, InputSource, LowArgs,
+        MmapMode, Mode, PatternSource, SearchMode, SortMode, SortModeKind,
+        TypeChange,
     },
     haystack::{Haystack, HaystackBuilder},
     search::{PatternMatcher, Printer, SearchWorker, SearchWorkerBuilder},
@@ -64,6 +67,7 @@ pub(crate) struct HiArgs {
     invert_match: bool,
     is_terminal_stdout: bool,
     line_number: bool,
+    max_bytes: Option<u64>,
     max_columns: Option<u64>,
     max_columns_preview: bool,
     max_count: Option<u64>,
@@ -165,12 +169,25 @@ impl HiArgs {
         };
         let path_terminator = if low.null { Some(b'\x00') } else { None };
         let quit_after_match = stats.is_none() && low.quiet;
+        let env_threads =
+            if low.threads.is_none() { threads_from_env()? } else { None };
         let threads = if low.sort.is_some() || paths.is_one_file {
             1
         } else if let Some(threads) = low.threads {
+            log::trace!("using thread count {threads} from CLI");
+            threads
+        } else if let Some(threads) = env_threads {
+            log::trace!(
+                "using thread count {threads} from \
+                 RIPGREP_THREADS environment variable",
+            );
             threads
         } else {
-            std::thread::available_parallelism().map_or(1, |n| n.get()).min(12)
+            let threads = default_thread_count();
+            log::trace!(
+                "using default thread count heuristic: {threads} threads",
+            );
+            threads
         };
         log::debug!("using {threads} thread(s)");
         let with_filename = low
@@ -281,6 +298,7 @@ impl HiArgs {
             invert_match: low.invert_match,
             is_terminal_stdout: state.is_terminal_stdout,
             line_number,
+            max_bytes: low.max_bytes,
             max_columns: low.max_columns,
             max_columns_preview: low.max_columns_preview,
             max_count: low.max_count,
@@ -548,8 +566,9 @@ impl HiArgs {
         let mut builder = grep::printer::PathPrinterBuilder::new();
         builder
             .color_specs(self.colors.clone())
+            .escape(self.is_terminal_stdout)
             .hyperlink(self.hyperlink_config.clone())
-            .separator(self.path_separator.clone())
+            .separator(self.path_separator)
             .terminator(self.path_terminator.unwrap_or(b'\n'));
         builder
     }
@@ -614,13 +633,14 @@ impl HiArgs {
             .byte_offset(self.byte_offset)
             .color_specs(self.colors.clone())
             .column(self.column)
+            .escape_path(self.is_terminal_stdout)
             .heading(self.heading)
             .hyperlink(self.hyperlink_config.clone())
             .max_columns_preview(self.max_columns_preview)
             .max_columns(self.max_columns)
             .only_matching(self.only_matching)
             .path(self.with_filename)
-            .path_terminator(self.path_terminator.clone())
+            .path_terminator(self.path_terminator)
             .per_match_one_line(true)
             .per_match(self.vimgrep)
             .replacement(self.replace.clone().map(|r| r.into()))
@@ -631,7 +651,7 @@ impl HiArgs {
             .separator_field_match(
                 self.field_match_separator.clone().into_bytes(),
             )
-            .separator_path(self.path_separator.clone())
+            .separator_path(self.path_separator)
             .stats(self.stats.is_some())
             .trim_ascii(self.trim);
         // When doing multi-threaded searching, the buffer writer is
@@ -654,13 +674,14 @@ impl HiArgs {
     ) -> grep::printer::Summary<W> {
         grep::printer::SummaryBuilder::new()
             .color_specs(self.colors.clone())
+            .escape_path(self.is_terminal_stdout)
             .exclude_zero(!self.include_zero)
             .hyperlink(self.hyperlink_config.clone())
             .kind(kind)
             .path(self.with_filename)
-            .path_terminator(self.path_terminator.clone())
+            .path_terminator(self.path_terminator)
             .separator_field(b":".to_vec())
-            .separator_path(self.path_separator.clone())
+            .separator_path(self.path_separator)
             .stats(self.stats.is_some())
             .build(wtr)
     }
@@ -724,7 +745,8 @@ impl HiArgs {
             .line_number(self.line_number)
             .multi_line(self.multiline)
             .memory_map(self.mmap_choice.clone())
-            .stop_on_nonmatch(self.stop_on_nonmatch);
+            .stop_on_nonmatch(self.stop_on_nonmatch)
+            .max_bytes(self.max_bytes);
         match self.context {
             ContextMode::Passthru => {
                 builder.passthru(true);
@@ -879,7 +901,7 @@ impl HiArgs {
         if !self.no_ignore_files {
             for path in self.ignore_file.iter() {
                 if let Some(err) = builder.add_ignore(path) {
-                    ignore_message!("{err}");
+                    ignore_message!("{}", crate::messages::stderr_error(err));
                 }
             }
         }
@@ -994,11 +1016,19 @@ impl Patterns {
         // If we got nothing from -e/--regexp and -f/--file, then the first
         // positional is a pattern.
         if low.patterns.is_empty() {
-            anyhow::ensure!(
-                !low.positional.is_empty(),
-                "ripgrep requires at least one pattern to execute a search"
-            );
-            let ospat = low.positional.remove(0);
+            let Some(ospat) = low
+                .inputs
+                .iter()
+                .position(|i| matches!(i, InputSource::PositionalArgument(_)))
+                .and_then(|i| match low.inputs.remove(i) {
+                    InputSource::PositionalArgument(pattern) => Some(pattern),
+                    _ => None,
+                })
+            else {
+                anyhow::bail!(
+                    "ripgrep requires at least one pattern to execute a search"
+                );
+            };
             let Ok(pat) = ospat.into_string() else {
                 anyhow::bail!("pattern given is not valid UTF-8")
             };
@@ -1068,26 +1098,39 @@ struct Paths {
 
 impl Paths {
     /// Drain the search paths out of the given low arguments.
+    ///
+    /// This includes collecting files from `--in`/`--in0`.
     fn from_low_args(
         state: &mut State,
         _: &Patterns,
         low: &mut LowArgs,
     ) -> anyhow::Result<Paths> {
+        // No search or traversal means no file paths.
+        if !matches!(low.mode, Mode::Search(_) | Mode::Files) {
+            return Ok(Paths {
+                paths: vec![],
+                has_implicit_path: false,
+                is_one_file: false,
+            });
+        }
+
         // We require a `&Patterns` even though we don't use it to ensure that
-        // patterns have already been read from LowArgs. This let's us safely
+        // patterns have already been read from LowArgs. This lets us safely
         // assume that all remaining positional arguments are intended to be
         // file paths.
+        if state.stdin_consumed && low.inputs.iter().any(|i| i.is_stdin()) {
+            anyhow::bail!(
+                "error: attempted to read patterns or input file paths \
+                 from stdin while also searching stdin",
+            );
+        }
 
-        let mut paths = Vec::with_capacity(low.positional.len());
-        for osarg in low.positional.drain(..) {
-            let path = PathBuf::from(osarg);
-            if state.stdin_consumed && path == Path::new("-") {
-                anyhow::bail!(
-                    "error: attempted to read patterns from stdin \
-                     while also searching stdin",
-                );
-            }
-            paths.push(path);
+        let all_inputs_from_flags =
+            low.inputs.iter().any(|i| i.is_optional_flag())
+                && low.inputs.iter().all(|i| i.is_optional_flag());
+        let mut paths = Vec::with_capacity(low.inputs.len());
+        for input in low.inputs.drain(..) {
+            Self::add_paths_from_input(state, input, &mut paths)?;
         }
         log::debug!("number of paths given to search: {}", paths.len());
         if !paths.is_empty() {
@@ -1103,6 +1146,10 @@ impl Paths {
             log::debug!("is_one_file? {is_one_file:?}");
             return Ok(Paths { paths, has_implicit_path: false, is_one_file });
         }
+        anyhow::ensure!(
+            !all_inputs_from_flags,
+            "when --in or --in0 are used, ripgrep requires at least one path",
+        );
         // N.B. is_readable_stdin is a heuristic! Part of the issue is that a
         // lot of "exec process" APIs will open a stdin pipe even though stdin
         // isn't really being used. ripgrep then thinks it should search stdin
@@ -1136,6 +1183,117 @@ impl Paths {
     /// Returns true if ripgrep will only search stdin and nothing else.
     fn is_only_stdin(&self) -> bool {
         self.paths.len() == 1 && self.paths[0] == Path::new("-")
+    }
+
+    /// Interprets `input` and adds its content to `output`.
+    ///
+    /// `input` may be a positional argument or a source specified through
+    /// an `--in` or `--in0` flag, whose goal is to reuse existing input file
+    /// sets and to enable usage of chained ripgrep calls, such as:
+    /// `rg foo -l0 | rg bar --in0=- -l0 | rg baz --in0=-`
+    fn add_paths_from_input(
+        state: &mut State,
+        input: InputSource,
+        output: &mut Vec<PathBuf>,
+    ) -> anyhow::Result<()> {
+        // We need to handle a combination of the following:
+        // - Positional arguments or input files
+        // - In case of input files: with LF/CRLF or NUL terminators
+        // - Files or stdin: this needs to handle `stdin_consumed`
+        match input {
+            InputSource::PositionalArgument(_) => {
+                if state.stdin_consumed && input.is_stdin() {
+                    anyhow::bail!(
+                        "error: attempted to read from stdin: stdin \
+                         has already been consumed",
+                    );
+                }
+                state.stdin_consumed =
+                    state.stdin_consumed || input.is_stdin();
+                Self::consume_input(state, std::io::empty(), input, output)?;
+            }
+            InputSource::LineTerminated(ref path)
+            | InputSource::NulTerminated(ref path) => {
+                if input.is_stdin() {
+                    anyhow::ensure!(
+                        !state.stdin_consumed,
+                        "error: attempted to read {} from stdin: stdin \
+                         has already been consumed",
+                        input.flag().unwrap_or("input")
+                    );
+                    let stdin = std::io::stdin();
+                    let locked = stdin.lock();
+                    state.stdin_consumed = true;
+                    Self::consume_input(state, locked, input, output)?;
+                } else {
+                    let file = std::fs::File::open(path).map_err(|err| {
+                        std::io::Error::other(format!("{}: {}", input, err))
+                    })?;
+                    Self::consume_input(state, file, input, output)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Consumes `input` by adding paths from the associated `read` to `output`.
+    ///
+    /// In the case of positional arguments, `read` is not relevant.
+    fn consume_input(
+        state: &mut State,
+        read: impl std::io::Read,
+        input: InputSource,
+        output: &mut Vec<PathBuf>,
+    ) -> anyhow::Result<()> {
+        match input {
+            InputSource::PositionalArgument(osstr) => {
+                output.push(PathBuf::from(osstr));
+            }
+            InputSource::LineTerminated(_) => std::io::BufReader::new(read)
+                .for_byte_line(|line| {
+                    if line.contains(&b'\x00') {
+                        return Err(std::io::Error::other(format!(
+                            "{}: file contains a NUL byte, \
+                             did you intend to use --in0 instead of --in?",
+                            input
+                        )));
+                    }
+                    if line == b"-" {
+                        if state.stdin_consumed {
+                            return Err(std::io::Error::other(format!(
+                                "error: attempted to read `-` line in {} from \
+                                 stdin: stdin has already been consumed",
+                                input.flag().unwrap_or("input"),
+                            )));
+                        }
+                        state.stdin_consumed = true;
+                    }
+                    let s = ByteSlice::to_path(line).map_err(|err| {
+                        std::io::Error::other(format!("{}: {}", input, err))
+                    })?;
+                    output.push(PathBuf::from(s));
+                    Ok(true)
+                })?,
+            InputSource::NulTerminated(_) => std::io::BufReader::new(read)
+                .for_byte_record(b'\x00', |record| {
+                    if record == b"-" {
+                        if state.stdin_consumed {
+                            return Err(std::io::Error::other(format!(
+                                "error: attempted to read `-` line in {} from \
+                                 stdin: stdin has already been consumed",
+                                input.flag().unwrap_or("input"),
+                            )));
+                        }
+                        state.stdin_consumed = true;
+                    }
+                    let s = ByteSlice::to_path(record).map_err(|err| {
+                        std::io::Error::other(format!("{}: {}", input, err))
+                    })?;
+                    output.push(PathBuf::from(s));
+                    Ok(true)
+                })?,
+        };
+        Ok(())
     }
 }
 
@@ -1203,6 +1361,26 @@ fn types(low: &LowArgs) -> anyhow::Result<ignore::types::Types> {
         }
     }
     Ok(builder.build()?)
+}
+
+/// Use "heuristics" to determine the default thread count.
+fn default_thread_count() -> usize {
+    std::thread::available_parallelism().map_or(1, |n| n.get()).min(12)
+}
+
+/// Find the thread count from an environment variable.
+///
+/// This returns an error if the environment variable is set to something that
+/// cannot be parsed into a `usize`.
+fn threads_from_env() -> anyhow::Result<Option<usize>> {
+    let Some(raw) = std::env::var_os("RIPGREP_THREADS") else {
+        return Ok(None);
+    };
+    let raw = raw.to_string_lossy();
+    let threads = raw
+        .parse::<usize>()
+        .with_context(|| format!("invalid RIPGREP_THREADS value: {raw:?}"))?;
+    Ok(if threads == 0 { None } else { Some(threads) })
 }
 
 /// Builds the glob "override" matcher from the CLI `-g/--glob` and `--iglob`

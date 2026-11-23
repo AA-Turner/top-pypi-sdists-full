@@ -443,6 +443,8 @@ _MODEL_PURE_MODULES = frozenset(
      "fractions", "ipaddress", "uuid", "hashlib", "base64", "binascii",
      "textwrap", "unicodedata"}
 )  # fmt: skip
+# Model methods that read the model and return plain data.
+_MODEL_READ_METHODS = frozenset({"model_dump", "model_dump_json", "dict", "json"})
 
 
 def _closed_function_value(value):
@@ -6550,7 +6552,7 @@ class _Tracer:
                     continue
                 parent = parents.get(id(node))
                 readonly = (
-                    node.attr in {"model_dump", "model_dump_json", "dict", "json"}
+                    node.attr in _MODEL_READ_METHODS
                     and isinstance(parent, ast.Call)
                     and parent.func is node
                     and all(
@@ -6783,9 +6785,17 @@ class _Tracer:
             return True
         scope = unit.scope_of(node)
         values = self.project.values(unit, scope, node.func) or ()
-        if values and all(
-            value.kind == "ext" and _model_pure_callable(value.name)
-            for value in values
+        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+        if (
+            values
+            and all(
+                value.kind == "ext" and _model_pure_callable(value.name)
+                for value in values
+            )
+            and not any(
+                self._model_callable_argument(unit, argument) for argument in node.args
+            )
+            and all(self._plain_model_keyword(unit, keyword) for keyword in node.keywords)
         ):
             return True
         if isinstance(node.func, ast.Name):
@@ -6794,11 +6804,93 @@ class _Tracer:
                 and self._inert_model_function(value.unit, value.node, active)
                 for value in values
             )
-        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
-        return not any(
-            isinstance(argument.value if isinstance(argument, ast.Starred) else argument, ast.Name)
-            for argument in arguments
-        ) and not any(keyword.arg is None for keyword in node.keywords)
+        if isinstance(node.func, ast.Attribute):
+            if (
+                node.func.attr in _MODEL_READ_METHODS
+                and all(self._inert_model_default(argument) for argument in node.args)
+                and all(
+                    keyword.arg is not None and self._inert_model_default(keyword.value)
+                    for keyword in node.keywords
+                )
+            ):
+                # The model's own read methods return plain data, not the model.
+                return True
+            if not self._inert_model_receiver(unit, node.func.value, active):
+                # A method of an expression that may hold the model can write
+                # it, whatever the arguments are.
+                return False
+        return not any(keyword.arg is None for keyword in node.keywords) and (
+            self._inert_model_arguments(arguments)
+        )
+
+    def _inert_model_receiver(self, unit, receiver, active):
+        """Whether a method called on ``receiver`` cannot write the model.
+
+        A receiver that resolves to a module, an imported object or a plain
+        value is not the model itself; one that resolves to a model instance,
+        or that cannot be resolved at all, may be."""
+        if not isinstance(receiver, ast.Name):
+            return self._inert_model_node(unit, receiver, active)
+        scope = unit.scope_of(receiver)
+        if not self.project.values(unit, scope, receiver):
+            return False
+        return self._inert_model_node(unit, receiver, active)
+
+    def _model_callable_argument(self, unit, argument):
+        """Whether ``argument`` is a function or class the callee may call with
+        another argument, as ``json.dumps(value, default=hook)`` does."""
+        target = argument.value if isinstance(argument, ast.Starred) else argument
+        if isinstance(target, ast.Lambda):
+            return True
+        if not isinstance(target, (ast.Name, ast.Attribute)):
+            return False
+        scope = unit.scope_of(target)
+        return any(
+            value.kind in {"fn", "cls"}
+            for value in self.project.values(unit, scope, target) or ()
+        )
+
+    def _plain_model_keyword(self, unit, keyword):
+        """Whether a keyword of a pure call is plain data or a pure builtin.
+
+        Pure functions take their callbacks by keyword and call them with the
+        other arguments: ``json.dumps(item, default=hook)`` and ``cls=``,
+        ``max(items, key=hook)``. A hook from a plugin or a parameter is opaque
+        code that would receive the model, so only plain data (a literal or a
+        module-level scalar such as ``INDENT = 2``) or a pure builtin
+        (``key=len``, ``default=str``) leaves the call pure."""
+        if keyword.arg is None:
+            return False
+        value = keyword.value
+        scope = unit.scope_of(value)
+        if _constant_literal(value) or self._inert_field_default(unit, scope, value):
+            return True
+        if not isinstance(value, (ast.Name, ast.Attribute)):
+            return False
+        values = self.project.values(unit, scope, value) or ()
+        return bool(values) and all(
+            item.kind == "ext" and _model_pure_callable(item.name) for item in values
+        )
+
+    @staticmethod
+    def _inert_model_arguments(arguments):
+        """An unresolved call can keep or store whatever it is handed, so no
+        argument expression may mention a name that could be the model itself,
+        directly or inside a container, a star, or a conditional. A name used
+        only as the receiver of an attribute is not handed over: the attribute
+        value is."""
+        for argument in arguments:
+            target = argument.value if isinstance(argument, ast.Starred) else argument
+            nodes = list(ast.walk(target))
+            receivers = {
+                id(node.value) for node in nodes if isinstance(node, ast.Attribute)
+            }
+            if any(
+                isinstance(node, ast.Name) and id(node) not in receivers
+                for node in nodes
+            ):
+                return False
+        return True
 
     def _model_function_authorities(self, unit):
         memo = getattr(self, "model_function_authority_memo", None)
@@ -7696,12 +7788,38 @@ def _untrusted_message(finding, source):
     )
 
 
+UNPROVEN_SOURCE_KIND = "unproven_source"
+_UNPROVEN_PREFIX = "Review (not listed, not blocking): "
+
+
+def _unproven_source_message(finding):
+    """Say that no untrusted input was shown, keeping the rule's advice."""
+    message = str(finding.get("message") or "")
+    if message.startswith(_UNPROVEN_PREFIX):
+        return message
+    return (
+        f"{_UNPROVEN_PREFIX}caller analysis stopped before any chain reached "
+        "request data, an upload, a network message or an archive member. "
+        f"{message}"
+    )
+
+
 def _component_review_message(finding, source, review):
     operation = "write" if finding.get("rule_id") == "SKY-D324" else "read"
     validated = ", ".join(review["proofs"])
+    unresolved = review.get("unresolved_sources") or []
+    shown = "; ".join(unresolved[:_REVIEW_SHOWN_SOURCES])
+    if len(unresolved) > _REVIEW_SHOWN_SOURCES:
+        shown += f"; and {len(unresolved) - _REVIEW_SHOWN_SOURCES} more"
+    uncovered = (
+        f" The trace could not follow other sources of this path, so this "
+        f"validation does not cover them: {shown}."
+        if unresolved
+        else ""
+    )
     return (
         f"Review (not blocking): {source} selects only one filename component "
-        f"of this {operation} path, validated by {validated}. Following a "
+        f"of this {operation} path, validated by {validated}.{uncovered} Following a "
         "symlink here also needs an untrusted party to create or replace an "
         "entry in this directory or its parents, which the trace does not "
         "show. Close it for a deployment where only trusted writers control "
@@ -7922,6 +8040,11 @@ def _resolve(findings, root, files, complete, suppressed):
             kept.append(updated)
             continue
         if status == INCOMPLETE:
+            if not record.get("shared_temp_path"):
+                # No chain reached attacker input before the analysis
+                # stopped: a review signal, not a listed vulnerability.
+                updated["review_item"] = {"kind": UNPROVEN_SOURCE_KIND, "blocking": False}
+                updated["message"] = _unproven_source_message(updated)
             kept.append(updated)
             continue
         if record.get("shared_temp_path"):
@@ -8026,6 +8149,7 @@ def _classify(project, tracers, finding):
 _SYMLINK_RULES = frozenset({"SKY-D324", "SKY-D325"})
 # Chains kept per kind while checking a symlink finding for a review item.
 _REVIEW_MAX_CHAINS = 128
+_REVIEW_SHOWN_SOURCES = 3
 _SHARED_TEMP_CALLS = ("tempfile.gettempdir", "tempfile.gettempdirb", "tempfile.mktemp")
 _SHARED_TEMP_PREFIXES = (
     "/tmp/", "/var/tmp/", "/dev/shm/", "/private/tmp/", "/private/var/tmp/"
@@ -8103,15 +8227,20 @@ def _component_review_record(tracer, unit, operand, rule):
     directory = _review_directory(tracer, unit, operand)
     if directory is None:
         directory = ("site", unit.rel, operand.lineno, operand.col_offset, rule)
+    unresolved = sorted({chain[0] for chain in traversal.chains[UNKNOWN] if chain})
     # Keep source literals out of the report. A shared validator alone
     # says nothing about who administers two different directories.
-    group = hashlib.sha256(repr((directory, proofs)).encode()).hexdigest()
-    return {
+    key = (directory, proofs, unresolved) if unresolved else (directory, proofs)
+    group = hashlib.sha256(repr(key).encode()).hexdigest()
+    record = {
         "status": "caller_selects_one_filename_component",
         "proofs": proofs,
         "open_prerequisite": COMPONENT_REVIEW_PREREQUISITE,
         "group": "symlink-entry-access|" + group,
     }
+    if unresolved:
+        record["unresolved_sources"] = unresolved
+    return record
 
 
 def _review_directory(tracer, unit, operand):

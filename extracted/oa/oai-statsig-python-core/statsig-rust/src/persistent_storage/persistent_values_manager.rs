@@ -219,6 +219,7 @@ impl PersistentValuesManager {
             lcut: sticky_value.time,
             received_at: Some(Utc::now().timestamp_millis() as u64),
             version: sticky_value.config_version,
+            served_version: None,
         }
     }
 
@@ -237,6 +238,7 @@ impl PersistentValuesManager {
             group_name: sticky_value.group_name.clone(),
             json_value: sticky_value.json_value.clone(),
             version: sticky_value.config_version,
+            served_version: None,
             config_delegate: sticky_value.config_delegate.clone(),
             explicit_parameters: sticky_value.explicit_parameters.clone(),
             secondary_exposures: sticky_value.secondary_exposures.clone(),
@@ -475,6 +477,7 @@ fn make_experiment_from_sticky_value(
         lcut: sticky_value.time,
         received_at: Some(Utc::now().timestamp_millis() as u64),
         version: sticky_value.config_version,
+        served_version: None,
     };
 
     let (sticky_rule_id, sticky_rule_id_string) = prep_sticky_rule_id(sticky_value);
@@ -566,6 +569,7 @@ fn make_layer_from_sticky_value(curr_layer: Layer, sticky_value: &StickyValues) 
         lcut: sticky_value.time,
         received_at: Some(Utc::now().timestamp_millis() as u64),
         version: sticky_value.config_version,
+        served_version: None,
     };
 
     let (sticky_rule_id, sticky_rule_id_string) = prep_sticky_rule_id(sticky_value);

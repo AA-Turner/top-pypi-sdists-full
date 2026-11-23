@@ -5,9 +5,10 @@ from __future__ import annotations
 import mimetypes
 import os
 from base64 import b64encode
+from collections.abc import Sequence
 from email.header import decode_header
 from email.message import Message, MIMEPart
-from typing import Any, Generic, Self, TypeVar, cast
+from typing import Any, Generic, Literal, NotRequired, Self, TypedDict, TypeVar, cast, get_args
 
 from ..utils import chunks
 from .base import AsyncMessageModel, AsyncModelManager, BaseModelManager, MessageModel, Model, ModelManager
@@ -16,6 +17,30 @@ SEPARATOR = ""
 
 # What `list_to_csv` joins
 Recipients = str | list[str] | tuple[str, ...] | set[str]
+# Values of `TrackLinks`
+LinkTracking = Literal["None", "HtmlAndText", "HtmlOnly", "TextOnly"]
+
+
+class SendResponse(TypedDict):
+    """Postmark's response to a sent email."""
+
+    To: str
+    SubmittedAt: str
+    MessageID: str
+    ErrorCode: int
+    Message: str
+
+
+class BatchSendResponse(TypedDict):
+    """Postmark's response to one email of a batch; a rejected email has only `ErrorCode` and `Message`."""
+
+    To: NotRequired[str]
+    SubmittedAt: NotRequired[str]
+    MessageID: NotRequired[str]
+    ErrorCode: int
+    Message: str
+
+
 # What `prepare_attachments` accepts
 AttachmentData = dict[str, Any] | tuple[str, ...] | Message | str
 
@@ -125,10 +150,9 @@ def deconstruct_multipart(message: Message) -> tuple[str | None, str | None, lis
 
 class BaseEmail(Model):
     def __init__(self, **kwargs: Any) -> None:
-        if not kwargs.get("Headers"):
-            kwargs["Headers"] = {}
-        if not kwargs.get("Attachments"):
-            kwargs["Attachments"] = []
+        # Copies, so `attach` and header assignment never change the caller's collections
+        kwargs["Headers"] = dict(kwargs.get("Headers") or {})
+        kwargs["Attachments"] = list(kwargs.get("Attachments") or [])
         super().__init__(**kwargs)
 
     def __str__(self) -> str:
@@ -245,15 +269,17 @@ class BaseEmailMessage(BaseEmail):
 
 
 class Email(BaseEmailMessage):
-    def send(self) -> Any:
-        return self._manager._send(**self.as_dict())
+    def send(self) -> SendResponse:
+        response: SendResponse = self._manager._send(**self.as_dict())
+        return response
 
 
 class AsyncEmail(BaseEmailMessage):
     """Async twin of :py:class:`Email`."""
 
-    async def send(self) -> Any:
-        return await self._manager._send(**self.as_dict())
+    async def send(self) -> SendResponse:
+        response: SendResponse = await self._manager._send(**self.as_dict())
+        return response
 
 
 class BaseEmailTemplate(BaseEmail):
@@ -264,15 +290,17 @@ class BaseEmailTemplate(BaseEmail):
 
 
 class EmailTemplate(BaseEmailTemplate):
-    def send(self) -> Any:
-        return self._manager._send_with_template(**self.as_dict())
+    def send(self) -> SendResponse:
+        response: SendResponse = self._manager._send_with_template(**self.as_dict())
+        return response
 
 
 class AsyncEmailTemplate(BaseEmailTemplate):
     """Async twin of :py:class:`EmailTemplate`."""
 
-    async def send(self) -> Any:
-        return await self._manager._send_with_template(**self.as_dict())
+    async def send(self) -> SendResponse:
+        response: SendResponse = await self._manager._send_with_template(**self.as_dict())
+        return response
 
 
 def invalid_batch_email(email: object, expected: str, method: str) -> ValueError:
@@ -316,7 +344,7 @@ class EmailTemplateBatch(BaseEmailTemplateBatch):
 
     _template_class = EmailTemplate
 
-    def send(self, **extra: Any) -> list[Any]:
+    def send(self, **extra: Any) -> list[BatchSendResponse]:
         """Sends email batch.
 
         :return: Information about sent emails.
@@ -332,7 +360,7 @@ class AsyncEmailTemplateBatch(BaseEmailTemplateBatch):
 
     _template_class = AsyncEmailTemplate
 
-    async def send(self, **extra: Any) -> list[Any]:
+    async def send(self, **extra: Any) -> list[BatchSendResponse]:
         emails = self.as_dict(**extra)
         # Chunks go one after another, like the sync client
         responses = [await self._manager._send_batch_with_template(*batch) for batch in chunks(emails, self.MAX_SIZE)]
@@ -377,7 +405,7 @@ class EmailBatch(BaseEmailBatch):
 
     _email_class = Email
 
-    def send(self, **extra: Any) -> list[Any]:
+    def send(self, **extra: Any) -> list[BatchSendResponse]:
         """Sends email batch.
 
         :return: Information about sent emails.
@@ -393,7 +421,7 @@ class AsyncEmailBatch(BaseEmailBatch):
 
     _email_class = AsyncEmail
 
-    async def send(self, **extra: Any) -> list[Any]:
+    async def send(self, **extra: Any) -> list[BatchSendResponse]:
         emails = self.as_dict(**extra)
         # Chunks go one after another, like the sync client
         responses = [await self._manager._send_batch(*batch) for batch in chunks(emails, self.MAX_SIZE)]
@@ -430,7 +458,7 @@ class BaseEmailManager(BaseModelManager[Model], Generic[EmailT, TemplateT, Batch
         assert not (message and (fields["From"] or fields["To"])), (
             "You should specify either message or From and To parameters"
         )
-        assert fields["TrackLinks"] in ("None", "HtmlAndText", "HtmlOnly", "TextOnly")
+        assert fields["TrackLinks"] in get_args(LinkTracking)
         if message is None:
             return self.Email(**fields)
         if isinstance(message, Message):
@@ -453,8 +481,8 @@ class BaseEmailManager(BaseModelManager[Model], Generic[EmailT, TemplateT, Batch
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         MessageStream: str | None = None,
     ) -> EmailT:
         """Constructs :py:class:`Email` instance.
@@ -495,8 +523,8 @@ class BaseEmailManager(BaseModelManager[Model], Generic[EmailT, TemplateT, Batch
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         InlineCss: bool = True,
         Metadata: dict[str, Any] | None = None,
         MessageStream: str | None = None,
@@ -578,10 +606,10 @@ class EmailManager(BaseEmailManager[Email, EmailTemplate, EmailBatch, EmailTempl
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         MessageStream: str | None = None,
-    ) -> Any:
+    ) -> SendResponse:
         """Sends a single email.
 
         :param message: :py:class:`Email` or ``email.message.Message`` instance.
@@ -602,7 +630,7 @@ class EmailManager(BaseEmailManager[Email, EmailTemplate, EmailBatch, EmailTempl
         :param str ReplyTo: Reply To override email address.
         :param dict Headers: Dictionary of custom headers to include.
         :param bool TrackOpens: Activate open tracking for this email.
-        :param str TrackLinks: Activate link tracking for links in the HTML or Text bodies of this email.
+        :param LinkTracking TrackLinks: Activate link tracking for links in the HTML or Text bodies of this email.
         :param list Attachments: List of attachments.
         :return: Information about sent email.
         :rtype: `dict`
@@ -641,12 +669,12 @@ class EmailManager(BaseEmailManager[Email, EmailTemplate, EmailBatch, EmailTempl
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         InlineCss: bool = True,
         Metadata: dict[str, Any] | None = None,
         MessageStream: str | None = None,
-    ) -> Any:
+    ) -> SendResponse:
         return self.EmailTemplate(
             TemplateId=TemplateId,
             TemplateAlias=TemplateAlias,
@@ -667,7 +695,7 @@ class EmailManager(BaseEmailManager[Email, EmailTemplate, EmailBatch, EmailTempl
             MessageStream=MessageStream,
         ).send()
 
-    def send_batch(self, *emails: Email | Message | dict[str, Any], **extra: Any) -> list[Any]:
+    def send_batch(self, *emails: Email | Message | dict[str, Any], **extra: Any) -> list[BatchSendResponse]:
         """Sends an email batch.
 
         :param emails: :py:class:`Email` instances, :py:class:`email.message.Message` instances or dictionaries,
@@ -676,7 +704,7 @@ class EmailManager(BaseEmailManager[Email, EmailTemplate, EmailBatch, EmailTempl
         """
         return self.EmailBatch(*emails).send(**extra)
 
-    def send_template_batch(self, *emails: EmailTemplate | dict[str, Any], **extra: Any) -> list[Any]:
+    def send_template_batch(self, *emails: EmailTemplate | dict[str, Any], **extra: Any) -> list[BatchSendResponse]:
         """Sends an email batch.
 
         :param emails: :py:class:`EmailTemplate` instances or dictionaries, passed as separate arguments.
@@ -722,10 +750,10 @@ class AsyncEmailManager(
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         MessageStream: str | None = None,
-    ) -> Any:
+    ) -> SendResponse:
         return await self._email_to_send(
             message,
             From=From,
@@ -760,12 +788,12 @@ class AsyncEmailManager(
         ReplyTo: str | None = None,
         Headers: dict[str, str] | None = None,
         TrackOpens: bool | None = None,
-        TrackLinks: str = "None",
-        Attachments: list[AttachmentData] | None = None,
+        TrackLinks: LinkTracking = "None",
+        Attachments: Sequence[AttachmentData] | None = None,
         InlineCss: bool = True,
         Metadata: dict[str, Any] | None = None,
         MessageStream: str | None = None,
-    ) -> Any:
+    ) -> SendResponse:
         return await self.EmailTemplate(
             TemplateId=TemplateId,
             TemplateModel=TemplateModel,
@@ -786,8 +814,10 @@ class AsyncEmailManager(
             MessageStream=MessageStream,
         ).send()
 
-    async def send_batch(self, *emails: AsyncEmail | Message | dict[str, Any], **extra: Any) -> list[Any]:
+    async def send_batch(self, *emails: AsyncEmail | Message | dict[str, Any], **extra: Any) -> list[BatchSendResponse]:
         return await self.EmailBatch(*emails).send(**extra)
 
-    async def send_template_batch(self, *emails: AsyncEmailTemplate | dict[str, Any], **extra: Any) -> list[Any]:
+    async def send_template_batch(
+        self, *emails: AsyncEmailTemplate | dict[str, Any], **extra: Any
+    ) -> list[BatchSendResponse]:
         return await self.EmailTemplateBatch(*emails).send(**extra)

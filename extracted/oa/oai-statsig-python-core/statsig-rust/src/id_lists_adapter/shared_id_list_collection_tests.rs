@@ -10,8 +10,6 @@ fn reference_write_list(
     namespace: &[u8; 32],
     name: &str,
     ids: &IdListIds,
-    inline_sizing: HashTableSizing,
-    fallback_sizing: HashTableSizing,
 ) -> io::Result<String> {
     let (inline_count, other_count) = ids.partition_counts();
     let mut inline = Vec::<[u8; 8]>::with_capacity(inline_count);
@@ -24,8 +22,8 @@ fn reference_write_list(
     }
     inline.sort_unstable();
     other.sort_unstable();
-    let inline_capacity = inline_sizing.capacity(inline.len())?;
-    let other_capacity = fallback_sizing.capacity(other.len())?;
+    let inline_capacity = (inline.len() * 4).div_ceil(3).next_multiple_of(GROUP);
+    let other_capacity = (other.len() * 8).div_ceil(5).next_multiple_of(GROUP);
     let mut inline_controls = controls(inline_capacity)?;
     let mut inline_slots = vec![[0u8; 8]; inline_capacity];
     for value in inline {
@@ -122,14 +120,7 @@ fn mixed(count: usize) -> IdListIds {
 fn encoded(ids: &IdListIds, reference: bool) -> (String, Vec<u8>) {
     let mut file = tempfile::tempfile().unwrap();
     let result = if reference {
-        reference_write_list(
-            &mut file,
-            &NAMESPACE,
-            NAME,
-            ids,
-            INLINE_SIZING,
-            FALLBACK_SIZING,
-        )
+        reference_write_list(&mut file, &NAMESPACE, NAME, ids)
     } else {
         write_list(&mut file, &NAMESPACE, NAME, ids)
     }
@@ -158,15 +149,7 @@ fn assert_equal(ids: &IdListIds) {
 }
 fn mapped(ids: &IdListIds) -> IdListIds {
     let mut file = tempfile::NamedTempFile::new().unwrap();
-    reference_write_list(
-        file.as_file_mut(),
-        &NAMESPACE,
-        NAME,
-        ids,
-        INLINE_SIZING,
-        FALLBACK_SIZING,
-    )
-    .unwrap();
+    reference_write_list(file.as_file_mut(), &NAMESPACE, NAME, ids).unwrap();
     let view = IdListImage::open(file.path(), &NAMESPACE, NAME).unwrap();
     view.validate_membership().unwrap();
     IdListIds::from_image(view)
@@ -237,41 +220,10 @@ fn pending_full_base_stream_preserves_reference_image_without_owned_materializat
     }
     let p = pending.pending().unwrap();
     assert!(p.requires_full_base);
-    assert_eq!(p.changes.len(), 70_000);
+    assert_eq!(pending.delta_len_for_test(), 70_000);
     assert!(pending.owned_capacities_for_test().is_none());
     assert_equal(&pending);
     assert_eq!(pending.len(), base.len());
-}
-
-#[test]
-fn overlay_and_next_pending_preserve_reference_images() {
-    use crate::id_lists_adapter::shared_id_list_delta::{MappedDelta, write_delta};
-    let base = Arc::new(mapped(&mixed(4096)));
-    let mut pending = (*base).clone();
-    pending.set(&raw(3), false, CompactionPolicy::Batch);
-    pending.set(&raw(99999), true, CompactionPolicy::Batch);
-    pending.set("éééé", false, CompactionPolicy::Batch);
-    pending.set("overlay\0fallback", true, CompactionPolicy::Batch);
-    let mut file = tempfile::NamedTempFile::new().unwrap();
-    let base_file = "list-collection-reference.ids";
-    write_delta(
-        file.as_file_mut(),
-        &NAMESPACE,
-        NAME,
-        base_file,
-        pending.pending().unwrap(),
-    )
-    .unwrap();
-    let delta = MappedDelta::open(file.path(), &NAMESPACE, NAME, base_file).unwrap();
-    let overlay = IdListIds::from_overlay(base, delta);
-    assert_equal(&overlay);
-    let mut next = overlay.clone();
-    next.set(&raw(3), true, CompactionPolicy::Batch);
-    next.set(&raw(99999), false, CompactionPolicy::Batch);
-    next.set("overlay\0fallback", false, CompactionPolicy::Batch);
-    next.set("next", true, CompactionPolicy::Batch);
-    assert_equal(&next);
-    assert_equal(&overlay);
 }
 
 #[test]

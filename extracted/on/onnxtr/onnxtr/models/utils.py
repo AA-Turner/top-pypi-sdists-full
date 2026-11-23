@@ -64,6 +64,9 @@ class _ConstrainedPostProcessor:
 
     def _constrain(self, logits: np.ndarray) -> np.ndarray:
         output = np.array(logits, dtype=np.float32, copy=True)
+        if output.shape[-1] > self.keep.size:
+            # the columns past the vocabulary are special tokens, always kept (cf. `_keep_and_reassign`)
+            self.keep = np.concatenate([self.keep, np.ones(output.shape[-1] - self.keep.size, dtype=bool)])
         if self.src.size:
             # move each forbidden character's score onto its nearest allowed character.
             # Several forbidden characters can share a target, so the maximum is taken.
@@ -76,6 +79,14 @@ class _ConstrainedPostProcessor:
     def __getattr__(self, name: str) -> Any:
         # stay transparent for callers reaching for e.g. `postprocessor.vocab`
         return getattr(self.__dict__["postprocessor"], name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # ... and for callers setting e.g. `postprocessor.confidence_aggregation`: the wrapped post-processor is the
+        # one decoding the logits, so everything but the wrapper's own state is set on it
+        if name in ("postprocessor", "keep", "src", "dst"):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self.__dict__["postprocessor"], name, value)
 
 
 def _recognition_models(model: Any) -> list[Any]:
@@ -323,11 +334,12 @@ def add_whitelist(
 def _logits_width(model: Any, vocab_size: int) -> int:
     """Width of the model's logits, i.e. the vocabulary plus its special tokens
 
-    Read from the graph's output metadata when it is static (all architectures declare it), and
-    otherwise assumed to be the vocabulary plus a single terminator.
+    Read from the graph's output metadata when it is static, and otherwise derived from the special
+    tokens of the architecture: <eos>, <sos> and <pad> for MASTER, a single terminator (CTC blank or
+    <eos>) for the others.
     """
     for output in model.runtime.get_outputs():
         last_dim = output.shape[-1] if output.shape else None
         if isinstance(last_dim, int) and last_dim >= vocab_size:
             return last_dim
-    return vocab_size + 1  # pragma: no cover
+    return vocab_size + (3 if type(model).__name__ == "MASTER" else 1)

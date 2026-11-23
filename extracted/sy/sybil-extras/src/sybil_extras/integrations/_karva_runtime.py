@@ -4,10 +4,8 @@ from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
-from unittest import SkipTest
 
 from beartype import beartype
-from karva import skip
 from sybil import Document, Example, Sybil
 from sybil.sybil import SybilCollection
 
@@ -40,9 +38,9 @@ class DocumentTests:
 
     def __init__(self, *, sybil: Sybil, path: Path) -> None:
         """Parse one document without evaluating or setting it up."""
-        self.sybil = sybil
+        self.sybil: Sybil = sybil
         self.document: Document = sybil.parse(path=path)
-        self.examples = tuple(self.document.examples())
+        self.examples: tuple[Example, ...] = tuple(self.document.examples())
 
     @contextmanager
     # Python 3.11 needs all three generator type arguments.
@@ -61,10 +59,7 @@ class DocumentTests:
     ) -> None:
         """Inject this example's fixture values and evaluate it."""
         self.document.namespace.update(fixtures)
-        try:
-            example.evaluate()
-        except SkipTest as error:
-            skip(reason=str(object=error))
+        example.evaluate()
 
 
 @beartype

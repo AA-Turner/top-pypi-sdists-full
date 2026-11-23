@@ -24,7 +24,13 @@ import html5lib
 from html5lib import treebuilders
 from reportlab.lib.colors import Color
 from reportlab.platypus.doctemplate import FrameBreak, NextPageTemplate
-from reportlab.platypus.flowables import KeepInFrame, KeepTogether, PageBreak, Spacer
+from reportlab.platypus.flowables import (
+    KeepInFrame,
+    KeepTogether,
+    PageBreak,
+    PageBreakIfNotEmpty,
+    Spacer,
+)
 
 from xhtml2pdf.builders.block import (
     BlockBoxData,
@@ -49,6 +55,7 @@ from xhtml2pdf.builders.position import (
     read_position,
     shift_story,
 )
+from xhtml2pdf.builders.strings import string_set_values
 from xhtml2pdf.config.resources import RenderLimitError, check_deadline, current_policy
 from xhtml2pdf.default import (
     BOOL,
@@ -145,8 +152,11 @@ from xhtml2pdf.util import (
     getLengthOrAuto,
     getPos,
     getSize,
+    leadingFrom,
+    lineHeight,
     roundedBox,
     toList,
+    withAlpha,
 )
 from xhtml2pdf.w3c import cssDOMElementInterface
 from xhtml2pdf.w3c.css import (
@@ -307,6 +317,9 @@ READABLE_CSS_FUNCTIONS: frozenset[str] = frozenset(
 #: The functions ``content`` reads besides those (w3c/generated_content.py).
 CONTENT_FUNCTIONS: frozenset[str] = frozenset({"counter", "counters", "attr"})
 
+#: The functions ``string-set`` reads (builders/strings.py).
+STRING_SET_FUNCTIONS: frozenset[str] = CONTENT_FUNCTIONS | {"content"}
+
 
 def firstUnreadableFunction(value, name: str = "") -> CSSTerminalFunction | None:
     """
@@ -316,6 +329,8 @@ def firstUnreadableFunction(value, name: str = "") -> CSSTerminalFunction | None
     readable = READABLE_CSS_FUNCTIONS
     if name == "content":
         readable |= CONTENT_FUNCTIONS
+    elif name == "string-set":
+        readable |= STRING_SET_FUNCTIONS
     parts = value if isinstance(value, list | tuple) else (value,)
     return next(
         (
@@ -960,11 +975,11 @@ def CSS2Frag(c, kw, isBlock):
             1.0,
         )
     if "line-height" in c.cssAttr:
-        leading = "".join(c.cssAttr["line-height"])
-        c.frag.leading = getSize(leading, c.frag.fontSize)
-        c.frag.leadingSource = leading
+        c.frag.leading, c.frag.leadingSource = lineHeight(
+            c.cssAttr["line-height"], c.frag.fontSize, c.frag.leadingSource
+        )
     else:
-        c.frag.leading = getSize(c.frag.leadingSource, c.frag.fontSize)
+        c.frag.leading = leadingFrom(c.frag.leadingSource, c.frag.fontSize)
     if "letter-spacing" in c.cssAttr:
         c.frag.letterSpacing = c.cssAttr["letter-spacing"]
     if "word-spacing" in c.cssAttr:
@@ -985,9 +1000,12 @@ def CSS2Frag(c, kw, isBlock):
             c.frag.underline = 1
         if "line-through" in value:
             c.frag.strike = 1
+        if "overline" in value:
+            c.frag.overline = 1
         if "none" in value:
             c.frag.underline = 0
             c.frag.strike = 0
+            c.frag.overline = 0
     if "font-style" in c.cssAttr:
         value = lower(c.cssAttr["font-style"])
         if value in {"italic", "oblique"}:
@@ -1448,14 +1466,17 @@ def pisaLoop(node, context, **kw):
                     context.addStory(FrameBreak())
                 if str(context.cssAttr["-pdf-frame-break"]).lower() == "after":
                     frameBreakAfter = True
+            # A forced break never leaves an empty page: on a page nothing
+            # has been drawn on yet -- the first one, or the one a break just
+            # began -- it does nothing (CSS Fragmentation 3, 4.1).
             breakBefore = pageBreakValue(context.cssAttr, "before")
             if breakBefore == "always":
-                context.addStory(PageBreak())
+                context.addStory(PageBreakIfNotEmpty())
             if breakBefore == "right":
-                context.addStory(PageBreak())
+                context.addStory(PageBreakIfNotEmpty())
                 context.addStory(PmlRightPageBreak())
             if breakBefore == "left":
-                context.addStory(PageBreak())
+                context.addStory(PageBreakIfNotEmpty())
                 context.addStory(PmlLeftPageBreak())
             if breakBefore == "avoid" and context.story:
                 # Whatever came before stays on the page this block starts on.
@@ -1531,7 +1552,21 @@ def pisaLoop(node, context, **kw):
         # directly for the .pdftoclevelN styles, and a table of contents
         # should not pick up an outline flag from them.
         apply_uniform_groups(context.frag, context.cssAttr, LOOP_GROUPS)
+        if context.frag.opacity < 1.0 and not (isBlock or isInlineBlock or outOfFlow):
+            # An inline element has no box to paint as a group: its text and
+            # background are faded instead, and what is inside it inherits
+            # the faded colours and the factor, for its images.
+            alpha = context.frag.opacity
+            context.frag.inlineAlpha *= alpha
+            context.frag.textColor = withAlpha(context.frag.textColor, alpha)
+            context.frag.backColor = withAlpha(context.frag.backColor, alpha)
         context.counters.apply(node.parentNode, context.cssAttr)
+        if "string-set" in context.cssAttr:
+            # Handed to the next paragraph made, which records them with the
+            # page it lands on.
+            context.pendingStringSets += string_set_values(
+                context.cssAttr["string-set"], node, context.counters
+            )
 
         isFlexItem = context.flexData.collecting_item
         if isFlexItem:
@@ -1629,9 +1664,12 @@ def pisaLoop(node, context, **kw):
             sized = bool(declared_height(context)) or (
                 declared_width(context) is not None
             )
+            # A translucent block is one group, text alone or not.
+            own_box = boxStyle is not None and (
+                isEmptyBlock(node) or sized or boxStyle.opacity < 1.0
+            )
             if boxStyle is not None and (
-                hasBlockContent(node, context)
-                or (not isFlexItem and (isEmptyBlock(node) or sized))
+                hasBlockContent(node, context) or (not isFlexItem and own_box)
             ):
                 blockBox = BlockBoxData(context, kw, boxStyle)
 
@@ -1768,7 +1806,7 @@ def pisaLoop(node, context, **kw):
                     context.story[-1].keepWithNext = True
             # Page break by CSS
             elif pageBreakAfter:
-                context.addStory(PageBreak())
+                context.addStory(PageBreakIfNotEmpty())
                 if pageBreakAfter == PAGE_BREAK_RIGHT:
                     context.addStory(PmlRightPageBreak())
                 if pageBreakAfter == PAGE_BREAK_LEFT:

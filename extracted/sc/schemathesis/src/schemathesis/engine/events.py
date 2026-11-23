@@ -6,9 +6,8 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from schemathesis.core.errors import InvalidSchema, RejectedSchemaDefinition
+from schemathesis.core.errors import HookExecutionError, InvalidSchema, RejectedSchemaDefinition
 from schemathesis.core.failures import Failure
-from schemathesis.core.result import Result
 from schemathesis.core.schema_analysis import SchemaWarning
 from schemathesis.core.warnings import SchemathesisWarning
 from schemathesis.engine import Status
@@ -20,8 +19,7 @@ if TYPE_CHECKING:
     from queue import Queue
 
     from schemathesis.engine import StopReason
-    from schemathesis.engine.run.auth_bootstrap import AuthBootstrapPayload
-    from schemathesis.engine.run.probes import ProbePayload
+    from schemathesis.engine.run.setup import SetupPayload
 
 EventGenerator = Generator["EngineEvent", None, None]
 
@@ -90,13 +88,11 @@ class PhaseFinished(PhaseEvent):
     """End of an execution phase."""
 
     status: Status
-    payload: Result[ProbePayload, Exception] | AuthBootstrapPayload | None
+    payload: SetupPayload | None
 
     __slots__ = ("id", "timestamp", "phase", "status", "payload")
 
-    def __init__(
-        self, *, phase: Phase, status: Status, payload: Result[ProbePayload, Exception] | AuthBootstrapPayload | None
-    ) -> None:
+    def __init__(self, *, phase: Phase, status: Status, payload: SetupPayload | None) -> None:
         self.id = uuid.uuid4()
         self.timestamp = time.time()
         self.phase = phase
@@ -105,8 +101,8 @@ class PhaseFinished(PhaseEvent):
 
 
 @dataclass
-class SchemaAnalysisWarnings(PhaseEvent):
-    """Schema analysis discovered warnings."""
+class SetupWarnings(PhaseEvent):
+    """Setup discovered warnings about the schema or the application code."""
 
     warnings: list[SchemaWarning]
 
@@ -231,7 +227,7 @@ class ScenarioFinished(ScenarioEvent):
     @property
     def is_test_scenario(self) -> bool:
         # Sign-up and login calls prepare the run; reports that count tests leave them out.
-        return self.phase is not PhaseName.AUTH_BOOTSTRAP
+        return self.phase is not PhaseName.SETUP
 
 
 def put_skipped_scenario(
@@ -377,6 +373,11 @@ class NonFatalError(EngineEvent):
         return hash((self.label, self.error_type))
 
 
+def hook_error(phase: PhaseName, error: HookExecutionError) -> NonFatalError:
+    """A run-level error raised by a user hook."""
+    return NonFatalError(error=error, phase=phase, label=f"`{error.hook_name}` hook", related_to_operation=False)
+
+
 def fail_phase(phase: Phase, error: Exception, *, label: str) -> EventGenerator:
     """Events of a phase that errored before testing anything."""
     yield NonFatalError(error=error, phase=phase.name, label=label, related_to_operation=False)
@@ -428,8 +429,10 @@ class EngineFinished(EngineEvent):
     payload: RunSummary | None
     # Failures from class-based `after_run`.
     failures: list[Failure]
+    # Class-based checks whose `after_run` did not run because the run stopped early.
+    skipped_checks: list[str]
 
-    __slots__ = ("id", "timestamp", "running_time", "stop_reason", "payload", "failures")
+    __slots__ = ("id", "timestamp", "running_time", "stop_reason", "payload", "failures", "skipped_checks")
 
     def __init__(
         self,
@@ -438,6 +441,7 @@ class EngineFinished(EngineEvent):
         stop_reason: StopReason,
         payload: RunSummary | None = None,
         failures: list[Failure] | None = None,
+        skipped_checks: list[str] | None = None,
     ) -> None:
         self.id = uuid.uuid4()
         self.timestamp = time.time()
@@ -445,6 +449,7 @@ class EngineFinished(EngineEvent):
         self.stop_reason = stop_reason
         self.payload = payload
         self.failures = failures if failures is not None else []
+        self.skipped_checks = skipped_checks if skipped_checks is not None else []
 
 
 @dataclass

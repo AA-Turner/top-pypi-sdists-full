@@ -21,13 +21,21 @@ import pytest
 
 from doppler.wfm import Segment, Synth
 
-#: (class, parameter) -> why it still disagrees. Shrink-only.
-EXEMPT = {
-    ("Synth", "fs"): (
-        "#3142, just-buildit/just-makeit#2678: the composer generator gives "
-        "a source type fs = 1e6 and renders the Segment field default 1.0"
-    ),
+#: (class, parameter) -> why it still disagrees. Shrink-only. ``window``'s
+#: documented default is the unset INPUT; its read resolves through
+#: ``get_fn`` (jm 0.134.0), so a bare tone reads 0 (#3211).
+_WINDOW = (
+    "window's default names the unset input and its read resolves it "
+    "(get_fn, #3211)"
+)
+EXEMPT: dict[tuple[str, str], str] = {
+    ("Synth", "window"): _WINDOW,
+    ("Segment", "window"): _WINDOW,
 }
+
+#: A default the docstring names by its C constant (jm renders a manifest
+#: default that names one as ``default NAME``), and the value it has.
+CONSTANTS = {"WFM_WINDOW_UNSET": 2**64 - 1}
 
 _LINE = re.compile(r"^(\w+) : [^\n,]+, default ([^\n]+)$", re.M)
 
@@ -39,6 +47,9 @@ def _documented(doc: str) -> list[tuple[str, object]]:
         text = text.strip()
         # an enum default is written ``"tone"`` in the docstring
         text = text.removeprefix("``").removesuffix("``")
+        if text in CONSTANTS:
+            out.append((name, CONSTANTS[text]))
+            continue
         try:
             out.append((name, ast.literal_eval(text)))
         except (ValueError, SyntaxError):
@@ -80,9 +91,14 @@ def test_documented_defaults_are_the_actual_defaults(cls):
     )
 
 
-def test_the_exempt_entry_is_the_one_in_the_issue():
-    """A control: the check does see the Synth.fs disagreement."""
-    assert _disagrees(Synth).get("fs") == (1.0, 1_000_000.0)
+def test_the_check_sees_the_synth_fs_disagreement_it_once_had():
+    """A control: a docstring that said 1.0 for fs 1e6 is reported."""
+
+    class Bare:
+        fs = 1_000_000.0
+
+    doc = "fs : float, default 1.0\n    Sample rate.\n"
+    assert _differences(doc, Bare()) == {"fs": (1.0, 1_000_000.0)}
 
 
 def test_an_enum_default_is_compared_not_just_unquoted():
@@ -104,3 +120,19 @@ def test_an_enum_default_is_compared_not_just_unquoted():
 
     assert _differences(doc, Wrong()) == {"type": ("tone", "noise")}
     assert _differences(doc, Right()) == {}
+
+
+def test_a_named_constant_default_is_compared_by_its_value():
+    """Controls: ``default WFM_WINDOW_UNSET`` is read as the constant's value,
+    so a bare object whose attribute differs is reported, and one that holds
+    it is not."""
+    doc = "window : int, default WFM_WINDOW_UNSET\n    The window.\n"
+
+    class Unset:
+        window = 2**64 - 1
+
+    class Zero:
+        window = 0
+
+    assert _differences(doc, Unset()) == {}
+    assert _differences(doc, Zero()) == {"window": (2**64 - 1, 0)}

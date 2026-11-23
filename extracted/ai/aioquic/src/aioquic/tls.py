@@ -2,6 +2,7 @@ import datetime
 import ipaddress
 import logging
 import os
+import re
 import ssl
 import struct
 from collections.abc import Callable, Generator, Sequence
@@ -22,6 +23,7 @@ from cryptography.hazmat.primitives.asymmetric import (
     ec,
     ed448,
     ed25519,
+    mlkem,
     padding,
     rsa,
     x448,
@@ -40,6 +42,11 @@ from .buffer import Buffer, BufferReadError
 TLS_VERSION_1_2 = 0x0303
 TLS_VERSION_1_3 = 0x0304
 
+# A HelloRetryRequest is a ServerHello with this random (RFC 9846 section 4.2.3).
+HELLO_RETRY_REQUEST_RANDOM = bytes.fromhex(
+    "cf21ad74e59a6111be1d8c021e65b891c2a211167abb8c5e079e09e2c8a8339c"
+)
+
 CLIENT_CONTEXT_STRING = b"TLS 1.3, client CertificateVerify"
 SERVER_CONTEXT_STRING = b"TLS 1.3, server CertificateVerify"
 
@@ -52,7 +59,7 @@ T = TypeVar("T")
 
 # facilitate mocking for the test suite
 def utcnow() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC)
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 class AlertDescription(IntEnum):
@@ -202,23 +209,45 @@ def hkdf_extract(
     return h.finalize()
 
 
-def load_pem_private_key(data: bytes, password: bytes | None = None) -> PrivateKeyTypes:
+def _load_cert_chain(
+    certfile: str | os.PathLike,
+    keyfile: str | os.PathLike | None = None,
+    password: bytes | str | None = None,
+) -> tuple[x509.Certificate, list[x509.Certificate], PrivateKeyTypes]:
     """
-    Load a PEM-encoded private key.
+    Load a certificate, its intermediate certificates and its private key.
     """
-    return serialization.load_pem_private_key(data, password=password)
+    if isinstance(password, str):
+        password = password.encode("utf8")
 
+    with open(certfile, "rb") as fp:
+        data = fp.read()
+    certificates = x509.load_pem_x509_certificates(data)
 
-def load_pem_x509_certificates(data: bytes) -> list[x509.Certificate]:
-    """
-    Load a chain of PEM-encoded X509 certificates.
-    """
-    boundary = b"-----END CERTIFICATE-----\n"
-    certificates = []
-    for chunk in data.split(boundary):
-        if chunk:
-            certificates.append(x509.load_pem_x509_certificate(chunk + boundary))
-    return certificates
+    if keyfile is not None:
+        with open(keyfile, "rb") as fp:
+            private_key = serialization.load_pem_private_key(
+                fp.read(), password=password
+            )
+    else:
+        # Find a PEM-encoded private key, either in PKCS#8 format ("PRIVATE KEY"
+        # or "ENCRYPTED PRIVATE KEY") or in a traditional format such as
+        # "RSA PRIVATE KEY".
+        match = re.search(
+            rb"-----BEGIN ([A-Z ]*)PRIVATE KEY-----.*?-----END \1PRIVATE KEY-----",
+            data,
+            re.DOTALL,
+        )
+        if match is None:
+            raise ValueError("Certificate file does not contain a private key")
+        private_key = serialization.load_pem_private_key(
+            match.group(0), password=password
+        )
+
+    if private_key.public_key() != certificates[0].public_key():
+        raise ValueError("Private key does not match the certificate")
+
+    return certificates[0], certificates[1:], private_key
 
 
 def verify_certificate(
@@ -290,7 +319,7 @@ def verify_certificate(
         store.load_locations(certifi.where())
 
     if cadata is not None:
-        for cert in load_pem_x509_certificates(cadata):
+        for cert in x509.load_pem_x509_certificates(cadata):
             store.add_cert(crypto.X509.from_cryptography(cert))
 
     if cafile is not None or capath is not None:
@@ -357,6 +386,7 @@ class Group(IntEnum):
     SECP521R1 = 0x0019
     X25519 = 0x001D
     X448 = 0x001E
+    X25519MLKEM768 = 0x11EC
     GREASE = 0xAAAA
 
 
@@ -639,6 +669,7 @@ class ClientHello:
 
     # extensions
     alpn_protocols: list[str] | None = None
+    cookie: bytes | None = None
     early_data: bool = False
     key_share: list[KeyShareEntry] | None = None
     pre_shared_key: OfferedPsks | None = None
@@ -649,6 +680,14 @@ class ClientHello:
     supported_versions: list[int] | None = None
 
     other_extensions: list[Extension] = field(default_factory=list)
+
+
+def pull_cookie(buf: Buffer) -> bytes:
+    cookie = pull_opaque(buf, 2)
+    # An out-of-range length requires a decode_error (RFC 9846 section 6).
+    if not cookie:
+        raise AlertDecodeError("cookie is empty")
+    return cookie
 
 
 def pull_handshake_type(buf: Buffer, expected_type: HandshakeType) -> None:
@@ -712,6 +751,8 @@ def pull_client_hello(buf: Buffer) -> ClientHello:
                 hello.alpn_protocols = pull_list(
                     buf, 2, partial(pull_alpn_protocol, buf)
                 )
+            elif extension_type == ExtensionType.COOKIE:
+                hello.cookie = pull_cookie(buf)
             elif extension_type == ExtensionType.EARLY_DATA:
                 hello.early_data = True
             elif extension_type == ExtensionType.PRE_SHARED_KEY:
@@ -764,6 +805,10 @@ def push_client_hello(buf: Buffer, hello: ClientHello) -> None:
                         buf, 2, partial(push_alpn_protocol, buf), hello.alpn_protocols
                     )
 
+            if hello.cookie is not None:
+                with push_extension(buf, ExtensionType.COOKIE):
+                    push_opaque(buf, 2, hello.cookie)
+
             for extension_type, extension_value in hello.other_extensions:
                 with push_extension(buf, extension_type):
                     buf.push_bytes(extension_value)
@@ -786,8 +831,10 @@ class ServerHello:
     compression_method: int
 
     # extensions
+    cookie: bytes | None = None
     key_share: KeyShareEntry | None = None
     pre_shared_key: int | None = None
+    selected_group: int | None = None
     supported_version: int | None = None
     other_extensions: list[tuple[int, bytes]] = field(default_factory=list)
 
@@ -807,13 +854,25 @@ def pull_server_hello(buf: Buffer) -> ServerHello:
             compression_method=buf.pull_uint8(),
         )
 
+        # A HelloRetryRequest has different extensions (RFC 9846 section 4.2.4):
+        # key_share only has the selected group, and a cookie may be sent.
+        is_hello_retry_request = hello.random == HELLO_RETRY_REQUEST_RANDOM
+
         # extensions
         def pull_extension(extension_type: int, extension_length: int) -> None:
             if extension_type == ExtensionType.SUPPORTED_VERSIONS:
                 hello.supported_version = buf.pull_uint16()
             elif extension_type == ExtensionType.KEY_SHARE:
-                hello.key_share = pull_key_share(buf)
-            elif extension_type == ExtensionType.PRE_SHARED_KEY:
+                if is_hello_retry_request:
+                    hello.selected_group = buf.pull_uint16()
+                else:
+                    hello.key_share = pull_key_share(buf)
+            elif extension_type == ExtensionType.COOKIE and is_hello_retry_request:
+                hello.cookie = pull_cookie(buf)
+            elif (
+                extension_type == ExtensionType.PRE_SHARED_KEY
+                and not is_hello_retry_request
+            ):
                 hello.pre_shared_key = buf.pull_uint16()
             else:
                 hello.other_extensions.append(
@@ -844,6 +903,14 @@ def push_server_hello(buf: Buffer, hello: ServerHello) -> None:
             if hello.key_share is not None:
                 with push_extension(buf, ExtensionType.KEY_SHARE):
                     push_key_share(buf, hello.key_share)
+
+            if hello.selected_group is not None:
+                with push_extension(buf, ExtensionType.KEY_SHARE):
+                    buf.push_uint16(hello.selected_group)
+
+            if hello.cookie is not None:
+                with push_extension(buf, ExtensionType.COOKIE):
+                    push_opaque(buf, 2, hello.cookie)
 
             if hello.pre_shared_key is not None:
                 with push_extension(buf, ExtensionType.PRE_SHARED_KEY):
@@ -1098,6 +1165,103 @@ def push_finished(buf: Buffer, finished: Finished) -> None:
 # CONTEXT
 
 
+class KeyExchange:
+    """
+    An ephemeral key exchange in a group.
+
+    `key_share` is sent to the peer, and :meth:`complete` derives the shared
+    secret from the peer's key share.
+    """
+
+    def __init__(self, group: int) -> None:
+        self._mlkem_private_key: mlkem.MLKEM768PrivateKey | None = None
+        self._private_key: (
+            ec.EllipticCurvePrivateKey | x25519.X25519PrivateKey | x448.X448PrivateKey
+        )
+        if group == Group.X25519MLKEM768:
+            self._mlkem_private_key = mlkem.MLKEM768PrivateKey.generate()
+            self._private_key = x25519.X25519PrivateKey.generate()
+        elif group == Group.X25519:
+            self._private_key = x25519.X25519PrivateKey.generate()
+        elif group == Group.X448:
+            self._private_key = x448.X448PrivateKey.generate()
+        else:
+            self._private_key = ec.generate_private_key(GROUP_TO_CURVE[group]())
+
+        public_key = self._private_key.public_key()
+        if isinstance(public_key, ec.EllipticCurvePublicKey):
+            public_bytes = public_key.public_bytes(
+                Encoding.X962, PublicFormat.UncompressedPoint
+            )
+        else:
+            public_bytes = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
+        if self._mlkem_private_key is not None:
+            # The ML-KEM encapsulation key comes first (RFC 10024 section 4.1).
+            public_bytes = (
+                self._mlkem_private_key.public_key().public_bytes_raw() + public_bytes
+            )
+        self.key_share: KeyShareEntry = (group, public_bytes)
+
+    def complete(self, peer_key_share: bytes) -> bytes:
+        """
+        Return the shared secret.
+
+        :param peer_key_share: The peer's key share.
+        :raises ValueError:
+            If the peer's key share is invalid.
+        """
+        mlkem_shared_secret = b""
+        if self._mlkem_private_key is not None:
+            # The 1088-byte ML-KEM ciphertext comes first, and its shared secret
+            # too (RFC 10024 sections 4.2 and 4.3).
+            mlkem_shared_secret = self._mlkem_private_key.decapsulate(
+                peer_key_share[:1088]
+            )
+            peer_key_share = peer_key_share[1088:]
+
+        private_key = self._private_key
+        if isinstance(private_key, x25519.X25519PrivateKey):
+            shared_secret = private_key.exchange(
+                x25519.X25519PublicKey.from_public_bytes(peer_key_share)
+            )
+        elif isinstance(private_key, x448.X448PrivateKey):
+            shared_secret = private_key.exchange(
+                x448.X448PublicKey.from_public_bytes(peer_key_share)
+            )
+        else:
+            shared_secret = private_key.exchange(
+                ec.ECDH(),
+                ec.EllipticCurvePublicKey.from_encoded_point(
+                    private_key.curve, peer_key_share
+                ),
+            )
+        return mlkem_shared_secret + shared_secret
+
+    @classmethod
+    def respond(cls, group: int, peer_key_share: bytes) -> tuple[bytes, KeyShareEntry]:
+        """
+        Return the shared secret and the key share to send back, as the server.
+
+        :param group: The group of the client's key share.
+        :param peer_key_share: The client's key share.
+        :raises ValueError:
+            If the client's key share is invalid.
+        """
+        if group == Group.X25519MLKEM768:
+            # Encapsulate to the client's 1184-byte ML-KEM encapsulation key, and
+            # send the ciphertext before our X25519 share (RFC 10024 section 4).
+            mlkem_shared_secret, ciphertext = mlkem.MLKEM768PublicKey.from_public_bytes(
+                peer_key_share[:1184]
+            ).encapsulate()
+            shared_secret, (_, key_share) = cls.respond(
+                Group.X25519, peer_key_share[1184:]
+            )
+            return mlkem_shared_secret + shared_secret, (group, ciphertext + key_share)
+
+        key_exchange = cls(group)
+        return key_exchange.complete(peer_key_share), key_exchange.key_share
+
+
 class KeySchedule:
     def __init__(self, cipher_suite: CipherSuite):
         self.algorithm = cipher_suite_hash(cipher_suite)
@@ -1199,38 +1363,24 @@ GROUP_TO_CURVE: dict = {
     Group.SECP384R1: ec.SECP384R1,
     Group.SECP521R1: ec.SECP521R1,
 }
-CURVE_TO_GROUP = dict((v, k) for k, v in GROUP_TO_CURVE.items())
 
 
 def cipher_suite_hash(cipher_suite: CipherSuite) -> hashes.HashAlgorithm:
     return CIPHER_SUITES[cipher_suite]()
 
 
-def decode_public_key(
-    key_share: KeyShareEntry,
-) -> ec.EllipticCurvePublicKey | x25519.X25519PublicKey | x448.X448PublicKey | None:
-    if key_share[0] == Group.X25519:
-        return x25519.X25519PublicKey.from_public_bytes(key_share[1])
-    elif key_share[0] == Group.X448:
-        return x448.X448PublicKey.from_public_bytes(key_share[1])
-    elif key_share[0] in GROUP_TO_CURVE:
-        return ec.EllipticCurvePublicKey.from_encoded_point(
-            GROUP_TO_CURVE[key_share[0]](), key_share[1]
-        )
-    else:
-        return None
-
-
-def encode_public_key(
-    public_key: ec.EllipticCurvePublicKey | x25519.X25519PublicKey | x448.X448PublicKey,
-) -> KeyShareEntry:
-    if isinstance(public_key, x25519.X25519PublicKey):
-        return (Group.X25519, public_key.public_bytes(Encoding.Raw, PublicFormat.Raw))
-    elif isinstance(public_key, x448.X448PublicKey):
-        return (Group.X448, public_key.public_bytes(Encoding.Raw, PublicFormat.Raw))
+def hello_retry_transcript(
+    client_hello_hash: bytes, hello_retry_request: bytes
+) -> bytes:
+    """
+    Return the messages which start the transcript after a HelloRetryRequest:
+    a message_hash of the first ClientHello, then the HelloRetryRequest
+    (RFC 9846 section 4.1).
+    """
     return (
-        CURVE_TO_GROUP[public_key.curve.__class__],
-        public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint),
+        bytes([HandshakeType.MESSAGE_HASH, 0, 0, len(client_hello_hash)])
+        + client_hello_hash
+        + hello_retry_request
     )
 
 
@@ -1316,6 +1466,7 @@ class SessionTicket:
 
 
 AlpnHandler = Callable[[str], None]
+ExtensionsHandler = Callable[[list[Extension]], None]
 SessionTicketFetcher = Callable[[bytes], SessionTicket | None]
 SessionTicketHandler = Callable[[SessionTicket], None]
 
@@ -1364,6 +1515,7 @@ class Context:
         self.alpn_cb: AlpnHandler | None = None
         self.get_session_ticket_cb: SessionTicketFetcher | None = None
         self.new_session_ticket_cb: SessionTicketHandler | None = None
+        self.received_extensions_cb: ExtensionsHandler | None = None
         self.update_traffic_key_cb: Callable[
             [Direction, Epoch, CipherSuite, bytes], None
         ] = lambda d, e, c, s: None
@@ -1392,9 +1544,15 @@ class Context:
             self._signature_algorithms.append(SignatureAlgorithm.ED25519)
         if default_backend().ed448_supported():
             self._signature_algorithms.append(SignatureAlgorithm.ED448)
-        self._supported_groups = [Group.SECP256R1, Group.SECP384R1]
+        # In order of preference: X25519MLKEM768 also resists quantum computers,
+        # X25519 is the most common choice, and the hardest to implement wrongly.
+        # X448 comes last as few peers support it.
+        self._supported_groups: list[int] = []
         if default_backend().x25519_supported():
+            if default_backend().mlkem_supported():
+                self._supported_groups.append(Group.X25519MLKEM768)
             self._supported_groups.append(Group.X25519)
+        self._supported_groups += [Group.SECP256R1, Group.SECP384R1]
         if default_backend().x448_supported():
             self._supported_groups.append(Group.X448)
         self._supported_versions = [TLS_VERSION_1_3]
@@ -1419,9 +1577,13 @@ class Context:
         self._dec_key: bytes | None = None
         self.__logger = logger
 
-        self._ec_private_keys: list[ec.EllipticCurvePrivateKey] = []
-        self._x25519_private_key: x25519.X25519PrivateKey | None = None
-        self._x448_private_key: x448.X448PrivateKey | None = None
+        self._client_hello: ClientHello | None = None
+        self._key_exchanges: dict[int, KeyExchange] = {}
+
+        # The HelloRetryRequest sent or received, and the messages which start
+        # the transcript in place of the first ClientHello (RFC 9846 section 4.1).
+        self._hello_retry_request: ServerHello | None = None
+        self._hello_retry_transcript = b""
 
         if is_client:
             self.client_random = os.urandom(32)
@@ -1431,6 +1593,14 @@ class Context:
             self.client_random = None
             self.legacy_session_id = None
             self.state = State.SERVER_EXPECT_CLIENT_HELLO
+
+    @property
+    def hello_retry_requested(self) -> bool:
+        """
+        Returns True if the server asked for another ClientHello with a
+        HelloRetryRequest.
+        """
+        return self._hello_retry_request is not None
 
     @property
     def peer_certificates(self) -> list[x509.Certificate]:
@@ -1634,28 +1804,18 @@ class Context:
             raise AlertDecryptError
 
     def _client_send_hello(self, output_buf: Buffer) -> None:
+        # Only send key shares for our two preferred groups (RFC 9846 section
+        # 4.3.8), as each one costs a key generation and bytes on the wire. A
+        # server which only supports another of our groups asks for it with a
+        # HelloRetryRequest.
         key_share: list[KeyShareEntry] = []
-        supported_groups: list[int] = []
-
-        for group in self._supported_groups:
-            if group == Group.X25519:
-                self._x25519_private_key = x25519.X25519PrivateKey.generate()
-                key_share.append(
-                    encode_public_key(self._x25519_private_key.public_key())
-                )
-                supported_groups.append(Group.X25519)
-            elif group == Group.X448:
-                self._x448_private_key = x448.X448PrivateKey.generate()
-                key_share.append(encode_public_key(self._x448_private_key.public_key()))
-                supported_groups.append(Group.X448)
-            elif group == Group.GREASE:
+        for group in self._supported_groups[:2]:
+            if group == Group.GREASE:
                 key_share.append((Group.GREASE, b"\x00"))
-                supported_groups.append(Group.GREASE)
-            elif group in GROUP_TO_CURVE:
-                ec_private_key = ec.generate_private_key(GROUP_TO_CURVE[group]())
-                self._ec_private_keys.append(ec_private_key)
-                key_share.append(encode_public_key(ec_private_key.public_key()))
-                supported_groups.append(group)
+            else:
+                key_exchange = KeyExchange(group)
+                self._key_exchanges[group] = key_exchange
+                key_share.append(key_exchange.key_share)
 
         assert len(key_share), "no key share entries"
 
@@ -1683,22 +1843,47 @@ class Context:
             ),
             server_name=server_name,
             signature_algorithms=self._signature_algorithms,
-            supported_groups=supported_groups,
+            supported_groups=self._supported_groups,
             supported_versions=self._supported_versions,
             other_extensions=self.handshake_extensions,
         )
+        if (
+            self.session_ticket
+            and self.session_ticket.is_valid
+            and self.session_ticket.max_early_data_size is not None
+        ):
+            hello.early_data = True
+            self._early_data_offered = True
+
+        self._client_push_hello(output_buf, hello)
+        self._set_state(State.CLIENT_EXPECT_SERVER_HELLO)
+
+    def _client_push_hello(self, output_buf: Buffer, hello: ClientHello) -> None:
+        """
+        Send a ClientHello, with our PSK unless a HelloRetryRequest selected a
+        cipher suite with another hash (RFC 9846 section 4.2.4).
+        """
+        if self._hello_retry_request is None:
+            cipher_suites = self._cipher_suites
+        else:
+            cipher_suites = [CipherSuite(self._hello_retry_request.cipher_suite)]
 
         # PSK
-        if self.session_ticket and self.session_ticket.is_valid:
+        hello.pre_shared_key = None
+        self._key_schedule_psk = None
+        if (
+            self.session_ticket
+            and self.session_ticket.is_valid
+            and (
+                self._hello_retry_request is None
+                or cipher_suite_hash(self.session_ticket.cipher_suite).name
+                == cipher_suite_hash(cipher_suites[0]).name
+            )
+        ):
             self._key_schedule_psk = KeySchedule(self.session_ticket.cipher_suite)
             self._key_schedule_psk.extract(self.session_ticket.resumption_secret)
             binder_key = self._key_schedule_psk.derive_secret(b"res binder")
             binder_length = self._key_schedule_psk.algorithm.digest_size
-
-            # update hello
-            if self.session_ticket.max_early_data_size is not None:
-                hello.early_data = True
-                self._early_data_offered = True
             hello.pre_shared_key = OfferedPsks(
                 identities=[
                     (self.session_ticket.ticket, self.session_ticket.obfuscated_age)
@@ -1706,8 +1891,9 @@ class Context:
                 binders=[bytes(binder_length)],
             )
 
-        self._key_schedule_proxy = KeyScheduleProxy(self._cipher_suites)
+        self._key_schedule_proxy = KeyScheduleProxy(cipher_suites)
         self._key_schedule_proxy.extract(None)
+        self._key_schedule_proxy.update_hash(self._hello_retry_transcript)
 
         with push_message(self._key_schedule_proxy, output_buf):
             hello_start = output_buf.tell()
@@ -1721,6 +1907,7 @@ class Context:
                 # placeholder (RFC 9846 section 4.3.11.2).
                 binder_start = output_buf.tell() - binder_length
                 binders_start = binder_start - 3
+                self._key_schedule_psk.update_hash(self._hello_retry_transcript)
                 self._key_schedule_psk.update_hash(
                     output_buf.data_slice(hello_start, binders_start)
                 )
@@ -1741,10 +1928,18 @@ class Context:
                         early_key,
                     )
 
-        self._set_state(State.CLIENT_EXPECT_SERVER_HELLO)
+        self._client_hello = hello
 
     def _client_handle_hello(self, input_buf: Buffer, output_buf: Buffer) -> None:
         peer_hello = pull_server_hello(input_buf)
+
+        # A HelloRetryRequest is a ServerHello with a special random, and both
+        # are checked the same way (RFC 9846 section 4.2.4).
+        is_hello_retry_request = peer_hello.random == HELLO_RETRY_REQUEST_RANDOM
+        if is_hello_retry_request:
+            hello_name = "HelloRetryRequest"
+        else:
+            hello_name = "ServerHello"
 
         # A cipher suite we did not offer requires an illegal_parameter alert
         # (RFC 9846 section 4.2.3).
@@ -1752,38 +1947,54 @@ class Context:
             self._cipher_suites,
             [peer_hello.cipher_suite],
             AlertIllegalParameter(
-                "ServerHello has a cipher suite we did not advertise"
+                f"{hello_name} has a cipher suite we did not advertise"
             ),
         )
         if peer_hello.compression_method not in self._legacy_compression_methods:
             raise AlertIllegalParameter(
-                "ServerHello has a compression method we did not advertise"
+                f"{hello_name} has a compression method we did not advertise"
             )
         # The server must echo our legacy_session_id (RFC 9846 section 4.2.3).
         if peer_hello.legacy_session_id != self.legacy_session_id:
             raise AlertIllegalParameter(
-                "ServerHello has a legacy_session_id we did not send"
+                f"{hello_name} has a legacy_session_id we did not send"
             )
         if peer_hello.supported_version not in self._supported_versions:
             raise AlertIllegalParameter(
-                "ServerHello has a version we did not advertise"
+                f"{hello_name} has a version we did not advertise"
+            )
+
+        # Every extension the message may carry has been parsed, so any other one
+        # is either in the wrong message or unsolicited (RFC 9846 section 4.3).
+        for extension_type, _ in peer_hello.other_extensions:
+            if extension_type in list(ExtensionType):
+                raise AlertIllegalParameter(
+                    f"{hello_name} has a prohibited extension {extension_type:#06x}"
+                )
+            raise AlertUnsupportedExtension(
+                f"{hello_name} has an unsolicited extension {extension_type:#06x}"
+            )
+
+        if is_hello_retry_request:
+            self._client_handle_hello_retry_request(
+                peer_hello, cipher_suite, input_buf, output_buf
+            )
+            return
+
+        # After a HelloRetryRequest, the cipher suite must not change (RFC 9846
+        # section 4.2.4).
+        if (
+            self._hello_retry_request is not None
+            and cipher_suite != self._hello_retry_request.cipher_suite
+        ):
+            raise AlertIllegalParameter(
+                "ServerHello has a cipher suite other than the HelloRetryRequest's"
             )
 
         # We only offer (EC)DHE key exchange, so the server must send a key share
         # (RFC 9846 section 9.2).
         if peer_hello.key_share is None:
             raise AlertMissingExtension("ServerHello has no key share")
-
-        # Every extension a ServerHello may carry has been parsed, so any other one
-        # is either in the wrong message or unsolicited (RFC 9846 section 4.3).
-        for extension_type, _ in peer_hello.other_extensions:
-            if extension_type in list(ExtensionType):
-                raise AlertIllegalParameter(
-                    f"ServerHello has a prohibited extension {extension_type:#06x}"
-                )
-            raise AlertUnsupportedExtension(
-                f"ServerHello has an unsolicited extension {extension_type:#06x}"
-            )
 
         # If the server accepted our PSK, keep its key schedule. The server may
         # select any cipher suite with the PSK's hash (RFC 9846 section 4.3.11):
@@ -1805,33 +2016,16 @@ class Context:
         self._key_schedule_psk = None
         self._key_schedule_proxy = None
 
-        # perform key exchange
-        shared_key: bytes | None = None
-        try:
-            peer_public_key = decode_public_key(peer_hello.key_share)
-            if (
-                isinstance(peer_public_key, x25519.X25519PublicKey)
-                and self._x25519_private_key is not None
-            ):
-                shared_key = self._x25519_private_key.exchange(peer_public_key)
-            elif (
-                isinstance(peer_public_key, x448.X448PublicKey)
-                and self._x448_private_key is not None
-            ):
-                shared_key = self._x448_private_key.exchange(peer_public_key)
-            elif isinstance(peer_public_key, ec.EllipticCurvePublicKey):
-                for ec_private_key in self._ec_private_keys:
-                    if (
-                        ec_private_key.public_key().curve.__class__
-                        == peer_public_key.curve.__class__
-                    ):
-                        shared_key = ec_private_key.exchange(ec.ECDH(), peer_public_key)
-        except ValueError:
-            raise AlertIllegalParameter("ServerHello has an invalid key share")
-        if shared_key is None:
+        # Perform key exchange.
+        peer_group, peer_key_share = peer_hello.key_share
+        if peer_group not in self._key_exchanges:
             raise AlertIllegalParameter(
                 "ServerHello has a key share we did not advertise"
             )
+        try:
+            shared_key = self._key_exchanges[peer_group].complete(peer_key_share)
+        except ValueError:
+            raise AlertIllegalParameter("ServerHello has an invalid key share")
 
         self.key_schedule.update_hash(input_buf.data)
         self.key_schedule.extract(shared_key)
@@ -1848,6 +2042,60 @@ class Context:
         )
 
         self._set_state(State.CLIENT_EXPECT_ENCRYPTED_EXTENSIONS)
+
+    def _client_handle_hello_retry_request(
+        self,
+        peer_hello: ServerHello,
+        cipher_suite: CipherSuite,
+        input_buf: Buffer,
+        output_buf: Buffer,
+    ) -> None:
+        # Only one HelloRetryRequest is allowed (RFC 9846 section 4.2.4).
+        if self._hello_retry_request is not None:
+            raise AlertUnexpectedMessage("Received a second HelloRetryRequest")
+
+        # The server may ask for a key share in a group we offered without one
+        # (RFC 9846 section 4.3.8), and it must ask for some change.
+        hello = self._client_hello
+        group = peer_hello.selected_group
+        if group is not None:
+            if group not in self._supported_groups or group == Group.GREASE:
+                raise AlertIllegalParameter(
+                    "HelloRetryRequest has a group we did not advertise"
+                )
+            if group in [g for g, _ in hello.key_share]:
+                raise AlertIllegalParameter(
+                    "HelloRetryRequest has a group we sent a key share for"
+                )
+        elif peer_hello.cookie is None:
+            raise AlertIllegalParameter(
+                "HelloRetryRequest does not change the ClientHello"
+            )
+
+        if self.__logger:
+            self.__logger.debug(
+                "TLS received HelloRetryRequest for group %s",
+                Group(group).name if group is not None else None,
+            )
+
+        # The transcript starts again with a hash of the first ClientHello, then
+        # the HelloRetryRequest.
+        self._hello_retry_request = peer_hello
+        self._hello_retry_transcript = hello_retry_transcript(
+            self._key_schedule_proxy.select(cipher_suite).hash.copy().finalize(),
+            input_buf.data,
+        )
+
+        # Send the same ClientHello, with a key share in the selected group, the
+        # cookie, and without early data (RFC 9846 section 4.2.2).
+        if group is not None:
+            key_exchange = KeyExchange(group)
+            self._key_exchanges = {group: key_exchange}
+            hello.key_share = [key_exchange.key_share]
+        hello.cookie = peer_hello.cookie
+        hello.early_data = False
+        self._early_data_offered = False
+        self._client_push_hello(output_buf, hello)
 
     def _client_handle_encrypted_extensions(self, input_buf: Buffer) -> None:
         encrypted_extensions = pull_encrypted_extensions(input_buf)
@@ -1909,6 +2157,10 @@ class Context:
         self.alpn_negotiated = encrypted_extensions.alpn_protocol
         self.early_data_accepted = encrypted_extensions.early_data
         self.received_extensions = encrypted_extensions.other_extensions
+
+        # Pass on the extensions we do not handle ourselves.
+        if self.received_extensions_cb:
+            self.received_extensions_cb(self.received_extensions)
 
         # notify application
         if self.alpn_cb:
@@ -2111,6 +2363,15 @@ class Context:
         ):
             raise AlertMissingExtension("ClientHello has no PSK key exchange modes")
 
+        self.client_random = peer_hello.random
+        self.server_random = os.urandom(32)
+        self.legacy_session_id = peer_hello.legacy_session_id
+        self.received_extensions = peer_hello.other_extensions
+
+        # Pass on the extensions we do not handle ourselves, before we answer.
+        if self.received_extensions_cb:
+            self.received_extensions_cb(self.received_extensions)
+
         signature_algorithm = negotiate(
             self._signature_algorithms_for_private_key(),
             peer_hello.signature_algorithms,
@@ -2125,10 +2386,51 @@ class Context:
                 AlertNoApplicationProtocol("ClientHello has no common ALPN protocol"),
             )
 
-        self.client_random = peer_hello.random
-        self.server_random = os.urandom(32)
-        self.legacy_session_id = peer_hello.legacy_session_id
-        self.received_extensions = peer_hello.other_extensions
+        # Select the key share to use.
+        if self._hello_retry_request is None:
+            # If we both support X25519MLKEM768, which also resists quantum
+            # computers, use it even if it takes a HelloRetryRequest.
+            groups: list[int] = self._supported_groups
+            if (
+                Group.X25519MLKEM768 in self._supported_groups
+                and Group.X25519MLKEM768 in peer_hello.supported_groups
+            ):
+                groups = [Group.X25519MLKEM768]
+
+            # Use the client's first key share in one of these groups.
+            for peer_group, peer_key_share in peer_hello.key_share:
+                if peer_group in groups:
+                    break
+            else:
+                # Failing that, ask for a key share in the client's first group
+                # among them (RFC 9846 section 4.2.1).
+                for group in peer_hello.supported_groups:
+                    if group in groups:
+                        self._server_send_hello_retry_request(
+                            initial_buf,
+                            cipher_suite=cipher_suite,
+                            client_hello=input_buf.data,
+                            group=group,
+                            legacy_session_id=peer_hello.legacy_session_id,
+                            supported_version=supported_version,
+                        )
+                        return
+                raise AlertHandshakeFailure("ClientHello has no supported key share")
+        else:
+            # After a HelloRetryRequest, the client must send a single key share,
+            # in the requested group, and no early data (RFC 9846 section 4.2.2).
+            if [group for group, _ in peer_hello.key_share] != [
+                self._hello_retry_request.selected_group
+            ]:
+                raise AlertIllegalParameter(
+                    "ClientHello does not have a single key share in the requested "
+                    "group"
+                )
+            if peer_hello.early_data:
+                raise AlertIllegalParameter(
+                    "ClientHello has early data after a HelloRetryRequest"
+                )
+            peer_group, peer_key_share = peer_hello.key_share[0]
 
         # notify application
         if self.alpn_cb:
@@ -2164,6 +2466,7 @@ class Context:
                     hash_offset + 3, hash_offset + 3 + binder_length
                 )
 
+                self.key_schedule.update_hash(self._hello_retry_transcript)
                 self.key_schedule.update_hash(input_buf.data_slice(0, hash_offset))
                 expected_binder = self.key_schedule.finished_verify_data(binder_key)
 
@@ -2196,40 +2499,14 @@ class Context:
         if pre_shared_key is None:
             self.key_schedule = KeySchedule(cipher_suite)
             self.key_schedule.extract(None)
+            self.key_schedule.update_hash(self._hello_retry_transcript)
             self.key_schedule.update_hash(input_buf.data)
 
-        # perform key exchange
-        public_key: (
-            ec.EllipticCurvePublicKey | x25519.X25519PublicKey | x448.X448PublicKey
-        )
-        shared_key: bytes | None = None
+        # Perform key exchange.
         try:
-            for key_share in peer_hello.key_share:
-                if key_share[0] not in self._supported_groups:
-                    continue
-                peer_public_key = decode_public_key(key_share)
-                if isinstance(peer_public_key, x25519.X25519PublicKey):
-                    self._x25519_private_key = x25519.X25519PrivateKey.generate()
-                    public_key = self._x25519_private_key.public_key()
-                    shared_key = self._x25519_private_key.exchange(peer_public_key)
-                    break
-                elif isinstance(peer_public_key, x448.X448PublicKey):
-                    self._x448_private_key = x448.X448PrivateKey.generate()
-                    public_key = self._x448_private_key.public_key()
-                    shared_key = self._x448_private_key.exchange(peer_public_key)
-                    break
-                elif isinstance(peer_public_key, ec.EllipticCurvePublicKey):
-                    ec_private_key = ec.generate_private_key(
-                        GROUP_TO_CURVE[key_share[0]]()
-                    )
-                    self._ec_private_keys.append(ec_private_key)
-                    public_key = ec_private_key.public_key()
-                    shared_key = ec_private_key.exchange(ec.ECDH(), peer_public_key)
-                    break
+            shared_key, key_share = KeyExchange.respond(peer_group, peer_key_share)
         except ValueError:
             raise AlertIllegalParameter("ClientHello has an invalid key share")
-        if shared_key is None:
-            raise AlertHandshakeFailure("ClientHello has no supported key share")
 
         # send hello
         hello = ServerHello(
@@ -2237,7 +2514,7 @@ class Context:
             legacy_session_id=self.legacy_session_id,
             cipher_suite=cipher_suite,
             compression_method=CompressionMethod.NULL,
-            key_share=encode_public_key(public_key),
+            key_share=key_share,
             pre_shared_key=pre_shared_key,
             supported_version=supported_version,
         )
@@ -2323,6 +2600,38 @@ class Context:
             self._set_state(State.SERVER_EXPECT_CERTIFICATE)
         else:
             self._server_expect_finished()
+
+    def _server_send_hello_retry_request(
+        self,
+        output_buf: Buffer,
+        *,
+        cipher_suite: CipherSuite,
+        client_hello: bytes,
+        group: int,
+        legacy_session_id: bytes,
+        supported_version: int,
+    ) -> None:
+        if self.__logger:
+            self.__logger.debug(
+                "TLS sending HelloRetryRequest for group %s", Group(group).name
+            )
+
+        self._hello_retry_request = ServerHello(
+            random=HELLO_RETRY_REQUEST_RANDOM,
+            legacy_session_id=legacy_session_id,
+            cipher_suite=cipher_suite,
+            compression_method=CompressionMethod.NULL,
+            selected_group=group,
+            supported_version=supported_version,
+        )
+        start = output_buf.tell()
+        push_server_hello(output_buf, self._hello_retry_request)
+
+        digest = hashes.Hash(cipher_suite_hash(cipher_suite))
+        digest.update(client_hello)
+        self._hello_retry_transcript = hello_retry_transcript(
+            digest.finalize(), output_buf.data_slice(start, output_buf.tell())
+        )
 
     def _server_handle_certificate(self, input_buf: Buffer) -> None:
         certificate = pull_certificate(input_buf)

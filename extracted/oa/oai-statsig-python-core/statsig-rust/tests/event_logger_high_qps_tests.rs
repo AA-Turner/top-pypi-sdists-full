@@ -3,8 +3,8 @@ mod utils;
 use crate::utils::mock_scrapi::StubData;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use statsig_rust::{Statsig, StatsigOptions, StatsigUser};
-use std::sync::{Arc, mpsc};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi};
 
 async fn setup() -> (Arc<Statsig>, StatsigUser, MockScrapi) {
@@ -44,30 +44,31 @@ async fn setup() -> (Arc<Statsig>, StatsigUser, MockScrapi) {
 async fn log_event_remains_responsive_while_uploads_fail() {
     let (statsig, user, mock_scrapi) = setup().await;
 
-    for _ in 0..10 {
-        let statsig = statsig.clone();
-        let user = user.clone();
+    // Trigger a background upload and observe the HTTP 500 stub before the flood.
+    for _ in 0..1_000 {
+        statsig.log_event(&user, "test_event", None, None);
+    }
+    assert_eventually!(|| mock_scrapi.times_called_for_endpoint(Endpoint::LogEvent) > 0);
 
-        let (tx, rx) = mpsc::channel::<()>();
-        let overall_start = Instant::now();
-        std::thread::spawn(move || {
-            for _ in 0..100_000 {
-                let start = Instant::now();
-                statsig.log_event(&user, "test_event", None, None);
-                let duration = start.elapsed();
-                if duration > Duration::from_millis(100) {
-                    println!("Time taken: {duration:?}");
-                }
+    // Keep the million-event workload, but detect stalls rather than requiring
+    // the CI host to sustain 100,000 events/second in a debug build.
+    const CHUNKS: usize = 100;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let producer = statsig.clone();
+    let worker = std::thread::spawn(move || {
+        for _ in 0..CHUNKS {
+            for _ in 0..10_000 {
+                producer.log_event(&user, "test_event", None, None);
             }
             tx.send(()).unwrap();
-        });
-        rx.recv_timeout(Duration::from_secs(1)).unwrap();
-        let overall_duration = overall_start.elapsed();
-        println!("Overall time taken: {overall_duration:?}");
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    });
+    for _ in 0..CHUNKS {
+        tokio::time::timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .expect("event producer stalled")
+            .expect("event producer exited early");
     }
-
+    worker.join().unwrap();
     let _ = statsig.shutdown().await;
-
-    assert!(mock_scrapi.times_called_for_endpoint(Endpoint::LogEvent) > 0);
 }

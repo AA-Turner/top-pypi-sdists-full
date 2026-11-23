@@ -1,4 +1,4 @@
-// The NEC-5 seam's structure half for razor-2p: razor's answers to what a
+// The NEC-5 seam's structure half for razor2p: razor's answers to what a
 // basis decides -- see `_nec5_razor_seam_core.h`. The ladder, the mesh and
 // the ports are the engine-neutral seam's (`_nec5_seam_core.cpp`); each hook
 // here names the Python it is a copy of (`eznec/_serve.py` unless said
@@ -29,20 +29,20 @@ namespace nec5 {
 
 const RazorPrepared &razor_part(const Prepared &p) {
     const RazorPrepared *r = dynamic_cast<const RazorPrepared *>(p.engine.get());
-    if (r == nullptr) throw std::logic_error("a preparation razor-2p's engine did not make");
+    if (r == nullptr) throw std::logic_error("a preparation razor2p's engine did not make");
     return *r;
 }
 
 RazorPrepared &razor_part(Prepared &p) {
     RazorPrepared *r = dynamic_cast<RazorPrepared *>(p.engine.get());
-    if (r == nullptr) throw std::logic_error("a preparation razor-2p's engine did not make");
+    if (r == nullptr) throw std::logic_error("a preparation razor2p's engine did not make");
     return *r;
 }
 
 const SeamBasis &RazorSeamEngine::basis() const {
     static const SeamBasis row = [] {
         SeamBasis b;
-        b.name = "razor-2p";
+        b.name = "razor2p";
         b.cut_spelling = false;            // not in `_CUT_SPELLING`
         b.crossing_node_spelling = false;  // node gaps, but no junction ports
         return b;
@@ -202,6 +202,15 @@ SeamEngine::Built RazorSeamEngine::build(Prepared &p) const {
     try {
         why = part.front->build(part.inputs);
     } catch (const razor::FrontError &e) {
+        if (e.dup_copy >= 0 && p.mesh.pieces.size() > static_cast<std::size_t>(std::max(e.dup_copy, e.dup_twin))) {
+            // `_prepare` refuses a ValueError carrying `duplicate` in the
+            // deck's GW tags (momwire#2107)
+            b.kind = Built::refused;
+            b.error_kind = "ValueError";
+            b.message = duplicate_wire_refusal(p.mesh, static_cast<std::size_t>(e.dup_copy),
+                                               static_cast<std::size_t>(e.dup_twin), e.dup_why);
+            return b;
+        }
         // `_prepare` refuses a NotImplementedError from the constructor and
         // from `compute_port_solution` alike (census 11-17)
         const bool ni = e.kind == razor::FrontErrorKind::not_implemented;

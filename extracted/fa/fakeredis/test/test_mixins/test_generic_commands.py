@@ -9,7 +9,8 @@ from fakeredis import _msgs as msgs
 from fakeredis._helpers import current_time
 from fakeredis._typing import ClientType
 from test import testtools
-from test.testtools import raw_command
+from test.conftest import ServerDetails
+from test.testtools import RESPONSE_ERRORS, raw_command
 
 
 @pytest.mark.slow
@@ -63,7 +64,7 @@ def test_expire_should_not_handle_floating_point_values(r: ClientType):
         r.expire("some_unused_key", 1.2)
         r.pexpire("some_unused_key", 1000.2)
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_ttl_should_return_minus_one_for_non_expiring_key(r: ClientType):
@@ -130,7 +131,7 @@ def test_sort_foo(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.sort("foo", alpha=False)
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.unsupported_server_types("dragonfly")  # dragonfly stores the set in its own order
@@ -152,7 +153,7 @@ def test_sort_ro_rejects_store(r: ClientType):
     r.sadd("s", "a")
     with pytest.raises(Exception) as ctx:
         raw_command(r, "SORT_RO", "s", "STORE", "dst")
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
     assert "syntax error" in str(ctx.value)
 
 
@@ -199,7 +200,7 @@ def test_sort_wrong_type(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.sort("string")
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_sort_with_store_option(r: ClientType):
@@ -212,7 +213,7 @@ def test_sort_with_store_option(r: ClientType):
     assert r.lrange("bar", 0, -1) == [b"1", b"2", b"3", b"4"]
 
 
-def test_sort_with_by_and_get_option(r: ClientType, real_server_details):
+def test_sort_with_by_and_get_option(r: ClientType, real_server_details: ServerDetails):
     r.rpush("foo", "2")
     r.rpush("foo", "1")
     r.rpush("foo", "4")
@@ -258,7 +259,7 @@ def test_sort_with_by_and_get_option(r: ClientType, real_server_details):
     ]
 
 
-def test_sort_by_nosort_keeps_natural_order(r: ClientType, real_server_details):
+def test_sort_by_nosort_keeps_natural_order(r: ClientType, real_server_details: ServerDetails):
     # A `BY` pattern with no `*` disables sorting: redis returns elements in natural order (insertion order for lists,
     # score order for sorted sets) and reverses only when DESC is given. Dragonfly ignores DESC here.
     natural = [b"3", b"1", b"2", b"5", b"4"]
@@ -273,7 +274,7 @@ def test_sort_by_nosort_keeps_natural_order(r: ClientType, real_server_details):
     assert r.sort("myzset", by="nosort") == [b"b", b"c", b"a"]
 
 
-def test_sort_with_hash(r: ClientType, real_server_details):
+def test_sort_with_hash(r: ClientType, real_server_details: ServerDetails):
     r.rpush("foo", "middle")
     r.rpush("foo", "eldest")
     r.rpush("foo", "youngest")
@@ -364,7 +365,7 @@ def test_restore_exists(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.restore("foo", 0, dump)
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_restore_invalid_dump(r: ClientType):
@@ -373,7 +374,7 @@ def test_restore_invalid_dump(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.restore("baz", 0, dump[:-1])
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_restore_invalid_ttl(r: ClientType):
@@ -382,7 +383,7 @@ def test_restore_invalid_ttl(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.restore("baz", -1, dump)
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_set_then_get(r: ClientType):
@@ -397,7 +398,7 @@ def test_exists(r: ClientType):
     with pytest.raises(Exception, match=msgs.WRONG_ARGS_MSG6.format("exists")[4:]) as ctx:
         raw_command(r, "exists")
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.slow
@@ -410,7 +411,7 @@ def test_expire_should_expire_key(r: ClientType):
     assert r.expire("bar", 1) is False
 
 
-def test_expire_should_throw_error(r: ClientType, real_server_details):
+def test_expire_should_throw_error(r: ClientType, real_server_details: ServerDetails):
     r.set("foo", "bar")
     assert r.get("foo") == b"bar"
     # Dragonfly only rejects the directly contradictory pairs; NX with GT or LT is accepted.
@@ -420,7 +421,7 @@ def test_expire_should_throw_error(r: ClientType, real_server_details):
     for kwargs in incompatible:
         with pytest.raises(Exception) as ctx:
             r.expire("foo", 1, **kwargs)
-        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+        assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
@@ -446,7 +447,56 @@ def test_expire_gt_lt_no_ttl_and_equal(r: ClientType):
 def test_expire_extra_params_return_error(r: ClientType):
     with pytest.raises(redis.exceptions.ResponseError) as ctx:
         r.expire("foo", 1, nx=True)
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
+
+
+LLONG_MAX = 2**63 - 1
+LLONG_MIN = -(2**63)
+
+
+@pytest.mark.unsupported_server_types("dragonfly")
+@pytest.mark.parametrize(
+    "cmd,when",
+    [
+        ("EXPIRE", LLONG_MAX),
+        ("EXPIRE", LLONG_MIN),
+        ("EXPIRE", LLONG_MAX // 1000),  # Fits once converted to ms, but not once the current time is added.
+        ("EXPIRE", -(LLONG_MAX // 1000) - 1),
+        ("PEXPIRE", LLONG_MAX),
+        ("EXPIREAT", LLONG_MAX),
+        ("EXPIREAT", LLONG_MAX // 1000 + 1),
+        ("EXPIREAT", LLONG_MIN),
+    ],
+)
+def test_expire_out_of_range_time(r: ClientType, cmd: str, when: int):
+    r.set("x", "v")
+    with pytest.raises(RESPONSE_ERRORS, match=f"invalid expire time in '?{cmd.lower()}"):
+        raw_command(r, cmd, "x", when)
+    assert r.get("x") == b"v"
+    assert r.ttl("x") == -1
+    # The time is checked before the key is looked up.
+    with pytest.raises(RESPONSE_ERRORS, match="invalid expire time"):
+        raw_command(r, cmd, "missing", when)
+
+
+@pytest.mark.unsupported_server_types("dragonfly")
+def test_expire_in_range_extremes(r: ClientType):
+    r.set("x", "v")
+    assert raw_command(r, "EXPIREAT", "x", LLONG_MAX // 1000) == 1
+    assert r.ttl("x") > 0
+    assert raw_command(r, "PEXPIREAT", "x", LLONG_MAX) == 1
+    assert r.pttl("x") > 0
+    # A huge negative relative time is in range and deletes the key.
+    assert raw_command(r, "EXPIRE", "x", -(LLONG_MAX // 1000)) == 1
+    assert r.exists("x") == 0
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="7")
+@pytest.mark.unsupported_server_types("dragonfly")
+def test_expire_out_of_range_time_checked_after_options(r: ClientType):
+    r.set("x", "v")
+    with pytest.raises(RESPONSE_ERRORS, match="not compatible"):
+        raw_command(r, "EXPIRE", "x", LLONG_MAX, "NX", "XX")
 
 
 def test_expire_should_return_true_for_existing_key(r: ClientType):
@@ -668,7 +718,7 @@ def test_rename_nonexistent_key(r: ClientType):
     with pytest.raises(Exception) as ctx:
         r.rename("foo", "bar")
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 def test_renamenx_doesnt_exist(r: ClientType):
@@ -788,7 +838,7 @@ def test_key_patterns(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_watch_when_setbit_does_not_change_value(r: ClientType, real_server_details):
+def test_watch_when_setbit_does_not_change_value(r: ClientType, real_server_details: ServerDetails):
     r.set("foo", b"0")
 
     with r.pipeline() as p:
@@ -814,7 +864,7 @@ def test_from_hypothesis_redis7(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_copy_preserves_expiry(r: ClientType, real_server_details):
+def test_copy_preserves_expiry(r: ClientType, real_server_details: ServerDetails):
     expire_at = testtools.far_future_expiry(real_server_details.server_type)
     r.set("foo", "0")
     r.expireat("foo", expire_at)
@@ -833,8 +883,37 @@ def test_copy_replaces(r: ClientType):
     assert r.get("bar") == b"0"
 
 
+def test_copy_does_not_share_value_with_source(r: ClientType):
+    r.rpush("list", "a")
+    r.sadd("set", "a")
+    r.zadd("zset", {"a": 1})
+    r.hset("hash", "f", "a")
+    for key in ("list", "set", "zset", "hash"):
+        assert r.copy(key, key + "-copy") == 1
+
+    r.rpush("list", "b")
+    r.sadd("set-copy", "b")
+    r.zadd("zset", {"a": 2})
+    r.hset("hash-copy", "f", "b")
+
+    assert r.lrange("list-copy", 0, -1) == [b"a"]
+    assert set(r.smembers("set")) == {b"a"}  # valkey-py returns a list
+    assert r.zscore("zset-copy", "a") == 1
+    assert r.hget("hash", "f") == b"a"
+
+
+@pytest.mark.unsupported_server_types("dragonfly")  # dragonfly COPY has no DB option
+def test_copy_db_does_not_share_value_with_source(r: ClientType):
+    r.rpush("foo", "a")
+    assert r.copy("foo", "foo", destination_db=1) == 1
+    r.rpush("foo", "b")
+
+    r.select(1)
+    assert r.lrange("foo", 0, -1) == [b"a"]
+
+
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_copy_replaces_with_expiry(r: ClientType, real_server_details):
+def test_copy_replaces_with_expiry(r: ClientType, real_server_details: ServerDetails):
     expire_at = testtools.far_future_expiry(real_server_details.server_type)
     r.set("foo", "0")
     r.expireat("foo", expire_at)
@@ -880,7 +959,7 @@ def test_copy_invalid_db(r: ClientType):
     with pytest.raises(Exception, match=msgs.INVALID_INT_MSG[4:]) as ctx:
         r.copy("foo", "bar", destination_db="not a database")
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.unsupported_server_types("dragonfly")  # dragonfly COPY has no DB option
@@ -892,7 +971,7 @@ def test_copy_non_existing_key(r: ClientType):
     with pytest.raises(Exception, match=msgs.INVALID_INT_MSG[4:]) as ctx:
         r.copy("foo", "bar", destination_db="not a database")
 
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.unsupported_server_types("dragonfly")  # dragonfly COPY has no DB option
@@ -901,7 +980,7 @@ def test_copy_same_db(r: ClientType):
     r.set("foo", "0")
     with pytest.raises(Exception, match=msgs.SRC_DST_SAME_MSG[4:]) as ctx:
         r.copy("foo", "foo", destination_db="1")
-    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    assert isinstance(ctx.value, RESPONSE_ERRORS)
 
 
 @pytest.mark.unsupported_server_types("dragonfly")  # dragonfly COPY has no DB option
@@ -911,7 +990,7 @@ def test_copy_db_index_out_of_range(r: ClientType):
     for db in (-1, 16, 99):
         with pytest.raises(Exception, match=msgs.INVALID_DB_MSG[4:]) as ctx:
             raw_command(r, "copy", "foo", "bar", "DB", db)
-        assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+        assert isinstance(ctx.value, RESPONSE_ERRORS)
     assert r.exists("bar") == 0
 
 

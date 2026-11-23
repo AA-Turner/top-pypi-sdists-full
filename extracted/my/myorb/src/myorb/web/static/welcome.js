@@ -465,7 +465,7 @@
     // The frames' heights too: the new ones get them at once, so the email is as long as
     // before from the first paint and is not seen at the top for a moment.
     const heights = [...view.querySelectorAll("[data-email-frame]")].map((frame) => frame.style.height);
-    viewTop = { top: view.scrollTop, heights, until: Date.now() + 3000 };
+    viewTop = { view, href: view.dataset.href, top: view.scrollTop, heights, until: Date.now() + 3000 };
   });
   document.addEventListener("htmx:afterSwap", (event) => {
     const view = document.getElementById("page-view");
@@ -475,10 +475,11 @@
     });
     view.scrollTop = viewTop.top;
   });
+  // Only for that email: gone on to the next one (Mark as read does), it starts at its top.
   function keepViewTop() {
     const view = document.getElementById("page-view");
     if (!viewTop || !view) return;
-    if (Date.now() > viewTop.until) viewTop = null;
+    if (Date.now() > viewTop.until || view !== viewTop.view || view.dataset.href !== viewTop.href) viewTop = null;
     else view.scrollTop = viewTop.top;
   }
   document.addEventListener("htmx:afterSettle", keepViewTop);

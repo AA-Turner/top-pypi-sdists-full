@@ -46,7 +46,11 @@ from schemathesis.generation.meta import (
     PhaseInfo,
 )
 from schemathesis.specs.openapi._hypothesis import _build_custom_formats
-from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet, filter_schema_valid_examples
+from schemathesis.specs.openapi.adapter.parameters import (
+    OpenApiParameterSet,
+    filter_schema_valid_examples,
+    listed_path_values,
+)
 from schemathesis.specs.openapi.coverage._schema import (
     CoverageContext,
     GeneratedValue,
@@ -60,7 +64,7 @@ from schemathesis.specs.openapi.error_feedback import apply_adjustments
 from schemathesis.specs.openapi.formats import cookie_alphabet, header_alphabet
 from schemathesis.specs.openapi.utils import declared_methods
 from schemathesis.transport.prepare import prepare_path
-from schemathesis.transport.serialization import Binary, quote_all
+from schemathesis.transport.serialization import Binary, quote_generated
 
 if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
@@ -102,6 +106,7 @@ class Template:
         "_components",
         "_content_type_header",
         "_json_encoded",
+        "_listed_path_values",
         "_optional_query",
         "_parameter_modes",
         "_serializers",
@@ -118,6 +123,7 @@ class Template:
         serializers: dict[str, Callable],
         optional_query: frozenset[str],
         json_encoded: frozenset[tuple[str, str]],
+        listed_path_values: dict[str, frozenset[str]],
     ) -> None:
         self._components: dict[ParameterLocation, ComponentInfo] = {}
         self._parameter_modes: dict[ParameterLocation, dict[str, GenerationMode]] = {}
@@ -125,6 +131,7 @@ class Template:
         self._serializers = serializers
         self._optional_query = optional_query
         self._json_encoded = json_encoded
+        self._listed_path_values = listed_path_values
         # Declared `Content-Type` header name and the body media types its schema admits.
         self._content_type_header: tuple[str, frozenset[str]] | None = None
         # A required body that never produced a value, or a required parameter without a positive
@@ -226,8 +233,8 @@ class Template:
                 value = {name: item for name, item in value.items() if item is not None or name not in omittable}
                 value = stringify_value(value, container_name)
             if container_name == "path_parameters" and isinstance(value, dict):
-                # dict() copy prevents quote_all from mutating self._template
-                value = stringify_value(quote_all(dict(value)), container_name)
+                # dict() copy prevents quoting from mutating self._template
+                value = stringify_value(quote_generated(dict(value), self._listed_path_values), container_name)
             output[container_name] = value
         return output
 
@@ -262,7 +269,7 @@ class Template:
         return TemplateValue(kwargs=kwargs, raw=raw, components=components)
 
     def with_parameter(self, *, location: ParameterLocation, name: str, value: GeneratedValue) -> TemplateValue:
-        container = self._template[location.container_name]
+        container = self._template.get(location.container_name, {})
         return self.with_location(
             location=location,
             value={**container, name: value.value},
@@ -961,8 +968,15 @@ def _seed_parameters(run: CoverageRun) -> None:
                 continue
             template.add_parameter(location, name, fallback)
             continue
-        # Positive values precede negative ones, so a negative seed means the required parameter has no
-        # positive value; the positive case built from this template would be invalid.
+        # Positive values precede negative ones, so a negative seed means the parameter has no positive value.
+        without_positive = (
+            value.generation_mode == GenerationMode.NEGATIVE and GenerationMode.POSITIVE in generation_modes
+        )
+        if without_positive and not parameter.is_required and location != ParameterLocation.PATH:
+            # Left out, so positive cases built from this template stay valid.
+            generators[(location, name)] = _replay(value, gen)
+            continue
+        # The positive case built from this template would be invalid.
         if parameter.is_required and value.generation_mode == GenerationMode.NEGATIVE:
             template.unsatisfiable_required_parameter = True
         template.add_parameter(location, name, value)
@@ -1398,8 +1412,19 @@ def _missing_required(run: CoverageRun) -> Generator[Case, None, None]:
             )
             if case is not None:
                 yield case
-    if template.has_required_body:
+    if template.has_required_body and not all(_admits_empty_sequence(body) for body in operation.body):
         yield from _missing_body(run)
+
+
+def _admits_empty_sequence(body: OpenApiBody) -> bool:
+    """Whether a JSON sequence body admits no records, which travel as no content, the same as no body at all."""
+    if not media_types.is_json_sequence(body.media_type):
+        return False
+    try:
+        return body.is_valid([])
+    except ValueError:
+        # A schema no validator loads, e.g. one holding YAML `!!binary` values, leaves validity unknown.
+        return False
 
 
 def _missing_body(run: CoverageRun) -> Generator[Case, None, None]:
@@ -1619,6 +1644,7 @@ def iter_coverage_cases(
             for parameter in (*operation.headers, *operation.cookies)
             if _json_media_type(parameter) is not None
         ),
+        listed_path_values=listed_path_values(operation.path_parameters),
     )
 
     responses = list(operation.responses.iter_examples())

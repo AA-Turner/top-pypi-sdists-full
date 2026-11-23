@@ -196,6 +196,50 @@ def test_tatweel_is_deleted_when_a_word_is_normalized() -> None:
     assert _normalize("Müller") == "müller"
 
 
+_ZWNJ, _ZWJ = "\u200c", "\u200d"
+
+
+@pytest.mark.parametrize("written", [
+    "مهندس" + _ZWNJ, _ZWNJ + "مهندس", "مهندس" + _ZWJ, _ZWJ + "مهندس",
+    "مهندس" + _ZWNJ + _ZWJ, _ZWNJ + "مهندس" + _ZWNJ,
+    "مهندس" + _ZWNJ + ".", "مهندس." + _ZWNJ, ". " + _ZWNJ + "مهندس",
+])
+def test_an_edge_joiner_is_stripped_when_a_word_is_normalized(
+        written: str) -> None:
+    """#1335: a ZWNJ or ZWJ at a word's edge shapes nothing, so it is
+    stripped with the edge full stops, in any order, to a fixed point."""
+    assert _normalize(written) == "مهندس"
+    assert _normalize(_normalize(written)) == _normalize(written)
+
+
+def test_an_edge_joiner_strips_on_a_latin_and_a_decomposed_word() -> None:
+    assert _normalize("Dr" + _ZWNJ) == _normalize(_ZWJ + "Dr") == "dr"
+    nfd = unicodedata.normalize("NFD", "Müller")
+    assert _normalize(nfd + _ZWNJ) == _normalize("Müller") == "müller"
+
+
+def test_a_joiner_inside_a_word_is_kept_and_a_lone_one_folds_away() -> None:
+    """A joiner between letters decides how they join (`آیت‌الله` is
+    listed with its ZWNJ), so it stays; a word that is nothing but
+    joiners looks up as nothing, as a lone full stop does, though its
+    token still stands in the name (decisions/T1, 2026-11-21)."""
+    assert _normalize("آیت" + _ZWNJ + "الله") == "آیت" + _ZWNJ + "الله"
+    assert _normalize(_ZWNJ) == _normalize(_ZWJ + _ZWNJ) == ""
+
+
+def test_a_word_added_with_an_edge_joiner_is_stored_without_it() -> None:
+    """Storage and lookup share the fold, so a caller's title added with
+    a ZWNJ after it is the title typed with or without a joiner, and the
+    lexicon round-trips through pickle."""
+    lexicon = Lexicon.default().add("Xyzt" + _ZWNJ, kind="title")
+    assert "xyzt" in lexicon.words(kind="title")
+    parser = Parser(lexicon=lexicon)
+    for text in ("Xyzt John Smith", "Xyzt" + _ZWNJ + " John Smith",
+                 "Xyzt" + _ZWJ + " John Smith"):
+        assert parser.parse(text).given == "John"
+    assert pickle.loads(pickle.dumps(lexicon)) == lexicon
+
+
 @pytest.mark.parametrize("key, value", [
     ("phd", "Ph.D."), ("md", "M.D."), ("hc", "h.c"), ("ph.d", "PhD"),
     ("phd", "P.H.D."), ("md", "M. D."), ("dphil", "DPhil"),
@@ -709,11 +753,13 @@ def test_every_shipped_reading_holds_its_properties_canonical() -> None:
 
 
 def test_words_matches_a_list_property_whatever_its_order() -> None:
-    # `chief`'s nobility reading attaches to military and office titles;
-    # the asked list is folded and sorted as add folds it
-    lex = Lexicon.default()
+    # a reading attaching to two kinds; the asked list is folded and
+    # sorted as add folds it, so the order and case it is asked in do not
+    # matter (built here, so the shipped `chief`'s list may change freely)
+    lex = Lexicon.empty().add("chief", kind="nobility",
+                              attaches=["office", "military"])
     held = lex.words(kind="nobility", attaches=["military", "office"])
-    assert "chief" in held
+    assert held == ("chief",)
     assert lex.words(kind="nobility", attaches=["Office", "military"]) == held
 
 
@@ -1007,6 +1053,81 @@ def test_dotted_is_rule_h10s_switch_both_ways() -> None:
     assert Parser().parse("U.S. Senator John Smith").title == "U.S. Senator"
 
 
+def test_completes_any_and_long_names_only_are_rule_p12s_switches_both_ways() -> None:
+    # a caller's completes_any reaches the parse as a file's does, False
+    # turns a shipped one off, and long_names_only narrows it to a name
+    # of four name words or more either way (rules/P12, #1464)
+    def family(lex: Lexicon, text: str) -> str:
+        return Parser(lexicon=lex).parse(text).family
+    default = Lexicon.default()
+    assert family(default, "Tariq Abdou Aziz") == "Aziz"
+    assert family(default.add("abdou", kind="bound_given", completes_any=True),
+                  "Tariq Abdou Aziz") == "Abdou Aziz"
+    assert family(default, "Tariq Abdel Aziz") == "Abdel Aziz"
+    assert family(default.add("abdel", kind="bound_given", completes_any=False),
+                  "Tariq Abdel Aziz") == "Aziz"
+    assert family(default, "Tariq Abdul Aziz") == "Aziz"
+    assert family(default.add("abdul", kind="bound_given", long_names_only=False),
+                  "Tariq Abdul Aziz") == "Abdul Aziz"
+    long_only = default.add("abdel", kind="bound_given", long_names_only=True)
+    assert family(long_only, "Tariq Abdel Aziz") == "Aziz"
+    assert family(long_only, "Nadia Ali Abdel Rahim") == "Abdel Rahim"
+    # alone it narrows nothing, so it is inert rather than refused (the
+    # build, which refuses it, holds the shipped files to more): an
+    # inert entry misparses nothing (AGENTS.md, invariants guard harm)
+    alone = default.add("abdou", kind="bound_given", long_names_only=True)
+    assert family(alone, "Nadia Ali Abdou Rahim") == "Rahim"
+
+
+def test_bound_second_is_rule_p12s_backward_switch_both_ways() -> None:
+    # a caller's bound_second reading joins the plain word before it
+    # wherever it stands, `completes` narrows it to the words listed,
+    # and removing a shipped one gives the pair back (rules/P12, #1072)
+    def read(lex: Lexicon, text: str) -> dict[str, str]:
+        n = Parser(lexicon=lex).parse(text)
+        return {"given": n.given, "middle": n.middle, "family": n.family}
+    default = Lexicon.default()
+    assert read(default, "Samir Nour zzend")["family"] == "zzend"
+    added = default.add("zzend", kind="bound_second")
+    assert read(added, "Samir Nour zzend")["family"] == "Nour zzend"
+    assert read(added, "Nour zzend Samir Haddad")["given"] == "Nour zzend"
+    listed = default.add("zzend", kind="bound_second", completes=["dhu"])
+    assert read(listed, "Samir Nour zzend")["family"] == "zzend"
+    assert read(listed, "Samir Dhu zzend")["family"] == "Dhu zzend"
+    assert read(default, "سامر عز الدين")["family"] == "عز الدين"
+    removed = default.remove("الدين", kind="bound_second")
+    assert read(removed, "سامر عز الدين") == {
+        "given": "سامر", "middle": "عز", "family": "الدين"}
+    # a second word the vocabulary reads otherwise too joins nothing
+    titled = added.add("zzend", kind="title")
+    assert read(titled, "Samir Nour zzend")["family"] == "zzend"
+    assert pickle.loads(pickle.dumps(added)) == added
+
+
+@pytest.mark.parametrize("prop", ["completes", "completed_by"])
+def test_a_pair_list_refuses_an_empty_list_and_a_phrase(prop: str) -> None:
+    kind = "bound_second" if prop == "completes" else "bound_given"
+    with pytest.raises(ValueError, match="at least one word") as refused:
+        Lexicon.default().add("zzend", kind=kind, **{prop: []})
+    # the fix the message offers runs and clears a shipped list: الغنى
+    # then joins behind any plain word
+    assert f"{prop}=None" in str(refused.value)
+    if prop == "completes":
+        opened = Lexicon.default().add("الغنى", kind="bound_second",
+                                       completes=None)
+        assert Parser(lexicon=opened).parse("سامر نور الغنى").family == "نور الغنى"
+    with pytest.raises(ValueError, match="must be single words"):
+        Lexicon.default().add("zzend", kind=kind, **{prop: ["dhu nour"]})
+
+
+@pytest.mark.parametrize("flag", ["completes_any", "long_names_only"])
+def test_p12s_switches_refuse_a_non_bool_and_another_kind(flag: str) -> None:
+    with pytest.raises(TypeError, match=flag):
+        Lexicon.default().add("abdou", kind="bound_given", **{flag: 1})
+    with pytest.raises(ValueError, match=flag):
+        Lexicon.default().add("abdou", kind="given", **{flag: True})
+
+
 def test_a_dotted_title_reads_as_listed_in_its_language() -> None:
     # assemble counts classify's dotted tag as a listed title's
     # (rules/H10), so the reading names the vocabulary and its file
@@ -1286,7 +1407,10 @@ def test_two_lexicons_are_equal_when_their_logs_are_as_written() -> None:
 def test_a_later_edit_reads_after_an_earlier_one() -> None:
     lex = Lexicon.empty()
     assert lex.add("x", kind="title").remove("x")._sets.titles == frozenset()
-    assert lex.remove("x").add("x", kind="title")._sets.titles == {"x"}
+    # a remove before the add it would undo takes nothing, and warns (#1535)
+    with pytest.warns(UserWarning, match="'x' is in no vocabulary file"):
+        removed_first = lex.remove("x")
+    assert removed_first.add("x", kind="title")._sets.titles == {"x"}
 
 
 def test_replace_carries_the_base_and_the_log() -> None:
@@ -1885,7 +2009,9 @@ def test_migrate_s_table_covers_every_compiled_constant() -> None:
         "SHARED_NAMES", "PARTICLE_GIVEN_NAMES", "SAINT_PARTICLES",
         "CAPITALIZED_PARTICLES", "CAPITAL_OPENING_PARTICLES", "DOTTED_TITLES",
         "GLUED_TITLES",
-        "BOUND_PHRASES", "SAME_AS", "SAME_AS_NAMED", "FAMILIAR",
+        "BOUND_PHRASES", "BOUND_COMPLETES_ANY", "BOUND_LONG_NAMES_ONLY",
+        "BOUND_SECONDS", "BOUND_SECOND_PHRASES", "BOUND_SECONDS_LISTED",
+        "ALIAS_MARKERS", "SAME_AS", "SAME_AS_NAMED", "FAMILIAR",
         "ALTERNATE_SPELLINGS"}
     assert public_in_2x <= named
     assert len(_migrate_constant_rows()) >= 20  # the rows with code
@@ -2094,3 +2220,358 @@ def test_words_finds_a_spelling_of_several_by_any_word_it_names() -> None:
     assert "md" not in lexicon.words(kind="given",
                                      same_as=["muhammad", "mohamad"])
     assert lexicon.words(kind="given", same_as="charles") == ("chas",)
+
+
+# -- a remove that takes nothing (#1535) ------------------------------------
+#
+# remove() warns where no vocabulary file and no earlier add() of the
+# lexicon gives the word a reading of the kind asked, since such an edit
+# takes effect under no choice of languages.
+
+_INERT_REMOVES = [
+    # a kind the word does not hold: the warning names the kinds it does
+    pytest.param(lambda L: L.remove("alhaj", kind="religious"),
+                 ["'alhaj' has no 'religious' reading", "style",
+                  "remove('alhaj', kind='style')"], id="wrong-kind"),
+    # a word in no file, with a kind and without one
+    pytest.param(lambda L: L.remove("zzyzx", kind="title"),
+                 ["remove('zzyzx', kind='title') changes nothing",
+                  "in no vocabulary file"], id="unknown-word"),
+    pytest.param(lambda L: L.remove("zzyzx"),
+                 ["remove('zzyzx') changes nothing",
+                  "in no vocabulary file"], id="unknown-word-no-kind"),
+    # a category none of whose kinds the word holds
+    pytest.param(lambda L: L.remove("alhaj", kind="name"),
+                 ["'alhaj' has no 'name' reading",
+                  "remove('alhaj', kind='style')"], id="category-none-held"),
+]
+
+
+@pytest.mark.parametrize("call, expected", _INERT_REMOVES)
+def test_a_remove_that_takes_nothing_warns(
+        call: Callable[[Lexicon], Lexicon], expected: list[str]) -> None:
+    with pytest.warns(UserWarning) as record:
+        removed = call(Lexicon.default())
+    assert len(record) == 1
+    message = str(record[0].message)
+    for part in expected:
+        assert part in message, message
+    # the edit is still logged, as before
+    assert len(removed._edits) == 1
+
+
+_MESSAGE_CASES = [
+    # several kinds held, none in the asked category: no call offered
+    pytest.param(lambda L: L.remove("dean", kind="particle"),
+                 "it holds: family, given, office", None, id="several-kinds"),
+    # the asked category's one held kind is offered
+    pytest.param(lambda L: L.remove("dean", kind="religious"),
+                 "it holds: family, given, office", "remove('dean', kind='office')",
+                 id="same-category"),
+    # a pair kind is never offered: its remove reaches name matching
+    pytest.param(lambda L: L.remove("don", kind="title"),
+                 "it holds: familiar", None, id="pair-kind-only"),
+    pytest.param(lambda L: L.remove("olha", kind="given"),
+                 "it holds: spelling", None, id="spelling-only"),
+    # a kind held through the lexicon's own earlier add
+    pytest.param(lambda L: L.add("zzq", kind="office").remove("zzq", kind="family"),
+                 "in any vocabulary file or earlier add(); it holds: office",
+                 "remove('zzq', kind='office')", id="own-add-other-kind"),
+    # a name held only as other words' pairs, with a kind and on an empty
+    # lexicon, which has compiled no pairs
+    pytest.param(lambda L: L.remove("robert", kind="given"),
+                 "'robert' holds no reading of its own",
+                 "remove('robert', kind='familiar')", id="pair-name-kind"),
+    pytest.param(lambda L: Lexicon.empty().remove("abigail"),
+                 "'abigail' holds no reading of its own",
+                 "remove('abigail', kind='familiar')", id="pair-name-empty"),
+    # full stops inside a word the vocabulary writes without them
+    pytest.param(lambda L: L.remove("Ph.D.", kind="credential"),
+                 "the vocabulary writes 'ph.d' without its full stops",
+                 "remove('phd', kind='credential')", id="interior-stops"),
+    # with no kind, the kind the dotted spelling is read by: md's
+    # credential, not its given reading (Muhammad written short)
+    pytest.param(lambda L: L.remove("M.D."),
+                 "the vocabulary writes 'm.d' without its full stops",
+                 "remove('md', kind='credential')", id="stops-no-kind"),
+    # an acronym the lexicon's own earlier add gave
+    pytest.param(lambda L: L.add("xq", kind="credential", acronym=True)
+                 .remove("x.q.", kind="credential"),
+                 "the vocabulary writes 'x.q' without its full stops",
+                 "remove('xq', kind='credential')", id="stops-own-add"),
+    # a suffix word with stops is no acronym (J.R. is not read as jr), and
+    # a kind the dotted spelling is not read by names the one it is
+    pytest.param(lambda L: L.remove("j.r."), "'j.r' is in no vocabulary file",
+                 None, id="stops-not-an-acronym"),
+    pytest.param(lambda L: L.remove("m.d.", kind="title"),
+                 "as 'md', read with its full stops as credential", None,
+                 id="stops-other-kind"),
+    # a word in no file: the join remedy named beside the spelling one
+    pytest.param(lambda L: L.remove("zzyzx", kind="title"),
+                 "remove it from the joined lexicon", None, id="no-file"),
+]
+
+
+@pytest.mark.parametrize("call, part, offered", _MESSAGE_CASES)
+def test_a_remove_warning_names_its_case(
+        call: Callable[[Lexicon], Lexicon], part: str,
+        offered: str | None) -> None:
+    with pytest.warns(UserWarning) as record:
+        call(Lexicon.default())
+    message = str(record[0].message)
+    # every case opens with the call and "changes nothing", the text a
+    # caller filters one by
+    assert re.match(r"remove\('[^']+'(, kind='[a-z_]+')?\) changes nothing: ",
+                    message), message
+    assert part in message, message
+    found = re.findall(r"remove\('[^']+', kind='[a-z_]+'\)", message.split(
+        "changes nothing: ", 1)[1])
+    assert found == ([offered] if offered else []), message
+
+
+def test_a_dotted_spellings_offer_takes_only_the_reading_it_is_read_by() -> None:
+    # M.D. is md's credential, and md is also Muhammad written short: the
+    # offered call takes the credential and leaves the given name (#1535)
+    with pytest.warns(UserWarning) as record:
+        Lexicon.default().remove("M.D.")
+    offered = re.search(r"did you mean (remove\([^)]*\))",
+                        str(record[0].message))
+    assert offered is not None
+    taken = Parser(lexicon=eval("Lexicon.default()." + offered.group(1)))  # noqa: S307
+    assert Parser().parse("John Smith M.D.").suffix == "M.D."
+    assert taken.parse("John Smith M.D.").suffix == ""
+    assert taken.parse("Md. Ali Khan").given == "Md."
+    # an acronym the lexicon added itself, offered and taken the same way
+    added = Lexicon.default().add("xq", kind="credential", acronym=True)
+    with pytest.warns(UserWarning) as own:
+        added.remove("x.q.")
+    offered = re.search(r"did you mean (remove\([^)]*\))", str(own[0].message))
+    assert offered is not None
+    assert Parser(lexicon=added).parse("Jane Doe XQ").suffix == "XQ"
+    assert Parser(lexicon=eval("added." + offered.group(1))).parse(  # noqa: S307
+        "Jane Doe XQ").suffix == ""
+
+
+def test_a_dotted_spelling_read_by_two_kinds_lists_them() -> None:
+    # us is a dotted title read by two title kinds once a caller adds one,
+    # so no call is plainly meant: the kinds are listed, none offered
+    lexicon = Lexicon.default().add("us", kind="academic")
+    with pytest.warns(UserWarning) as record:
+        lexicon.remove("u.s.")
+    message = str(record[0].message)
+    assert "the vocabulary writes 'u.s' without its full stops" in message
+    assert "read with its full stops as academic, modifier" in message
+    assert "did you mean" not in message
+
+
+@pytest.mark.parametrize("field", ["surnames", "given_names"])
+def test_a_word_held_only_in_a_list_is_told_how_to_drop_it(field: str) -> None:
+    listed = frozenset({"zzluis"})
+    lexicon = (dataclasses.replace(Lexicon.default(), surnames=listed)
+               if field == "surnames" else
+               dataclasses.replace(Lexicon.default(), given_names=listed))
+    with pytest.warns(UserWarning) as record:
+        lexicon.remove("zzluis")
+    message = str(record[0].message)
+    assert f"this lexicon's {field} list" in message
+    offered = re.search(r"dataclasses\.replace\(.*\}\)", message)
+    assert offered is not None
+    dropped = eval(offered.group(0))  # noqa: S307
+    assert "zzluis" in getattr(lexicon, field)
+    assert "zzluis" not in getattr(dropped, field)
+
+
+def test_a_remove_of_several_words_names_only_those_it_takes_nothing_from() -> None:
+    with pytest.warns(UserWarning) as record:
+        Lexicon.default().remove("alhaj", "qari", "zzyzx", kind="religious")
+    messages = [str(w.message) for w in record]
+    assert len(messages) == 2
+    assert any("'alhaj'" in m for m in messages)
+    # a word named twice in one call warns once
+    with pytest.warns(UserWarning) as twice:
+        Lexicon.default().remove("alhaj", "alhaj", kind="religious")
+    assert len(twice) == 1
+    assert any("'zzyzx'" in m for m in messages)
+    assert not any("'qari'" in m for m in messages)
+
+
+def test_the_remove_a_warning_offers_takes_the_reading() -> None:
+    # the offered call is code to paste: run it, on the default, and
+    # check that it takes the reading the inert one missed
+    with pytest.warns(UserWarning) as record:
+        Lexicon.default().remove("alhaj", kind="religious")
+    offered = re.search(r"Did you mean (remove\([^)]*\))",
+                        str(record[0].message))
+    assert offered is not None
+    fixed = eval("Lexicon.default()." + offered.group(1))  # noqa: S307
+    assert "style" in {r.kind for r in Lexicon.default().readings_of("alhaj")}
+    assert "style" not in {r.kind for r in fixed.readings_of("alhaj")}
+    assert Parser(lexicon=fixed).parse("Alhaj Ahmed Khan").title == ""
+
+
+@pytest.mark.parametrize("call", [
+    # a reading a file holds off by default, which a choice turns on
+    pytest.param(lambda L: L.remove("piedade", kind="given"),
+                 id="default-false"),
+    # a category one of whose kinds the word holds
+    pytest.param(lambda L: L.remove("dean", kind="title"), id="category"),
+    # the lexicon's own earlier add, and a second remove of a reading
+    pytest.param(lambda L: L.add("zzorvan", kind="family")
+                 .remove("zzorvan", kind="family"), id="own-add"),
+    pytest.param(lambda L: L.add("zzorvan", kind="family")
+                 .remove("zzorvan", kind="family")
+                 .remove("zzorvan", kind="family"), id="own-add-twice"),
+    pytest.param(lambda L: L.remove("phd", kind="credential")
+                 .remove("phd", kind="credential"), id="file-twice"),
+    # the word as the lexicon stores it: case and full stops folded, as
+    # for an earlier add of the caller's own
+    pytest.param(lambda L: L.remove("Dean", kind="title"), id="cased"),
+    pytest.param(lambda L: L.remove("Dean.", kind="title"), id="dotted"),
+    pytest.param(lambda L: L.add("zzk", kind="family")
+                 .remove("ZZK", kind="family"), id="own-add-cased"),
+    # a remove of every word's readings of a kind names no word
+    pytest.param(lambda L: L.remove(kind="title", every=True), id="every"),
+    # the pair removes are not judged: they match by name matching's
+    # folded forms, which this check does not read
+    pytest.param(lambda L: L.remove("zzbob", kind="familiar"),
+                 id="familiar"),
+    pytest.param(lambda L: L.remove("zzsara", kind="spelling",
+                                    spelling_of=["zzsarah"]),
+                 id="spelling"),
+])
+def test_a_remove_that_can_take_effect_is_silent(
+        call: Callable[[Lexicon], Lexicon]) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        call(Lexicon.default())
+
+
+def test_a_remove_warning_points_at_the_callers_line() -> None:
+    def line_of(make: Callable[[], object]) -> tuple[str, int]:
+        with pytest.warns(UserWarning) as record:
+            make()
+        return record[0].filename, record[0].lineno
+
+    def plain() -> object:
+        return Lexicon.default().remove("zzyzx")
+
+    def chained() -> object:
+        return Lexicon.default().remove("dean", kind="title").remove("zzyzx")
+
+    def in_a_parser() -> object:
+        return Parser(lexicon=Lexicon.default().remove("zzyzx"))
+
+    for make in (plain, chained, in_a_parser):
+        filename, lineno = line_of(make)
+        # the warning names this file and the remove's own line, the
+        # function's body, not a line inside the library
+        assert filename == __file__
+        assert lineno == make.__code__.co_firstlineno + 1, make.__name__
+
+
+def test_a_logged_remove_does_not_warn_again() -> None:
+    with pytest.warns(UserWarning):
+        inert = Lexicon.default().remove("zzyzx", kind="title")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # replaying the log, by a copy and by a pickle, warns nothing
+        dataclasses.replace(inert, given_names=frozenset({"luis"}))
+        loaded = pickle.loads(pickle.dumps(inert))
+        assert loaded == inert
+        Parser(lexicon=inert).parse("Zzyzx Smith")
+
+
+def test_every_pack_builds_with_no_remove_warning() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        warnings.filterwarnings(
+            "ignore", message="Policy.segment_scripts activates")
+        for code in locales.available():
+            pack = locales.get(code)
+            parser_for(pack)
+            if pack.languages:
+                parser_for(pack, strict=True)
+
+
+@pytest.mark.parametrize("prop, kind, word", [
+    ("completes", "bound_second", "ذو"),
+    ("completed_by", "bound_given", "الله"),
+])
+def test_a_pair_list_given_a_bare_string_offers_a_list_that_runs(
+        prop: str, kind: str, word: str) -> None:
+    with pytest.raises(TypeError) as refused:
+        Lexicon.default().add("zzend", kind=kind, **{prop: word})
+    offered = str(refused.value).split(f"e.g. {prop}=", 1)[1].split(", got")[0]
+    added = Lexicon.default().add("zzend", kind=kind,
+                                  **{prop: eval(offered)})
+    assert [dict(r.properties)[prop] for r in added.readings_of("zzend")] == [
+        tuple(sorted(eval(offered)))]
+
+
+def test_completed_by_none_clears_the_list_the_message_offers_to_clear() -> None:
+    # the empty-list refusal offers `completed_by=None` to clear a list
+    # the word's reading has; run what it offers on a word that ships
+    # one, and read the clearing in a parse (rules/P12)
+    with pytest.raises(ValueError, match="completed_by=None") as refused:
+        Lexicon.default().add("عبد", kind="bound_given", completed_by=[])
+    offered = str(refused.value).split("write ", 1)[1].split(" to clear")[0]
+    assert offered == "completed_by=None"
+    # what it clears to: the word keeps P5's join, but no listed word
+    # completes it any more
+    assert str(refused.value).endswith(
+        "which leaves no listed word completing it")
+    shipped = [dict(r.properties) for r in
+               Lexicon.default().readings_of("عبد")
+               if r.kind == "bound_given"]
+    assert shipped and all(p.get("completed_by") for p in shipped)
+    assert Parser().parse("سامر نور عبد الله").family == "عبد الله"
+    cleared = Lexicon.default().add("عبد", kind="bound_given",
+                                    completed_by=None)
+    assert [(r.kind, r.properties) for r in cleared.readings_of("عبد")] == [
+        ("bound_given", ())]
+    assert Parser(lexicon=cleared).parse("سامر نور عبد الله").family == "الله"
+
+
+def _article_rows() -> list[tuple[str, str]]:
+    from nameparser._reading_index import CATEGORY
+    rows = [(kind, "an" if kind[:1] in "aeiou" or kind == "honorific"
+             else "a") for kind in sorted(CATEGORY)]
+    assert any(a == "an" for _, a in rows) and any(a == "a" for _, a in rows)
+    return rows
+
+
+@pytest.mark.parametrize("kind, article", _article_rows())
+def test_a_refused_property_names_the_kind_with_its_article(
+        kind: str, article: str) -> None:
+    # every kind beginning with a vowel, and honorific, whose h is
+    # silent, reads "an"; the rest "a"
+    with pytest.raises(ValueError,
+                       match=f"^{article} {kind} reading takes "):
+        Lexicon.empty().add("zzq", kind=kind, zzprop=True)  # type: ignore[call-arg]
+
+
+def _attached_and_phrase_rows() -> tuple[list[tuple[str, str]],
+                                         list[tuple[str, str]]]:
+    from nameparser._reading_index import CATEGORY
+    rows = _article_rows()
+    attached = [(k, a) for k, a in rows
+                if CATEGORY[k] in ("title", "suffix")]
+    phrase = [(k, a) for k, a in rows if k != "birth_marker"
+              and CATEGORY[k] not in ("familiar", "spelling")]
+    assert attached and phrase
+    return attached, phrase
+
+
+@pytest.mark.parametrize("kind, article", _attached_and_phrase_rows()[0])
+def test_an_attached_side_names_the_kind_with_its_article(
+        kind: str, article: str) -> None:
+    with pytest.raises(ValueError,
+                       match=f"^attached on {article} '{kind}' reading"):
+        Lexicon.empty().add("zzq", kind=kind, attached="sideways")
+
+
+@pytest.mark.parametrize("kind, article", _attached_and_phrase_rows()[1])
+def test_a_phrase_names_the_kind_with_its_article(
+        kind: str, article: str) -> None:
+    with pytest.raises(ValueError, match=f"match as {article} {kind}:"):
+        Lexicon.empty().add("zzq yyq", kind=kind)

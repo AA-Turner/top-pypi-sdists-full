@@ -42,6 +42,8 @@ pub(crate) enum MatchStrategy {
     /// Namely, if the extension matches, then a full regex search is still
     /// required.
     RequiredExtension(String),
+    /// A regex that only needs to inspect the final path component.
+    BasenameRegex(String),
     /// A regex needs to be used for matching.
     Regex,
 }
@@ -61,6 +63,8 @@ impl MatchStrategy {
             MatchStrategy::Suffix { suffix, component }
         } else if let Some(ext) = pat.required_ext() {
             MatchStrategy::RequiredExtension(ext)
+        } else if let Some(re) = pat.basename_regex() {
+            MatchStrategy::BasenameRegex(re)
         } else {
             MatchStrategy::Regex
         }
@@ -196,6 +200,9 @@ impl GlobStrategic {
                 let ext = ext.as_bytes();
                 &*candidate.ext == ext && self.re.is_match(byte_path)
             }
+            MatchStrategy::BasenameRegex(_) => {
+                self.re.is_match(candidate.basename_for_regex())
+            }
             MatchStrategy::Regex => self.re.is_match(byte_path),
         }
     }
@@ -299,8 +306,11 @@ impl Glob {
     #[cfg(test)]
     fn compile_strategic_matcher(&self) -> GlobStrategic {
         let strategy = MatchStrategy::new(self);
-        let re =
-            new_regex(&self.re).expect("regex compilation shouldn't fail");
+        let pattern = match &strategy {
+            MatchStrategy::BasenameRegex(re) => re,
+            _ => &self.re,
+        };
+        let re = new_regex(pattern).expect("regex compilation shouldn't fail");
         GlobStrategic { strategy, re }
     }
 
@@ -508,9 +518,6 @@ impl Glob {
     /// doesn't *always* match when a file path has a basename of `foo`. e.g.,
     /// `foo` doesn't match `abc/foo`.
     fn basename_tokens(&self) -> Option<&[Token]> {
-        if self.opts.case_insensitive {
-            return None;
-        }
         let start = match *self.tokens.get(0)? {
             Token::RecursivePrefix => 1,
             _ => {
@@ -540,10 +547,15 @@ impl Glob {
                 | Token::RecursiveZeroOrMore => {
                     return None;
                 }
-                Token::Class { .. } | Token::Alternates(..) => {
-                    // We *could* be a little smarter here, but either one
-                    // of these is going to prevent our literal optimizations
-                    // anyway, so give up.
+                Token::Class { negated, ref ranges } => {
+                    let contains_slash = ranges
+                        .iter()
+                        .any(|&(start, end)| start <= '/' && '/' <= end);
+                    if contains_slash != negated {
+                        return None;
+                    }
+                }
+                Token::Alternates(..) => {
                     return None;
                 }
             }
@@ -557,6 +569,9 @@ impl Glob {
     /// The basic format of these patterns is `**/{literal}`, where `{literal}`
     /// does not contain a path separator.
     fn basename_literal(&self) -> Option<String> {
+        if self.opts.case_insensitive {
+            return None;
+        }
         let tokens = self.basename_tokens()?;
         let mut lit = String::new();
         for t in tokens {
@@ -564,6 +579,12 @@ impl Glob {
             lit.push(c);
         }
         Some(lit)
+    }
+
+    /// Returns a regex for the basename when it determines the whole match.
+    fn basename_regex(&self) -> Option<String> {
+        let tokens = self.basename_tokens()?;
+        Some(Tokens::to_regex_with(&self.opts, tokens))
     }
 }
 
@@ -589,7 +610,7 @@ impl<'a> GlobBuilder<'a> {
         };
         p.parse()?;
         if p.branches.is_empty() {
-            // OK because of how the the branches/alternate_stack are managed.
+            // OK because of how the branches/alternate_stack are managed.
             // If we end up here, then there *must* be a bug in the parser
             // somewhere.
             unreachable!()
@@ -602,7 +623,7 @@ impl<'a> GlobBuilder<'a> {
             let tokens = p.branches.pop().unwrap();
             Ok(Glob {
                 glob: self.glob.to_string(),
-                re: tokens.to_regex_with(&self.opts),
+                re: Tokens::to_regex_with(&self.opts, &tokens),
                 opts: self.opts,
                 tokens,
             })
@@ -670,7 +691,7 @@ impl Tokens {
     /// Convert this pattern to a string that is guaranteed to be a valid
     /// regular expression and will represent the matching semantics of this
     /// glob pattern and the options given.
-    fn to_regex_with(&self, options: &GlobOptions) -> String {
+    fn to_regex_with(options: &GlobOptions, tokens: &[Token]) -> String {
         let mut re = String::new();
         re.push_str("(?-u)");
         if options.case_insensitive {
@@ -679,18 +700,17 @@ impl Tokens {
         re.push('^');
         // Special case. If the entire glob is just `**`, then it should match
         // everything.
-        if self.len() == 1 && self[0] == Token::RecursivePrefix {
+        if tokens.len() == 1 && tokens[0] == Token::RecursivePrefix {
             re.push_str(".*");
             re.push('$');
             return re;
         }
-        self.tokens_to_regex(options, &self, &mut re);
+        Self::tokens_to_regex(options, tokens, &mut re);
         re.push('$');
         re
     }
 
     fn tokens_to_regex(
-        &self,
         options: &GlobOptions,
         tokens: &[Token],
         re: &mut String,
@@ -724,27 +744,58 @@ impl Tokens {
                     re.push_str("(?:/|/.*/)");
                 }
                 Token::Class { negated, ref ranges } => {
-                    re.push('[');
-                    if negated {
-                        re.push('^');
-                    }
-                    for r in ranges {
-                        if r.0 == r.1 {
-                            // Not strictly necessary, but nicer to look at.
-                            re.push_str(&char_to_escaped_literal(r.0));
+                    let mut filtered_ranges = vec![];
+                    let ranges_to_use =
+                        if options.literal_separator && !negated {
+                            for &(start, end) in ranges {
+                                if start > '/' || end < '/' {
+                                    filtered_ranges.push((start, end));
+                                } else if start == '/' && end == '/' {
+                                    // Exclude '/'
+                                } else if start == '/' && end > '/' {
+                                    filtered_ranges.push(('0', end));
+                                } else if start < '/' && end == '/' {
+                                    filtered_ranges.push((start, '.'));
+                                } else if start < '/' && end > '/' {
+                                    filtered_ranges.push((start, '.'));
+                                    filtered_ranges.push(('0', end));
+                                }
+                            }
+                            &filtered_ranges
                         } else {
-                            re.push_str(&char_to_escaped_literal(r.0));
-                            re.push('-');
-                            re.push_str(&char_to_escaped_literal(r.1));
+                            ranges
+                        };
+
+                    if ranges_to_use.is_empty() {
+                        // A non-negated class that only contained '/' cannot match anything
+                        // when literal_separator is enabled.
+                        re.push_str("[^\\s\\S]");
+                    } else {
+                        re.push('[');
+                        if negated {
+                            re.push('^');
+                            if options.literal_separator {
+                                re.push('/');
+                            }
                         }
+                        for r in ranges_to_use {
+                            if r.0 == r.1 {
+                                // Not strictly necessary, but nicer to look at.
+                                re.push_str(&char_to_escaped_literal(r.0));
+                            } else {
+                                re.push_str(&char_to_escaped_literal(r.0));
+                                re.push('-');
+                                re.push_str(&char_to_escaped_literal(r.1));
+                            }
+                        }
+                        re.push(']');
                     }
-                    re.push(']');
                 }
                 Token::Alternates(ref patterns) => {
                     let mut parts = vec![];
                     for pat in patterns {
                         let mut altre = String::new();
-                        self.tokens_to_regex(options, &pat, &mut altre);
+                        Self::tokens_to_regex(options, &pat, &mut altre);
                         if !altre.is_empty() || options.empty_alternates {
                             parts.push(altre);
                         }
@@ -837,6 +888,13 @@ impl<'a> Parser<'a> {
     }
 
     fn push_alternate(&mut self) -> Result<(), Error> {
+        // Bound alternate nesting so recursive token-to-regex compilation and
+        // token tree drop cannot overflow the stack, while staying well within
+        // regex-syntax's default group nesting limit (250).
+        const MAX_ALTERNATES_DEPTH: usize = 100;
+        if self.alternates_stack.len() >= MAX_ALTERNATES_DEPTH {
+            return Err(self.error(ErrorKind::TooManyNestedAlternates));
+        }
         self.alternates_stack.push(self.branches.len());
         self.branches.push(Tokens::default());
         Ok(())
@@ -1026,6 +1084,19 @@ impl<'a> Parser<'a> {
                         in_range = true;
                     }
                 }
+                // Check for POSIX character class syntax: [[:name:]]
+                // We expand these directly into char ranges at parse
+                // time so that Token::Class remains unchanged.
+                '[' if !in_range && self.peek() == Some(':') => {
+                    if let Some(class_ranges) = self.try_parse_posix_class() {
+                        ranges.extend(class_ranges);
+                        in_range = false;
+                    } else {
+                        // Not a valid POSIX class, treat '[' as literal
+                        ranges.push(('[', '['));
+                        in_range = false;
+                    }
+                }
                 c => {
                     if in_range {
                         // invariant: in_range is only set when there is
@@ -1051,6 +1122,46 @@ impl<'a> Parser<'a> {
         self.push_token(Token::Class { negated, ranges })
     }
 
+    /// Try to parse a POSIX character class like `[:space:]` inside a
+    /// bracket expression. Called when we've just consumed `[` and peeked
+    /// `:`. Returns the equivalent ASCII char ranges on success, or `None`
+    /// if this isn't a valid POSIX class (in which case the parser state
+    /// is restored).
+    fn try_parse_posix_class(&mut self) -> Option<&'static [(char, char)]> {
+        let saved_chars = self.chars.clone();
+        let saved_prev = self.prev;
+        let saved_cur = self.cur;
+
+        // Consume the ':'
+        if self.bump() != Some(':') {
+            self.chars = saved_chars;
+            self.prev = saved_prev;
+            self.cur = saved_cur;
+            return None;
+        }
+
+        // Collect the class name (only lowercase ascii)
+        let mut name = String::new();
+        loop {
+            match self.bump() {
+                Some(':') if self.peek() == Some(']') => {
+                    self.bump(); // consume ']'
+                    return posix_class_ranges(&name);
+                }
+                Some(c) if c.is_ascii_lowercase() && name.len() < 8 => {
+                    name.push(c);
+                }
+                _ => {
+                    // Not a valid POSIX class, restore state
+                    self.chars = saved_chars;
+                    self.prev = saved_prev;
+                    self.cur = saved_cur;
+                    return None;
+                }
+            }
+        }
+    }
+
     fn bump(&mut self) -> Option<char> {
         self.prev = self.cur;
         self.cur = self.chars.next();
@@ -1060,6 +1171,26 @@ impl<'a> Parser<'a> {
     fn peek(&mut self) -> Option<char> {
         self.chars.peek().copied()
     }
+}
+
+/// Returns the ASCII char ranges for a POSIX character class name.
+/// All definitions are ASCII-only to avoid locale-dependent behavior.
+fn posix_class_ranges(name: &str) -> Option<&'static [(char, char)]> {
+    Some(match name {
+        "alnum" => &[('0', '9'), ('A', 'Z'), ('a', 'z')],
+        "alpha" => &[('A', 'Z'), ('a', 'z')],
+        "blank" => &[('\t', '\t'), (' ', ' ')],
+        "cntrl" => &[('\x00', '\x1f'), ('\x7f', '\x7f')],
+        "digit" => &[('0', '9')],
+        "graph" => &[('!', '~')],
+        "lower" => &[('a', 'z')],
+        "print" => &[(' ', '~')],
+        "punct" => &[('!', '/'), (':', '@'), ('[', '`'), ('{', '~')],
+        "space" => &[('\t', '\r'), (' ', ' ')],
+        "upper" => &[('A', 'Z')],
+        "xdigit" => &[('0', '9'), ('A', 'F'), ('a', 'f')],
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -1268,6 +1399,24 @@ mod tests {
     syntax!(cls20, "[^a]", vec![classn('a', 'a')]);
     syntax!(cls21, "[^a-z]", vec![classn('a', 'z')]);
 
+    // POSIX character classes expand into ranges
+    syntax!(posix1, "[[:digit:]]", vec![rclass(&[('0', '9')])]);
+    syntax!(posix2, "[[:alpha:]]", vec![rclass(&[('A', 'Z'), ('a', 'z')])]);
+    syntax!(posix3, "[[:space:]]", vec![rclass(&[('\t', '\r'), (' ', ' ')])]);
+    // Negated POSIX class
+    syntax!(posix4, "[^[:digit:]]", vec![rclassn(&[('0', '9')])]);
+    // Mixed: range + POSIX class
+    syntax!(posix5, "[a-f[:digit:]]", vec![rclass(&[('a', 'f'), ('0', '9')])]);
+    // Multiple POSIX classes
+    syntax!(
+        posix6,
+        "[[:digit:][:alpha:]]",
+        vec![rclass(&[('0', '9'), ('A', 'Z'), ('a', 'z')])]
+    );
+    // Invalid POSIX class name: consumed up to ':]', '[' pushed as
+    // literal in the bracket expression, the bracket closes at next ']'.
+    syntax!(posix7, "[[:bogus:]]", vec![rclass(&[('[', '[')])]);
+
     syntaxerr!(err_unclosed1, "[", ErrorKind::UnclosedClass);
     syntaxerr!(err_unclosed2, "[]", ErrorKind::UnclosedClass);
     syntaxerr!(err_unclosed3, "[!", ErrorKind::UnclosedClass);
@@ -1278,6 +1427,22 @@ mod tests {
     syntaxerr!(err_alt2, "{a,{b,c}", ErrorKind::UnclosedAlternates);
     syntaxerr!(err_alt3, "a,b}", ErrorKind::UnopenedAlternates);
     syntaxerr!(err_alt4, "{a,b}}", ErrorKind::UnopenedAlternates);
+
+    #[test]
+    fn nested_alternates_depth_limit() {
+        let ok_pat = "{".repeat(100) + "a" + &"}".repeat(100);
+        let matcher = Glob::new(&ok_pat).unwrap().compile_matcher();
+        assert!(matcher.is_match("a"));
+        assert!(!matcher.is_match("b"));
+
+        let over_pat = "{".repeat(101) + "a" + &"}".repeat(101);
+        let err = Glob::new(&over_pat).unwrap_err();
+        assert_eq!(&ErrorKind::TooManyNestedAlternates, err.kind());
+
+        let deep_pat = "{".repeat(14_000) + "a" + &"}".repeat(14_000);
+        let err = Glob::new(&deep_pat).unwrap_err();
+        assert_eq!(&ErrorKind::TooManyNestedAlternates, err.kind());
+    }
 
     const CASEI: Options = Options {
         casei: Some(true),
@@ -1430,6 +1595,17 @@ mod tests {
     matches!(matchrec25, "test/**", "test/one/two");
     matches!(matchrec26, "some/*/needle.txt", "some/one/needle.txt");
 
+    matches!(basename_empty, "**/*", "", SLASHLIT);
+    matches!(basename_trailing_separator, "**/*", "foo/", SLASHLIT);
+    matches!(basename_parent_component, "**/.*", "foo/..", SLASHLIT);
+    matches!(basename_class, "**/*.py[cod]", "src/module.pyc", SLASHLIT);
+    matches!(basename_negated_class, "**/[!/]", "foo/a", SLASHLIT);
+    matches!(class_includes_separator, "**/[!a]", "/");
+    matches!(class_separator_range, "**/[.-0]", "/");
+    nmatches!(class_excludes_separator, "**/[!a]", "/", SLASHLIT);
+    nmatches!(class_excludes_separator_range, "**/[.-0]", "/", SLASHLIT);
+    nmatches!(basename_class_miss, "**/*.py[cod]", "src/module.pyi", SLASHLIT);
+
     matches!(matchrange1, "a[0-9]b", "a0b");
     matches!(matchrange2, "a[0-9]b", "a9b");
     matches!(matchrange3, "a[!0-9]b", "a_b");
@@ -1488,7 +1664,7 @@ mod tests {
     #[cfg(not(unix))]
     nmatches!(matchslash2, "abc?def", "abc\\def", SLASHLIT);
     nmatches!(matchslash3, "abc*def", "abc/def", SLASHLIT);
-    matches!(matchslash4, "abc[/]def", "abc/def", SLASHLIT); // differs
+    nmatches!(matchslash4, "abc[/]def", "abc/def", SLASHLIT);
     #[cfg(unix)]
     nmatches!(matchslash5, "abc\\def", "abc/def", SLASHLIT);
     #[cfg(not(unix))]
@@ -1563,6 +1739,50 @@ mod tests {
     nmatches!(matchrec33, ".*/**", ".abc");
     nmatches!(matchrec34, "foo/**", "foo");
 
+    // POSIX character class matching
+    matches!(posix_match1, "[[:space:]]", " ");
+    matches!(posix_match2, "[[:space:]]", "\t");
+    matches!(posix_match3, "[[:digit:]]", "5");
+    matches!(posix_match4, "[[:digit:]]", "0");
+    matches!(posix_match5, "[[:alpha:]]", "a");
+    matches!(posix_match6, "[[:alpha:]]", "Z");
+    matches!(posix_match7, "[[:lower:]]", "a");
+    matches!(posix_match8, "[[:upper:]]", "Z");
+    matches!(posix_match9, "[[:alnum:]]", "a");
+    matches!(posix_match10, "[[:alnum:]]", "3");
+    matches!(posix_match11, "[[:xdigit:]]", "f");
+    matches!(posix_match12, "[[:xdigit:]]", "A");
+    nmatches!(posix_nomatch1, "[[:space:]]", "a");
+    nmatches!(posix_nomatch2, "[[:digit:]]", "x");
+    nmatches!(posix_nomatch3, "[[:lower:]]", "Z");
+    nmatches!(posix_nomatch4, "[[:upper:]]", "a");
+    // Negated
+    matches!(posix_neg1, "[^[:digit:]]", "a");
+    nmatches!(posix_neg2, "[^[:digit:]]", "5");
+    matches!(posix_neg3, "[![:space:]]", "x");
+    nmatches!(posix_neg4, "[![:space:]]", " ");
+    // Mixed with ranges
+    matches!(posix_mix1, "[[:digit:]a-f]", "c");
+    matches!(posix_mix2, "[[:digit:]a-f]", "7");
+    nmatches!(posix_mix3, "[[:digit:]a-f]", "g");
+    matches!(posix_mix4, "[a[:space:]]", " ");
+    matches!(posix_mix5, "[a[:space:]]", "a");
+    // In filenames (the original issue's use case)
+    matches!(posix_file1, "foo[[:space:]]bar.txt", "foo bar.txt");
+    matches!(posix_file2, "foo[[:space:]]bar.txt", "foo\tbar.txt");
+    nmatches!(posix_file3, "foo[[:space:]]bar.txt", "fooXbar.txt");
+    matches!(posix_file4, "test[[:digit:]].txt", "test9.txt");
+    nmatches!(posix_file5, "test[[:digit:]].txt", "testa.txt");
+    // Multiple POSIX classes
+    matches!(posix_multi1, "[[:digit:][:alpha:]]", "a");
+    matches!(posix_multi2, "[[:digit:][:alpha:]]", "5");
+    nmatches!(posix_multi3, "[[:digit:][:alpha:]]", " ");
+    // Edge: dash with POSIX class
+    matches!(posix_dash1, "[-[:digit:]]", "-");
+    matches!(posix_dash2, "[-[:digit:]]", "3");
+    matches!(posix_dash3, "[[:digit:]-]", "8");
+    matches!(posix_dash4, "[[:digit:]-]", "-");
+
     macro_rules! extract {
         ($which:ident, $name:ident, $pat:expr, $expect:expr) => {
             extract!($which, $name, $pat, $expect, Options::default());
@@ -1631,7 +1851,12 @@ mod tests {
         "**/foo",
         Some(&*vec![Literal('f'), Literal('o'), Literal('o'),])
     );
-    basetokens!(extract_basetoks2, "**/foo", None, CASEI);
+    basetokens!(
+        extract_basetoks2,
+        "**/foo",
+        Some(&*vec![Literal('f'), Literal('o'), Literal('o'),]),
+        CASEI
+    );
     basetokens!(
         extract_basetoks3,
         "**/foo",
@@ -1683,4 +1908,29 @@ mod tests {
     baseliteral!(extract_baselit2, "foo", None);
     baseliteral!(extract_baselit3, "*foo", None);
     baseliteral!(extract_baselit4, "*/foo", None);
+
+    #[test]
+    fn class_literal_separator() {
+        let glob = GlobBuilder::new("*[/]*")
+            .literal_separator(true)
+            .build()
+            .unwrap()
+            .compile_matcher();
+        assert!(!glob.is_match("a/b"));
+
+        let glob_neg = GlobBuilder::new("[^a]*")
+            .literal_separator(true)
+            .build()
+            .unwrap()
+            .compile_matcher();
+        assert!(!glob_neg.is_match("/b"));
+
+        let glob_range = GlobBuilder::new("[ -~]")
+            .literal_separator(true)
+            .build()
+            .unwrap()
+            .compile_matcher();
+        assert!(!glob_range.is_match("/"));
+        assert!(glob_range.is_match("a"));
+    }
 }

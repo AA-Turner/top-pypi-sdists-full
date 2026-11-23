@@ -17,12 +17,12 @@ T = TypeVar("T", bound="ColdRestoreResources")
 
 @_attrs_define
 class ColdRestoreResources:
-    """CPU and memory for a cold checkpoint restore. Omit the object to keep the CPU and memory recorded on the checkpoint.
-    A cold checkpoint stores only the disk and boots fresh, so these values may be smaller or larger. A live checkpoint
-    restores guest memory and running processes, so CPU and memory stay fixed and this object is rejected.
+    """Legacy resource override type. Checkpoint restore rejects this object and keeps the recorded CPU and memory requests
+    and limits.
 
         Attributes:
-            requests (ColdRestoreResourceRequests): CPU and baseline memory for a cold checkpoint restore.
+            requests (ColdRestoreResourceRequests): Legacy resource override type. Checkpoint restore rejects resource
+                overrides.
             limits (RuntimeResourceLimits | Unset): Runtime resource limits.
     """
 

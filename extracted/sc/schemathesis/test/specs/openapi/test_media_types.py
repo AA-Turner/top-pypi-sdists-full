@@ -1,5 +1,9 @@
+import json
+from email.parser import BytesParser
+from email.policy import HTTP
 from pathlib import Path
 
+import jsonschema_rs
 import pytest
 import yaml
 from flask import jsonify
@@ -7,9 +11,11 @@ from hypothesis import strategies as st
 
 import schemathesis
 from schemathesis.core import NOT_SET
+from schemathesis.core.deserialization import _parse_sse_events, parse_json_sequence
 from schemathesis.core.file_samples import file_extension
 from schemathesis.core.media_types import MEDIA_TYPE_STRATEGIES
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.transport.asgi import ASGI_TRANSPORT
 from schemathesis.transport.requests import REQUESTS_TRANSPORT
 from schemathesis.transport.wsgi import WSGI_TRANSPORT
@@ -138,10 +144,10 @@ def test_explicit_example_with_custom_media_type(ctx, cli, snapshot_cli):
 
 
 def test_malformed_registered_media_type_is_skipped(ctx):
-    # Register a malformed media type (no slash, so it can't be parsed)
+    # A media type without a slash cannot be parsed
     MEDIA_TYPE_STRATEGIES["invalid"] = st.binary()
 
-    # Create schema with valid content type that would trigger wildcard search
+    # A valid content type triggers the wildcard search over registered media types
     schema = ctx.openapi.load_schema(
         {
             "/data": {
@@ -158,7 +164,6 @@ def test_malformed_registered_media_type_is_skipped(ctx):
         }
     )
 
-    # Should not crash when encountering the malformed registered type
     strategy = schema["/data"]["post"].as_strategy()
 
     @run_given(strategy, max_examples=100)
@@ -231,6 +236,149 @@ def test_jose_jwe_generation(ctx):
         assert case.media_type == "application/jose+jwe"
         assert case.body == {"payload": 42}
         assert REQUESTS_TRANSPORT.serialize_case(case)["json"] == {"payload": 42}
+
+
+JSON_SEQUENCE_ITEM = {
+    "type": "object",
+    "properties": {"id": {"type": "integer"}},
+    "required": ["id"],
+    "additionalProperties": False,
+}
+
+
+@pytest.mark.parametrize(
+    ("version", "media_type", "media_type_object", "expected"),
+    [
+        (
+            "3.2.0",
+            "application/jsonl",
+            {"itemSchema": JSON_SEQUENCE_ITEM},
+            {"type": "array", "items": JSON_SEQUENCE_ITEM},
+        ),
+        (
+            "3.2.0",
+            "application/json-seq",
+            {"itemSchema": {"$ref": "#/components/schemas/Item"}, "schema": {"maxItems": 2}},
+            {"type": "array", "items": JSON_SEQUENCE_ITEM, "maxItems": 2},
+        ),
+        (
+            "3.1.0",
+            "application/x-ndjson",
+            {"schema": {"type": "array", "items": JSON_SEQUENCE_ITEM}},
+            {"type": "array", "items": JSON_SEQUENCE_ITEM},
+        ),
+    ],
+    ids=["item-schema", "item-schema-and-schema", "schema-before-3.2"],
+)
+def test_json_sequence_body_generation(ctx, version, media_type, media_type_object, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {media_type: media_type_object}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+        components={"schemas": {"Item": JSON_SEQUENCE_ITEM}},
+    )
+    validator = jsonschema_rs.validator_for(expected)
+
+    @run_given(operation.as_strategy(), max_examples=10)
+    def test(case):
+        assert validator.is_valid(case.body), f"Invalid body: {case.body!r}"
+        assert parse_json_sequence(REQUESTS_TRANSPORT.serialize_case(case)["data"], media_type) == case.body
+
+
+@pytest.mark.parametrize(
+    ("media_type", "media_type_object", "part_content_type", "expected"),
+    [
+        (
+            "multipart/mixed",
+            {"itemSchema": {"$ref": "#/components/schemas/Item"}, "schema": {"maxItems": 2}},
+            "application/json",
+            {"type": "array", "items": JSON_SEQUENCE_ITEM, "maxItems": 2},
+        ),
+        (
+            "multipart/byteranges",
+            {"itemSchema": JSON_SEQUENCE_ITEM, "itemEncoding": {"contentType": "application/vnd.item+json"}},
+            "application/vnd.item+json",
+            {"type": "array", "items": JSON_SEQUENCE_ITEM},
+        ),
+    ],
+    ids=["item-schema-and-schema", "item-encoding"],
+)
+def test_multipart_item_schema_body_generation(ctx, media_type, media_type_object, part_content_type, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {media_type: media_type_object}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+        components={"schemas": {"Item": JSON_SEQUENCE_ITEM}},
+    )
+    validator = jsonschema_rs.validator_for(expected)
+
+    @run_given(operation.as_strategy(), max_examples=10)
+    def test(case):
+        assert validator.is_valid(case.body), f"Invalid body: {case.body!r}"
+        kwargs = REQUESTS_TRANSPORT.serialize_case(case)
+        header = f"Content-Type: {kwargs['headers']['Content-Type']}\r\n\r\n".encode()
+        message = BytesParser(policy=HTTP).parsebytes(header + kwargs["data"])
+        assert [message.get_content_type()] + [
+            (part.get_content_type(), part.get_payload(decode=True)) for part in message.iter_parts()
+        ] == [media_type] + [(part_content_type, json.dumps(item).encode()) for item in case.body]
+
+
+# Event stream readers turn CR and CRLF into LF, so only LF line breaks survive the round trip.
+SSE_EVENT = {
+    "type": "object",
+    "properties": {
+        "event": {"enum": ["add", "remove"]},
+        "data": {"type": "string", "not": {"pattern": "\r"}},
+        "retry": {"type": "integer", "minimum": 0},
+    },
+    "required": ["event", "data"],
+    "additionalProperties": False,
+}
+
+
+@pytest.mark.parametrize(
+    ("version", "media_type_object", "expected"),
+    [
+        (
+            "3.2.0",
+            {"itemSchema": {"$ref": "#/components/schemas/Event"}},
+            {"type": "array", "items": SSE_EVENT},
+        ),
+        (
+            "3.2.0",
+            {"itemSchema": SSE_EVENT, "schema": {"maxItems": 2}},
+            {"type": "array", "items": SSE_EVENT, "maxItems": 2},
+        ),
+        (
+            "3.1.0",
+            {"schema": {"type": "array", "items": SSE_EVENT}},
+            {"type": "array", "items": SSE_EVENT},
+        ),
+    ],
+    ids=["item-schema", "item-schema-and-schema", "schema-before-3.2"],
+)
+def test_event_stream_body_generation(ctx, version, media_type_object, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /events",
+        {
+            "requestBody": {"required": True, "content": {"text/event-stream": media_type_object}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+        components={"schemas": {"Event": SSE_EVENT}},
+    )
+    validator = jsonschema_rs.validator_for(expected)
+
+    @run_given(operation.as_strategy(), max_examples=10)
+    def test(case):
+        assert validator.is_valid(case.body), f"Invalid body: {case.body!r}"
+        assert _parse_sse_events(REQUESTS_TRANSPORT.serialize_case(case)["data"]) == case.body
 
 
 def test_multipart_encoding_multiple_content_types(ctx):
@@ -319,7 +467,6 @@ def test_multipart_encoding_array_content_type_with_custom_strategy(ctx):
     def test(case):
         assert isinstance(case.body, dict)
         assert case.body["attachment"] == pdf_data
-        # Content type should match the value from the encoding array, not be omitted
         assert case.multipart_content_types["attachment"] == "application/pdf"
 
 
@@ -392,6 +539,66 @@ def test_multipart_encoding_with_custom_strategy_fuzzing_phase(ctx):
     def test(case):
         if case.body is not None and isinstance(case.body, dict) and "file" in case.body:
             assert case.body["file"] == b"%PDF-1.4"
+
+
+_NAMED_FILE_PROPERTIES = {"file": {"type": "string", "minLength": 3}, "name": {"type": "string", "minLength": 2}}
+
+
+@pytest.mark.parametrize(
+    ("body_schema", "components"),
+    [
+        (
+            {
+                "type": "object",
+                "properties": {"file": _NAMED_FILE_PROPERTIES["file"]},
+                "allOf": [{"required": ["file"]}, {"properties": {"name": _NAMED_FILE_PROPERTIES["name"]}}],
+            },
+            {},
+        ),
+        (
+            {"$ref": "#/components/schemas/Upload"},
+            {
+                "Upload": {
+                    "type": "object",
+                    "properties": _NAMED_FILE_PROPERTIES,
+                    "required": ["name"],
+                    "allOf": [{"$ref": "#/components/schemas/Upload"}],
+                }
+            },
+        ),
+    ],
+    ids=["branch-without-properties", "self-referencing-branch"],
+)
+@pytest.mark.parametrize("mode", list(GenerationMode), ids=lambda mode: mode.value)
+def test_multipart_encoding_with_properties_composed_through_all_of(ctx, body_schema, components, mode):
+    schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "content": {
+                    "multipart/form-data": {
+                        "schema": body_schema,
+                        "encoding": {"file": {"contentType": "application/pdf"}},
+                    }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.1.0",
+        components={"schemas": components},
+    )
+    files = {
+        case.body["file"]
+        for case in generate_many(operation.as_strategy(generation_mode=mode), 10)
+        if isinstance(case.body, dict) and "file" in case.body
+    }
+    if mode == GenerationMode.POSITIVE:
+        assert files == {b"%PDF-1.4"}
+    else:
+        # Negative cases may leave the part out altogether.
+        assert files <= {b"%PDF-1.4"}
 
 
 def test_multipart_encoding_with_custom_strategy_in_coverage_phase(ctx):

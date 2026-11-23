@@ -33,6 +33,7 @@ def _parts_from_raw(raw):
         details["lcut"],
         details["received_at"],
         details["version"],
+        details.get("served_version"),
     )
 
 
@@ -61,7 +62,7 @@ def _assert_fields(actual, expected):
 
 def _assert_parts(name, parts, raw):
     assert type(parts) is tuple
-    assert len(parts) == 7
+    assert len(parts) == 8
     assert type(parts[0]) is bool
     assert type(parts[1]) is str
     assert parts[2] is None or type(parts[2]) is str
@@ -299,10 +300,10 @@ def test_overrides_errors_and_zero_version_keep_native_metadata(make_sdk):
 @pytest.mark.parametrize(
     "parts",
     [
-        (False, "", None, "", None, None, None),
-        (False, "", "", "", 0, 0, 0),
-        (True, "rule:override", "companyID", "LocalOverride:Recognized", 0, None, 0),
-        (False, "default", None, "Error:evaluation failure", None, None, None),
+        (False, "", None, "", None, None, None, None),
+        (False, "", "", "", 0, 0, 0, None),
+        (True, "rule:override", "companyID", "LocalOverride:Recognized", 0, None, 0, None),
+        (False, "default", None, "Error:evaluation failure", None, None, None, None),
         (
             True,
             "规则🚀",
@@ -311,11 +312,12 @@ def test_overrides_errors_and_zero_version_keep_native_metadata(make_sdk):
             2**63,
             2**63 + 1,
             2**32 - 1,
+            2**32 - 2,
         ),
     ],
 )
 def test_factory_preserves_defaults_and_ordinary_mutable_objects(parts):
-    value, rule_id, id_type, reason, lcut, received_at, version = parts
+    value, rule_id, id_type, reason, lcut, received_at, version, served_version = parts
     raw = {
         "value": value,
         "ruleID": rule_id,
@@ -325,6 +327,7 @@ def test_factory_preserves_defaults_and_ordinary_mutable_objects(parts):
             "lcut": lcut,
             "received_at": received_at,
             "version": version,
+            "served_version": served_version,
         },
     }
     name = "mutable-规则"
@@ -342,6 +345,7 @@ def test_factory_preserves_defaults_and_ordinary_mutable_objects(parts):
     actual.details.lcut = 99
     actual.details.received_at = 100
     actual.details.version = 101
+    actual.details.served_version = 98
     actual.caller_attribute = "allowed"
     actual.details.caller_attribute = "also allowed"
     assert actual.to_dict() == {
@@ -354,6 +358,7 @@ def test_factory_preserves_defaults_and_ordinary_mutable_objects(parts):
             "lcut": 99,
             "received_at": 100,
             "version": 101,
+            "served_version": 98,
         },
     }
     assert actual.caller_attribute == "allowed"

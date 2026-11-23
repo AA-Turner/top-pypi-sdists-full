@@ -1,7 +1,9 @@
+import contextlib
 import errno
 import os
 import shutil
 import ssl
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -18,7 +20,7 @@ from hcli import USER_AGENT
 from hcli.env import ENV
 from hcli.lib.auth import get_auth_service, get_credential_headers
 from hcli.lib.console import console, stderr_console
-from hcli.lib.util.cache import get_cache_directory
+from hcli.lib.util.cache import DOWNLOADS_CACHE_KEY, get_cache_directory
 from hcli.lib.util.io import NoSpaceError, check_free_space
 
 
@@ -238,10 +240,9 @@ class APIClient:
             await self._stream_to_file(url, target_path, filename, auth)
             return str(target_path)
 
-        # Create cache path using XDG_CACHE_HOME with "downloads" key
         # Use the full asset_key if provided, otherwise fall back to filename
         cache_key = asset_key or filename
-        cache_path = get_cache_directory("downloads") / cache_key
+        cache_path = get_cache_directory(DOWNLOADS_CACHE_KEY) / cache_key
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Check cache
@@ -294,13 +295,20 @@ class APIClient:
 
         return str(target_path)
 
-    async def _stream_to_file(self, url: str, path: Path, filename: str, auth: bool) -> None:
-        """Stream ``url`` into ``path`` with a progress bar."""
-        headers = self._get_headers(auth) if auth else {}
+    @contextlib.asynccontextmanager
+    async def stream(self, url: str, auth: bool = False) -> AsyncGenerator[httpx.Response, None]:
+        """GET ``url`` as a stream, following redirects; a refusal raises before the body is read.
 
+        Read the body with ``response.aiter_bytes()`` inside the ``async with`` block.
+        """
+        headers = self._get_headers(auth) if auth else {}
         async with self.client.stream("GET", url, headers=headers, follow_redirects=True) as response:
             await self._handle_response(response)
+            yield response
 
+    async def _stream_to_file(self, url: str, path: Path, filename: str, auth: bool) -> None:
+        """Stream ``url`` into ``path`` with a progress bar."""
+        async with self.stream(url, auth) as response:
             total_size_str = response.headers.get("content-length")
             total_size = int(total_size_str) if total_size_str else 0
 

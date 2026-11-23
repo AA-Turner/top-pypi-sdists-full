@@ -24,6 +24,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
 import urllib.parse
 import urllib.request
 import uuid
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
     import torch
 
 _wasm_releasegil_state = False
+_nthreads_lock = threading.Lock()
 
 
 def _check_typesize(typesize):
@@ -1323,8 +1325,9 @@ def set_nthreads(nthreads: int) -> int:
             raise ValueError("nthreads must be a positive integer.")
         nthreads = 1
 
-    rc = blosc2_ext.set_nthreads(nthreads)
-    blosc2.nthreads = nthreads
+    with _nthreads_lock:
+        rc = blosc2_ext.set_nthreads(nthreads)
+        blosc2.nthreads = nthreads
     return rc
 
 
@@ -1932,7 +1935,8 @@ def nearest_divisor(a, b, strict=False):
     b : int
         The reference value to compare divisors against.
     strict : bool, optional
-        If True, always use the downward search algorithm.
+        If True, return the largest divisor not exceeding `b`.  This is also
+        the behavior for `a > 100_000`.
 
     Returns
     -------
@@ -1945,13 +1949,7 @@ def nearest_divisor(a, b, strict=False):
     that is *way* faster.
     """
     if a > 100_000 or strict:
-        # When `a` is largish, or we require `b` strictly less than `a`,
-        # use a (faster) algorithm that only goes downwards.
-        # This is quite brute force, and tried to optimize this, but I have not found a faster way.
-        for i in range(b, 0, -1):
-            if a % i == 0:
-                return i
-        return 1  # Fallback to 1, which is always a divisor
+        return blosc2_ext.divisor_at_most(a, b)
 
     # When `a` is smallish, use a more general algorithm that can find forwards and backwards
     # Get all divisors of `a`; use a generator to avoid creating a list
@@ -1986,12 +1984,10 @@ def compute_partition(nitems, maxshape, minpart=None):
             break
         rsize = max(size, minsize)
         if rsize <= max_items:
-            # rsize = rsize if size % rsize == 0 else nearest_divisor(size, rsize)
             rsize = rsize if size % rsize == 0 else blosc2_ext.nearest_divisor(size, rsize)
         else:
             rsize = max(max_items, minsize)
-            # new_rsize = rsize if size % rsize == 0 else nearest_divisor(size, rsize, strict=True)
-            new_rsize = rsize if size % rsize == 0 else blosc2_ext.nearest_divisor(size, rsize, strict=True)
+            new_rsize = rsize if size % rsize == 0 else blosc2_ext.divisor_at_most(size, rsize)
             # If the new rsize is not too far from the original rsize, use it
             if rsize // 2 < new_rsize < rsize * 2:
                 rsize = new_rsize
@@ -1999,6 +1995,65 @@ def compute_partition(nitems, maxshape, minpart=None):
         max_items //= rsize
 
     return partition
+
+
+def _frame_safe_chunks(shape, chunks, blocks, dtype, automatic, **kwargs):
+    """Keep a frame's logical int64 offsets payload within native buffer limits."""
+    storage = kwargs.get("storage")
+    if isinstance(storage, blosc2.Storage):
+        urlpath, contiguous = storage.urlpath, storage.contiguous
+    elif storage is not None:
+        urlpath, contiguous = storage.get("urlpath"), storage.get("contiguous")
+    else:
+        urlpath, contiguous = kwargs.get("urlpath"), kwargs.get("contiguous")
+    # On-disk sparse storage also has a frame (for its index).
+    if not (contiguous or urlpath is not None) or 0 in shape:
+        return chunks
+
+    # Python-only counterpart of C-Blosc2's int32 offsets-length constraint.
+    # MAX_BUFFERSIZE also leaves room for the offsets chunk's Blosc header.
+    max_chunks = blosc2.MAX_BUFFERSIZE // 8
+    shape, chunks, blocks = ([int(x) for x in values] for values in (shape, chunks, blocks))
+    grid = [(s + c - 1) // c for s, c in zip(shape, chunks, strict=True)]
+    nchunks = math.prod(grid)
+    if nchunks <= max_chunks:
+        return chunks
+    if not automatic:
+        raise ValueError(
+            f"Frame requires {nchunks:,} chunks, exceeding the offsets limit of "
+            f"{max_chunks:,} chunks (8 bytes per offset; MAX_BUFFERSIZE="
+            f"{blosc2.MAX_BUFFERSIZE:,} bytes). Increase chunks or reduce the array shape."
+        )
+
+    itemsize = np.dtype(dtype).itemsize
+    while nchunks > max_chunks:
+        padded = [(c + b - 1) // b * b for c, b in zip(chunks, blocks, strict=True)]
+        chunk_bytes = math.prod(padded) * itemsize
+        # Grow dimensions with the most remaining chunks first.  Cap growth
+        # by the padded byte budget, not just the logical chunk volume.
+        for axis in sorted(range(len(shape)), key=grid.__getitem__, reverse=True):
+            block = blocks[axis]
+            other_bytes = chunk_bytes // padded[axis]
+            max_axis = blosc2.MAX_BUFFERSIZE // other_bytes // block * block
+            candidate = min(shape[axis], (2 * chunks[axis] + block - 1) // block * block, max_axis)
+            if candidate <= chunks[axis]:
+                continue
+            new_grid = (shape[axis] + candidate - 1) // candidate
+            if new_grid >= grid[axis]:
+                continue
+            chunks[axis] = candidate
+            grid[axis] = new_grid
+            nchunks = math.prod(grid)
+            break
+        else:
+            raise ValueError(
+                f"Cannot select automatic chunks within the frame offsets limit of "
+                f"{max_chunks:,} chunks and the padded chunk size limit "
+                f"MAX_BUFFERSIZE={blosc2.MAX_BUFFERSIZE:,} bytes. Specify chunks or "
+                "smaller blocks, or reduce the array shape."
+            )
+
+    return chunks
 
 
 def compute_chunks_blocks(  # noqa: C901
@@ -2019,8 +2074,9 @@ def compute_chunks_blocks(  # noqa: C901
         The shape of the chunk.  If None, a guess is computed based on cache sizes
         and heuristics.
     blocks: tuple or list
-        The shape of the block.  If None, a guess is computed based on cache sizes
-        and heuristics.
+        The shape of the block. Explicit values are preserved, and automatic
+        chunks are chosen as multiples of these blocks. If None, a guess is
+        computed based on cache sizes and heuristics.
     dtype: np.dtype
         The dtype of the array. Default is np.uint8.
     kwargs: dict
@@ -2031,6 +2087,15 @@ def compute_chunks_blocks(  # noqa: C901
     -------
     tuple
         A (chunks, blocks) tuple containing the computed chunk and block sizes.
+
+    Notes
+    -----
+    For frame-backed storage (contiguous in-memory storage or any on-disk
+    storage), automatic chunks are enlarged if necessary to keep the chunk
+    offsets payload within the native buffer size limit. Blocks are unchanged.
+    Explicit chunks are never enlarged; an oversized offsets payload raises
+    ``ValueError`` instead. Padded chunk sizes must also fit within
+    :data:`blosc2.MAX_BUFFERSIZE`.
     """
 
     # Return an arbitrary value for chunks and blocks when shape has any 0 dim
@@ -2058,8 +2123,11 @@ def compute_chunks_blocks(  # noqa: C901
         for block, chunk in zip(blocks, chunks, strict=True):
             if block > chunk:
                 raise ValueError("blocks cannot be greater than chunks")
+        _frame_safe_chunks(shape, chunks, blocks, dtype, False, **kwargs)
         return chunks, blocks
 
+    automatic_chunks = chunks is None
+    explicit_blocks = blocks is not None
     cparams = kwargs.get("cparams") or blosc2.CParams()  # just get defaults
     if isinstance(cparams, blosc2.CParams):
         # Shallow is enough (only keys are set below, filters only on a deep copy), and asdict()
@@ -2145,7 +2213,12 @@ def compute_chunks_blocks(  # noqa: C901
         maxshape = shape
     else:
         maxshape = chunks
-    blocks = compute_partition(blocksize // itemsize, maxshape)
+    if blocks is None:
+        blocks = compute_partition(blocksize // itemsize, maxshape)
+    else:
+        # Keep explicit blocks, even when they do not divide the array shape.
+        # The partition helper would snap them to divisors of maxshape.
+        blocks = tuple(blocks)
 
     # Finally, the chunks
     if chunks is None:
@@ -2157,17 +2230,28 @@ def compute_chunks_blocks(  # noqa: C901
         # 2. Avoid exceeding the maximum buffer size (see #392)
         if chunksize % blocksize != 0:
             chunksize = chunksize // blocksize * blocksize
-        chunks = compute_partition(chunksize // itemsize, shape, blocks)
-        # compute_partition snaps to a divisor of shape, which can break the
-        # "chunks is a multiple of blocks" invariant established above.  Restore
-        # it by rounding each chunks dimension up to the next multiple of the
-        # corresponding blocks dimension, capped at the shape dimension so that
-        # chunks never exceed the array size.
-        chunks = [
-            min(s, c if c % b == 0 else (c // b + 1) * b)
-            for s, c, b in zip(shape, chunks, blocks, strict=False)
-        ]
+        if explicit_blocks:
+            # Distribute the cache budget over whole blocks, without snapping
+            # chunk dimensions to divisors of the array shape.
+            remaining = chunksize // blocksize
+            chunks = list(blocks)
+            for axis in reversed(range(len(shape))):
+                count = min(max(1, shape[axis] // blocks[axis]), remaining)
+                chunks[axis] *= count
+                remaining //= count
+        else:
+            chunks = compute_partition(chunksize // itemsize, shape, blocks)
+            # compute_partition snaps to a divisor of shape, which can break the
+            # "chunks is a multiple of blocks" invariant established above.  Restore
+            # it by rounding each chunks dimension up to the next multiple of the
+            # corresponding blocks dimension, capped at the shape dimension so that
+            # chunks never exceed the array size.
+            chunks = [
+                min(s, c if c % b == 0 else (c // b + 1) * b)
+                for s, c, b in zip(shape, chunks, blocks, strict=False)
+            ]
 
+    chunks = _frame_safe_chunks(shape, chunks, blocks, dtype, automatic_chunks, **kwargs)
     return tuple(chunks), tuple(blocks)
 
 

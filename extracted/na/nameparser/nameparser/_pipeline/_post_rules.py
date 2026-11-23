@@ -34,13 +34,16 @@ Policy.capitals_as_family (O9, which reads Lexicon.conjunctions for
 a run and, for its peel, Lexicon.suffix_acronyms and suffix_words),
 Policy.two_family_names,
 Policy.two_given_names, Policy.name_order (O6 and O7 stand down where
-the script's order differs from the declared one),
+the script's order differs from the declared one, and O6 reads
+Policy.script_orders for the part before a family comma, through
+`_assign._effective_order`),
 Policy.middle_as_family,
 Policy.extra_suffix_delimiters (R1's entry pass, for the delimiter
 cores group drops); Lexicon.given_name_titles, Lexicon.given_names
-(O6's veto), Lexicon.saint_particles (P10's saint clause; P10 runs
-under every policy and reads Policy.patronymic_rules for its Turkic
-guard), and
+(O6's veto), Lexicon.bound_long_names_only (P12's split of a pair
+in a name of fewer than four name words, #1464),
+Lexicon.saint_particles (P10's saint clause; P10 runs under every
+policy and reads Policy.patronymic_rules for its Turkic guard), and
 Lexicon.suffix_acronyms_ambiguous (a dotted member in a clause, which
 carries no tag there, S13, through `_vocab.dotted_member`), and for S1's set-apart clause
 Lexicon.suffix_words directly and, through `_vocab.set_apart_kind` and
@@ -51,8 +54,8 @@ and honorific_words, the suffix words that do not settle a member
 (`_vocab.settles_a_member`).
 
 Implements rules S1, S13, H1, M4, P1, P6 (its no-comma site), P10, P11,
-O1, O2, O6, O7, O8, O9, O3, R1, R10, R11 and W5's surname pair of
-docs/design/rules/; each is cited at its code below, and
+P12's two splits, O1, O2, O6, O7, O8, O9, O3, R1, R10, R11 and W5's
+surname pair of docs/design/rules/; each is cited at its code below, and
 H1/P1/O1/O2's history lives in docs/design/decisions/.
 `suffix_entries` is the R1 entry pass as a state-in/state-out
 function, for Parser.revise to run over a forced-role sub-parse
@@ -61,11 +64,13 @@ function, for Parser.revise to run over a forced-role sub-parse
 from __future__ import annotations
 
 import bisect
+import dataclasses
+import re
 from collections.abc import Sequence
 
 from nameparser._lexicon import Lexicon, _normalize, _run_addresses_by_given
 from nameparser._pipeline._assign import (
-    _name_alt, _name_pieces, _name_positions,
+    _effective_order, _name_alt, _name_pieces, _name_positions,
 )
 from nameparser._pipeline._pieces import (
     is_lone_never_given_particle, is_lowercase_ambiguous_particle,
@@ -75,13 +80,13 @@ from nameparser._pipeline._state import (
     AMBIGUOUS_ACRONYM_TAG, ATTACHED_TAG, CAPITALS_FAMILY_TAG, COMMA_CHARS,
     COMMA_STRIP, NAME_ROLES,
     PATRONYMIC_TAG,
-    BOUND_PHRASE_TAG, PARTICLE_GIVEN_TAG, PAST_REACH_TAG, SHARED_NAME_TAG,
+    BOUND_PHRASE_TAG, BOUND_SECOND_TAG, PARTICLE_GIVEN_TAG, PAST_REACH_TAG, SHARED_NAME_TAG,
     FIRST_SURNAME_TAG, SECOND_SURNAME_TAG, SURNAME_PAIR_TAG,
     ParseState, PendingAmbiguity, PendingReading, Structure,
     WorkToken, _NEVER_FLIPPED, comma_bucket, copy_with, reported_suffix_fork,
 )
 from nameparser._pipeline._vocab import (
-    _HYPHENS, SetApartKind, delimiter_cores, dotted_member,
+    _HYPHENS, _LETTER, SetApartKind, delimiter_cores, dotted_member,
     ROMAN, east_slavic_rotates, has_patronymic_ending, is_capitals_word,
     is_initial, is_listed_given_name,
     is_patronymic_marker, joined_member, member_word, period_member,
@@ -261,6 +266,114 @@ def _retag(tokens: list[WorkToken], i: int, role: Role) -> None:
     tokens[i] = copy_with(tokens[i], role=role)
 
 
+def _split_a_lone_backward_pair(state: ParseState, tokens: list[WorkToken],
+                                ambiguities: list[PendingAmbiguity]) -> bool:
+    """A pair P12 joined from its second word that holds every name word
+    the parse read is split back, in place: its first word takes the
+    order's first position and its second the order's other name role,
+    as P5's reserve leaves a bound word's pair of two name words, and
+    the one-word report assign made of it is withdrawn. True where it
+    split one."""
+    # the caller has found the two name words adjacent, the first
+    # carrying the pair's tag
+    first = next(i for i, t in enumerate(tokens)
+                 if t.role in (Role.GIVEN, Role.MIDDLE, Role.FAMILY))
+    second = first + 1
+    # rules/P5's two exceptions to its reserve, read alike: after a
+    # family comma the family is fixed and the pair is the given name,
+    # and a given-name title asserts that a given name follows
+    if (state.structure is Structure.FAMILY_COMMA and state.comma_offsets
+            and tokens[first].span.start > state.comma_offsets[0]):
+        return False
+    titles = [i for i, t in enumerate(tokens[:first]) if t.role is Role.TITLE]
+    if titles and _run_addresses_by_given(
+            (tokens[i].text for i in _addressing_run(titles, first)),
+            state.lexicon._sets.given_name_titles):
+        return False
+    order = state.order or state.policy.name_order
+    other = order[2] if order[1] is Role.MIDDLE else order[1]
+    tokens[first] = copy_with(
+        tokens[first], role=order[0],
+        tags=tokens[first].tags - {BOUND_PHRASE_TAG, BOUND_SECOND_TAG})
+    _retag(tokens, second, other)
+    ambiguities[:] = [a for a in ambiguities
+                      if not (a.kind is AmbiguityKind.GIVEN_OR_FAMILY
+                              and {first, second} & set(a.indices))]
+    # a report on a later word named the field it would take beside ONE
+    # name unit; beside two, under a family-first order with the given
+    # name second, that word would be the third, the middle (assemble
+    # folds it into the family under middle_as_family); a word after a
+    # comma names the given name for the comma's other reading, which
+    # no count of units moves
+    if order[0] is Role.FAMILY and order[1] is Role.GIVEN:
+        comma = state.comma_offsets[0] if state.comma_offsets else None
+        for k, a in enumerate(ambiguities):
+            alt = a.alternative
+            if (alt is not None and alt.role is Role.GIVEN and a.indices
+                    and min(a.indices) > second
+                    and (comma is None
+                         or tokens[max(a.indices)].span.start < comma)):
+                ambiguities[k] = dataclasses.replace(
+                    a, alternative=dataclasses.replace(alt, role=Role.MIDDLE))
+    return True
+
+#: A letter, a decomposed accent's base included: a word holding none,
+#: a lone mark, is no name word to the count rules/P12 makes.
+_HAS_LETTER = re.compile(_LETTER)
+
+
+def _cut_pair(state: ParseState, head: int) -> ParseState:
+    """`state` with the piece holding the pair at `head` cut in two
+    before its second word, its piece tags given to both halves, for
+    the readers of pieces after the pair is split (rules/O9's layout,
+    P1's opening piece). Group builds the pieces and their tags in step,
+    segment by segment."""
+    segs: list[tuple[tuple[int, ...], ...]] = []
+    tag_segs: list[tuple[frozenset[str], ...]] = []
+    for seg, ptags in zip(state.pieces, state.piece_tags):
+        out: list[tuple[int, ...]] = []
+        out_tags: list[frozenset[str]] = []
+        for piece, tag in zip(seg, ptags):
+            if head in piece and head + 1 in piece:
+                cut = piece.index(head + 1)
+                out += [piece[:cut], piece[cut:]]
+                out_tags += [tag, tag]
+            else:
+                out.append(piece)
+                out_tags.append(tag)
+        segs.append(tuple(out))
+        tag_segs.append(tuple(out_tags))
+    return copy_with(state, pieces=tuple(segs), piece_tags=tuple(tag_segs))
+
+
+def _split_a_short_open_pair(state: ParseState, tokens: list[WorkToken],
+                             head: int) -> tuple[bool, ParseState]:
+    """A pair P12 joined behind a bound word written `long_names_only`,
+    in a name of fewer than four name words, is split back, in place, to
+    the reading the name has without the join, and the state handed
+    back holds the pieces that reading has, the pair two of them. A
+    pair opening the name's pieces is P5's, which group leaves without
+    the pair's tag, so it is never split here. Behind a family comma no
+    role moves: the part before it is the family whole, and in the part
+    after it the pair stands behind the given name, among the middle
+    names. Elsewhere the pieces are laid out by the order again. The
+    pair's tag goes in every case; True where a role moved too."""
+    tokens[head] = copy_with(tokens[head],
+                             tags=tokens[head].tags - {BOUND_PHRASE_TAG})
+    state = _cut_pair(state, head)
+    if state.structure is Structure.FAMILY_COMMA:
+        return False, state
+    units = _name_pieces(state, tokens, 0)
+    order = state.order or state.policy.name_order
+    moved = False
+    for unit, role in zip(units, _name_positions(order, len(units))):
+        for i in unit:
+            if tokens[i].role in NAME_ROLES and tokens[i].role is not role:
+                _retag(tokens, i, role)
+                moved = True
+    return moved, state
+
+
 # rules/P2: "a particle joins the words after it into one name
 # part, the join running until the next particle starts a group of
 # its own, a trailing suffix begins"
@@ -285,7 +398,8 @@ def _units(tokens: list[WorkToken], idx: list[int]) -> list[list[int]]:
     lone-piece site test would not fire at all.) The bound-given join grouping
     never built at all: P5 joins only where the bound word is the
     first non-title piece, save a listed two-word given name P12
-    joins past the first name word (#694), and at a fold site the first piece
+    joins past the first name word (#694) and a pair P12 joins from
+    its listed second word (#1072), and at a fold site the first piece
     is the particle -- "ibn Awf abdul Rahman" reaches here as four
     separate pieces. The tag is the only witness in both cases.
 
@@ -325,8 +439,8 @@ def _family_word_count(tokens: list[WorkToken], family: list[int],
     as one, as the word O6 takes is counted (#959). A bound word counts
     with the word that completes it, the pair P12 joins being one name
     ('عبد الله', #694)."""
-    # rules/P12: "the two words are one name unit past the first name word"
-    # -- so the bound word counts with the word after it
+    # rules/P12: "the two words are one name unit, past the first name word"
+    # -- so the pair's first word counts with the word after it
     words = sum(1 if hyphen_joins
                 else len([part for part in _HYPHENS.split(tokens[i].text)
                           if part])
@@ -634,23 +748,36 @@ def _take_trailing_initials(tokens: list[WorkToken]) -> None:
         tokens[j] = copy_with(tokens[j], role=Role.FAMILY)
 
 
-def _take_second_family_name(state: ParseState,
-                             tokens: list[WorkToken]) -> None:
+def _take_second_family_name(state: ParseState, tokens: list[WorkToken],
+                             capitals: bool) -> None:
     # rules/O6: "the family name takes the name word beside it, so
     # the last two name words are the family" -- the first two under
     # a family-first order. In place, as every post rule writes.
     # History: decisions/O6 (#754).
+    _, given, middle, family = _positions(tokens)
+    turkic = PatronymicRule.TURKIC in state.policy.patronymic_rules
+    # rules/O6: "a family comma decides by itself" -- the family is the
+    # part before it, divided where it holds two units (decisions/O6,
+    # #1456)
+    if state.structure is Structure.FAMILY_COMMA:
+        if len(family) > 1:
+            _divide_comma_family(state, tokens, family, turkic)
+        return
     # An order a name's script set (W4) other than the declared one is
     # not the caller's declaration, and no script it keys writes two
     # family names as separate words. Where the two agree nothing here
     # tells them apart, and the rule reads the name (rules/O6 Accepted).
-    if (state.structure is Structure.FAMILY_COMMA or state.order is None
+    if (not family or state.order is None
             or state.order != state.policy.name_order):
         return
-    _, given, middle, family = _positions(tokens)
-    others = sorted(given + middle)
-    if not family or _family_word_count(tokens, family) != 1:
+    # rules/O6: "a family that already holds two words keeps what it
+    # has", and so does one the capitals named (O9): nothing is taken,
+    # and the family is divided where it holds two units (decisions/O6,
+    # #1479)
+    if capitals or _family_word_count(tokens, family) != 1:
+        _divide_family(tokens, family, turkic)
         return
+    others = sorted(given + middle)
     # The rest in the units assign read them as, so a particle chain
     # (P2) or a bound given-name pair (P5) moves whole or not at all.
     units = _units(tokens, others)
@@ -679,12 +806,11 @@ def _take_second_family_name(state: ParseState,
     if not any(ch.isalpha() for i in take for ch in tokens[i].text):
         return
     # rules/O6: "a listed given name stays where it is" -- the caller's
-    # Lexicon.given_names (empty by default; locales.ES carries the
-    # Spanish list, with the switch on) names a word only a given name is, under
-    # either order. Only a unit of one token is asked: a word
-    # behind a particle ("de Miguel") is a unit of two, a surname taken
-    # as before. History: decisions/O6 (#959).
-    # A hyphenated word writing given names stays too (#959).
+    # Lexicon.given_names (empty by default; a pack turning O6 on may
+    # carry one) names a word only a given name is, under either order,
+    # and a hyphenated word writing given names stays too. Only a unit
+    # of one token is asked: a word behind a particle ("de Miguel") is a
+    # unit of two, a surname taken as before (decisions/O6 (#959)).
     if len(take) == 1 and (
             is_listed_given_name(tokens[take[0]].text, state.lexicon)
             or _hyphenated_given(tokens[take[0]].text, state.lexicon)):
@@ -713,33 +839,134 @@ def _take_second_family_name(state: ParseState,
         if take[-1] > family[0] or any(
                 tokens[i].role is not Role.MIDDLE for i in take):
             return
-        _mark_surname(tokens, take, FIRST_SURNAME_TAG)
-        _mark_surname(tokens, family, SECOND_SURNAME_TAG)
-        return
-    # family first: the unit after the family joins it, and what is
-    # left is a shorter name of the same order, laid out as the P1
-    # fold above lays its remainder -- one family already placed. A
-    # particle P6 attached at the far end is family already and keeps
-    # its place.
-    if family[0] > units[0][0]:
-        return
-    # the unit taken joins the family as its second
-    _join_second_surname(tokens, family, units, state.order)
+    else:
+        # family first: the unit after the family joins it, and what is
+        # left is a shorter name of the same order, laid out as the P1
+        # fold above lays its remainder -- one family already placed. A
+        # particle P6 attached at the far end is family already and
+        # keeps its place.
+        if family[0] > take[0]:
+            return
+        _lay_out_after_family(tokens, units, state.order)
+    # the unit taken joins the family, which is then divided, or moves
+    # in unmarked where the division declines
+    if not _divide_family(tokens, sorted(take + family), turkic):
+        for i in take:
+            _retag(tokens, i, Role.FAMILY)
 
 
-def _join_second_surname(tokens: list[WorkToken], family: list[int],
-                         units: list[list[int]],
-                         order: tuple[Role, Role, Role]) -> None:
-    """The family-first join O6 and W5's pair share, in place: `family`
-    becomes the first surname and `units[0]`, the unit after it, the
-    second, and the units left are laid out as a shorter name of the
-    same order, one family already placed."""
-    _mark_surname(tokens, family, FIRST_SURNAME_TAG)
-    _mark_surname(tokens, units[0], SECOND_SURNAME_TAG)
+def _lay_out_after_family(tokens: list[WorkToken], units: list[list[int]],
+                          order: tuple[Role, Role, Role]) -> None:
+    """The family-first layout O6 and W5's pair share, in place: the
+    units after `units[0]`, the unit joining the family, are laid out as
+    a shorter name of the same order, one family already placed. The
+    caller moves `units[0]` into the family itself: W5 marks it the
+    second unit, and O6 marks it through `_divide_family`, or moves it
+    unmarked where that declines."""
     for unit, role in zip(units[1:], _name_positions(
             order, len(units))[1:]):
         for i in unit:
             _retag(tokens, i, role)
+
+
+def _divide_family(tokens: list[WorkToken], family: list[int],
+                   turkic: bool) -> bool:
+    """rules/O6: "a family is divided by its own words" -- in place,
+    however it was read: the one place O6 divides a family, after its
+    take, for a family it takes nothing into (one already holding two
+    words, a particle chain or the family a P10 phrase leaves, and one
+    O9's capitals named) and for the part before a family comma
+    (decisions/O6, #1456, #1479).
+
+    The units are P1's fold units over the family's words in written
+    order (`unit_ends(chain=False)`): a particle run and the ONE name
+    word it attaches to, a connective join, a bound given-name pair, or
+    a plain word. Exactly two, each one word as the word O6 takes is
+    counted, are marked; a family of one unit or of three or more is
+    left whole, and so is one holding a connective (decisions/R10) or a
+    name a community gives every member, and so is a family ending in a
+    standalone patronymic marker under the Turkic rule (`turkic`): the
+    father's name and the marker, which O2 reads as one family and R9
+    as the patronymic. The shape tests O6 asks of
+    the word it takes (an initial, a mark with no letter) are not asked
+    here: a family already read is divided as written ('Gallegos G.').
+    A particle P6 attached to the family it ends is set aside and goes
+    with the first unit, the family it was attached to.
+
+    True where it marked two units, each word then FAMILY. Plain loops
+    throughout, since every parse of a family under the switch pays for
+    this; no frame band guards the switch's path (`_CALL_BASELINE`
+    measures the default), so its cost is counted in decisions/O6."""
+    if len(family) < 2:
+        return False
+    words: list[int] = []
+    tags: list[frozenset[str]] = []
+    attached: list[int] = []
+    for i in family:
+        tag = tokens[i].tags
+        if "conjunction" in tag or SHARED_NAME_TAG in tag:
+            return False
+        if ATTACHED_TAG in tag:
+            attached.append(i)
+        else:
+            words.append(i)
+            tags.append(tag)
+    ends = unit_ends(tags, chain=False)
+    if len(ends) != 2 or (turkic and is_patronymic_marker(
+            tokens[words[-1]].text)):
+        return False
+    first, second = words[:ends[0]], words[ends[0]:]
+    # each unit one name word: a particle run counts with the word it
+    # attaches to, a bound given-name word with the word it completes
+    # whether or not it is also a particle ('abdul Rahman', 'Abu Bakr',
+    # and P12's phrase, whose bound word is one too, read by this test
+    # rather than the phrase tag group keeps only where it joined the
+    # pair, so not before a comma), and a unit of particles alone counts
+    # each of them, as `_family_word_count` counts a family; and a first
+    # unit of particles alone is no first surname (`bin` where a suffix
+    # word behind it stops the particle run, 'bin Abd Rahman')
+    for unit in (first, second):
+        named = 0
+        bare = True
+        completes = False  # the word before is a bound given-name word
+        for i in unit:
+            tag = tokens[i].tags
+            if "particle" not in tag:
+                bare = False
+                if not completes:
+                    named += 1
+            # the word before is a bound given-name word, or the first
+            # word of a pair joined from its second (#1072)
+            completes = ("vocab:bound-given" in tag
+                         or BOUND_SECOND_TAG in tag)
+        if named > 1 or bare and (len(unit) > 1 or unit is first):
+            return False
+    _mark_surname(tokens, sorted(first + attached), FIRST_SURNAME_TAG)
+    _mark_surname(tokens, second, SECOND_SURNAME_TAG)
+    return True
+
+
+def _divide_comma_family(state: ParseState, tokens: list[WorkToken],
+                         family: list[int], turkic: bool) -> None:
+    """rules/O6: "the part before it is the whole family, divided" --
+    where nothing after the comma joined it: the family is that part's
+    words alone, none taken in from after the comma (P1's fold, P6's
+    attachment), and the part's script sets no order other than the
+    declared one (W4), as the comma-less name is left alone there
+    (decisions/O6, #1456)."""
+    # the family's words in written order, so its last word is the one
+    # a word joined from after the comma would be
+    if tokens[family[-1]].span.start > state.comma_offsets[0]:
+        return
+    # every script an order can be keyed to (Script: Han, Hangul, kana,
+    # Cyrillic) is written from U+0400 up, so a word below it, accented
+    # Latin included, is in none (W4); a C-level test, no frame
+    if max(tokens[family[0]].text) >= "\u0400" and _effective_order(
+            state.policy, [tuple(family)], [0], tokens,
+            dot_divided=bool(state.interpunct_offsets)
+            ).order != state.policy.name_order:
+        return
+    _divide_family(tokens, family, turkic)
 
 
 def _read_surname_pair(state: ParseState,
@@ -768,7 +995,9 @@ def _read_surname_pair(state: ParseState,
             or SURNAME_PAIR_TAG not in tokens[units[0][0]].tags):
         return None
     first, second = family[0], units[0][0]
-    _join_second_surname(tokens, family, units, state.order)
+    _lay_out_after_family(tokens, units, state.order)
+    _mark_surname(tokens, family, FIRST_SURNAME_TAG)
+    _mark_surname(tokens, units[0], SECOND_SURNAME_TAG)
     after = second + 1
     if (after == len(tokens) or tokens[after].span is None
             or tokens[after].span.start != tokens[second].span.end):
@@ -913,7 +1142,8 @@ def _take_second_given_name(state: ParseState,
 
 
 # rules/R10: "the family's second name unit, the one written second,
-# makes the second-surname view" -- whichever of the two O6 took
+# makes the second-surname view" -- whichever of the two units O6
+# divides the family into, a word taken or not, or W5's pair
 # (decisions/R10, #754); and rules/R11: "the family's first name unit,
 # the one written first, makes the first-surname view" -- the other one,
 # marked in the same place (decisions/R11, #1022). It moves a unit into
@@ -1204,12 +1434,50 @@ def _unattached(state: ParseState, tokens: list[WorkToken],
 
 
 def post_rules(state: ParseState) -> ParseState:
+    # rules/P12's split hands its readers the pieces cut, and the stage
+    # hands on group's, pieces being no field it writes
+    grouped = (state.pieces, state.piece_tags)
     tokens = list(state.tokens)
     ambiguities = list(state.ambiguities)
     if state.extracted:
         _set_apart_clauses(state, tokens)
         _report_delimited_members(tokens, state.lexicon, ambiguities)
     titles, givens, middles, families = _positions(tokens)
+    # rules/P12: "A pair read from its second word needs a third name
+    # word" -- asked of the parse, once roles are settled, so the
+    # trailing run's reading is the one counted (decisions/P12, #1072)
+    # the tag test inline, in C, so that a name of two words with no
+    # such pair pays no frame for it
+    names = givens + middles + families
+    if (len(names) == 2 and max(names) == min(names) + 1
+            and BOUND_SECOND_TAG in tokens[min(names)].tags
+            and _split_a_lone_backward_pair(state, tokens, ambiguities)):
+        titles, givens, middles, families = _positions(tokens)
+    # rules/P12: "the pair is joined only in a name the parse reads as
+    # four name words or more" -- the `long_names_only` Except, counted
+    # here once roles are settled, so a word the trailing run or a title
+    # phrase takes counts as the parse reads it (decisions/P12 (#1464,
+    # #1531)); the tag tests inline, in C, so that a name with no such
+    # pair pays no frame for it
+    else:
+        for i in names:
+            if (BOUND_PHRASE_TAG in tokens[i].tags
+                    and BOUND_SECOND_TAG not in tokens[i].tags):
+                # name words hold a letter: a lone mark assign placed
+                # is none; a plain loop, where a generator cost a frame
+                # per word
+                letters = 0
+                for k in names:
+                    if _HAS_LETTER.search(tokens[k].text):
+                        letters += 1
+                if (letters < 4 and _normalize(tokens[i].text)
+                        in state.lexicon._sets.bound_long_names_only):
+                    moved, state = _split_a_short_open_pair(
+                        state, tokens, i)
+                    if moved:
+                        titles, givens, middles, families = _positions(
+                            tokens)
+                break
 
     # rules/H1: "a title followed by exactly one name word makes
     # that word the family name, whatever suffix, nickname or maiden
@@ -1528,8 +1796,8 @@ def post_rules(state: ParseState) -> ParseState:
                 and _family_in_capitals(state, tokens, ambiguities))
     if state.policy.initials_as_family:
         _take_trailing_initials(tokens)
-    if state.policy.two_family_names and not capitals:
-        _take_second_family_name(state, tokens)
+    if state.policy.two_family_names:
+        _take_second_family_name(state, tokens, capitals)
     if state.policy.two_given_names:
         _take_second_given_name(state, tokens)
 
@@ -1643,4 +1911,5 @@ def post_rules(state: ParseState) -> ParseState:
                     tags=tokens[i].tags | {UNJOINED_CONJUNCTION_TAG})
     _mark_suffix_entries(tokens, state)
     return copy_with(state, tokens=tuple(tokens),
-                     ambiguities=tuple(ambiguities))
+                     ambiguities=tuple(ambiguities),
+                     pieces=grouped[0], piece_tags=grouped[1])

@@ -1,5 +1,3 @@
-"""WFC-specific errors."""
-
 from __future__ import annotations
 
 from schemathesis.core.errors import SchemathesisError
@@ -19,6 +17,10 @@ class WFCValidationError(WFCError):
 
 class WFCLoginError(WFCError):
     """Login endpoint call failed."""
+
+
+class WFCLoginUnavailable(WFCLoginError):
+    """Login endpoint could not be reached or answered that it cannot serve yet."""
 
 
 class WFCTokenExtractionError(WFCError):

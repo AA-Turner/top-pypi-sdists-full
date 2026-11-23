@@ -24,19 +24,20 @@
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-// NOTE: pretty much copied as is but simplfied a fair bit. I don't use folding
+// NOTE: pretty much copied as is but simplified a fair bit. I don't use folding
 // much so not sure if this is optimal.
 
 use rustc_hash::FxHashSet;
 
-use rowan::{NodeOrToken, SyntaxText, TextRange};
-use salsa::Database as Db;
 use squawk_line_index::find_newline;
+use squawk_rowan::{NodeOrToken, SyntaxText, TextRange};
 use squawk_syntax::SyntaxKind;
 use squawk_syntax::ast::{self, AstNode, AstToken};
 
-use crate::comments::line_comment_group;
-use crate::db::{File, parse};
+use squawk_sema::file::FileId;
+use squawk_syntax::comments::line_comment_group;
+
+use squawk_ide_db::{Db, parse};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FoldKind {
@@ -58,9 +59,8 @@ pub struct Fold {
     pub kind: FoldKind,
 }
 
-#[salsa::tracked]
-pub fn folding_ranges(db: &dyn Db, file: File) -> Vec<Fold> {
-    let parse = parse(db, file);
+pub fn folding_ranges(db: &dyn Db, file_id: FileId) -> Vec<Fold> {
+    let parse = parse(db, file_id);
 
     let mut folds = vec![];
     let mut visited_comments = FxHashSet::default();
@@ -142,6 +142,7 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         | SyntaxKind::ATTRIBUTE_LIST
         | SyntaxKind::ATOMIC_BODY
         | SyntaxKind::CHECKPOINT_OPTION_LIST
+        | SyntaxKind::WAIT_OPTION_LIST
         | SyntaxKind::COLUMN_DEF_LIST
         | SyntaxKind::COLUMN_LIST
         | SyntaxKind::COLUMN_REF_LIST
@@ -237,7 +238,7 @@ mod tests {
     use insta::assert_snapshot;
     use std::fmt::Write as _;
 
-    use crate::db::{Database, File};
+    use squawk_ide_db::Database;
 
     use super::*;
 
@@ -258,9 +259,9 @@ mod tests {
 
     #[must_use]
     fn check(sql: &str) -> String {
-        let db = Database::default();
-        let file = File::new(&db, sql.to_string().into());
-        let folds = folding_ranges(&db, file);
+        let mut db = Database::default();
+        let file = db.add_file(sql.into());
+        let folds = folding_ranges(&db, file.into());
 
         if folds.is_empty() {
             return sql.to_string();

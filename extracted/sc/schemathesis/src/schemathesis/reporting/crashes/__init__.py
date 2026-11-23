@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import time
 from dataclasses import asdict, dataclass, field, replace
@@ -12,8 +13,9 @@ from typing import TYPE_CHECKING, Any
 import schemathesis
 from schemathesis.core import NOT_SET
 from schemathesis.core.failures import Failure, is_reproducible_failure
-from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
-from schemathesis.core.parameters import CONTAINER_TO_LOCATION
+from schemathesis.core.fs import file_exists
+from schemathesis.core.output.sanitization import sanitize_headers, sanitize_url, sanitize_value
+from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.storage import atomic_write_text, retry_while_locked
 from schemathesis.core.timing import format_timestamp
 from schemathesis.core.transforms import deepclone
@@ -126,7 +128,7 @@ class CrashStep:
     cookies: dict[str, Any] = field(default_factory=dict)
     case_body: Any = NOT_SET
     media_type: str | None = None
-    # Index of the step this link extracts from — the recorded parent, not always the previous step. None at root.
+    # Index of the recorded parent step this link extracts from, not always the previous one; None at root.
     parent_index: int | None = None
     # The configured identity that sent this step; None when no named identity did, or in older crash files.
     auth_identity: str | None = None
@@ -246,7 +248,7 @@ class CrashWriter:
         manifest = CrashManifest(
             format_version=CRASH_FORMAT_VERSION,
             schemathesis_version=schemathesis.__version__,
-            schema_location=schema_location,
+            schema_location=_recorded_location(schema_location, self._directory),
             base_url=base_url,
             created_at=format_timestamp(time.time()),
             tls_verify=tls_verify,
@@ -290,6 +292,43 @@ class CrashWriter:
                 (self._directory / filename).unlink()
             except FileNotFoundError:
                 pass
+
+
+def schema_crash_directory(crashes_directory: Path, schema_location: str) -> Path:
+    """Crash files of each schema location live in their own subdirectory, so runs against other APIs keep them."""
+    return crashes_directory / hashlib.sha256(_schema_key(schema_location).encode()).hexdigest()[:12]
+
+
+def adopt_flat_crashes(crashes_directory: Path, schema_directory: Path, schema_location: str) -> None:
+    """Move crash files that older versions kept directly in the crashes directory into their schema's subdirectory."""
+    manifest = load_manifest(crashes_directory)
+    if manifest is None or _schema_key(manifest.schema_location) != _schema_key(schema_location):
+        return
+    schema_directory.mkdir(parents=True, exist_ok=True)
+    for path in crashes_directory.glob("*.json"):
+        path.replace(schema_directory / path.name)
+
+
+def recorded_schema_location(directory: Path, manifest: CrashManifest) -> str:
+    # URLs, and schema files that older versions recorded relative to the working directory, load as recorded.
+    candidate = directory / manifest.schema_location
+    return str(candidate.resolve()) if file_exists(str(candidate)) else manifest.schema_location
+
+
+def _schema_key(schema_location: str) -> str:
+    # An absolute path keeps one schema file apart from same-named files elsewhere.
+    return str(Path(schema_location).resolve()) if file_exists(schema_location) else schema_location
+
+
+def _recorded_location(schema_location: str, directory: Path) -> str:
+    # Schema files are recorded relative to the crash directory, so replay finds them from anywhere in any checkout.
+    if not file_exists(schema_location):
+        return schema_location
+    try:
+        return Path(os.path.relpath(Path(schema_location).resolve(), directory.resolve())).as_posix()
+    except ValueError:
+        # Paths on different Windows drives have no relative form.
+        return _schema_key(schema_location)
 
 
 def load_manifest(directory: Path) -> CrashManifest | None:
@@ -338,6 +377,10 @@ def build_crashes_from_recorder(
         if enabled:
             sanitize_value(value, config=sanitization)
 
+    def sanitize_header_mapping(value: dict[str, Any]) -> None:
+        if enabled:
+            sanitize_headers(value, config=sanitization)
+
     def sanitize_uri(url: str) -> str:
         return sanitize_url(url, config=sanitization) if enabled else url
 
@@ -353,14 +396,14 @@ def build_crashes_from_recorder(
 
         request = interaction.request
         raw_headers = dict(request.headers)
-        sanitize_mapping(raw_headers)
+        sanitize_header_mapping(raw_headers)
         request_headers = {k: v[0] if isinstance(v, list) else v for k, v in raw_headers.items()}
         request_url = sanitize_uri(request.uri)
 
         response = interaction.response
         response_status = response.status_code
         raw_response_headers = dict(response.headers)
-        sanitize_mapping(raw_response_headers)
+        sanitize_header_mapping(raw_response_headers)
         response_headers: dict[str, str] = {k: v[0] if v else "" for k, v in raw_response_headers.items()}
         response_body = response.text_lossy()
 
@@ -379,13 +422,22 @@ def build_crashes_from_recorder(
         url_template = sanitize_uri(case.operation.schema.build_url_template(case, base_url))
 
         meta_dict = case.meta.to_dict() if case.meta is not None else None
+        if meta_dict is not None and enabled:
+            # Typed copies of the case's parameters carry the same credentials as the case itself.
+            raw_containers = deepclone(meta_dict["raw_containers"])
+            for location, container in raw_containers.items():
+                if location == ParameterLocation.HEADER.name and isinstance(container, dict):
+                    sanitize_headers(container, config=sanitization)
+                else:
+                    sanitize_value(container, config=sanitization)
+            meta_dict["raw_containers"] = raw_containers
 
         case_path_parameters = dict(case.path_parameters)
         sanitize_mapping(case_path_parameters)
         case_query = dict(case.query)
         sanitize_mapping(case_query)
         case_headers = dict(case.headers)
-        sanitize_mapping(case_headers)
+        sanitize_header_mapping(case_headers)
         case_cookies = dict(case.cookies)
         sanitize_mapping(case_cookies)
         case_body = case.body

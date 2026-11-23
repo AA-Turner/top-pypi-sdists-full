@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 5.7.0
+Version: 5.8.0
 Summary: Python dead code, security and secrets scanner with a pull-request gate; narrower checks for TypeScript, Java and more.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -77,7 +77,7 @@ Requires-Dist: tree-sitter-dart-orchard<0.6,>=0.3.2; extra == "all"
 Dynamic: license-file
 
 <div align="center">
-    <img src="https://raw.githubusercontent.com/duriantaco/skylos/v5.7.0/assets/DOG_1.png" alt="Skylos" width="160">
+    <img src="https://raw.githubusercontent.com/duriantaco/skylos/v5.8.0/assets/DOG_1.png" alt="Skylos" width="160">
     <h1>Skylos</h1>
     <p><strong>Code checks that show their work.</strong></p>
 
@@ -88,9 +88,9 @@ Dynamic: license-file
 ![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/oha.skylos-vscode-extension)
 [![MCP Toplist](https://mcptoplist.com/badge/io.github.duriantaco%2Fskylos.svg)](https://mcptoplist.com/server/io.github.duriantaco%2Fskylos)
 
-[Docs](https://docs.skylos.dev) · [Quick start](#quick-start) · [Website](https://skylos.dev) · [VS Code](https://github.com/duriantaco/skylos/blob/v5.7.0/editors/vscode/README.md) · [Discord](https://discord.gg/Ftn9t9tErf)
+[Docs](https://docs.skylos.dev) · [Quick start](#quick-start) · [Website](https://skylos.dev) · [VS Code](https://github.com/duriantaco/skylos/blob/v5.8.0/editors/vscode/README.md) · [Discord](https://discord.gg/Ftn9t9tErf)
 
-**English** | [Deutsch](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/i18n/README.de.md) | [简体中文](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/i18n/README.zh-CN.md)
+**English** | [Deutsch](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/i18n/README.de.md) | [简体中文](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/i18n/README.zh-CN.md)
 
 </div>
 
@@ -116,6 +116,60 @@ It is built for:
 - **Existing codebases** that need security, secrets, dependency, quality and
   dead-code findings from one scan, in Python, TypeScript, Java, Go and
   [more](#language-support).
+
+## Quick start
+
+```bash
+pip install skylos
+skylos . -a          # scan this repo with every check; nothing leaves your machine
+```
+
+### Key commands
+
+No account needed. Your code and findings stay on your machine.
+
+| To | Run |
+|:---|:---|
+| Find dead code | `skylos .` |
+| Run every check: security, secrets, dependencies, quality, AI-code mistakes | `skylos . -a` |
+| Check only what your branch changed | `skylos . -a --diff origin/main` |
+| Fail the build when the gate fails | `skylos . --gate` |
+| Check the agent really finished (runs your tests) | `skylos done --base main` |
+| Check every pull request in CI | `skylos cicd init` |
+| Set up Claude Code and Codex in this repo | `skylos setup` |
+
+### Skylos Cloud: see results online and block failing pull requests
+
+Optional. Five steps, in this order, from your repository folder. No token to
+copy.
+
+| Step | Run or do | What happens |
+|:---|:---|:---|
+| 1. Upload your first scan | `skylos cloud` | Your browser opens skylos.dev. Sign in, then pick or create the project for this repo. Back in the terminal, Skylos scans and uploads the findings (not your code). |
+| 2. Open your results | Click the `Open:` link it prints | The scan in your dashboard: its gate result and every issue. Find it again later at [skylos.dev/dashboard](https://skylos.dev/dashboard). |
+| 3. Add the pull request check | `skylos cicd init` | Writes `.github/workflows/skylos.yml` and prints the next steps: the `git` commands that open a pull request with it, and the GitHub App link. |
+| 4. Install the GitHub App, then merge | Open the GitHub App link it printed | Install the Skylos GitHub App on the repo before you merge that pull request. CI then uploads with its GitHub identity, so there is no token or secret to add. |
+| 5. Make the check required | `skylos setup` | Run it after the merge (it uses the GitHub CLI, `gh`). A pull request that fails the Skylos check can no longer merge. |
+
+Done: every pull request gets a Skylos check, and every push to your default
+branch shows up in your dashboard.
+
+The end of step 1 looks like this:
+
+```text
+✓ Scan saved · gate (not blocking): fail
+  Open: https://skylos.dev/dashboard/projects/<project>/scans/<scan>
+  Saved for review. Only verified CI scans block merges and update the project verdict.
+  Next: to block pull requests, run skylos cicd init and merge the workflow it writes.
+```
+
+A scan from your machine is saved for review but never blocks a merge; only CI
+scans do. Upload again any time with `skylos cloud`. Details:
+[Skylos Cloud](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/skylos-cloud.md).
+
+Working with a coding agent? `skylos setup` once per repo, then `skylos open`
+every day for a diagram of your code, what changed, and every check run. The
+[tutorial](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/workflow.md) walks through a real session.
 
 ## How it works
 
@@ -145,45 +199,6 @@ Every finding names the file, line and rule. Security findings show the
 source-to-sink path when one was recorded; `--format json` keeps the full
 evidence.
 
-## Quick start
-
-```bash
-pip install skylos
-```
-
-### Key commands
-
-No account needed. Your code and findings stay on your machine.
-
-| To | Run |
-|:---|:---|
-| Find dead code | `skylos .` |
-| Run every check: security, secrets, dependencies, quality, AI-code mistakes | `skylos . -a` |
-| Check only what your branch changed | `skylos . -a --diff origin/main` |
-| Fail the build when the gate fails | `skylos . --gate` |
-| Check the agent really finished (runs your tests) | `skylos done --base main` |
-| Check every pull request in CI | `skylos cicd init` |
-| Set up Claude Code and Codex in this repo | `skylos setup` |
-
-### Skylos Cloud in three steps
-
-Optional. Track every branch and block pull requests from one dashboard. No
-token to copy.
-
-```bash
-skylos cloud        # 1. sign in once in your browser; connects this repo, scans and uploads
-skylos cicd init    # 2. writes .github/workflows/skylos.yml and prints what to do next
-                    # 3. open its pull request, install the Skylos GitHub App (link printed), merge
-```
-
-Scans from your machine are saved for review but never block a merge. After
-step 3, every pull request is checked, and CI uploads with its GitHub identity
-(OIDC), so you never add a secret. Details: [Skylos Cloud](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/skylos-cloud.md).
-
-Working with a coding agent? `skylos setup` once per repo, then `skylos open`
-every day for a diagram of your code, what changed, and every check run. The
-[tutorial](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/workflow.md) walks through a real session.
-
 ## Check every agent edit
 
 Install hooks so the agent is checked while it works:
@@ -205,7 +220,7 @@ skylos agent install-hooks --cursor   # Cursor
 - **At stop:** blocks "done" while issues the agent added are still open.
 
 If Skylos itself errors, the action is allowed and both you and the agent are
-told it went unchecked. See [agent hooks](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/agent-hooks.md).
+told it went unchecked. See [agent hooks](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/agent-hooks.md).
 
 ## Is the agent really done?
 
@@ -232,7 +247,7 @@ test_command = "npm test"
 
 It reads its settings from `main`, so a branch cannot loosen its own check.
 Exit codes: `0` pass, `1` blocked, `2` could not run. See the
-[done gate](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/done-gate.md) and what it [misses](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/done-gate-benchmark.md).
+[done gate](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/done-gate.md) and what it [misses](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/done-gate-benchmark.md).
 
 <a id="cicd"></a>
 
@@ -251,7 +266,7 @@ git push -u origin add-skylos-gate
 The workflow reviews the changed lines of each pull request and runs
 `skylos done` when it finds your tests. `skylos cicd init` also sets up GitLab
 CI, Jenkins, Bitbucket Pipelines, Azure Pipelines and CircleCI
-([any CI](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/ci-platforms.md)).
+([any CI](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/ci-platforms.md)).
 
 The gate always fails on a critical security issue, a secret, or a critical
 AI-code issue such as an import of a package that doesn't exist. Everything
@@ -267,12 +282,12 @@ max_ai_defects = 10   # AI-code issues allowed
 The policy is read from the base branch, so a pull request cannot loosen its
 own gate. Each run ends with `Quality Gate: PASSED`, `FAILED` (exit 1) or
 `INCOMPLETE` (exit 2) and the reasons. Walkthrough:
-[your first gated pull request](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/first-gated-pr.md).
+[your first gated pull request](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/first-gated-pr.md).
 
 Need a person to sign off on risky changes? `skylos cicd init --risk-review`
 adds a check that waits for a human approval when a pull request deletes
 tests, removes auth checks, changes dependencies or weakens CI. See
-[risk review](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/risk-review.md).
+[risk review](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/risk-review.md).
 
 ## Scan a repository
 
@@ -289,7 +304,7 @@ skylos cleanup . --top 5         # a prioritized fix list
 
 Python dead code can be removed for you: `skylos clean . --dry-run` shows the
 plan, `--apply` edits files. Output modes and exit codes:
-[CLI output](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/cli-output.md).
+[CLI output](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/cli-output.md).
 
 ## What Skylos catches
 
@@ -305,7 +320,7 @@ plan, `--apply` edits files. Output modes and exit codes:
 | LLM apps | unsafe tool use, prompt-injection exposure, missing output validation |
 
 Every rule: [Rules Reference](https://docs.skylos.dev/rules-reference) and
-[rule dictionary](https://github.com/duriantaco/skylos/blob/v5.7.0/dictionary.md).
+[rule dictionary](https://github.com/duriantaco/skylos/blob/v5.8.0/dictionary.md).
 
 ## Verify the AI apps you build
 
@@ -322,8 +337,8 @@ skylos defend . --format md -o evidence.md   # evidence report with OWASP LLM To
 It covers Python and TypeScript/JavaScript; `--owasp-framework agentic` reports
 against the OWASP Agentic Top 10. To test a running agent against
 expected answers and tool calls, use `skylos agent test`. See
-[agent verification](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/agent-verification.md) and
-[agent behavior testing](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/agent-behavior-testing.md).
+[agent verification](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/agent-verification.md) and
+[agent behavior testing](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/agent-behavior-testing.md).
 
 ## Language Support
 
@@ -384,12 +399,12 @@ and scan with `--baseline`. More: [configuration](https://docs.skylos.dev/config
 
 | Integration | What it does |
 |:---|:---|
-| [GitHub Action](https://github.com/duriantaco/skylos/blob/v5.7.0/action.yml) | Pull-request gate, optional container-image gate |
-| [GitLab, Bitbucket, Azure, Jenkins, CircleCI](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/ci-platforms.md) | Pull-request gate for that CI |
-| [Agent hooks](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/agent-hooks.md) | Claude Code, Codex and Cursor checked on every edit |
+| [GitHub Action](https://github.com/duriantaco/skylos/blob/v5.8.0/action.yml) | Pull-request gate, optional container-image gate |
+| [GitLab, Bitbucket, Azure, Jenkins, CircleCI](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/ci-platforms.md) | Pull-request gate for that CI |
+| [Agent hooks](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/agent-hooks.md) | Claude Code, Codex and Cursor checked on every edit |
 | [MCP server](https://docs.skylos.dev/mcp-server) | Skylos scans as tools for AI assistants |
-| [VS Code extension](https://github.com/duriantaco/skylos/blob/v5.7.0/editors/vscode/README.md) | Findings in the editor |
-| [Skylos Cloud](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/skylos-cloud.md) | Optional: findings and the gate per branch, over time |
+| [VS Code extension](https://github.com/duriantaco/skylos/blob/v5.8.0/editors/vscode/README.md) | Findings in the editor |
+| [Skylos Cloud](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/skylos-cloud.md) | Optional: findings and the gate per branch, over time |
 
 ## Install options
 
@@ -417,21 +432,21 @@ never uploads anything. There are no analytics.
 Dependency and package checks send package names and versions to OSV and the
 public registries, never source. LLM commands share code only with the model
 provider you configure. Every request, its trigger and how to turn it off:
-[privacy and network](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/privacy-and-network.md).
+[privacy and network](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/privacy-and-network.md).
 
 ## Results
 
-10 Skylos-assisted dead-code cleanup PRs have been merged in 9 open-source
-projects, including [Black](https://github.com/psf/black/pull/5041),
+21 Skylos-assisted dead-code cleanup PRs have been merged into the default
+branches of 19 open-source projects, including [Black](https://github.com/psf/black/pull/5041),
 [NetworkX](https://github.com/networkx/networkx/pull/8572),
 [Optuna](https://github.com/optuna/optuna/pull/6547),
 [mitmproxy](https://github.com/mitmproxy/mitmproxy/pull/8136) and
 [pypdf](https://github.com/py-pdf/pypdf/pull/3685).
-[Real-World Results](https://github.com/duriantaco/skylos/blob/v5.7.0/REAL_WORLD_RESULTS.md) lists all 26 PRs we recorded,
+[Real-World Results](https://github.com/duriantaco/skylos/blob/v5.8.0/REAL_WORLD_RESULTS.md) lists all 43 PRs we recorded,
 including the ones that were closed or reverted. These are accepted cleanups,
 not endorsements.
 
-Methods, dated results and competitor comparisons: [BENCHMARK.md](https://github.com/duriantaco/skylos/blob/v5.7.0/BENCHMARK.md).
+Methods, dated results and competitor comparisons: [BENCHMARK.md](https://github.com/duriantaco/skylos/blob/v5.8.0/BENCHMARK.md).
 
 <a id="common-questions"></a>
 
@@ -466,30 +481,30 @@ More: [FAQ](https://docs.skylos.dev/faq).
 | Every command and flag | [CLI reference](https://docs.skylos.dev/cli-reference) |
 | Install, extras, Docker | [Installation](https://docs.skylos.dev/installation) |
 | Config files, ignores, baselines | [Configuration](https://docs.skylos.dev/configuration) |
-| Output formats and exit codes | [CLI output](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/cli-output.md) |
-| Agent hooks | [Agent hooks](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/agent-hooks.md) |
-| `skylos done` | [Done gate](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/done-gate.md) |
-| Pull-request gates | [First gated PR](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/first-gated-pr.md), [any CI](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/ci-platforms.md) |
+| Output formats and exit codes | [CLI output](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/cli-output.md) |
+| Agent hooks | [Agent hooks](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/agent-hooks.md) |
+| `skylos done` | [Done gate](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/done-gate.md) |
+| Pull-request gates | [First gated PR](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/first-gated-pr.md), [any CI](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/ci-platforms.md) |
 | Security and taint analysis | [Security](https://docs.skylos.dev/security-analysis) |
-| Dependencies, SBOM, licenses | [Dependency scanning](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/dependency-scanning.md), [licenses](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/license-compliance.md) |
-| AI-code checks | [AI code verification](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/ai-code-verification.md) |
-| Network requests | [Privacy and network](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/privacy-and-network.md) |
-| Rule IDs | [Rule dictionary](https://github.com/duriantaco/skylos/blob/v5.7.0/dictionary.md) |
+| Dependencies, SBOM, licenses | [Dependency scanning](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/dependency-scanning.md), [licenses](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/license-compliance.md) |
+| AI-code checks | [AI code verification](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/ai-code-verification.md) |
+| Network requests | [Privacy and network](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/privacy-and-network.md) |
+| Rule IDs | [Rule dictionary](https://github.com/duriantaco/skylos/blob/v5.8.0/dictionary.md) |
 
 ## Contributing
 
-- Read [CONTRIBUTING.md](https://github.com/duriantaco/skylos/blob/v5.7.0/CONTRIBUTING.md) before sending a pull request.
+- Read [CONTRIBUTING.md](https://github.com/duriantaco/skylos/blob/v5.8.0/CONTRIBUTING.md) before sending a pull request.
 - Report a bug with `skylos feedback` (no account needed), or open an issue
   with a minimal repro.
-- Report security issues through [SECURITY.md](https://github.com/duriantaco/skylos/blob/v5.7.0/SECURITY.md).
+- Report security issues through [SECURITY.md](https://github.com/duriantaco/skylos/blob/v5.8.0/SECURITY.md).
 - Analyzer changes are tested on real projects with
   [liveness_primer](https://github.com/mcdigman/liveness_primer), built by
   [Matthew Digman](https://github.com/mcdigman). See the
-  [guide](https://github.com/duriantaco/skylos/blob/v5.7.0/docs/liveness-primer.md).
-- Ideas to work on: [ROADMAP.md](https://github.com/duriantaco/skylos/blob/v5.7.0/ROADMAP.md). Chat: [Discord](https://discord.gg/Ftn9t9tErf).
+  [guide](https://github.com/duriantaco/skylos/blob/v5.8.0/docs/liveness-primer.md).
+- Ideas to work on: [ROADMAP.md](https://github.com/duriantaco/skylos/blob/v5.8.0/ROADMAP.md). Chat: [Discord](https://discord.gg/Ftn9t9tErf).
 
 ## License
 
-Apache License 2.0. See [LICENSE](https://github.com/duriantaco/skylos/blob/v5.7.0/LICENSE).
+Apache License 2.0. See [LICENSE](https://github.com/duriantaco/skylos/blob/v5.8.0/LICENSE).
 
 <!-- mcp-name: io.github.duriantaco/skylos -->

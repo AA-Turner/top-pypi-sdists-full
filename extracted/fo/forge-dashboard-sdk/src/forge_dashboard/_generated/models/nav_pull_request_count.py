@@ -24,7 +24,8 @@ class NavPullRequestCount:
     `cancelled` count the pull requests whose CI is pending, failing,
     succeeded and cancelled, and `noChecks` those with no checks at all.
     One held for workflow approval is in `total` only, so the numbers
-    need not add up. All six are always present.
+    need not add up. `behind` is not a part of `total` at all: it is a note
+    on `passed`. All seven are always present.
 
         Attributes:
             total (int): How many pull requests the page lists.
@@ -40,6 +41,9 @@ class NavPullRequestCount:
             no_checks (int): How many of them have no checks (CI `none`). Not counted as
                 running: nothing is pending, so there is nothing to wait for
                 that the pull request itself can show.
+            behind (int): How many of the `passed` ones are behind their base branch, with
+                something left to merge. Counted on the Bots page only, so
+                `0` on the others. Beside `passed`, not part of the sum.
      """
 
     total: int
@@ -48,6 +52,7 @@ class NavPullRequestCount:
     passed: int
     cancelled: int
     no_checks: int
+    behind: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -67,6 +72,8 @@ class NavPullRequestCount:
 
         no_checks = self.no_checks
 
+        behind = self.behind
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -77,6 +84,7 @@ class NavPullRequestCount:
             "passed": passed,
             "cancelled": cancelled,
             "noChecks": no_checks,
+            "behind": behind,
         })
 
         return field_dict
@@ -98,6 +106,8 @@ class NavPullRequestCount:
 
         no_checks = d.pop("noChecks")
 
+        behind = d.pop("behind")
+
         nav_pull_request_count = cls(
             total=total,
             running=running,
@@ -105,6 +115,7 @@ class NavPullRequestCount:
             passed=passed,
             cancelled=cancelled,
             no_checks=no_checks,
+            behind=behind,
         )
 
 

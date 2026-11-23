@@ -77,7 +77,6 @@ def data_union_diagnostics(context: PythonFileContext, code: str) -> list[Diagno
 class _DataUnions:
     def __init__(self, context: PythonFileContext, tree: ast.Module) -> None:
         self.context = context
-        # This analysis refines mutation ownership; keep its provenance private.
         self.provenance = ResourceProvenance(context, require_static_namespace=True)
         self.provenance.mutated = _scoped_module_mutations(self.provenance, tree)
         bindings = self.provenance.bindings.get(tree, {})
@@ -553,21 +552,24 @@ class _DataUnions:
 
     def _literal_piece(self, item: _Expansion) -> _Domain | list[_Expansion]:
         member = item.node
-        if isinstance(member, ast.Name) and member.id in self.aliases:
-            if member.id in item.aliases:
-                return _Domain(opaque=True)
-            parsed = _string_expression(self.aliases[member.id])
-            if parsed is None:
-                return _Domain(opaque=True)
-            return [_Expansion(parsed, item.aliases | {member.id})]
-        if isinstance(member, ast.Subscript):
-            children = (
-                _subscript_members(member)
-                if self._typing_symbol(member.value) == "Literal"
-                else self._union_members(member)
-            )
-            if children is not None:
-                return [_Expansion(child, item.aliases) for child in children]
+        match member:
+            case ast.Name() if member.id in self.aliases:
+                if member.id in item.aliases:
+                    return _Domain(opaque=True)
+                parsed = _string_expression(self.aliases[member.id])
+                if parsed is None:
+                    return _Domain(opaque=True)
+                return [_Expansion(parsed, item.aliases | {member.id})]
+            case ast.Subscript():
+                children = (
+                    _subscript_members(member)
+                    if self._typing_symbol(member.value) == "Literal"
+                    else self._union_members(member)
+                )
+                if children is not None:
+                    return [_Expansion(child, item.aliases) for child in children]
+            case _:
+                pass
         return _literal_value(member)
 
 

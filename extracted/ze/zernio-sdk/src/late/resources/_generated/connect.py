@@ -380,26 +380,97 @@ class ConnectResource:
             "/v1/connect/googlesearchconsole/select-site", data=payload
         )
 
+    def get_campaign_manager_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Campaign Manager 360 OAuth connect URL"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
+            }
+        )
+        return self._client._get("/v1/connect/campaignmanager360", params=params)
+
+    def list_campaign_manager_profiles(self, pending_data_token: str) -> dict[str, Any]:
+        """List Campaign Manager 360 profiles for a pending connect"""
+        params = self._build_query(
+            {
+                "pendingDataToken": pending_data_token,
+            }
+        )
+        return self._client._get(
+            "/v1/connect/campaignmanager360/profiles", params=params
+        )
+
+    def select_campaign_manager_profile(
+        self, pending_data_token: str, cm_profile_id: str
+    ) -> dict[str, Any]:
+        """Connect the chosen Campaign Manager 360 profile"""
+        payload = self._build_body(
+            {
+                "pendingDataToken": pending_data_token,
+                "cmProfileId": cm_profile_id,
+            }
+        )
+        return self._client._post(
+            "/v1/connect/campaignmanager360/select-profile", data=payload
+        )
+
+    def get_amazon_ads_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+        region: str | None = "NA",
+    ) -> dict[str, Any]:
+        """Get Amazon Ads OAuth connect URL"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
+                "region": region,
+            }
+        )
+        return self._client._get("/v1/connect/amazonads", params=params)
+
     def get_hub_spot_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get HubSpot OAuth connect URL"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/hubspot", params=params)
 
     def get_gohighlevel_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get HighLevel OAuth connect URL"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/gohighlevel", params=params)
@@ -410,6 +481,7 @@ class ConnectResource:
         *,
         environment: str | None = "production",
         redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Salesforce OAuth connect URL"""
         params = self._build_query(
@@ -417,6 +489,7 @@ class ConnectResource:
                 "profileId": profile_id,
                 "environment": environment,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/salesforce", params=params)
@@ -439,49 +512,69 @@ class ConnectResource:
         return self._client._get("/v1/connect/stripe", params=params)
 
     def get_word_press_auth_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get WordPress.com OAuth connect URL"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/wordpress", params=params)
 
     def get_wix_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Wix site install URL"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/wix", params=params)
 
     def get_webflow_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Webflow OAuth URL"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._get("/v1/connect/webflow", params=params)
 
     def connect_webflow_with_site_token(
-        self, profile_id: str, site_token: str
+        self,
+        profile_id: str,
+        site_token: str,
+        *,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect Webflow with a site API token"""
         payload = self._build_body(
             {
                 "profileId": profile_id,
                 "siteToken": site_token,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._post("/v1/connect/webflow/token", data=payload)
@@ -508,7 +601,13 @@ class ConnectResource:
         return self._client._get("/v1/connect/email", params=params)
 
     def connect_word_press_with_application_password(
-        self, profile_id: str, site_url: str, username: str, application_password: str
+        self,
+        profile_id: str,
+        site_url: str,
+        username: str,
+        application_password: str,
+        *,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect self-hosted WordPress with an application password"""
         payload = self._build_body(
@@ -517,6 +616,7 @@ class ConnectResource:
                 "siteUrl": site_url,
                 "username": username,
                 "applicationPassword": application_password,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return self._client._post("/v1/connect/wordpress/token", data=payload)
@@ -983,20 +1083,26 @@ class ConnectResource:
 
     def connect_app_lovin_ads_credentials(
         self,
-        api_key: str,
-        event_key: str,
         profile_id: str,
         *,
+        api_key: str | None = None,
+        event_key: str | None = None,
+        campaign_api_key: str | None = None,
+        account_id: str | None = None,
+        reconnect_account_id: str | None = None,
         report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
-        """Connect an AppLovin Axon account"""
+        """Connect an AppLovin account"""
         payload = self._build_body(
             {
                 "apiKey": api_key,
                 "eventKey": event_key,
+                "campaignApiKey": campaign_api_key,
+                "accountId": account_id,
+                "reconnectAccountId": reconnect_account_id,
                 "reportKey": report_key,
                 "name": name,
                 "profileId": profile_id,
@@ -1028,6 +1134,167 @@ class ConnectResource:
             }
         )
         return self._client._post("/v1/connect/snapchat-ads/credentials", data=payload)
+
+    def connect_klaviyo_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Klaviyo account"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/klaviyo/credentials", data=payload)
+
+    def connect_attentive_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Attentive company"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/attentive/credentials", data=payload)
+
+    def connect_impact_credentials(
+        self,
+        account_sid: str,
+        auth_token: str,
+        program_id: str,
+        event_type_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Impact program"""
+        payload = self._build_body(
+            {
+                "accountSid": account_sid,
+                "authToken": auth_token,
+                "programId": program_id,
+                "eventTypeId": event_type_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/impact/credentials", data=payload)
+
+    def connect_awin_credentials(
+        self,
+        api_key: str,
+        advertiser_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Awin advertiser"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "advertiserId": advertiser_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/awin/credentials", data=payload)
+
+    def connect_trade_desk_ads_credentials(
+        self,
+        advertiser_id: str,
+        tracker_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Trade Desk tracking tag"""
+        payload = self._build_body(
+            {
+                "advertiserId": advertiser_id,
+                "trackerId": tracker_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/tradedesk-ads/credentials", data=payload)
+
+    def connect_trade_desk_ads_partner(
+        self,
+        partner_id: str,
+        api_token: str,
+        profile_id: str,
+        *,
+        ad_account_ids: list[str] | None = None,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Trade Desk partner for ads management"""
+        payload = self._build_body(
+            {
+                "partnerId": partner_id,
+                "apiToken": api_token,
+                "adAccountIds": ad_account_ids,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/tradedesk-ads/partner", data=payload)
+
+    def connect_taboola_ads_credentials(
+        self,
+        taboola_account_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Taboola account"""
+        payload = self._build_body(
+            {
+                "taboolaAccountId": taboola_account_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/taboola-ads/credentials", data=payload)
 
     def connect_whop_ads_credentials(
         self,
@@ -2080,26 +2347,99 @@ class ConnectResource:
             "/v1/connect/googlesearchconsole/select-site", data=payload
         )
 
+    async def aget_campaign_manager_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Campaign Manager 360 OAuth connect URL (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
+            }
+        )
+        return await self._client._aget("/v1/connect/campaignmanager360", params=params)
+
+    async def alist_campaign_manager_profiles(
+        self, pending_data_token: str
+    ) -> dict[str, Any]:
+        """List Campaign Manager 360 profiles for a pending connect (async)"""
+        params = self._build_query(
+            {
+                "pendingDataToken": pending_data_token,
+            }
+        )
+        return await self._client._aget(
+            "/v1/connect/campaignmanager360/profiles", params=params
+        )
+
+    async def aselect_campaign_manager_profile(
+        self, pending_data_token: str, cm_profile_id: str
+    ) -> dict[str, Any]:
+        """Connect the chosen Campaign Manager 360 profile (async)"""
+        payload = self._build_body(
+            {
+                "pendingDataToken": pending_data_token,
+                "cmProfileId": cm_profile_id,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/campaignmanager360/select-profile", data=payload
+        )
+
+    async def aget_amazon_ads_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+        region: str | None = "NA",
+    ) -> dict[str, Any]:
+        """Get Amazon Ads OAuth connect URL (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
+                "region": region,
+            }
+        )
+        return await self._client._aget("/v1/connect/amazonads", params=params)
+
     async def aget_hub_spot_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get HubSpot OAuth connect URL (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/hubspot", params=params)
 
     async def aget_gohighlevel_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get HighLevel OAuth connect URL (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/gohighlevel", params=params)
@@ -2110,6 +2450,7 @@ class ConnectResource:
         *,
         environment: str | None = "production",
         redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Salesforce OAuth connect URL (async)"""
         params = self._build_query(
@@ -2117,6 +2458,7 @@ class ConnectResource:
                 "profileId": profile_id,
                 "environment": environment,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/salesforce", params=params)
@@ -2139,49 +2481,69 @@ class ConnectResource:
         return await self._client._aget("/v1/connect/stripe", params=params)
 
     async def aget_word_press_auth_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get WordPress.com OAuth connect URL (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/wordpress", params=params)
 
     async def aget_wix_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Wix site install URL (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/wix", params=params)
 
     async def aget_webflow_connect_url(
-        self, profile_id: str, *, redirect_url: str | None = None
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Get Webflow OAuth URL (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._aget("/v1/connect/webflow", params=params)
 
     async def aconnect_webflow_with_site_token(
-        self, profile_id: str, site_token: str
+        self,
+        profile_id: str,
+        site_token: str,
+        *,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect Webflow with a site API token (async)"""
         payload = self._build_body(
             {
                 "profileId": profile_id,
                 "siteToken": site_token,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._apost("/v1/connect/webflow/token", data=payload)
@@ -2208,7 +2570,13 @@ class ConnectResource:
         return await self._client._aget("/v1/connect/email", params=params)
 
     async def aconnect_word_press_with_application_password(
-        self, profile_id: str, site_url: str, username: str, application_password: str
+        self,
+        profile_id: str,
+        site_url: str,
+        username: str,
+        application_password: str,
+        *,
+        reconnect_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect self-hosted WordPress with an application password (async)"""
         payload = self._build_body(
@@ -2217,6 +2585,7 @@ class ConnectResource:
                 "siteUrl": site_url,
                 "username": username,
                 "applicationPassword": application_password,
+                "reconnectAccountId": reconnect_account_id,
             }
         )
         return await self._client._apost("/v1/connect/wordpress/token", data=payload)
@@ -2697,20 +3066,26 @@ class ConnectResource:
 
     async def aconnect_app_lovin_ads_credentials(
         self,
-        api_key: str,
-        event_key: str,
         profile_id: str,
         *,
+        api_key: str | None = None,
+        event_key: str | None = None,
+        campaign_api_key: str | None = None,
+        account_id: str | None = None,
+        reconnect_account_id: str | None = None,
         report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
-        """Connect an AppLovin Axon account (async)"""
+        """Connect an AppLovin account (async)"""
         payload = self._build_body(
             {
                 "apiKey": api_key,
                 "eventKey": event_key,
+                "campaignApiKey": campaign_api_key,
+                "accountId": account_id,
+                "reconnectAccountId": reconnect_account_id,
                 "reportKey": report_key,
                 "name": name,
                 "profileId": profile_id,
@@ -2745,6 +3120,177 @@ class ConnectResource:
         )
         return await self._client._apost(
             "/v1/connect/snapchat-ads/credentials", data=payload
+        )
+
+    async def aconnect_klaviyo_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Klaviyo account (async)"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/klaviyo/credentials", data=payload
+        )
+
+    async def aconnect_attentive_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Attentive company (async)"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/attentive/credentials", data=payload
+        )
+
+    async def aconnect_impact_credentials(
+        self,
+        account_sid: str,
+        auth_token: str,
+        program_id: str,
+        event_type_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Impact program (async)"""
+        payload = self._build_body(
+            {
+                "accountSid": account_sid,
+                "authToken": auth_token,
+                "programId": program_id,
+                "eventTypeId": event_type_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost("/v1/connect/impact/credentials", data=payload)
+
+    async def aconnect_awin_credentials(
+        self,
+        api_key: str,
+        advertiser_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect an Awin advertiser (async)"""
+        payload = self._build_body(
+            {
+                "apiKey": api_key,
+                "advertiserId": advertiser_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost("/v1/connect/awin/credentials", data=payload)
+
+    async def aconnect_trade_desk_ads_credentials(
+        self,
+        advertiser_id: str,
+        tracker_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Trade Desk tracking tag (async)"""
+        payload = self._build_body(
+            {
+                "advertiserId": advertiser_id,
+                "trackerId": tracker_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/tradedesk-ads/credentials", data=payload
+        )
+
+    async def aconnect_trade_desk_ads_partner(
+        self,
+        partner_id: str,
+        api_token: str,
+        profile_id: str,
+        *,
+        ad_account_ids: list[str] | None = None,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Trade Desk partner for ads management (async)"""
+        payload = self._build_body(
+            {
+                "partnerId": partner_id,
+                "apiToken": api_token,
+                "adAccountIds": ad_account_ids,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/tradedesk-ads/partner", data=payload
+        )
+
+    async def aconnect_taboola_ads_credentials(
+        self,
+        taboola_account_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Taboola account (async)"""
+        payload = self._build_body(
+            {
+                "taboolaAccountId": taboola_account_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/taboola-ads/credentials", data=payload
         )
 
     async def aconnect_whop_ads_credentials(

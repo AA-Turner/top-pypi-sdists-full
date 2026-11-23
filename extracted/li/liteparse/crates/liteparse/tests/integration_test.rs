@@ -387,6 +387,35 @@ async fn test_extract_blocks_carries_geometry_without_changing_markdown() {
         ys.windows(2).all(|w| w[0] <= w[1]),
         "blocks should be in reading order, got {ys:?}"
     );
+    // Every block links back to the page's text items: in bounds, sorted,
+    // present on every text-bearing block, and never shared between blocks.
+    let n_items = with.pages[0].text_items.len();
+    let mut seen = std::collections::HashSet::new();
+    for b in blocks {
+        assert!(b.text_item_indices.iter().all(|&i| i < n_items));
+        assert!(b.text_item_indices.windows(2).all(|w| w[0] < w[1]));
+        assert!(
+            matches!(b.kind.as_str(), "rule" | "figure") || !b.text_item_indices.is_empty(),
+            "{} block carries no text items",
+            b.kind
+        );
+        for &i in &b.text_item_indices {
+            assert!(seen.insert(i), "item {i} attributed to two blocks");
+        }
+        let cells = b
+            .header
+            .iter()
+            .flatten()
+            .chain(b.rows.iter().flatten().flatten());
+        for cell in cells {
+            assert!(cell.text_item_indices.iter().all(|&i| i < n_items));
+            assert!(
+                cell.text_item_indices
+                    .iter()
+                    .all(|i| b.text_item_indices.contains(i))
+            );
+        }
+    }
 }
 
 #[tokio::test]
@@ -812,7 +841,7 @@ async fn test_ocr_worker_is_refilled_before_slowest_request_finishes() {
     let parser = LiteParse::new(LiteParseConfig {
         ocr_enabled: true,
         num_workers: 2,
-        dpi: 72.0,
+        dpi: Some(72.0),
         quiet: true,
         ..Default::default()
     })
@@ -874,7 +903,7 @@ async fn test_ocr_rounds_cover_every_page_once() {
         let parser = LiteParse::new(LiteParseConfig {
             ocr_enabled: true,
             num_workers,
-            dpi: 150.0,
+            dpi: Some(150.0),
             quiet: true,
             ..Default::default()
         })
@@ -954,7 +983,7 @@ async fn test_ocr_rounds_fill_across_sparse_pages() {
     let parser = LiteParse::new(LiteParseConfig {
         ocr_enabled: true,
         num_workers: workers,
-        dpi: 72.0, // Small rasters: this test is about scheduling, not pixels.
+        dpi: Some(72.0), // Small rasters: this test is about scheduling, not pixels.
         quiet: true,
         ..Default::default()
     })
@@ -1489,7 +1518,7 @@ async fn parse_with_failing_widths(
     LiteParse::new(LiteParseConfig {
         ocr_enabled: true,
         num_workers: 2,
-        dpi: 72.0,
+        dpi: Some(72.0),
         quiet: true,
         ocr_failure_fatal: fatal,
         ..Default::default()

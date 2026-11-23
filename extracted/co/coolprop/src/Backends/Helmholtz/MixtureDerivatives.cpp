@@ -57,10 +57,32 @@ CoolPropDbl MixtureDerivatives::dln_fugacity_dxj__constT_p_xi(HelmholtzEOSMixtur
     CoolPropDbl val = dln_fugacity_coefficient_dxj__constT_p_xi(HEOS, i, j, xN_flag);
     const std::vector<CoolPropDbl>& x = HEOS.get_mole_fractions();
     std::size_t N = x.size();
-    if (i == N - 1) {
-        val += -1 / x[N - 1];
-    } else if (i == j) {
-        val += 1 / x[j];
+    // Ideal-gas contribution d(ln x_i)/dx_j, which depends on the composition convention:
+    //  * XN_DEPENDENT: x_{N-1} = 1 - sum_{k<N-1} x_k is the dependent mole fraction, so
+    //    d(ln x_{N-1})/dx_j = -1/x_{N-1} for every j, and d(ln x_i)/dx_j = delta_ij/x_i for i < N-1.
+    //  * XN_INDEPENDENT: all x_i are treated as independent, so d(ln x_i)/dx_j = delta_ij/x_i for
+    //    EVERY i, including the last component.  (Previously this branch was missing: the function
+    //    applied the XN_DEPENDENT term -1/x_{N-1} to the last row regardless of the flag, so the
+    //    last-component row was wrong for XN_INDEPENDENT callers.  GH #3342: this fed a corrupted
+    //    last row into the new mole-number Gibbs Hessian of the PT-flash minority-phase fallback,
+    //    flipping its smallest eigenvalue negative -- see PTflash_twophase::solve_michelsen.)
+    //    NOTE: consumers that assemble a Hessian in the fugacity-COEFFICIENT derivative must call
+    //    dln_fugacity_coefficient_dxj__constT_p_xi and add their own mole-number projection instead
+    //    of this (full fugacity) derivative -- feeding this one double-counts the ideal term and
+    //    drops the projection, breaking the Hessian's symmetry.  The PT-flash Phase-2 Gibbs Hessian
+    //    and the Michelsen stability classifier (minimize_tpd) both do so correctly; see
+    //    VLERoutines.cpp.  Fixing the XN_INDEPENDENT branch below without also fixing the stability
+    //    classifier flipped its MSVC verdict for methanol/benzene (GH #3357, jakobreichert).
+    if (xN_flag == XN_DEPENDENT) {
+        if (i == N - 1) {
+            val += -1 / x[N - 1];
+        } else if (i == j) {
+            val += 1 / x[j];
+        }
+    } else {  // XN_INDEPENDENT
+        if (i == j) {
+            val += 1 / x[j];
+        }
     }
     return val;
 }
@@ -71,8 +93,8 @@ CoolPropDbl MixtureDerivatives::dln_fugacity_dxj__constT_rho_xi(HelmholtzEOSMixt
     }
     CoolPropDbl rhor = HEOS.Reducing->rhormolar(HEOS.get_mole_fractions());
     CoolPropDbl Tr = HEOS.Reducing->Tr(HEOS.get_mole_fractions());
-    CoolPropDbl dTrdxj = HEOS.Reducing->dTrdxi__constxj(HEOS.get_mole_fractions(), j, xN_flag);
-    CoolPropDbl drhordxj = HEOS.Reducing->drhormolardxi__constxj(HEOS.get_mole_fractions(), j, xN_flag);
+    CoolPropDbl dTrdxj = dTrdxi__constxj(HEOS, j, xN_flag);
+    CoolPropDbl drhordxj = drhormolardxi__constxj(HEOS, j, xN_flag);
 
     // These lines are all the same
     CoolPropDbl line1 = dln_fugacity_i_dtau__constdelta_x(HEOS, i, xN_flag) * 1 / HEOS.T() * dTrdxj;
@@ -82,7 +104,7 @@ CoolPropDbl MixtureDerivatives::dln_fugacity_dxj__constT_rho_xi(HelmholtzEOSMixt
     const std::vector<CoolPropDbl>& x = HEOS.get_mole_fractions();
     std::size_t N = x.size();
 
-    CoolPropDbl line3 = 1 / rhor * HEOS.Reducing->drhormolardxi__constxj(x, j, xN_flag) + 1 / Tr * HEOS.Reducing->dTrdxi__constxj(x, j, xN_flag);
+    CoolPropDbl line3 = 1 / rhor * drhormolardxi__constxj(HEOS, j, xN_flag) + 1 / Tr * dTrdxi__constxj(HEOS, j, xN_flag);
     ;
 
     // This is a term to which some more might be added depending on i and j
@@ -186,11 +208,11 @@ CoolPropDbl MixtureDerivatives::d_ndalphardni_dxj__constT_V_xi(HelmholtzEOSMixtu
 }
 CoolPropDbl MixtureDerivatives::ddelta_dxj__constT_V_xi(HelmholtzEOSMixtureBackend& HEOS, std::size_t j, x_N_dependency_flag xN_flag) {
     // Gernert 3.121 (Catch test provided)
-    return -HEOS._delta.pt() / HEOS._reducing.rhomolar * HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, j, xN_flag);
+    return -HEOS._delta.pt() / HEOS._reducing.rhomolar * drhormolardxi__constxj(HEOS, j, xN_flag);
 }
 CoolPropDbl MixtureDerivatives::dtau_dxj__constT_V_xi(HelmholtzEOSMixtureBackend& HEOS, std::size_t j, x_N_dependency_flag xN_flag) {
     // Gernert 3.122 (Catch test provided)
-    return 1 / HEOS._T * HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, j, xN_flag);
+    return 1 / HEOS._T * dTrdxi__constxj(HEOS, j, xN_flag);
 }
 
 CoolPropDbl MixtureDerivatives::dpdT__constV_n(HelmholtzEOSMixtureBackend& HEOS) {
@@ -209,8 +231,8 @@ CoolPropDbl MixtureDerivatives::ndpdV__constT_n(HelmholtzEOSMixtureBackend& HEOS
 CoolPropDbl MixtureDerivatives::ndpdni__constT_V_nj(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
     // Eqn 7.64 and 7.63
     CoolPropDbl R_u = HEOS.gas_constant();
-    double ndrhorbar_dni__constnj = HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag);
-    double ndTr_dni__constnj = HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    double ndrhorbar_dni__constnj = ndrhorbardni__constnj(HEOS, i, xN_flag);
+    double ndTr_dni__constnj = ndTrdni__constnj(HEOS, i, xN_flag);
     double summer = 0;
     std::size_t kmax = HEOS.mole_fractions.size();
     if (xN_flag == XN_DEPENDENT) {
@@ -228,9 +250,8 @@ CoolPropDbl MixtureDerivatives::ndpdni__constT_V_nj(HelmholtzEOSMixtureBackend& 
 }
 
 CoolPropDbl MixtureDerivatives::ndalphar_dni__constT_V_nj(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
-    double term1 = HEOS._delta.pt() * HEOS.dalphar_dDelta()
-                   * (1 - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
-    double term2 = HEOS._tau.pt() * HEOS.dalphar_dTau() * (1 / HEOS._reducing.T) * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    double term1 = HEOS._delta.pt() * HEOS.dalphar_dDelta() * (1 - 1 / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag));
+    double term2 = HEOS._tau.pt() * HEOS.dalphar_dTau() * (1 / HEOS._reducing.T) * ndTrdni__constnj(HEOS, i, xN_flag);
 
     double s = 0;
     std::size_t kmax = HEOS.mole_fractions.size();
@@ -250,18 +271,17 @@ CoolPropDbl MixtureDerivatives::ndln_fugacity_coefficient_dnj__constT_p(Helmholt
            - partial_molar_volume(HEOS, j, xN_flag) / (R_u * HEOS._T) * ndpdni__constT_V_nj(HEOS, i, xN_flag);
 }
 CoolPropDbl MixtureDerivatives::nddeltadni__constT_V_nj(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
-    return HEOS._delta.pt() - HEOS._delta.pt() / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag);
+    return HEOS._delta.pt() - HEOS._delta.pt() / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag);
 }
 CoolPropDbl MixtureDerivatives::d_nddeltadni_dDelta(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
-    return 1 - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag);
+    return 1 - 1 / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag);
 }
 CoolPropDbl MixtureDerivatives::d_nddeltadni_dxj__constdelta_tau(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, std::size_t j,
                                                                  x_N_dependency_flag xN_flag) {
     double rhor = HEOS._reducing.rhomolar;
     return -HEOS.delta() / rhor
-           * (HEOS.Reducing->d_ndrhorbardni_dxj__constxi(HEOS.mole_fractions, i, j, xN_flag)
-              - 1 / rhor * HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, j, xN_flag)
-                  * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
+           * (d_ndrhorbardni_dxj__constxi(HEOS, i, j, xN_flag)
+              - 1 / rhor * drhormolardxi__constxj(HEOS, j, xN_flag) * ndrhorbardni__constnj(HEOS, i, xN_flag));
 }
 CoolPropDbl MixtureDerivatives::d2_nddeltadni_dxj_dDelta__consttau(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, std::size_t j,
                                                                    x_N_dependency_flag xN_flag) {
@@ -269,19 +289,17 @@ CoolPropDbl MixtureDerivatives::d2_nddeltadni_dxj_dDelta__consttau(HelmholtzEOSM
 }
 
 CoolPropDbl MixtureDerivatives::ndtaudni__constT_V_nj(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
-    return HEOS._tau.pt() / HEOS._reducing.T * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    return HEOS._tau.pt() / HEOS._reducing.T * ndTrdni__constnj(HEOS, i, xN_flag);
 }
 
 CoolPropDbl MixtureDerivatives::d_ndtaudni_dTau(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
-    return 1 / HEOS._reducing.T * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    return 1 / HEOS._reducing.T * ndTrdni__constnj(HEOS, i, xN_flag);
 }
 CoolPropDbl MixtureDerivatives::d_ndtaudni_dxj__constdelta_tau(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, std::size_t j,
                                                                x_N_dependency_flag xN_flag) {
     double Tr = HEOS._reducing.T;
     return HEOS.tau() / Tr
-           * (HEOS.Reducing->d_ndTrdni_dxj__constxi(HEOS.mole_fractions, i, j, xN_flag)
-              - 1 / Tr * HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, j, xN_flag)
-                  * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag));
+           * (d_ndTrdni_dxj__constxi(HEOS, i, j, xN_flag) - 1 / Tr * dTrdxi__constxj(HEOS, j, xN_flag) * ndTrdni__constnj(HEOS, i, xN_flag));
 }
 CoolPropDbl MixtureDerivatives::d2_ndtaudni_dxj_dTau__constdelta(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, std::size_t j,
                                                                  x_N_dependency_flag xN_flag) {
@@ -290,17 +308,15 @@ CoolPropDbl MixtureDerivatives::d2_ndtaudni_dxj_dTau__constdelta(HelmholtzEOSMix
 CoolPropDbl MixtureDerivatives::d_ndalphardni_dxj__constdelta_tau_xi(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, std::size_t j,
                                                                      x_N_dependency_flag xN_flag) {
     double line1 = HEOS._delta.pt() * HEOS.residual_helmholtz->d2alphar_dxi_dDelta(HEOS, j, xN_flag)
-                   * (1 - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
-    double line3 = HEOS._tau.pt() * HEOS.residual_helmholtz->d2alphar_dxi_dTau(HEOS, j, xN_flag) * (1 / HEOS._reducing.T)
-                   * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+                   * (1 - 1 / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag));
+    double line3 =
+      HEOS._tau.pt() * HEOS.residual_helmholtz->d2alphar_dxi_dTau(HEOS, j, xN_flag) * (1 / HEOS._reducing.T) * ndTrdni__constnj(HEOS, i, xN_flag);
     double line2 = -HEOS._delta.pt() * HEOS.dalphar_dDelta() * (1 / HEOS._reducing.rhomolar)
-                   * (HEOS.Reducing->d_ndrhorbardni_dxj__constxi(HEOS.mole_fractions, i, j, xN_flag)
-                      - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, j, xN_flag)
-                          * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
-    double line4 = HEOS._tau.pt() * HEOS.dalphar_dTau() * (1 / HEOS._reducing.T)
-                   * (HEOS.Reducing->d_ndTrdni_dxj__constxi(HEOS.mole_fractions, i, j, xN_flag)
-                      - 1 / HEOS._reducing.T * HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, j, xN_flag)
-                          * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag));
+                   * (d_ndrhorbardni_dxj__constxi(HEOS, i, j, xN_flag)
+                      - 1 / HEOS._reducing.rhomolar * drhormolardxi__constxj(HEOS, j, xN_flag) * ndrhorbardni__constnj(HEOS, i, xN_flag));
+    double line4 =
+      HEOS._tau.pt() * HEOS.dalphar_dTau() * (1 / HEOS._reducing.T)
+      * (d_ndTrdni_dxj__constxi(HEOS, i, j, xN_flag) - 1 / HEOS._reducing.T * dTrdxi__constxj(HEOS, j, xN_flag) * ndTrdni__constnj(HEOS, i, xN_flag));
 
     double s = 0;
     std::size_t kmax = HEOS.mole_fractions.size();
@@ -479,11 +495,10 @@ CoolPropDbl MixtureDerivatives::d2_nd_ndalphardni_dnj_dxk_dDelta__consttau(Helmh
 CoolPropDbl MixtureDerivatives::d_ndalphardni_dDelta(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
     // The first line
     double term1 = (HEOS._delta.pt() * HEOS.d2alphar_dDelta2() + HEOS.dalphar_dDelta())
-                   * (1 - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
+                   * (1 - 1 / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag));
 
     // The second line
-    double term2 =
-      HEOS._tau.pt() * HEOS.d2alphar_dDelta_dTau() * (1 / HEOS._reducing.T) * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    double term2 = HEOS._tau.pt() * HEOS.d2alphar_dDelta_dTau() * (1 / HEOS._reducing.T) * ndTrdni__constnj(HEOS, i, xN_flag);
 
     // The third line
     double term3 = HEOS.residual_helmholtz->d2alphar_dxi_dDelta(HEOS, i, xN_flag);
@@ -701,12 +716,10 @@ CoolPropDbl MixtureDerivatives::d3_ndalphardni_dxj_dDelta_dTau__constxi(Helmholt
 
 CoolPropDbl MixtureDerivatives::d_ndalphardni_dTau(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
     // The first line
-    double term1 = HEOS._delta.pt() * HEOS.d2alphar_dDelta_dTau()
-                   * (1 - 1 / HEOS._reducing.rhomolar * HEOS.Reducing->ndrhorbardni__constnj(HEOS.mole_fractions, i, xN_flag));
+    double term1 = HEOS._delta.pt() * HEOS.d2alphar_dDelta_dTau() * (1 - 1 / HEOS._reducing.rhomolar * ndrhorbardni__constnj(HEOS, i, xN_flag));
 
     // The second line
-    double term2 = (HEOS._tau.pt() * HEOS.d2alphar_dTau2() + HEOS.dalphar_dTau()) * (1 / HEOS._reducing.T)
-                   * HEOS.Reducing->ndTrdni__constnj(HEOS.mole_fractions, i, xN_flag);
+    double term2 = (HEOS._tau.pt() * HEOS.d2alphar_dTau2() + HEOS.dalphar_dTau()) * (1 / HEOS._reducing.T) * ndTrdni__constnj(HEOS, i, xN_flag);
 
     // The third line
     double term3 = HEOS.residual_helmholtz->d2alphar_dxi_dTau(HEOS, i, xN_flag);
@@ -824,6 +837,204 @@ CoolPropDbl MixtureDerivatives::d3_ndalphardni_dxj_dxk_dDelta__consttau_xi(Helmh
     return term1 + term2 + term3;
 }
 
+Eigen::MatrixXd MixtureDerivatives::nAij_matrix(HelmholtzEOSMixtureBackend& HEOS, x_N_dependency_flag xN_flag, parameters WRT) {
+    if (WRT != INVALID_PARAMETER && WRT != iTau && WRT != iDelta) {
+        throw ValueError(format("nAij_matrix: WRT must be INVALID_PARAMETER (no derivative), iTau or iDelta; got %d", static_cast<int>(WRT)));
+    }
+    const std::size_t N = HEOS.mole_fractions.size();
+    const std::size_t mmax = (xN_flag == XN_DEPENDENT) ? N - 1 : N;
+    const std::vector<CoolPropDbl>& x = HEOS.mole_fractions;
+    using vec_fn = CoolPropDbl (*)(HelmholtzEOSMixtureBackend&, std::size_t, x_N_dependency_flag);
+    using mat_fn = CoolPropDbl (*)(HelmholtzEOSMixtureBackend&, std::size_t, std::size_t, x_N_dependency_flag);
+    auto vec = [&](vec_fn f) {
+        Eigen::VectorXd v(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            v(i) = f(HEOS, i, xN_flag);
+        }
+        return v;
+    };
+    auto mat = [&](mat_fn f) {
+        Eigen::MatrixXd M(N, N);
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                M(i, j) = f(HEOS, i, j, xN_flag);
+            }
+        }
+        return M;
+    };
+
+    // All three variants have the shape
+    //   A(i,j) = s(i,j) + e(j) + sum a(i) b(j) + Q(i,j) - sum_k x_k Q(i,k)
+    // with s the Kronecker term, present only in the underived nAij (ndln_fugacity_i_dnj__constT_V_xi), e the
+    // j-only term, and the rest nd_ndalphardni_dnj__constT_V or its tau / delta derivative.
+    const Eigen::VectorXd ndtau = vec(ndtaudni__constT_V_nj), nddelta = vec(nddeltadni__constT_V_nj);
+    Eigen::VectorXd e;
+    Eigen::MatrixXd Q, ab;
+    if (WRT == INVALID_PARAMETER) {
+        e = vec(ndalphar_dni__constT_V_nj);
+        Q = mat(d_ndalphardni_dxj__constdelta_tau_xi);
+        ab = vec(d_ndalphardni_dDelta) * nddelta.transpose() + vec(d_ndalphardni_dTau) * ndtau.transpose();
+    } else if (WRT == iTau) {
+        const Eigen::VectorXd dA_dTau = vec(d_ndalphardni_dTau);
+        e = dA_dTau;
+        Q = mat(d2_ndalphardni_dxj_dTau__constdelta_xi);
+        ab = vec(d2_ndalphardni_dDelta_dTau) * nddelta.transpose() + vec(d2_ndalphardni_dTau2) * ndtau.transpose()
+             + dA_dTau * vec(d_ndtaudni_dTau).transpose();
+    } else {  // iDelta
+        const Eigen::VectorXd dA_dDelta = vec(d_ndalphardni_dDelta);
+        e = dA_dDelta;
+        Q = mat(d2_ndalphardni_dxj_dDelta__consttau_xi);
+        ab = vec(d2_ndalphardni_dDelta2) * nddelta.transpose() + dA_dDelta * vec(d_nddeltadni_dDelta).transpose()
+             + vec(d2_ndalphardni_dDelta_dTau) * ndtau.transpose();
+    }
+    Eigen::VectorXd SQ = Eigen::VectorXd::Zero(N);  // SQ(i) = sum_k x_k Q(i,k)
+    for (std::size_t k = 0; k < mmax; ++k) {
+        SQ += x[k] * Q.col(k);
+    }
+    Eigen::MatrixXd A(N, N);
+    for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t j = 0; j < N; ++j) {
+            double s = 0;
+            if (WRT == INVALID_PARAMETER && i == j && x[i] > DBL_EPSILON) {
+                s = 1 / x[i];
+            }
+            A(i, j) = s + e(j) + ab(i, j) + Q(i, j) - SQ(i);
+        }
+    }
+    return A;
+}
+
+std::vector<Eigen::MatrixXd> MixtureDerivatives::n2Aijk_tensor(HelmholtzEOSMixtureBackend& HEOS, x_N_dependency_flag xN_flag, parameters WRT) {
+    if (WRT != INVALID_PARAMETER && WRT != iTau && WRT != iDelta) {
+        throw ValueError(format("n2Aijk_tensor: WRT must be INVALID_PARAMETER (no derivative), iTau or iDelta; got %d", static_cast<int>(WRT)));
+    }
+    const std::size_t N = HEOS.mole_fractions.size();
+    const std::size_t mmax = (xN_flag == XN_DEPENDENT) ? N - 1 : N;
+    const std::vector<CoolPropDbl>& x = HEOS.mole_fractions;
+
+    using vec_fn = CoolPropDbl (*)(HelmholtzEOSMixtureBackend&, std::size_t, x_N_dependency_flag);
+    using mat_fn = CoolPropDbl (*)(HelmholtzEOSMixtureBackend&, std::size_t, std::size_t, x_N_dependency_flag);
+    using ten_fn = CoolPropDbl (*)(HelmholtzEOSMixtureBackend&, std::size_t, std::size_t, std::size_t, x_N_dependency_flag);
+    auto vec = [&](vec_fn f) {
+        Eigen::VectorXd v(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            v(i) = f(HEOS, i, xN_flag);
+        }
+        return v;
+    };
+    auto mat = [&](mat_fn f) {
+        Eigen::MatrixXd M(N, N);
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                M(i, j) = f(HEOS, i, j, xN_flag);
+            }
+        }
+        return M;
+    };
+
+    // Each of the three nested levels has the same shape for the value and for its tau and delta derivatives,
+    // only the ingredients differ.  With C the innermost tensor (i,j,k), P the matching (i,k) matrix, and
+    // SC(i,k) = sum_m x_m C(i,m,k):
+    //   B(i,j,k) = sum a(i) D(j,k) + sum E(i,k) b(j) + C(i,j,k) - P(i,k) - SC(i,k)   [d_nd_ndalphardni_dnj_dxk & derivs]
+    //   G(i,j,k) = s(i,j,k) + P(j,k) + B(i,j,k)                                        [d_ndln_fugacity_i_dnj_ddxk & derivs]
+    //   T(i,j,k) = sum F(i,j) c(k) + G(i,j,k) - SG(i,j) - Fself(i,j)                  [n2Aijk & d_n2Aijk_dX]
+    // where s is the Kronecker term present only in the underived G, and SG(i,j) = sum_m x_m G(i,j,m).
+    struct VecMat
+    {
+        Eigen::VectorXd v;
+        Eigen::MatrixXd M;
+    };
+    std::vector<VecMat> a_D;  // a(i) * D(j,k)
+    std::vector<VecMat> b_E;  // E(i,k) * b(j)
+    std::vector<VecMat> c_F;  // F(i,j) * c(k)
+    Eigen::MatrixXd P, Fself;
+    ten_fn C_fn = nullptr;
+
+    const Eigen::VectorXd ndtau = vec(ndtaudni__constT_V_nj), nddelta = vec(nddeltadni__constT_V_nj);
+    const Eigen::MatrixXd D_delta = mat(d_nddeltadni_dxj__constdelta_tau), D_tau = mat(d_ndtaudni_dxj__constdelta_tau);
+    if (WRT == INVALID_PARAMETER) {
+        const Eigen::VectorXd dA_dDelta = vec(d_ndalphardni_dDelta), dA_dTau = vec(d_ndalphardni_dTau);
+        P = mat(d_ndalphardni_dxj__constdelta_tau_xi);
+        Fself = nAij_matrix(HEOS, xN_flag);
+        a_D = {{dA_dDelta, D_delta}, {dA_dTau, D_tau}};
+        b_E = {{nddelta, mat(d2_ndalphardni_dxj_dDelta__consttau_xi)}, {ndtau, mat(d2_ndalphardni_dxj_dTau__constdelta_xi)}};
+        c_F = {{ndtau, nAij_matrix(HEOS, xN_flag, iTau)}, {nddelta, nAij_matrix(HEOS, xN_flag, iDelta)}};
+        C_fn = d2_ndalphardni_dxj_dxk__constdelta_tau_xi;
+    } else if (WRT == iTau) {
+        const Eigen::VectorXd dA_dTau = vec(d_ndalphardni_dTau), d2A_dDelta_dTau = vec(d2_ndalphardni_dDelta_dTau),
+                              d2A_dTau2 = vec(d2_ndalphardni_dTau2), dndtau_dTau = vec(d_ndtaudni_dTau);
+        P = mat(d2_ndalphardni_dxj_dTau__constdelta_xi);
+        Fself = nAij_matrix(HEOS, xN_flag, iTau);
+        a_D = {{d2A_dDelta_dTau, D_delta}, {dA_dTau, mat(d2_ndtaudni_dxj_dTau__constdelta)}, {d2A_dTau2, D_tau}};
+        b_E = {{nddelta, mat(d3_ndalphardni_dxj_dDelta_dTau__constxi)}, {dndtau_dTau, P}, {ndtau, mat(d3_ndalphardni_dxj_dTau2__constdelta_xi)}};
+        c_F = {
+          {ndtau, mat(d2_ndln_fugacity_i_dnj_dtau2__constdelta_x)}, {dndtau_dTau, Fself}, {nddelta, mat(d2_ndln_fugacity_i_dnj_ddelta_dtau__constx)}};
+        C_fn = d3_ndalphardni_dxj_dxk_dTau__constdelta_xi;
+    } else {  // iDelta
+        const Eigen::VectorXd dA_dDelta = vec(d_ndalphardni_dDelta), d2A_dDelta2 = vec(d2_ndalphardni_dDelta2),
+                              d2A_dDelta_dTau = vec(d2_ndalphardni_dDelta_dTau), dnddelta_dDelta = vec(d_nddeltadni_dDelta);
+        P = mat(d2_ndalphardni_dxj_dDelta__consttau_xi);
+        Fself = nAij_matrix(HEOS, xN_flag, iDelta);
+        a_D = {{dA_dDelta, mat(d2_nddeltadni_dxj_dDelta__consttau)}, {d2A_dDelta2, D_delta}, {d2A_dDelta_dTau, D_tau}};
+        b_E = {{dnddelta_dDelta, P}, {nddelta, mat(d3_ndalphardni_dxj_dDelta2__consttau_xi)}, {ndtau, mat(d3_ndalphardni_dxj_dDelta_dTau__constxi)}};
+        c_F = {{ndtau, mat(d2_ndln_fugacity_i_dnj_ddelta_dtau__constx)},
+               {nddelta, mat(d2_ndln_fugacity_i_dnj_ddelta2__consttau_x)},
+               {dnddelta_dDelta, Fself}};
+        C_fn = d3_ndalphardni_dxj_dxk_dDelta__consttau_xi;
+    }
+
+    // Innermost tensor, stored as N matrices indexed [i](j,k); this is the only O(N^3) set of leaf evaluations
+    std::vector<Eigen::MatrixXd> C(N, Eigen::MatrixXd(N, N));
+    for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t j = 0; j < N; ++j) {
+            for (std::size_t k = 0; k < N; ++k) {
+                C[i](j, k) = C_fn(HEOS, i, j, k, xN_flag);
+            }
+        }
+    }
+    Eigen::MatrixXd SC = Eigen::MatrixXd::Zero(N, N);
+    for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t m = 0; m < mmax; ++m) {
+            SC.row(i) += x[m] * C[i].row(m);
+        }
+    }
+
+    // G, stored as N matrices indexed [k](i,j) so that the result can be returned in the same layout
+    std::vector<Eigen::MatrixXd> G(N, Eigen::MatrixXd(N, N));
+    for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t j = 0; j < N; ++j) {
+            for (std::size_t k = 0; k < N; ++k) {
+                double B = 0;
+                for (const auto& t : a_D) {
+                    B += t.v(i) * t.M(j, k);
+                }
+                for (const auto& t : b_E) {
+                    B += t.M(i, k) * t.v(j);
+                }
+                B += C[i](j, k) - P(i, k) - SC(i, k);
+                double s = 0;
+                if (WRT == INVALID_PARAMETER && i == j && j == k && x[i] > DBL_EPSILON) {
+                    s = -1 / pow(x[i], 2);
+                }
+                G[k](i, j) = s + P(j, k) + B;
+            }
+        }
+    }
+    Eigen::MatrixXd SG = Eigen::MatrixXd::Zero(N, N);
+    for (std::size_t m = 0; m < mmax; ++m) {
+        SG += x[m] * G[m];
+    }
+
+    std::vector<Eigen::MatrixXd> T(N, Eigen::MatrixXd(N, N));
+    for (std::size_t k = 0; k < N; ++k) {
+        T[k] = G[k] - SG - Fself;
+        for (const auto& t : c_F) {
+            T[k] += t.v(k) * t.M;
+        }
+    }
+    return T;
+}
+
 CoolPropDbl MixtureDerivatives::dalpha0_dxi(HelmholtzEOSMixtureBackend& HEOS, std::size_t i, x_N_dependency_flag xN_flag) {
     // Reducing values are constant for all components under consideration
     double Tr = HEOS.T_reducing();
@@ -849,8 +1060,8 @@ CoolPropDbl MixtureDerivatives::dalpha0_dxi(HelmholtzEOSMixtureBackend& HEOS, st
         double rhock = HEOS.get_fluid_constant(k, irhomolar_critical);
         double tau_ok = HEOS.tau() * Tck / Tr;
         double delta_ok = HEOS.delta() * rhor / rhock;
-        double dtauok_dxi = -tau_ok / Tr * HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, i, xN_flag);              // (Gernert, supp, B.19)
-        double ddeltaok_dxi = delta_ok / rhor * HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, i, xN_flag);  // (Gernert, supp. B.20)
+        double dtauok_dxi = -tau_ok / Tr * dTrdxi__constxj(HEOS, i, xN_flag);              // (Gernert, supp, B.19)
+        double ddeltaok_dxi = delta_ok / rhor * drhormolardxi__constxj(HEOS, i, xN_flag);  // (Gernert, supp. B.20)
 
         double Rratiok = 1;  //HEOS.gas_constant()/HEOS.components[k].EOS().R_u;
         HelmholtzDerivatives alpha0kterms = HEOS.components[k].EOS().alpha0.all(tau_ok, delta_ok);
@@ -884,8 +1095,8 @@ CoolPropDbl MixtureDerivatives::d2alpha0_dxi_dDelta(HelmholtzEOSMixtureBackend& 
         double rhock = HEOS.get_fluid_constant(k, irhomolar_critical);
         double tau_ok = HEOS.tau() * Tck / Tr;
         double delta_ok = HEOS.delta() * rhor / rhock;
-        double dtauok_dxi = -tau_ok / Tr * HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, i, xN_flag);  // (Gernert, supp, B.19)
-        double drhor_dxi = HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, i, xN_flag);
+        double dtauok_dxi = -tau_ok / Tr * dTrdxi__constxj(HEOS, i, xN_flag);  // (Gernert, supp, B.19)
+        double drhor_dxi = drhormolardxi__constxj(HEOS, i, xN_flag);
         double ddeltaok_dxi = delta_ok / rhor * drhor_dxi;  // (Gernert, supp. B.20)
 
         //double Rratiok = 1;//HEOS.gas_constant()/HEOS.components[k].EOS().R_u;
@@ -922,9 +1133,9 @@ CoolPropDbl MixtureDerivatives::d2alpha0_dxi_dTau(HelmholtzEOSMixtureBackend& HE
         double rhock = HEOS.get_fluid_constant(k, irhomolar_critical);
         double tau_ok = HEOS.tau() * Tck / Tr;
         double delta_ok = HEOS.delta() * rhor / rhock;
-        double dTr_dxi = HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, i, xN_flag);
+        double dTr_dxi = dTrdxi__constxj(HEOS, i, xN_flag);
         double dtauok_dxi = -tau_ok / Tr * dTr_dxi;  // (Gernert, supp, B.19)
-        double drhor_dxi = HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, i, xN_flag);
+        double drhor_dxi = drhormolardxi__constxj(HEOS, i, xN_flag);
         double ddeltaok_dxi = delta_ok / rhor * drhor_dxi;  // (Gernert, supp. B.20)
 
         //double Rratiok = 1;//HEOS.gas_constant()/HEOS.components[k].EOS().R_u;
@@ -946,16 +1157,16 @@ CoolPropDbl MixtureDerivatives::d2alpha0dxidxj(HelmholtzEOSMixtureBackend& HEOS,
     double rhoci = HEOS.get_fluid_constant(i, irhomolar_critical);
     double tau_oi = HEOS.tau() * Tci / Tr;
     double delta_oi = HEOS.delta() * rhor / rhoci;
-    double dTr_dxi = HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, i, xN_flag);
-    double drhor_dxi = HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, i, xN_flag);
+    double dTr_dxi = dTrdxi__constxj(HEOS, i, xN_flag);
+    double drhor_dxi = drhormolardxi__constxj(HEOS, i, xN_flag);
 
     // Values for the j-th component
     double Tcj = HEOS.get_fluid_constant(j, iT_critical);
     double rhocj = HEOS.get_fluid_constant(j, irhomolar_critical);
     double tau_oj = HEOS.tau() * Tcj / Tr;
     double delta_oj = HEOS.delta() * rhor / rhocj;
-    double dTr_dxj = HEOS.Reducing->dTrdxi__constxj(HEOS.mole_fractions, j, xN_flag);
-    double drhor_dxj = HEOS.Reducing->drhormolardxi__constxj(HEOS.mole_fractions, j, xN_flag);
+    double dTr_dxj = dTrdxi__constxj(HEOS, j, xN_flag);
+    double drhor_dxj = drhormolardxi__constxj(HEOS, j, xN_flag);
 
     // Cross-terms with both i & j
     double dtauoi_dxj = -tau_oi / Tr * dTr_dxj;         // (Gernert, supp, B.19)
@@ -1151,7 +1362,8 @@ class DerivativeFixture
       HEOS_minus_2tau, HEOS_plus_2delta, HEOS_minus_2delta, HEOS_plus_T__constp, HEOS_minus_T__constp, HEOS_plus_p__constT, HEOS_minus_p__constT,
       HEOS_plus_T__constrho, HEOS_minus_T__constrho, HEOS_plus_rho__constT, HEOS_minus_rho__constT;
     std::vector<shared_ptr<CoolProp::HelmholtzEOSMixtureBackend>> HEOS_plus_z, HEOS_minus_z, HEOS_plus_z__constTrho, HEOS_minus_z__constTrho,
-      HEOS_plus_n, HEOS_minus_n, HEOS_plus_2z, HEOS_minus_2z, HEOS_plus_2z__constTrho, HEOS_minus_2z__constTrho;
+      HEOS_plus_n, HEOS_minus_n, HEOS_plus_2z, HEOS_minus_2z, HEOS_plus_2z__constTrho, HEOS_minus_2z__constTrho, HEOS_plus_z__constTP,
+      HEOS_minus_z__constTP;
     CoolProp::x_N_dependency_flag xN;
     double dtau, ddelta, dz, dn, tol, dT, drho, dp;
     DerivativeFixture() : xN(XN_INDEPENDENT), dtau(1e-6), ddelta(1e-6), dz(1e-6), dn(1e-6), dT(1e-3), drho(1e-3), dp(1), tol(5e-6) {
@@ -1255,6 +1467,32 @@ class DerivativeFixture
                                      HEOS_minus_2z[i]->T_reducing() / HEOS->tau());
             HEOS_minus_z__constTrho[i]->set_mole_fractions(zz);
             HEOS_minus_z__constTrho[i]->update(CoolProp::DmolarT_INPUTS, HEOS->rhomolar(), HEOS->T());
+        }
+
+        // Varying mole fractions at constant T, p -- for d(ln f_i)/dx_j |__constT_p_xi, the
+        // convention the flash/stability Hessians consume (GH #3357).  The const-T,rho states
+        // above validate the __constT_rho_xi sibling only; this one covers __constT_p_xi, which
+        // had no derivative coverage (which is how its XN_INDEPENDENT ideal-term bug went
+        // unnoticed).  Perturb x_j exactly as above -- compensating the last component only under
+        // XN_DEPENDENT, leaving the sum un-normalized under XN_INDEPENDENT (the analytic
+        // continuation the XN_INDEPENDENT derivative differentiates; the backend does not
+        // renormalize) -- then re-solve at the base T and p.
+        HEOS_plus_z__constTP.resize(4);
+        HEOS_minus_z__constTP.resize(4);
+        for (int i = 0; i < HEOS_plus_z__constTP.size(); ++i) {
+            init_state(HEOS_plus_z__constTP[i]);
+            init_state(HEOS_minus_z__constTP[i]);
+            std::vector<double> zp = HEOS->get_mole_fractions(), zm = HEOS->get_mole_fractions();
+            zp[i] += dz;
+            zm[i] -= dz;
+            if (xN == CoolProp::XN_DEPENDENT) {
+                zp[zp.size() - 1] -= dz;
+                zm[zm.size() - 1] += dz;
+            }
+            HEOS_plus_z__constTP[i]->set_mole_fractions(zp);
+            HEOS_plus_z__constTP[i]->update(CoolProp::PT_INPUTS, HEOS->p(), HEOS->T());
+            HEOS_minus_z__constTP[i]->set_mole_fractions(zm);
+            HEOS_minus_z__constTP[i]->update(CoolProp::PT_INPUTS, HEOS->p(), HEOS->T());
         }
 
         // Varying mole numbers
@@ -1394,6 +1632,28 @@ class DerivativeFixture
                     // Forward difference in composition
                     CHECK_NOTHROW(numeric = (-3 * g(*HEOS, i, xN) + 4 * g(*HEOS_plus_z[j], i, xN) - g(*HEOS_plus_2z[j], i, xN)) / (2 * dz));
                 }
+                CAPTURE(name);
+                CAPTURE(i);
+                CAPTURE(j);
+                CAPTURE(analytic);
+                CAPTURE(numeric);
+                CAPTURE(xN);
+                double error = mix_deriv_err_func(numeric, analytic);
+                CAPTURE(error);
+                CHECK(error < tol);
+            }
+        }
+    }
+    // Finite-difference check of a composition derivative taken at constant T and p (as
+    // opposed to two_comp's constant reduced delta/tau).  Central difference of g in x_j
+    // across the HEOS_(plus|minus)_z__constTP states.  All base mole fractions are >> 2*dz,
+    // so a central difference is always valid (no forward-difference fallback needed).
+    void two_comp_constTP(const std::string& name, two_mole_fraction_pointer f, one_mole_fraction_pointer g) {
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                double analytic = f(*HEOS, i, j, xN);
+                double numeric = 500;
+                CHECK_NOTHROW(numeric = (g(*HEOS_plus_z__constTP[j], i, xN) - g(*HEOS_minus_z__constTP[j], i, xN)) / (2 * dz));
                 CAPTURE(name);
                 CAPTURE(i);
                 CAPTURE(j);
@@ -1605,6 +1865,9 @@ class DerivativeFixture
               MD::d_nd_ndalphardni_dnj_dxk__consttau_delta, DELTA);
 
         // Xn-dep only        two_comp("dln_fugacity_dxj__constT_rho_xi", MD::dln_fugacity_dxj__constT_rho_xi, MD::ln_fugacity);
+        // d(ln f_i)/dx_j at constant T, p -- both x_N conventions (the fixture runs XN_INDEPENDENT
+        // by default, the branch whose ideal term was wrong in GH #3357/#3342).
+        two_comp_constTP("dln_fugacity_dxj__constT_p_xi", MD::dln_fugacity_dxj__constT_p_xi, MD::ln_fugacity);
         three("d2_ndln_fugacity_i_dnj_dxk_dDelta__consttau", MD::d2_ndln_fugacity_i_dnj_dxk_dDelta__consttau,
               MD::d_ndln_fugacity_i_dnj_ddxk__consttau_delta, DELTA);
         three("d2_ndln_fugacity_i_dnj_dxk_dTau__constdelta", MD::d2_ndln_fugacity_i_dnj_dxk_dTau__constdelta,
@@ -1675,6 +1938,173 @@ TEST_CASE_METHOD(DerivativeFixture<SRKBackend>, "Check derivatives for SRK", "[m
     tol = 1e-3;  // Relax the tolerance a bit
     run_checks();
 };
+// n2Aijk_tensor / nAij_matrix re-associate the scalar n2Aijk / d_n2Aijk_dX / nAij / d_nAij_dX chains (GitHub #3560); the
+// scalar functions are the reference.  Sums are accumulated in a different order, so agreement is to rounding, not bit-exact.
+// Both share the leaf functions with the scalars, so leaf bugs are the job of the finite-difference [mixture_derivs2] tests.
+template <class backend>
+static void check_n2Aijk_tensor(const std::vector<std::string>& names, const std::vector<CoolPropDbl>& z, double rhomolar, double T,
+                                x_N_dependency_flag xN) {
+    CAPTURE(xN);
+    backend HEOS(names);
+    HEOS.set_mole_fractions(z);
+    HEOS.specify_phase(CoolProp::iphase_gas);
+    HEOS.update_DmolarT_direct(rhomolar, T);
+    const std::size_t N = names.size();
+    const double rtol = 1e-12;
+    // Tolerance scale: the largest entry, because sums of large terms with cancellation set the rounding level.  The
+    // Kronecker-diagonal entries (1/x_i in nAij, -1/x_i^2 in n2Aijk) are excluded from it: for a trace component they are
+    // orders of magnitude larger than everything else and would let a wrong O(1) term through.  Those entries are checked
+    // against their own magnitude instead.
+    // The magnitude is taken from the reference, so it must be finite or an inf reference would pass its own check.
+    auto tol = [&](double scale_offdiag, double scalar, bool kronecker_entry) {
+        REQUIRE(std::isfinite(scalar));
+        return rtol * (kronecker_entry ? std::max(scale_offdiag, std::abs(scalar)) : scale_offdiag);
+    };
+    // T(i,i,k), k != i, carries +1/x_i (via -SG) and -1/x_i (via -Fself) that cancel, in a different order than in the
+    // scalar path; floor the n2Aijk scale at max_i 1/x_i so that rounding of that cancellation can't flake the check.
+    double inv_x_max = 0;
+    for (std::size_t i = 0; i < N; ++i) {
+        if (z[i] > DBL_EPSILON) {
+            inv_x_max = std::max(inv_x_max, 1.0 / static_cast<double>(z[i]));
+        }
+    }
+
+    for (parameters WRT : {INVALID_PARAMETER, iTau, iDelta}) {
+        CAPTURE(WRT);
+        const std::vector<Eigen::MatrixXd> tensor = MD::n2Aijk_tensor(HEOS, xN, WRT);
+        REQUIRE(tensor.size() == N);
+        double scale = 0;
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                for (std::size_t k = 0; k < N; ++k) {
+                    REQUIRE(std::isfinite(tensor[k](i, j)));
+                    if (!(WRT == INVALID_PARAMETER && i == j && j == k)) {
+                        scale = std::max(scale, std::abs(tensor[k](i, j)));
+                    }
+                }
+            }
+        }
+        REQUIRE(scale > 0);
+        if (WRT == INVALID_PARAMETER) {
+            scale = std::max(scale, inv_x_max);
+        }
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                for (std::size_t k = 0; k < N; ++k) {
+                    const double scalar = (WRT == INVALID_PARAMETER) ? MD::n2Aijk(HEOS, i, j, k, xN) : MD::d_n2Aijk_dX(HEOS, i, j, k, xN, WRT);
+                    const double t = tol(scale, scalar, WRT == INVALID_PARAMETER && i == j && j == k);
+                    CAPTURE(i, j, k, scalar, tensor[k](i, j), t);
+                    CHECK(std::abs(tensor[k](i, j) - scalar) <= t);
+                }
+            }
+        }
+    }
+    CHECK_THROWS(MD::n2Aijk_tensor(HEOS, xN, iT));
+
+    for (parameters WRT : {INVALID_PARAMETER, iTau, iDelta}) {
+        CAPTURE(WRT);
+        const Eigen::MatrixXd A = MD::nAij_matrix(HEOS, xN, WRT);
+        REQUIRE(A.rows() == static_cast<Eigen::Index>(N));
+        REQUIRE(A.cols() == static_cast<Eigen::Index>(N));
+        REQUIRE(A.allFinite());
+        double scale = 0;
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                if (!(WRT == INVALID_PARAMETER && i == j)) {
+                    scale = std::max(scale, std::abs(A(i, j)));
+                }
+            }
+        }
+        REQUIRE(scale > 0);
+        // Lstar / dLstar_dX are the upper triangle of this matrix, mirrored
+        const Eigen::MatrixXd L_or_dL = (WRT == INVALID_PARAMETER) ? MD::Lstar(HEOS, xN) : MD::dLstar_dX(HEOS, xN, WRT);
+        REQUIRE(L_or_dL.allFinite());
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                const bool kron = (WRT == INVALID_PARAMETER && i == j);
+                const double scalar = (WRT == INVALID_PARAMETER) ? MD::nAij(HEOS, i, j, xN) : MD::d_nAij_dX(HEOS, i, j, xN, WRT);
+                CAPTURE(i, j, scalar, A(i, j));
+                CHECK(std::abs(A(i, j) - scalar) <= tol(scale, scalar, kron));
+                const std::size_t r = std::min(i, j), c = std::max(i, j);
+                const double upper = (WRT == INVALID_PARAMETER) ? MD::nAij(HEOS, r, c, xN) : MD::d_nAij_dX(HEOS, r, c, xN, WRT);
+                CAPTURE(upper, L_or_dL(i, j));
+                CHECK(std::abs(L_or_dL(i, j) - upper) <= tol(scale, upper, kron));
+            }
+        }
+    }
+    CHECK_THROWS(MD::nAij_matrix(HEOS, xN, iT));
+    CHECK_THROWS(MD::dLstar_dX(HEOS, xN, INVALID_PARAMETER));
+
+    // Mstar and dMstar_dX against the same matrices assembled from the scalar functions, which pins down the index mapping
+    auto close = [](const Eigen::MatrixXd& a, const Eigen::MatrixXd& ref) {
+        // allFinite first: Eigen's maxCoeff need not propagate NaN, so a NaN entry could otherwise pass
+        return a.allFinite() && ref.allFinite() && (a - ref).cwiseAbs().maxCoeff() <= 1e-10 * ref.cwiseAbs().maxCoeff();
+    };
+    Eigen::MatrixXd L = MD::Lstar(HEOS, xN);
+    Eigen::MatrixXd M_ref = L, adjL = adjugate(L);
+    for (std::size_t i = 0; i < N; ++i) {
+        Eigen::MatrixXd n2dLdni(N, N);
+        for (std::size_t j = 0; j < N; ++j) {
+            for (std::size_t k = 0; k < N; ++k) {
+                n2dLdni(j, k) = MD::n2Aijk(HEOS, j, k, i, xN);
+            }
+        }
+        M_ref(N - 1, i) = (adjL * n2dLdni).trace();
+    }
+    const Eigen::MatrixXd M = MD::Mstar(HEOS, xN, L);
+    CAPTURE(M, M_ref);
+    CHECK(close(M, M_ref));
+
+    for (parameters WRT : {iTau, iDelta}) {
+        CAPTURE(WRT);
+        Eigen::MatrixXd dL = MD::dLstar_dX(HEOS, xN, WRT);
+        Eigen::MatrixXd dM_ref = dL, d_adjL = adjugate_derivative(L, dL);
+        for (std::size_t i = 0; i < N; ++i) {
+            Eigen::MatrixXd n2dLdni(N, N), d_n2dLdni(N, N);
+            for (std::size_t j = 0; j < N; ++j) {
+                for (std::size_t k = 0; k < N; ++k) {
+                    n2dLdni(j, k) = MD::n2Aijk(HEOS, j, k, i, xN);
+                    d_n2dLdni(j, k) = MD::d_n2Aijk_dX(HEOS, j, k, i, xN, WRT);
+                }
+            }
+            dM_ref(N - 1, i) = (n2dLdni * d_adjL + adjL * d_n2dLdni).trace();
+        }
+        const Eigen::MatrixXd dM = MD::dMstar_dX(HEOS, xN, WRT, L, dL);
+        CAPTURE(dM, dM_ref);
+        CHECK(close(dM, dM_ref));
+    }
+}
+
+TEST_CASE("nAij_matrix and n2Aijk_tensor match the scalar nAij, n2Aijk and their tau/delta derivatives", "[n2Aijk_tensor]") {
+    const std::vector<std::string> four = {"n-Pentane", "Ethane", "n-Propane", "n-Butane"};
+    const std::vector<CoolPropDbl> z4 = {0.1, 0.12, 0.18, 0.6};
+    // Lstar/Mstar criticality uses XN_INDEPENDENT only.  XN_DEPENDENT exercises the mmax = N-1 sums of the new functions;
+    // HEOS is run with XN_INDEPENDENT only because its fourth-order d4alphar_dxi_* leaves (reached by the tau/delta
+    // variants) throw "xN_flag is invalid", scalar path included.  The cubics' constant reducing function makes the
+    // m = N-1 summands of the inner sums vanish, so this pins mmax for the outer sum (SG) only; the inner ones (SQ, SC)
+    // cannot change a result under the dependent-x convention, where derivatives with respect to x_{N-1} are zero.
+    for (x_N_dependency_flag xN : {XN_INDEPENDENT, XN_DEPENDENT}) {
+        if (xN == XN_INDEPENDENT) {
+            DYNAMIC_SECTION("HEOS, 4 components, xN=" << xN) {
+                check_n2Aijk_tensor<HelmholtzEOSMixtureBackend>(four, z4, 300, 300, xN);
+            }
+            DYNAMIC_SECTION("HEOS, 6-component natural gas with trace components (#3560), xN=" << xN) {
+                // A subset of TypicalNaturalGas.mix keeping trace species, where the 1/x_i^2 Kronecker term is large.  Not all
+                // 10 components: the scalar reference is O(N^7) and would dominate the test time (and time out under ASAN).
+                const std::vector<std::string> ng = {"Methane", "Nitrogen", "CO2", "Ethane", "n-Pentane", "n-Hexane"};
+                const std::vector<CoolPropDbl> zng = {0.95123 + 0.00238 + 0.0004 + 0.00016 + 0.00014, 0.00089, 0.02555, 0.01835, 0.00011, 0.00079};
+                check_n2Aijk_tensor<HelmholtzEOSMixtureBackend>(ng, zng, 8000, 200, xN);
+            }
+        }
+        DYNAMIC_SECTION("Peng-Robinson, 4 components, xN=" << xN) {
+            check_n2Aijk_tensor<PengRobinsonBackend>(four, z4, 300, 300, xN);
+        }
+        DYNAMIC_SECTION("SRK, 4 components, xN=" << xN) {
+            check_n2Aijk_tensor<SRKBackend>(four, z4, 300, 300, xN);
+        }
+    }
+}
+
 // Make sure you set the VTPR UNIFAC path with something like set_config_string(VTPR_UNIFAC_PATH, "/Users/ian/Code/CUBAC/dev/unifaq/");
 //TEST_CASE_METHOD(DerivativeFixture<VTPRBackend>, "Check derivatives for VTPR", "[mixture_derivs2]")
 //{

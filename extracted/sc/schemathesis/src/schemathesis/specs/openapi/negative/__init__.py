@@ -20,10 +20,10 @@ from schemathesis.core.jsonschema import (
     FANCY_REGEX_OPTIONS,
     STANDARD_FORMATS,
     VALIDATED_FORMATS_BY_DRAFT,
-    schema_with_bundle,
+    property_schemas,
 )
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue
-from schemathesis.core.media_types import is_json
+from schemathesis.core.media_types import is_json, is_json_sequence
 from schemathesis.core.mutations import MutationMetadata, OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone, to_wire_string
@@ -42,7 +42,7 @@ from schemathesis.specs.openapi.negative.mutations import (
 )
 from schemathesis.specs.openapi.negative.value_channel import apply_value_channel, collect_value_targets
 from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
-from schemathesis.transport.serialization import Binary, contains_binary
+from schemathesis.transport.serialization import Binary, contains_binary, json_sequence_readings
 
 SYNTAX_FUZZING_PROBABILITY = 0.05
 VALUE_CHANNEL_PROBABILITY = 0.15
@@ -52,27 +52,21 @@ if TYPE_CHECKING:
 
 
 def _is_not_valid_json(data: bytes) -> bool:
-    """Check if bytes are NOT valid JSON."""
     try:
         json.loads(data)
-        return False  # Valid JSON, reject
+        return False
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return True  # Invalid, keep
+        return True
 
 
 def _random_non_json_bytes() -> st.SearchStrategy[bytes]:
-    """Generate random bytes that are NOT valid JSON.
-
-    Used for syntax-level fuzzing of JSON endpoints.
-    """
     return st.binary(min_size=1, max_size=1024).filter(_is_not_valid_json)
 
 
 def wrap_filter_hook_for_generated_value(hook: Callable) -> Callable:
     """Adapter so user-supplied filter hooks see plain values when negative-mode wraps them.
 
-    The boolean result is returned directly so `strategy.filter()` can evaluate truthiness;
-    re-wrapping in `GeneratedValue` would make every result truthy and break filtering.
+    The result stays unwrapped: a `GeneratedValue` is always truthy.
     """
 
     def wrapper(value: Any) -> bool:
@@ -108,9 +102,7 @@ def wrap_map_hook_for_generated_value(hook: Callable, *, prune_constants: bool =
 def wrap_flatmap_hook_for_generated_value(hook: Callable) -> Callable:
     """Adapter so user-supplied flatmap hooks see plain values when negative-mode wraps them.
 
-    Unlike map hooks, flatmap hooks return a `SearchStrategy` — not a value. We unwrap
-    `GeneratedValue` before invoking the hook, then re-wrap each drawn result so the
-    `GeneratedValue` metadata is preserved through the flatmap.
+    Each value the hook's strategy draws gets re-wrapped with the original metadata.
     """
 
     def wrapper(value: Any) -> st.SearchStrategy:
@@ -138,10 +130,7 @@ def wrap_flatmap_hook_for_generated_value(hook: Callable) -> Callable:
 
 @dataclass(slots=True)
 class CacheKey:
-    """A cache key for API Operation / location.
-
-    Carries the schema around but don't use it for hashing to simplify LRU cache usage.
-    """
+    """Cache key for an operation and location; the schema rides along but stays out of the hash."""
 
     operation_name: str
     location: str
@@ -154,26 +143,17 @@ class CacheKey:
 
 
 def _always_invalid(value: object) -> bool:
-    """A format check that always fails."""
     return False
 
 
-# Formats that should always be treated as invalid for negative testing.
-# These are OpenAPI-specific formats that jsonschema-rs doesn't validate,
-# so without this, any value would pass validation and get filtered out.
+# Open API formats the validator ignores; unless they fail, every value passes and gets filtered out.
 _ALWAYS_INVALID_FORMATS = frozenset({"binary", "byte"})
 
 
 def _is_unconstrained_binary_schema(schema: JsonSchema) -> bool:
-    """Check if schema is an unconstrained binary/byte format that accepts any value.
-
-    A schema like {"format": "binary"} without a type constraint accepts any JSON value,
-    since JSON Schema format validation only applies to strings. For such schemas, we can't
-    meaningfully filter generated values because everything matches.
-    """
+    """Whether the schema is `binary`/`byte` without `type`, so it accepts any JSON value."""
     if not isinstance(schema, dict):
         return False
-    # Has binary/byte format but no type constraint
     return schema.get("format") in _ALWAYS_INVALID_FORMATS and "type" not in schema
 
 
@@ -207,11 +187,7 @@ def _negates_format(metadata: MutationMetadata) -> bool:
 def get_real_validator(cache_key: CacheKey) -> jsonschema_rs.Validator:
     """A validator without the always-invalid format hook.
 
-    The schema-channel `filter_values` validator artificially fails any custom
-    format so format-violating mutations are recognized as invalid. The value
-    channel applies known violators (e.g. `violate_email`) and only needs to
-    confirm the resulting body is genuinely invalid against the original schema —
-    so it must not treat a still-valid sibling format as a violation.
+    The value channel confirms a body breaks the original schema, so a still-valid sibling format must pass.
     """
     formats: dict[str, Any] = {}
     if cache_key.validator_cls is jsonschema_rs.Draft4Validator:
@@ -226,10 +202,7 @@ def get_real_validator(cache_key: CacheKey) -> jsonschema_rs.Validator:
 
 @lru_cache
 def split_schema(cache_key: CacheKey) -> tuple[Schema, Schema]:
-    """Split the schema in two parts.
-
-    The first one contains only validation JSON Schema keywords, the second one everything else.
-    """
+    """Split the schema into validation keywords and everything else."""
     keywords, non_keywords = {}, {}
     schema = {} if isinstance(cache_key.schema, bool) else cache_key.schema
     for keyword, value in schema.items():
@@ -241,8 +214,7 @@ def split_schema(cache_key: CacheKey) -> tuple[Schema, Schema]:
 
 
 def _strip_binary(value: Any) -> Any:
-    # Replace Binary with "" so jsonschema_rs can validate structure; format:binary is annotation-only,
-    # so "" passes the format check while required/additionalProperties/sibling constraints still fire.
+    # `format: binary` is annotation-only, so "" passes it while structural constraints still apply
     if isinstance(value, Binary):
         return ""
     if isinstance(value, dict):
@@ -265,17 +237,11 @@ def negative_schema(
     name_to_uri: dict[str, str] | None = None,
     target_descriptors: tuple[MutationTargetDescriptor, ...] | None = None,
 ) -> st.SearchStrategy:
-    """A strategy for instances that DO NOT match the input schema.
+    """Strategy for `GeneratedValue` instances that do not match `schema`, with mutation metadata.
 
-    It is used to cover the input space that is not possible to cover with the "positive" strategy.
-
-    Returns a strategy that produces GeneratedValue instances with mutation metadata.
-
-    `validation_schema`, when provided, keeps `prefixItems` intact and is used only to build the
-    runtime validator; falls back to `schema`.
+    `validation_schema`, with `prefixItems` intact, only builds the runtime validator; defaults to `schema`.
     """
-    # The mutated schema is passed to `from_schema` and guarded against producing instances valid against
-    # the original schema.
+    # Draws from the mutated schema are filtered against the original one
     cache_key = CacheKey(operation_name, location, schema, validator_cls, frozenset(custom_formats))
     # Build the validator from the form with `prefixItems` intact so meta-validation accepts it.
     validator_cache_key = (
@@ -286,9 +252,7 @@ def negative_schema(
     validator = get_validator(validator_cache_key)
     keywords, non_keywords = split_schema(cache_key)
 
-    # For unconstrained binary/byte schemas, skip the validation filter entirely.
-    # Such schemas accept any value (no type constraint + format only applies to strings),
-    # so we can't meaningfully filter generated values.
+    # Unconstrained binary schemas accept any value, leaving nothing to filter
     skip_validation_filter = _is_unconstrained_binary_schema(schema)
 
     if location == ParameterLocation.QUERY:
@@ -305,6 +269,8 @@ def negative_schema(
 
     # Parameters reach the server as text, so a mutated one that spells an accepted value is not negative.
     is_sent_as_text = location != ParameterLocation.BODY
+    # A JSON sequence body is negative only if every way a server may read it is
+    is_sent_as_sequence = location == ParameterLocation.BODY and is_json_sequence(media_type)
     if is_sent_as_text:
         container = validation_schema if validation_schema is not None else schema
         assert isinstance(container, dict)
@@ -317,8 +283,7 @@ def negative_schema(
             frozenset(custom_formats),
         )
         types_by_parameter = {
-            name: parameter_types(schema_with_bundle(subschema, container))
-            for name, subschema in container.get("properties", {}).items()
+            name: parameter_types(subschema) for name, subschema in property_schemas(container).items()
         }
 
     def parameter_reads_as_valid(name: str | int, item: object, validator: jsonschema_rs.Validator) -> bool:
@@ -376,6 +341,10 @@ def negative_schema(
                     )
                 )
             )
+        elif is_sent_as_sequence:
+            strategy = strategy.filter(
+                lambda value: all(filter_values(reading, chosen) for reading in json_sequence_readings(value))
+            )
         else:
             strategy = strategy.filter(lambda value: filter_values(value, chosen))
         return strategy.map(lambda value: GeneratedValue(value, metadata))
@@ -398,10 +367,7 @@ def negative_schema(
             schema, validator_cls, custom_formats=custom_formats, format_lengths=format_lengths, alphabet=alphabet
         )
         if positive_strategy is not None:
-            # Use the real-format validator here: `filter_values` artificially fails
-            # custom formats, so a permissive sibling target (e.g. `minLength: 0`)
-            # alongside a format-bearing field would let an unchanged-but-valid body
-            # slip through as negative data.
+            # Failing every format would pass an unchanged valid body with a format field as negative data
             mutated_strategy = _with_value_channel(
                 mutated_strategy,
                 positive_strategy,
@@ -410,7 +376,6 @@ def negative_schema(
                 location,
                 name_to_uri,
             )
-        # For JSON bodies, add syntax-level fuzzing with random bytes (~5% of cases)
         if media_type is not None and is_json(media_type):
             return _with_syntax_fuzzing(mutated_strategy, location)
 
@@ -465,9 +430,8 @@ def _with_value_channel(
             new_body, original_value, new_value = apply_value_channel(
                 cast(JsonValue, deepclone(positive)), target_path, keyword, schema_at_path
             )
-            # Breaking a value can leave a permissive schema satisfied; fall back to schema mutation to avoid a
-            # false-positive `negative_data_rejection`. Binary values validate as "": the validator rejects the
-            # wrapper, but structure-level keywords still apply.
+            # A permissive schema may accept the broken value; fall back to schema mutation to avoid a false positive.
+            # Binary values validate as "", so structure-level keywords still apply.
             body_for_validation = _strip_binary(new_body) if contains_binary(new_body) else new_body
             if real_validator.is_valid(body_for_validation):
                 return draw(mutated_strategy)
@@ -523,7 +487,6 @@ def _with_syntax_fuzzing(mutated_strategy: st.SearchStrategy, location: Paramete
 
 
 def is_non_empty_query(query: dict[str, Any]) -> bool:
-    # Whether this query parameters will be encoded to a non-empty query string
     result = []
     for key, values in query.items():
         if isinstance(values, str) or not hasattr(values, "__iter__"):

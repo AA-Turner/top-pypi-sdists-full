@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cell::OnceCell, fmt, io, path::Path, time};
 
 use {
-    bstr::ByteVec,
+    bstr::{ByteSlice, ByteVec},
     grep_matcher::{Captures, LineTerminator, Match, Matcher},
     grep_searcher::{
         LineIter, Searcher, SinkContext, SinkContextKind, SinkError, SinkMatch,
@@ -289,6 +289,7 @@ pub(crate) struct PrinterPath<'a> {
     #[cfg(not(unix))]
     path: &'a Path,
     bytes: Cow<'a, [u8]>,
+    escaped: Option<Vec<u8>>,
     hyperlink: OnceCell<Option<HyperlinkPath>>,
 }
 
@@ -302,8 +303,20 @@ impl<'a> PrinterPath<'a> {
             // check on Windows. This doesn't allocate on Windows unless the
             // path is invalid UTF-8 (which is exceptionally rare).
             bytes: Vec::from_path_lossy(path),
+            escaped: None,
             hyperlink: OnceCell::new(),
         }
+    }
+
+    /// Replace control characters with U+FFFD. Call after `with_separator`.
+    pub(crate) fn with_escape(mut self, yes: bool) -> PrinterPath<'a> {
+        if !yes {
+            return self;
+        }
+        if let Cow::Owned(out) = replace_controls(&self.bytes) {
+            self.escaped = Some(out);
+        }
+        self
     }
 
     /// Set the separator on this path.
@@ -337,6 +350,11 @@ impl<'a> PrinterPath<'a> {
         &self.bytes
     }
 
+    /// Return the bytes to print, escaped if `with_escape` was enabled.
+    pub(crate) fn as_display_bytes(&self) -> &[u8] {
+        self.escaped.as_deref().unwrap_or(&self.bytes)
+    }
+
     /// Return this path as a hyperlink.
     ///
     /// Note that a hyperlink may not be able to be created from a path.
@@ -362,6 +380,25 @@ impl<'a> PrinterPath<'a> {
         }
         imp(self)
     }
+}
+
+/// Replace C0, DEL and C1 controls with U+FFFD.
+pub fn replace_controls(bytes: &[u8]) -> Cow<'_, [u8]> {
+    let (mut out, mut last) = (vec![], 0);
+    for (s, e, ch) in bytes.char_indices() {
+        // A lone byte in 0x80..=0x9F is a C1 control on 8-bit terminals.
+        let c1 = ch == '\u{FFFD}' && e - s == 1 && bytes[s] < 0xA0;
+        if ch.is_control() || c1 {
+            out.extend_from_slice(&bytes[last..s]);
+            out.extend_from_slice("\u{FFFD}".as_bytes());
+            last = e;
+        }
+    }
+    if out.is_empty() {
+        return Cow::Borrowed(bytes);
+    }
+    out.extend_from_slice(&bytes[last..]);
+    Cow::Owned(out)
 }
 
 /// A type that provides "nicer" Display and Serialize impls for
@@ -473,7 +510,7 @@ pub(crate) fn trim_ascii_prefix(
 pub(crate) fn find_iter_at_in_context<M, F>(
     searcher: &Searcher,
     matcher: M,
-    mut bytes: &[u8],
+    bytes: &[u8],
     range: std::ops::Range<usize>,
     mut matched: F,
 ) -> io::Result<()>
@@ -505,9 +542,11 @@ where
     // shouldn't be involved in this business in the first place. Sigh. Live
     // and learn. Abstraction boundaries are hard.
     let is_multi_line = searcher.multi_line_with_matcher(&matcher);
-    if is_multi_line {
+    let capped = if is_multi_line {
         if bytes[range.end..].len() >= MAX_LOOK_AHEAD {
-            bytes = &bytes[..range.end + MAX_LOOK_AHEAD];
+            &bytes[..range.end + MAX_LOOK_AHEAD]
+        } else {
+            bytes
         }
     } else {
         // When searching a single line, we should remove the line terminator.
@@ -517,16 +556,29 @@ where
         // No need to remember the line terminator as we aren't doing a replace
         // here.
         trim_line_terminator(searcher, bytes, &mut m);
-        bytes = &bytes[..m.end()];
-    }
+        &bytes[..m.end()]
+    };
+    let mut found = false;
     matcher
-        .find_iter_at(bytes, range.start, |m| {
+        .find_iter_at(capped, range.start, |m| {
             if m.start() >= range.end {
                 return false;
             }
+            found = true;
             matched(m)
         })
-        .map_err(io::Error::error_message)
+        .map_err(io::Error::error_message)?;
+    if !found && is_multi_line && capped.len() < bytes.len() {
+        matcher
+            .find_iter_at(bytes, range.start, |m| {
+                if m.start() >= range.end {
+                    return false;
+                }
+                matched(m)
+            })
+            .map_err(io::Error::error_message)?;
+    }
+    Ok(())
 }
 
 /// Given a buf and some bounds, if there is a line terminator at the end of
@@ -604,5 +656,25 @@ mod tests {
         for n in ints {
             assert_eq!(std(n), fmt(n));
         }
+    }
+
+    #[test]
+    fn escape_path() {
+        let esc = |b: &[u8]| {
+            let path = b.to_path().unwrap();
+            let ppath = PrinterPath::new(path).with_escape(true);
+            assert_eq!(b, ppath.as_bytes());
+            ppath.as_display_bytes().to_vec()
+        };
+        let r = "\u{FFFD}";
+        assert_eq!("a é€ 中".as_bytes(), esc("a é€ 中".as_bytes()));
+        assert_eq!(
+            format!("a{r}b{r}c{r}{r}d").as_bytes(),
+            esc(b"a\tb\nc\r\nd")
+        );
+        assert_eq!(format!("a{r}[2Kb{r}c").as_bytes(), esc(b"a\x1b[2Kb\x7fc"));
+        assert_eq!(format!("a{r}b").as_bytes(), esc("a\u{9b}b".as_bytes()));
+        #[cfg(unix)]
+        assert_eq!(b"a\xEF\xBF\xBDb\xE9".to_vec(), esc(b"a\x9bb\xe9"));
     }
 }

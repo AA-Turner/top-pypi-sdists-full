@@ -1,22 +1,45 @@
 """Path scanning for the CLI: resolve a package, plain directory or module name into deprecation wrappers.
 
-:func:`_scan_for_command` is the one scan prologue every subcommand runs, so a path is accepted, refused, imported and
-reported the same way whichever gate scans it.
+:func:`_preflight_targets` checks every path of a run before anything is imported, :func:`_select_plans` drops the paths
+another path's scan already audits once every path is planned, and :func:`_scan_for_command` is the one scan prologue
+every subcommand runs per path, so a path is accepted, refused, imported and reported the same way whichever gate scans
+it.
 
 """
 
+import importlib.util
 import sys
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from importlib.machinery import ModuleSpec, all_suffixes
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional, Protocol, TypeVar
 
 from deprecate._cli._pkg import _safe_module_name, _select_child_package
 from deprecate._cli.config import _Config, _ConfigFlag, _resolve_exclude, _source_label
-from deprecate._cli.report import _GapKind, _print, _print_gap, _record_scan, _ScanRecord
+from deprecate._cli.report import (
+    _RUN_RECORD,
+    _print,
+    _print_found_gaps,
+    _print_gap,
+    _record_options,
+    _record_scan,
+    _record_scanned_path,
+    _report_nested_files,
+    _ScanRecord,
+)
+from deprecate._gaps import _GapKind
+from deprecate._static.discovery import _plain_dir_modules
 from deprecate.audit import DeprecationWrapperInfo, find_deprecation_wrappers
-from deprecate.audit._scan import _is_excluded
-from deprecate.audit._version import _is_package_dir, _managed_sys_path, _resolve_package_version
+from deprecate.audit._scan import _collect_skipped_modules, _is_excluded
+from deprecate.audit._static import _scan_static_source
+from deprecate.audit._version import (
+    _is_package_dir,
+    _managed_sys_path,
+    _own_distribution,
+    _project_file,
+    _resolve_package_version,
+)
 
 
 class _ScanError(Exception):
@@ -36,6 +59,7 @@ def _names_missing_module(error: Exception, path: str) -> bool:
         False
 
     """
+    # not about a missing module when the path exists, the error is another kind, or it names no missing module at all
     if Path(path).exists() or not isinstance(error, ModuleNotFoundError) or error.name is None:
         return False
     return path == error.name or path.startswith(f"{error.name}.")
@@ -50,6 +74,373 @@ def _is_module_name(path: str) -> bool:
 
     """
     return all(part.isidentifier() for part in path.split("."))
+
+
+def _top_level_spec(name: str) -> Optional[ModuleSpec]:
+    """Return the import spec of the top-level package of the dotted *name*, without importing anything.
+
+    Only the first segment is looked up: :func:`importlib.util.find_spec` of a dotted name imports its parent packages,
+    which would run the scanned package's code before the preflight of a run finished.
+
+    """
+    top = name.split(".")[0]
+    if not top.isidentifier():
+        return None
+    try:
+        return importlib.util.find_spec(top)
+    except (ImportError, ValueError):  # a broken finder, or a half-initialised module in `sys.modules`
+        return None
+
+
+def _top_level_findable(name: str) -> bool:
+    """Tell whether the top-level package of the dotted *name* can be imported, without importing it.
+
+    Examples:
+        >>> _top_level_findable("json.decoder"), _top_level_findable("no_such_module_xyz"), _top_level_findable("2.0")
+        (True, False, False)
+
+    """
+    return _top_level_spec(name) is not None
+
+
+def _spec_location(spec: Optional[ModuleSpec]) -> Optional[Path]:
+    """Return where an import spec loads from: a package's first directory, a module's file, ``None`` for a built-in.
+
+    Examples:
+        >>> _spec_location(importlib.util.find_spec("json")).name
+        'json'
+        >>> _spec_location(importlib.util.find_spec("sys")) is None
+        True
+
+    """
+    if spec is None:
+        return None
+    if spec.submodule_search_locations:
+        return Path(next(iter(spec.submodule_search_locations))).resolve()
+    if spec.origin and spec.has_location:
+        return Path(spec.origin).resolve()
+    return None
+
+
+class _ScanTarget(NamedTuple):
+    """One path of a run after the preflight: what it imports as and where that name resolves."""
+
+    path: str
+    #: The top-level name the scan binds in ``sys.modules``; ``None`` for a plain directory.
+    import_name: Optional[str]
+    #: The dotted module the scan starts from; ``None`` for a plain directory.
+    module: Optional[str]
+    #: The package directory, the module file or the plain directory; ``None`` for a built-in module.
+    location: Optional[Path]
+
+
+def _check_target(path: str) -> Optional[_ScanTarget]:
+    """Check one path of a run before anything is imported and describe what its scan would import.
+
+    Returns:
+        The target, or ``None`` after printing a usage error (the caller exits 2): a file path, a directory holding
+        several packages, or a name that is neither an existing path nor a findable module.
+
+    """
+    try:
+        package_dir = _target_package_dir(path)
+    except ValueError as err:
+        _print(str(err), stderr=True)
+        return None
+    if package_dir is not None:
+        return _ScanTarget(path, package_dir.name, package_dir.name, package_dir)
+    if Path(path).exists():
+        return _ScanTarget(path, None, None, Path(path).resolve())
+    if not _is_module_name(path) or not _top_level_findable(path):
+        # `./typo` or `.pkg` is no path and no module name; importing it would fail as a relative import
+        _print(f"No such path or importable module: {path!r}", stderr=True)
+        return None
+    top = path.split(".")[0]
+    return _ScanTarget(path, top, path, _spec_location(_top_level_spec(top)))
+
+
+class _Planned(Protocol):
+    """What the coverage and import-name checks of a run read from one path's plan (the CLI's ``_PathPlan``)."""
+
+    @property
+    def target(self) -> _ScanTarget:
+        """The path as the preflight described it: what it imports as and where that name resolves."""
+
+    @property
+    def exclude(self) -> tuple[str, ...]:
+        """The path's resolved module-exclusion patterns."""
+
+    @property
+    def config(self) -> _Config:
+        """The path's ``[tool.pydeprecate]`` settings and the ``pyproject.toml`` they came from."""
+
+
+def _module_source(directory: Path, name: str) -> Optional[Path]:
+    """Return the regular package directory or the module file *name* names inside *directory*, if there is one.
+
+    Judged from the filesystem alone: a directory counts only with an ``__init__.py`` (a regular package), a file with
+    any suffix the import system loads (source, bytecode or extension module).
+
+    """
+    package = directory / name
+    if _is_package_dir(package):
+        return package
+    return next((directory / f"{name}{suf}" for suf in all_suffixes() if (directory / f"{name}{suf}").is_file()), None)
+
+
+def _walk_reaches(package_dir: Path, parts: Sequence[str]) -> bool:
+    """Tell whether a recursive scan of the package in *package_dir* imports its submodule at the relative *parts*.
+
+    Judged from the filesystem alone, so nothing is imported. The scan's walk (:func:`pkgutil.iter_modules`) enters
+    only package directories, so every part but the last must name one (a directory with ``__init__.py``), and the last
+    part a package directory or a module file. A directory without ``__init__.py`` on the way, a name that does not
+    exist or is no identifier, and no parts at all are not reached.
+
+    Examples:
+        >>> import tempfile
+        >>> with tempfile.TemporaryDirectory() as tmp:
+        ...     pkg = Path(tmp)
+        ...     (pkg / "data" / "sub").mkdir(parents=True)
+        ...     _ = (pkg / "data" / "sub" / "__init__.py").write_text("")
+        ...     _walk_reaches(pkg, ["data", "sub"]), _walk_reaches(pkg / "data", ["sub"])
+        (False, True)
+
+    """
+    location = package_dir
+    for part in parts:
+        source = _module_source(location, part) if location.is_dir() and part.isidentifier() else None
+        if source is None:
+            return False
+        location = source
+    return bool(parts)
+
+
+def _walk_route(scan: _ScanTarget, other: _ScanTarget) -> Optional[tuple[Path, list[str]]]:
+    """Return where the recursive scan of *scan* would have to walk to import *other*, if *other* lies inside it.
+
+    The route is the directory of *scan*'s top-level package and the dotted name of *other* under it, split into its
+    parts: by name (``pkg`` holds ``pkg.sub``) or by directory (the package directory ``src/pkg`` holds
+    ``src/pkg/sub``, named ``pkg.sub``).
+
+    Examples:
+        >>> pkg = _ScanTarget("pkg", "pkg", "pkg", Path("/src/pkg"))
+        >>> sub = _ScanTarget("pkg.sub", "pkg", "pkg.sub", Path("/src/pkg"))
+        >>> _walk_route(pkg, sub)[1], _walk_route(sub, pkg)
+        (['pkg', 'sub'], None)
+
+    """
+    # no route when either side is a plain directory, or *scan* is a built-in that has no directory to walk
+    if scan.import_name is None or scan.module is None or other.module is None or scan.location is None:
+        return None
+    if scan.import_name == other.import_name and scan.location == other.location:
+        inside = other.module.startswith(f"{scan.module}.")
+        return (scan.location, other.module.split(".")) if inside else None
+    whole_package = scan.module == scan.import_name and scan.location.is_dir()
+    # *other* is reachable by directory only when *scan* is a whole package and *other*'s location lies below it
+    if not whole_package or other.location is None or scan.location not in other.location.parents:
+        return None
+    return scan.location, [scan.import_name, *other.location.relative_to(scan.location).parts]
+
+
+def _covers(scan: _Planned, other: _Planned, *, recursive: bool) -> bool:
+    """Tell whether the scan of *scan* already audits everything the scan of *other* would.
+
+    That holds for the same target spelled twice, and with *recursive* for a subpackage that the recursive walk of
+    *scan*'s package imports: every directory between them is a package (:func:`_walk_reaches`) and *scan*'s ``exclude``
+    does not leave the subpackage out. A subpackage under a directory without ``__init__.py``, a submodule that does not
+    exist, or one *scan* excludes is not covered, so it keeps its own scan (and its own usage error).
+
+    Examples:
+        >>> from types import SimpleNamespace
+        >>> pkg = SimpleNamespace(target=_ScanTarget("pkg", "pkg", "pkg", Path("/src/pkg")), exclude=())
+        >>> other = SimpleNamespace(target=_ScanTarget("other", "other", "other", Path("/src/other")), exclude=())
+        >>> _covers(pkg, pkg, recursive=False), _covers(pkg, other, recursive=True)
+        (True, False)
+
+    """
+    first, second = scan.target, other.target
+    if (first.module, first.location) == (second.module, second.location):
+        return True
+    route = _walk_route(first, second) if recursive else None
+    if route is None:
+        return False
+    package_dir, parts = route
+    return _walk_reaches(package_dir, parts[1:]) and not _is_excluded(".".join(parts), scan.exclude)
+
+
+def _preflight_targets(paths: Sequence[str]) -> Optional[list[_ScanTarget]]:
+    """Check every path of a run before the first import and describe what each one's scan would import.
+
+    Returns:
+        The targets, in path order, or ``None`` after printing a usage error (the caller exits 2).
+
+    """
+    targets = []
+    for path in paths:
+        target = _check_target(path)
+        if target is None:
+            return None
+        targets.append(target)
+    return targets
+
+
+#: A path plan, kept as its own type through :func:`_select_plans`.
+_PlanT = TypeVar("_PlanT", bound=_Planned)
+
+
+def _version_source(target: _ScanTarget) -> Optional[str]:
+    """Return what gives *target* an auto-detected version of its own, found without importing anything, if anything.
+
+    An existing path takes its version from the nearest ``pyproject.toml`` with a ``[project]`` table, a dotted module
+    name from a distribution named after it (``pkg.component`` from ``pkg-component``). ``None`` when there is neither:
+    the version then comes from the same top-level package as that of a path covering it.
+
+    """
+    if Path(target.path).exists():
+        return _project_file(target.path)
+    if target.module is not None and "." in target.module:
+        distribution = _own_distribution(target.module)
+        return None if distribution is None else f"the distribution {distribution!r}"
+    return None
+
+
+def _own_context(plan: _Planned, cover: _Planned, *, own_versions: bool) -> Optional[str]:
+    """Return what *plan*'s own scan would apply that the scan of *cover* drops, or ``None`` when nothing differs.
+
+    A covered path whose own lookup finds no ``[tool.pydeprecate]`` file, or no version source, inherits the covering
+    path's, as the covering scan applies its own to it anyway. Only a different file of its own, or with *own_versions*
+    (each path judged against its auto-detected version) a version source of its own, would be silently dropped.
+
+    """
+    settings = plan.config[1]
+    if settings is not None and settings != cover.config[1]:
+        return "has its own `[tool.pydeprecate]` settings"
+    version_source = _version_source(plan.target) if own_versions else None
+    if version_source is not None and version_source != _version_source(cover.target):
+        return f"has its own version (from {version_source})"
+    return None
+
+
+def _select_plans(
+    plans: Sequence[_PlanT],
+    *,
+    recursive: bool,
+    own_versions: bool = False,
+    covered: Optional[dict[str, list[str]]] = None,
+) -> Optional[list[_PlanT]]:
+    """Drop the paths another path's scan already audits, and refuse two paths that cannot share one process.
+
+    Runs once every path is planned, before the first import, so a covering path's own resolved ``exclude`` decides
+    what its scan reaches. The same target given twice, or a package together with a subpackage its recursive walk
+    imports (:func:`_covers`), is scanned once, with one stderr note per dropped path; a covered path with settings or,
+    with *own_versions*, a version of its own (:func:`_own_context`) is refused, since they would be silently dropped.
+    Two paths whose scans bind the same top-level import name from different places (a package name, or the bare name
+    of a plain directory's top-level file) are refused too: both would report their wrappers under the same module
+    names, so no finding, baseline id or report entry could tell the two copies apart.
+
+    Returns:
+        The plans to scan, in path order, or ``None`` after printing a usage error (the caller exits 2).
+
+    """
+    # Coverage is not transitive when paths have different exclusions: a discarded intermediate cannot cover a leaf.
+    kept_indexes = {index for index in range(len(plans)) if _covering_plan(plans, index, recursive=recursive) is None}
+    for index, plan in enumerate(plans):
+        if index not in kept_indexes and not any(
+            _covers(plans[pos], plan, recursive=recursive) for pos in kept_indexes
+        ):
+            kept_indexes.add(index)
+    kept = [plan for index, plan in enumerate(plans) if index in kept_indexes]
+    for index, plan in enumerate(plans):
+        if index in kept_indexes:
+            continue
+        cover = next(candidate for candidate in kept if _covers(candidate, plan, recursive=recursive))
+        own = _own_context(plan, cover, own_versions=own_versions)
+        if own is not None:
+            _print(
+                f"{plan.target.path!r} {own}, but the scan of {cover.target.path!r} already audits it with those of"
+                " its own path; scan it in a separate run.",
+                stderr=True,
+            )
+            return None
+        _print(
+            f"pydeprecate: {plan.target.path!r} is already audited by the scan of {cover.target.path!r};"
+            " scanning it once.",
+            stderr=True,
+        )
+    for index, plan in enumerate(kept):
+        for other in kept[:index]:
+            name = _shared_name(other, plan)
+            if name is not None:
+                _print(
+                    f"{other.target.path} and {plan.target.path} both import as {name}; scan them in separate runs.",
+                    stderr=True,
+                )
+                return None
+    if covered is not None:
+        _collect_covered(kept, plans, covered, recursive=recursive)
+    return kept
+
+
+def _collect_covered(
+    kept: Sequence[_PlanT], plans: Sequence[_PlanT], covered: dict[str, list[str]], *, recursive: bool
+) -> None:
+    """Record explicit target names folded into each covering scan."""
+    for cover in kept:
+        for plan in plans:
+            route = _walk_route(cover.target, plan.target) if _covers(cover, plan, recursive=recursive) else None
+            if route is not None:
+                covered.setdefault(cover.target.path, []).append(".".join(route[1]))
+
+
+def _covering_plan(plans: Sequence[_PlanT], index: int, *, recursive: bool) -> Optional[_PlanT]:
+    """Return another plan whose scan covers ``plans[index]``; of two that cover each other, the first one wins."""
+    plan = plans[index]
+    for pos, other in enumerate(plans):
+        if pos == index or not _covers(other, plan, recursive=recursive):
+            continue
+        if pos < index or not _covers(plan, other, recursive=recursive):
+            return other
+    return None
+
+
+def _bound_names(target: _ScanTarget, exclude: Sequence[str] = ()) -> dict[str, Optional[Path]]:
+    """Return the top-level import names a target's scan binds in ``sys.modules``, each with where it loads from.
+
+    A package or module binds its top-level name; a plain directory binds the bare name of each top-level file it scans,
+    which leaves out a file whose name matches one of the target's *exclude* patterns, as :func:`_scan_directory` does.
+
+    Examples:
+        >>> _bound_names(_ScanTarget("pkg.sub", "pkg", "pkg.sub", None))
+        {'pkg': None}
+
+    """
+    if target.import_name is not None:
+        return {target.import_name: target.location}
+    if target.location is None or not target.location.is_dir():
+        return {}
+    return {entry.stem: entry.resolve() for entry in _plain_dir_modules(target.location, exclude)}
+
+
+def _shared_name(first: _Planned, second: _Planned) -> Optional[str]:
+    """Return a top-level import name both paths' scans bind to different places, or ``None`` when they can share a run.
+
+    Each path counts only what its own scan imports by name, so a file its resolved ``exclude`` leaves out takes no
+    part.
+
+    Examples:
+        >>> from types import SimpleNamespace
+        >>> one = SimpleNamespace(target=_ScanTarget("pkg", "pkg", "pkg", Path("/one/pkg")), exclude=())
+        >>> two = SimpleNamespace(target=_ScanTarget("pkg", "pkg", "pkg", Path("/two/pkg")), exclude=())
+        >>> _shared_name(one, two), _shared_name(one, one)
+        ('pkg', None)
+
+    """
+    first_names = _bound_names(first.target, first.exclude)
+    second_names = _bound_names(second.target, second.exclude)
+    return next(
+        (name for name in sorted(first_names.keys() & second_names.keys()) if first_names[name] != second_names[name]),
+        None,
+    )
 
 
 @contextmanager
@@ -80,12 +471,8 @@ def _scan_directory(
     abs_path: Path = Path(path).resolve()
     results: list[DeprecationWrapperInfo] = []
 
-    for entry in sorted(abs_path.iterdir(), key=lambda ent: ent.name):
-        if not (entry.is_file() and entry.suffix == ".py" and not entry.name.startswith("__")):
-            continue
+    for entry in _plain_dir_modules(abs_path, exclude or []):
         module_name: str = entry.stem
-        if _is_excluded(module_name, exclude or []):
-            continue
         try:
             results.extend(
                 find_deprecation_wrappers(
@@ -104,16 +491,7 @@ def _scan_directory(
         except Exception as e:
             _print_gap(_GapKind.MODULE_NOT_AUDITED, f"{module_name}: could not scan: {e!r}")
 
-    nested_python_files_found: bool = any(
-        not fpy.name.startswith("__") for fpy in abs_path.rglob("*.py") if fpy.parent != abs_path
-    )
-
-    if nested_python_files_found:
-        _print_gap(
-            _GapKind.NESTED_FILES,
-            "Skipping nested Python files in plain directory scan. Use an importable package layout with '__init__.py'"
-            " files, or scan an importable module/package path instead.",
-        )
+    _report_nested_files(abs_path)
     return results
 
 
@@ -247,6 +625,53 @@ def _print_scan_header(
         _print(f"Exclude: {', '.join(exclude[0])} ({_source_label(exclude[1])})")
 
 
+def _import_and_scan(
+    path: str,
+    *,
+    recursive: bool,
+    include_members: bool,
+    exclude: tuple[list[str], str],
+    version: Optional[str],
+    version_explicit: bool,
+    resolve_version: bool,
+    record_version: bool = False,
+) -> Optional[tuple[list[DeprecationWrapperInfo], Optional[str], Optional[str]]]:
+    """Run the importing half of :func:`_scan_for_command`: version auto-detection, the header and the scan.
+
+    With *record_version* and no *resolve_version*, the version is still auto-detected — for the report only, never
+    printed in the header — so every subcommand's report names the version its scan ran at.
+
+    Returns:
+        The wrappers, the version the subcommand compares against (``None`` unless given or *resolve_version*) and the
+        version to record, or ``None`` after printing that *path* names no importable module (the caller exits 2).
+
+    Raises:
+        _ScanError: When the scanned package itself cannot be imported, or its module-level code exits.
+
+    """
+    recorded = version
+    # no version was given, yet the subcommand compares against one or the report records one: detect it
+    if version is None and (resolve_version or record_version):
+        # Dynamic project versions and the __version__ fallback import code before the wrapper scan does, so they run
+        # with the same import root as the scan: in a run over several paths, each package resolves its own version.
+        with _managed_sys_path(path), _hidden_argv(), _root_exit_as_scan_error(path):
+            recorded = _resolve_package_version(_safe_module_name(path), path=path)
+        if resolve_version:
+            version = recorded
+    _print_scan_header(path, version, user_provided=version_explicit, exclude=exclude)
+    with _managed_sys_path(path), _hidden_argv(), _root_exit_as_scan_error(path):
+        try:
+            wrappers = _scan_path(path, recursive=recursive, include_members=include_members, exclude=exclude[0])
+        except Exception as err:
+            if _names_missing_module(err, path):
+                # a typo in the argument, not a package that failed to import
+                _print(f"No such path or importable module: {path!r}", stderr=True)
+                return None
+            # submodule failures are gaps inside the scan; only the package itself failing to import reaches here
+            raise _ScanError(f"could not import {path!r}: {type(err).__name__}: {err}") from err
+    return wrappers, version, recorded
+
+
 def _scan_for_command(
     path: str,
     *,
@@ -258,14 +683,16 @@ def _scan_for_command(
     version_explicit: bool = False,
     resolve_version: bool = False,
     record: bool = True,
+    static: bool = False,
+    covered: Sequence[str] = (),
 ) -> Optional[_ScanRecord]:
     """Run the scan prologue shared by every subcommand and return what it scanned.
 
     In order: refuse a file path or an ambiguous multi-package directory, resolve ``exclude`` (flag >
     ``pyproject.toml``), auto-detect the version when asked with CLI arguments hidden from imported code, print the
-    header, scan with ``sys.path`` pointed at the import root and the CLI's arguments hidden, name the imported file
-    (a gap when that is another copy than the scanned directory), and record the scan for ``--report-json`` (unless
-    *record* is off).
+    header, scan with ``sys.path`` pointed at the import root and the CLI's arguments hidden, print one
+    ``module not audited`` gap per submodule the detection or the scan skipped, name the imported file (a gap when that
+    is another copy than the scanned directory), and record the scan for ``--report-json`` (unless *record* is off).
 
     Args:
         path: Package directory, plain directory, or importable module name, as the user passed it.
@@ -278,6 +705,9 @@ def _scan_for_command(
         resolve_version: Auto-detect a missing *version* — for the subcommands that compare against one.
         record: Keep the scan for ``--report-json``. ``all`` and ``status`` turn it off: they record the table they
             render instead, so a table that failed to render is not rebuilt from the scan for the report.
+        static: Read the source with ``ast`` instead of importing it (``--static``): nothing from the scanned package is
+            imported or executed, the version included (:func:`_static_scan`).
+        covered: Explicit module names folded into this scan whose import failures must remain scan errors.
 
     Returns:
         The recorded scan, or ``None`` after printing a usage error (the caller exits 2).
@@ -291,27 +721,79 @@ def _scan_for_command(
     resolved_exclude = _resolve_exclude(path, exclude, config)
     if resolved_exclude is None:
         return None
+    # *path* is no package, no existing path and not spelled as a dotted module name: nothing to scan
     if package_dir is None and not Path(path).exists() and not _is_module_name(path):
         # `./typo` or `.pkg` is no path and no module name; importing it would fail as a relative import
         _print(f"No such path or importable module: {path!r}", stderr=True)
         return None
-    if version is None and resolve_version:
-        # Dynamic project versions and the __version__ fallback import code before the wrapper scan does.
-        with _hidden_argv(), _root_exit_as_scan_error(path):
-            version = _resolve_package_version(_safe_module_name(path), path=path)
-    _print_scan_header(path, version, user_provided=version_explicit, exclude=resolved_exclude)
-    with _managed_sys_path(path), _hidden_argv(), _root_exit_as_scan_error(path):
+    run_record = _RUN_RECORD.get()
+    if run_record is not None:
+        run_record.current_path = path
+    _record_options(recursive=recursive, exclude=resolved_exclude[0])
+    run = _static_scan if static else _import_scan
+    return run(
+        path,
+        package_dir,
+        recursive=recursive,
+        include_members=include_members,
+        exclude=resolved_exclude,
+        version=version,
+        version_explicit=version_explicit,
+        resolve_version=resolve_version,
+        record=record,
+        record_version=run_record is not None and run_record.wants_report,
+        **({} if static else {"covered": covered}),
+    )
+
+
+def _import_scan(
+    path: str,
+    package_dir: Optional[Path],
+    *,
+    recursive: bool,
+    include_members: bool,
+    exclude: tuple[list[str], str],
+    version: Optional[str],
+    version_explicit: bool,
+    resolve_version: bool,
+    record: bool,
+    record_version: bool,
+    covered: Sequence[str] = (),
+) -> Optional[_ScanRecord]:
+    """Run the importing half of :func:`_scan_for_command`: version, header, scan, imported location, record.
+
+    Returns:
+        The recorded scan, or ``None`` after printing a usage error (the caller exits 2).
+
+    """
+    # Every submodule the version detection or the scan skips is recorded as a gap of this scan right after it, also
+    # when the scan then fails, so a strict verdict computed at the subcommand's return already counts it.
+    with _collect_skipped_modules() as skipped_modules:
         try:
-            wrappers = _scan_path(
-                path, recursive=recursive, include_members=include_members, exclude=resolved_exclude[0]
+            scanned = _import_and_scan(
+                path,
+                recursive=recursive,
+                include_members=include_members,
+                exclude=exclude,
+                version=version,
+                version_explicit=version_explicit,
+                resolve_version=resolve_version,
+                record_version=record_version,
             )
-        except Exception as err:
-            if _names_missing_module(err, path):
-                # a typo in the argument, not a package that failed to import
-                _print(f"No such path or importable module: {path!r}", stderr=True)
-                return None
-            # submodule failures are gaps inside the scan; only the package itself failing to import reaches here
-            raise _ScanError(f"could not import {path!r}: {type(err).__name__}: {err}") from err
+        finally:
+            # Unlike the `audit: skipped` warning, these lines survive the audited package's own warnings filters.
+            for module, reason in skipped_modules.items():
+                _print_gap(_GapKind.MODULE_NOT_AUDITED, f"{module}: {reason}")
+    for module, reason in skipped_modules.items():
+        target = next((target for target in covered if target == module or target.startswith(f"{module}.")), None)
+        if target is not None:
+            raise _ScanError(
+                f"importing {module!r} failed while scanning explicitly requested module {target!r}: {reason}"
+            )
+    if scanned is None:
+        return None
+    wrappers, version, recorded_version = scanned
+    _record_scanned_path(path, recorded_version, user_provided=version_explicit)
     location = _imported_location(path, package_dir)
     if location is not None:
         _print(f"Imported from: {location}")
@@ -323,7 +805,59 @@ def _scan_for_command(
             f"`{package_dir.name}` was imported from {loaded_from}, not from {package_dir};"
             " the scan audited that copy.",
         )
-    scan = _ScanRecord(path, wrappers, version)
+    scan = _ScanRecord(path, wrappers, recorded_version)
+    if record:
+        _record_scan(scan)
+    return scan
+
+
+def _static_scan(
+    path: str,
+    package_dir: Optional[Path],
+    *,
+    recursive: bool,
+    include_members: bool,
+    exclude: tuple[list[str], str],
+    version: Optional[str],
+    version_explicit: bool,
+    resolve_version: bool,
+    record: bool,
+    record_version: bool,
+) -> Optional[_ScanRecord]:
+    """Run the ``--static`` half of :func:`_scan_for_command`: locate, version and read the source, importing nothing.
+
+    A module name is located without running it, and only a top-level one (a dotted name would import its parents);
+    the version comes from ``pyproject.toml``, installed metadata or the source's ``__version__``, never from an import.
+    With *record_version* and no *resolve_version*, the version is still detected for the report, never the header.
+
+    Returns:
+        The recorded scan, or ``None`` after printing a usage error (the caller exits 2).
+
+    """
+    try:
+        source_scan = _scan_static_source(
+            path,
+            package_dir,
+            recursive=recursive,
+            include_members=include_members,
+            exclude=exclude[0],
+            version_name=_safe_module_name(path),
+            resolve_version=version is None and (resolve_version or record_version),
+        )
+    except ValueError as err:
+        _print(str(err), stderr=True)
+        return None
+    recorded = version
+    # no version was given, yet the subcommand compares against one or the report records one: use the detected one
+    if version is None and (resolve_version or record_version):
+        recorded = source_scan.version
+        if resolve_version:
+            version = recorded
+    _print_scan_header(path, version, user_provided=version_explicit, exclude=exclude)
+    _print("Mode: static (source read with ast; nothing imported)")
+    _print_found_gaps(source_scan.gaps)
+    _record_scanned_path(path, recorded, user_provided=version_explicit)
+    scan = _ScanRecord(path, source_scan.wrappers, recorded, static=True)
     if record:
         _record_scan(scan)
     return scan

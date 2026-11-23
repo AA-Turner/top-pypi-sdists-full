@@ -31,6 +31,7 @@ pub(crate) use checkpoints::{cleanup_expired_logs_for, create_checkpoint_for};
 /// Struct used to represent minValues and maxValues in add action statistics.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum ColumnValueStat {
     /// Composite HashMap representation of statistics.
     Column(HashMap<String, ColumnValueStat>),
@@ -59,6 +60,7 @@ impl ColumnValueStat {
 /// Struct used to represent nullCount in add action statistics.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum ColumnCountStat {
     /// Composite HashMap representation of statistics.
     Column(HashMap<String, ColumnCountStat>),
@@ -229,6 +231,7 @@ pub struct MergePredicate {
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum DeltaOperation {
     /// Represents a Delta `Add Column` operation.
     /// Used to add new columns or field in a struct
@@ -433,14 +436,14 @@ impl DeltaOperation {
     /// Parameters configured for operation.
     pub fn operation_parameters(&self) -> DeltaResult<HashMap<String, Value>> {
         let value = serde_json::to_value(self)?;
-        if let Value::Object(mut operation) = value {
-            if let Some(Value::Object(parameters)) = operation.values_mut().next() {
-                return Ok(take(parameters)
-                    .into_iter()
-                    .filter(|item| !item.1.is_null())
-                    .map(|(key, value)| (key, operation_parameter_value(value)))
-                    .collect());
-            }
+        if let Value::Object(mut operation) = value
+            && let Some(Value::Object(parameters)) = operation.values_mut().next()
+        {
+            return Ok(take(parameters)
+                .into_iter()
+                .filter(|item| !item.1.is_null())
+                .map(|(key, value)| (key, operation_parameter_value(value)))
+                .collect());
         }
 
         Err(DeltaTableError::Generic(
@@ -502,6 +505,8 @@ impl DeltaOperation {
         match self {
             // Predicate is none -> Merge operation had to join full source and target
             Self::Merge { predicate, .. } if predicate.is_none() => true,
+            // Validates every existing row against the new constraint
+            Self::AddConstraint { .. } => true,
             _ => false,
         }
     }
@@ -516,6 +521,7 @@ pub(crate) fn operation_parameter_value(value: Value) -> Value {
 
 /// The SaveMode used when performing a DeltaOperation
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SaveMode {
     /// Files will be appended to the target location.
     Append,
@@ -545,6 +551,7 @@ impl FromStr for SaveMode {
 
 /// The OutputMode used in streaming operations.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[non_exhaustive]
 pub enum OutputMode {
     /// Only new rows will be written when new data is available.
     Append,
@@ -1011,11 +1018,11 @@ mod tests {
         }
 
         #[tokio::test]
-        #[ignore = "re-enable once https://github.com/delta-io/delta-kernel-rs/issues/1075 is resolved."]
         async fn test_only_struct_stats() {
             // test table with no json stats
             let path = "../test/tests/data/delta-1.2.1-only-struct-stats";
-            let table_uri = Url::from_directory_path(Path::new(path)).unwrap();
+            let table_uri =
+                Url::from_directory_path(std::fs::canonicalize(Path::new(path)).unwrap()).unwrap();
             let mut table = crate::open_table(table_uri).await.unwrap();
             table.load_version(1).await.unwrap();
 
@@ -1059,6 +1066,14 @@ mod tests {
                     Arc::new(array::Int64Array::from(vec![0])),
                 ),
                 (
+                    "null_count.binary",
+                    Arc::new(array::Int64Array::from(vec![0])),
+                ),
+                (
+                    "null_count.date",
+                    Arc::new(array::Int64Array::from(vec![0])),
+                ),
+                (
                     "null_count.timestamp",
                     Arc::new(array::Int64Array::from(vec![0])),
                 ),
@@ -1080,17 +1095,13 @@ mod tests {
                     Arc::new(array::Int64Array::from(vec![0])),
                 ),
                 ("min.integer", Arc::new(array::Int32Array::from(vec![0]))),
-                ("max.integer", Arc::new(array::Int32Array::from(vec![0]))),
-                ("min.null", Arc::new(array::NullArray::new(1))),
-                ("max.null", Arc::new(array::NullArray::new(1))),
-                ("min.boolean", Arc::new(array::NullArray::new(1))),
-                ("max.boolean", Arc::new(array::NullArray::new(1))),
+                ("min.null", Arc::new(array::BooleanArray::from(vec![None]))),
                 (
-                    "min.double",
-                    Arc::new(array::Float64Array::from(vec![1.234])),
+                    "min.boolean",
+                    Arc::new(array::BooleanArray::from(vec![None])),
                 ),
                 (
-                    "max.double",
+                    "min.double",
                     Arc::new(array::Float64Array::from(vec![1.234])),
                 ),
                 (
@@ -1102,35 +1113,11 @@ mod tests {
                     ),
                 ),
                 (
-                    "max.decimal",
-                    Arc::new(
-                        array::Decimal128Array::from_iter_values([-567800])
-                            .with_precision_and_scale(8, 5)
-                            .unwrap(),
-                    ),
-                ),
-                (
                     "min.string",
                     Arc::new(array::StringArray::from(vec!["string"])),
                 ),
                 (
-                    "max.string",
-                    Arc::new(array::StringArray::from(vec!["string"])),
-                ),
-                ("min.binary", Arc::new(array::NullArray::new(1))),
-                ("max.binary", Arc::new(array::NullArray::new(1))),
-                (
-                    "null_count.date",
-                    Arc::new(array::Int64Array::from(vec![0])),
-                ),
-                (
                     "min.date",
-                    Arc::new(array::Date32Array::from(vec![Date32Type::parse(
-                        "2022-10-24",
-                    )])),
-                ),
-                (
-                    "max.date",
                     Arc::new(array::Date32Array::from(vec![Date32Type::parse(
                         "2022-10-24",
                     )])),
@@ -1145,6 +1132,42 @@ mod tests {
                     ),
                 ),
                 (
+                    "min.struct.struct_element",
+                    Arc::new(array::StringArray::from(vec!["struct_value"])),
+                ),
+                (
+                    "min.nested_struct.struct_element.nested_struct_element",
+                    Arc::new(array::StringArray::from(vec!["nested_struct_value"])),
+                ),
+                ("max.integer", Arc::new(array::Int32Array::from(vec![0]))),
+                ("max.null", Arc::new(array::BooleanArray::from(vec![None]))),
+                (
+                    "max.boolean",
+                    Arc::new(array::BooleanArray::from(vec![None])),
+                ),
+                (
+                    "max.double",
+                    Arc::new(array::Float64Array::from(vec![1.234])),
+                ),
+                (
+                    "max.decimal",
+                    Arc::new(
+                        array::Decimal128Array::from_iter_values([-567800])
+                            .with_precision_and_scale(8, 5)
+                            .unwrap(),
+                    ),
+                ),
+                (
+                    "max.string",
+                    Arc::new(array::StringArray::from(vec!["string"])),
+                ),
+                (
+                    "max.date",
+                    Arc::new(array::Date32Array::from(vec![Date32Type::parse(
+                        "2022-10-24",
+                    )])),
+                ),
+                (
                     "max.timestamp",
                     Arc::new(
                         array::TimestampMicrosecondArray::from(vec![
@@ -1154,23 +1177,23 @@ mod tests {
                     ),
                 ),
                 (
-                    "min.struct.struct_element",
-                    Arc::new(array::StringArray::from(vec!["struct_value"])),
-                ),
-                (
                     "max.struct.struct_element",
                     Arc::new(array::StringArray::from(vec!["struct_value"])),
-                ),
-                (
-                    "min.nested_struct.struct_element.nested_struct_element",
-                    Arc::new(array::StringArray::from(vec!["nested_struct_value"])),
                 ),
                 (
                     "max.nested_struct.struct_element.nested_struct_element",
                     Arc::new(array::StringArray::from(vec!["nested_struct_value"])),
                 ),
             ];
-            let expected = RecordBatch::try_from_iter(expected_columns.clone()).unwrap();
+            // `path`, `size_bytes` and `modification_time` are the only non-nullable
+            // columns of the add actions schema.
+            let non_nullable = ["path", "size_bytes", "modification_time"];
+            let expected = RecordBatch::try_from_iter_with_nullable(
+                expected_columns
+                    .iter()
+                    .map(|(name, array)| (*name, array.clone(), !non_nullable.contains(name))),
+            )
+            .unwrap();
 
             assert_eq!(
                 expected
@@ -1244,16 +1267,6 @@ mod tests {
                     .downcast_ref::<array::Int64Array>()
                     .unwrap(),
                 &array::Int64Array::from(vec![0])
-            );
-
-            assert_eq!(
-                actions
-                    .get_field_at_path(&["tags", "OPTIMIZE_TARGET_SIZE"])
-                    .unwrap()
-                    .as_any()
-                    .downcast_ref::<array::StringArray>()
-                    .unwrap(),
-                &array::StringArray::from(vec!["268435456"])
             );
         }
 

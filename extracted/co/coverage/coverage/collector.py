@@ -218,22 +218,17 @@ class Collector:
         # Our active Tracers.
         self.tracers: list[Tracer] = []
 
-    def lock_data(self) -> None:
-        """Lock self.data_lock, for use by tracers."""
-        if self.data_lock is not None:
-            self.data_lock.acquire()
-
-    def unlock_data(self) -> None:
-        """Unlock self.data_lock, for use by tracers."""
-        if self.data_lock is not None:
-            self.data_lock.release()
-
     def _start_tracer(self) -> TTraceFn | None:
         """Start a new Tracer object, and store it in self.tracers."""
         tracer = self.core.tracer_class(**self.core.tracer_kwargs)
         tracer.data = self.data
-        tracer.lock_data = self.lock_data
-        tracer.unlock_data = self.unlock_data
+        # Hand the tracer the lock's own C methods, so no Python code (and no
+        # signal handler) can run while the lock is held.
+        if self.data_lock is not None:
+            tracer.lock_data = self.data_lock.acquire
+            tracer.unlock_data = self.data_lock.release
+        else:
+            tracer.lock_data = tracer.unlock_data = lambda: None
         tracer.trace_arcs = self.branch
         tracer.should_trace = self.should_trace
         tracer.should_trace_cache = self.should_trace_cache
@@ -474,9 +469,11 @@ class Collector:
             line_data = cast(dict[str, Collection[int]], snapshots)
             self.covdata.add_lines(self.mapped_file_dict(line_data))
 
+        # Tracers in other threads add to file_tracers too, so iterate a
+        # snapshot of it, like the data above.
         file_tracers = {
             self.cached_mapped_file(k): v
-            for k, v in self.file_tracers.items()
+            for k, v in self.file_tracers.copy().items()
             if v not in self.disabled_plugins
         }
         self.covdata.add_file_tracers(file_tracers)

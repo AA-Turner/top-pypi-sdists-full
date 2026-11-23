@@ -17,10 +17,11 @@ import re
 import struct
 import tempfile
 import time
+import warnings
 import zlib
 from pathlib import Path
 from typing import Any
-from unittest import TestCase, mock
+from unittest import TestCase, mock, skipUnless
 
 from asn1crypto import pem
 from pypdf import PdfReader
@@ -28,7 +29,6 @@ from reportlab.platypus import Spacer
 from svglib.svglib import svg2rlg
 
 from xhtml2pdf import pisa
-from xhtml2pdf.builders.signs import PDFSignature
 from xhtml2pdf.config.resources import (
     RenderLimitError,
     ResourceAccessError,
@@ -40,6 +40,12 @@ from xhtml2pdf.files import cleanFiles, getFile, pisaTempFile
 from xhtml2pdf.xhtml2pdf_reportlab import PmlBaseDoc, PmlImage, looks_like_svg
 
 from .httpserver import LocalServerMixin, sample_server
+
+try:
+    from xhtml2pdf.builders import signs as signs_module
+    from xhtml2pdf.builders.signs import PDFSignature
+except ImportError:  # pragma: no cover
+    PDFSignature = None  # type: ignore[assignment,misc]
 
 
 class LocalSizeLimitTest(TestCase):
@@ -619,6 +625,7 @@ def self_signed_pem() -> bytes:
     return cert.public_bytes(serialization.Encoding.PEM)
 
 
+@skipUnless(PDFSignature is not None, "signing needs the pyhanko extra")
 class SigningInputTest(TestCase):
     """Signing inputs are the caller's, read under the caller's policy."""
 
@@ -679,19 +686,48 @@ class SigningInputTest(TestCase):
                     "validation_context": {key: [str(roots)]},
                 }
                 if key == "other_certs":
-                    # Without trust_roots pyHanko falls back to the system's.
                     config["validation_context"]["trust_roots"] = [str(roots)]
-                if key == "extra_trust_roots":
-                    # pyHanko still takes it, deprecated in favour of trust_roots.
-                    with self.assertWarns(DeprecationWarning):
-                        PDFSignature.get_validation_context(config)
-                else:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", DeprecationWarning)
                     PDFSignature.get_validation_context(config)
 
                 self.assertEqual(
                     [expected],
                     [cert.dump() for cert in config["validation_context"][key]],
                 )
+
+    def test_trust_roots_are_required(self) -> None:
+        """Without them pyHanko would fall back to the system's trust list."""
+        cases: tuple[dict[str, Any], ...] = (
+            {},
+            {"validation_context": {}},
+            {"validation_context": {"other_certs": [str(self.chain)]}},
+        )
+        for settings in cases:
+            with (
+                self.subTest(settings=settings),
+                self.assertRaises(ValueError) as refused,
+            ):
+                PDFSignature.get_validation_context(
+                    {"ca_chain": str(self.chain), **settings}
+                )
+            self.assertIn("trust_roots", str(refused.exception))
+
+    def test_extra_trust_roots_are_trust_roots(self) -> None:
+        extra = self.certs / "extra.pem"
+        extra.write_bytes(self_signed_pem())
+        config: dict[str, Any] = {
+            "validation_context": {
+                "trust_roots": [str(self.chain)],
+                "extra_trust_roots": [str(extra)],
+            }
+        }
+        with mock.patch.object(signs_module, "ValidationContext") as context:
+            PDFSignature.get_validation_context(config)
+
+        (kwargs,) = [call.kwargs for call in context.call_args_list]
+        self.assertNotIn("extra_trust_roots", kwargs)
+        self.assertEqual(2, len(kwargs["trust_roots"]))
 
 
 class TemporaryFileTest(TestCase):

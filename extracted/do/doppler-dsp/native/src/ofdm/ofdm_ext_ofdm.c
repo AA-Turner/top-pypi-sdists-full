@@ -339,7 +339,7 @@ OfdmObj_add_run (OfdmObject *self, PyObject *args, PyObject *kwds)
                              "polarity_offset", "first_phase", NULL };
   long long    class_index_raw     = 0LL;
   long long    count_raw           = 0LL;
-  long long    cyclic_prefix_raw   = 4294967295;
+  long long    cyclic_prefix_raw   = OFDM_CP_DEFAULT;
   long long    polarity_offset_raw = 0;
   long long    first_phase_raw     = 0;
   if (!PyArg_ParseTupleAndKeywords (
@@ -470,7 +470,7 @@ OfdmObj_modulate_max_out (OfdmObject *self, PyObject *args)
       return NULL;
     }
   return PyLong_FromSize_t (
-      dp_ofdm_modulate_why_max_out (self->handle, (size_t)n_in));
+      dp_ofdm_modulate_max_out (self->handle, (size_t)n_in));
 }
 
 static PyObject *
@@ -525,7 +525,7 @@ OfdmObj_modulate (OfdmObject *self, PyObject *args, PyObject *kwds)
           PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
-      size_t _omax    = dp_ofdm_modulate_why_max_out (self->handle, (size_t)n);
+      size_t _omax    = dp_ofdm_modulate_max_out (self->handle, (size_t)n);
       size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
@@ -591,7 +591,7 @@ OfdmObj_modulate (OfdmObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   size_t _need = (size_t)n;
-  size_t _cap  = dp_ofdm_modulate_why_max_out (self->handle, (size_t)n);
+  size_t _cap  = dp_ofdm_modulate_max_out (self->handle, (size_t)n);
   (void)_need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
@@ -990,15 +990,15 @@ static PyMethodDef OfdmObj_methods[] = {
     "    Transform length, 2 to OFDM_N_FFT_MAX.\n"
     "subcarrier_map : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    `n_fft` entries, index `k + n_fft/2`, each OFDM_DATA or OFDM_NULL.\n"
-    "useful : int\n"
+    "useful : int, default 0\n"
     "    Body samples read cyclically from the transform; 0 reads as n_fft.\n"
-    "cyclic_prefix : int\n"
+    "cyclic_prefix : int, default 0\n"
     "    Default prefix, samples; at most `useful`.\n"
-    "window : int\n"
+    "window : int, default 0\n"
     "    Window transition, samples; at most the symbol length.\n"
-    "scale : float\n"
+    "scale : float, default 1.0\n"
     "    Multiplies the transform output.\n"
-    "n_phase : int\n"
+    "n_phase : int, default 1\n"
     "    Period of the fixed pattern, at least 1.\n"
     "\n"
     "Returns\n"
@@ -1168,11 +1168,11 @@ static PyMethodDef OfdmObj_methods[] = {
     "-> int\n"
     "\n"
     "Append a run of `count` OFDM symbols of one class. `cyclic_prefix` "
-    "overrides the class's prefix for this run (omit it, or give 4294967295 = "
-    "2**32 - 1, `OFDM_CP_DEFAULT` in C, to keep the class's; a named default "
-    "is just-buildit/just-makeit#2679); `polarity_offset` is the class's "
-    "polarity element used by the run's first symbol; `first_phase` is the "
-    "pattern phase of the run's first symbol. Returns the run's index.\n"
+    "overrides the class's prefix for this run (omit it, or give "
+    "`OFDM_CP_DEFAULT` = 4294967295 = 2**32 - 1, to keep the class's); "
+    "`polarity_offset` is the class's polarity element used by the run's "
+    "first symbol; `first_phase` is the pattern phase of the run's first "
+    "symbol. Returns the run's index.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1180,12 +1180,12 @@ static PyMethodDef OfdmObj_methods[] = {
     "    An existing class.\n"
     "count : int\n"
     "    OFDM symbols, at least 1.\n"
-    "cyclic_prefix : int\n"
+    "cyclic_prefix : int, default OFDM_CP_DEFAULT\n"
     "    Override of the class's prefix, or OFDM_CP_DEFAULT; at most the\n"
     "    class's `useful`.\n"
-    "polarity_offset : int\n"
+    "polarity_offset : int, default 0\n"
     "    Polarity element of the run's first symbol.\n"
-    "first_phase : int\n"
+    "first_phase : int, default 0\n"
     "    Pattern phase of the run's first symbol.\n"
     "\n"
     "Returns\n"

@@ -365,7 +365,7 @@ def _cutoff(box: dict[str, Any]) -> int:
             "mailbox: the original trace's start time is not known, so mail "
             "that arrived after it cannot be hidden."
         )
-    return cutoff
+    return cutoff // 1000 * 1000
 
 
 def _before_cutoff(box: dict[str, Any], message: dict[str, Any]) -> bool:
@@ -544,19 +544,74 @@ def _live_page(
     return reads.get(path, _list_query(reads.box, params, size))
 
 
+def _known_date(box: dict[str, Any], message_id: str) -> int | None:
+    local = _find(box, message_id)
+    if local is not None:
+        return int(local.get("internalDate") or 0)
+    checked = box.get("checkedDates") or {}
+    return int(checked[message_id]) if message_id in checked else None
+
+
+def _newest_date(reads: Reads, kind: str, item_id: str) -> int | None:
+    box = reads.box
+    if kind == "messages":
+        known = _known_date(box, item_id)
+        if known is not None:
+            return known
+    payload = reads.get(f"{kind}/{_quoted(item_id)}", {"format": "minimal"})
+    if HTTP_ERROR_KEY in payload:
+        return None
+    dated = payload.get("messages") if kind == "threads" else [payload]
+    before = [
+        int(m.get("internalDate") or 0) for m in dated or [] if _before_cutoff(box, m)
+    ]
+    newest = max(before) if before else _cutoff(box)
+    if kind == "messages":
+        box.setdefault("checkedDates", {})[item_id] = newest
+    return newest
+
+
+def _drop_after_cutoff(
+    reads: Reads, kind: str, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    cutoff = _cutoff(reads.box)
+    for index, item in enumerate(items):
+        newest = _newest_date(reads, kind, str(item.get("id")))
+        if newest is None or newest < cutoff:
+            return items[index:]
+    return []
+
+
+def _live_page_before_cutoff(
+    reads: Reads, kind: str, params: dict[str, Any], size: int
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    reply = _live_page(reads, kind, params, size)
+    fetched = [] if HTTP_ERROR_KEY in reply else reply.get(kind) or []
+    if params.get("pageToken") or HTTP_ERROR_KEY in reply:
+        return reply, fetched, fetched
+    live = _drop_after_cutoff(reads, kind, fetched)
+    dropped = len(fetched) - len(live)
+    if dropped == 0 or not reply.get("nextPageToken"):
+        return reply, fetched, live
+    fuller = _live_page(reads, kind, params, size + dropped)
+    if HTTP_ERROR_KEY in fuller:
+        return reply, fetched, live
+    fuller_fetched = fuller.get(kind) or []
+    return fuller, fuller_fetched, _drop_after_cutoff(reads, kind, fuller_fetched)
+
+
 def _messages_list(reads: Reads, params: dict[str, Any]) -> dict[str, Any]:
     box = reads.box
     first_page = not params.get("pageToken")
     matched = _matching(box, params)
     local = matched if first_page else []
-    reply = _live_page(
+    reply, fetched, live = _live_page_before_cutoff(
         reads, "messages", params, max(1, _page_size(params) - len(local))
     )
     if HTTP_ERROR_KEY in reply:
         return reply
     query = parse_query(str(params.get("q") or ""))
     shown_first = {m["id"] for m in matched}
-    live = reply.get("messages") or []
     kept: list[dict[str, Any]] = []
     for ref in live:
         message_id = str(ref.get("id"))
@@ -575,7 +630,7 @@ def _messages_list(reads: Reads, params: dict[str, Any]) -> dict[str, Any]:
     ]
     estimate = int(reply.get("resultSizeEstimate") or 0) + len(added)
     result: dict[str, Any] = {
-        "resultSizeEstimate": max(0, estimate - (len(live) - len(kept)))
+        "resultSizeEstimate": max(0, estimate - (len(fetched) - len(kept)))
     }
     if added or kept:
         result["messages"] = added + kept
@@ -635,13 +690,12 @@ def _threads_list(reads: Reads, params: dict[str, Any]) -> dict[str, Any]:
             for m in (_matching(box, params) if first_page else [])
         )
     )
-    reply = _live_page(
+    reply, fetched, live = _live_page_before_cutoff(
         reads, "threads", params, max(1, _page_size(params) - len(local_threads))
     )
     if HTTP_ERROR_KEY in reply:
         return reply
     query = parse_query(str(params.get("q") or ""))
-    live = reply.get("threads") or []
     matched_locally = set(
         str(m.get("threadId") or m["id"]) for m in _matching(box, params)
     )
@@ -659,7 +713,7 @@ def _threads_list(reads: Reads, params: dict[str, Any]) -> dict[str, Any]:
     added = [_thread_entry(box, t) for t in local_threads if t not in listed]
     estimate = int(reply.get("resultSizeEstimate") or 0) + len(added)
     result: dict[str, Any] = {
-        "resultSizeEstimate": max(0, estimate - (len(live) - len(kept)))
+        "resultSizeEstimate": max(0, estimate - (len(fetched) - len(kept)))
     }
     if added or kept:
         result["threads"] = added + kept

@@ -12,11 +12,15 @@ mod binary;
 // Tests related to most features in ripgrep. If you're adding something new
 // to ripgrep, tests should probably go in here.
 mod feature;
+// Tests for ripgrep's handling of input sources.
+mod input;
 // Tests for ripgrep's JSON format.
 mod json;
 // Miscellaneous tests grouped in a haphazard manner. Try not to add more.
 mod misc;
 // Tests for ripgrep's multiline search support.
 mod multiline;
+// Tests for limiting the number of bytes searched.
+mod max_bytes;
 // Regression tests.
 mod regression;

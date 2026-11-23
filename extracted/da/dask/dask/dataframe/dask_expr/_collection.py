@@ -3,11 +3,12 @@ from __future__ import annotations
 import datetime
 import functools
 import inspect
+import sys
 import warnings
 from collections.abc import Callable, Hashable, Iterable, Mapping
 from functools import wraps
 from numbers import Integral, Number
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import numpy as np
 import pandas as pd
@@ -151,10 +152,17 @@ from dask.utils import (
 )
 from dask.widgets import get_template
 
-#
+if TYPE_CHECKING:
+    try:
+        from graphviz import Digraph
+    except ModuleNotFoundError:
+
+        class Digraph:  # type: ignore[no-redef]
+            pass
+
+
 # Utilities to wrap Expr API
 # (Helps limit boiler-plate code in collection APIs)
-#
 
 
 def _wrap_expr_api(*args, wrap_api=None, **kwargs):
@@ -299,6 +307,31 @@ _WARN_ANNOTATIONS = True
 #
 # Collection classes
 #
+
+
+def _wrapped_numpy_funcname() -> str | None:
+    """Return the name of the public NumPy function that called ``__array_wrap__``,
+    or None if the caller is not NumPy.
+
+    Depending on the NumPy version, private helpers (``_wrapfunc``, ``_wrapit``)
+    may sit between the public function and ``__array_wrap__``; skip them.
+    """
+    # Caller of __array_wrap__
+    try:
+        frame = sys._getframe(1)
+    except AttributeError:  # Not CPython
+        frame = inspect.stack()[1].frame  # pragma: nocover
+    assert frame.f_back is not None
+    frame = frame.f_back
+
+    while frame.f_globals.get("__name__", "").startswith("numpy."):
+        name = frame.f_code.co_name
+        if not name.startswith("_"):
+            return name
+        if frame.f_back is None:
+            return None
+        frame = frame.f_back
+    return None
 
 
 class FrameBase(DaskMethodsMixin):
@@ -465,7 +498,9 @@ Expr={expr}"""
         out = self.optimize(fuse=fuse)
         return DaskMethodsMixin.persist(out, **kwargs)
 
-    def analyze(self, filename: str | None = None, format: str | None = None) -> None:
+    def analyze(
+        self, filename: str | None = None, format: str | None = None
+    ) -> Digraph:
         """Outputs statistics about every node in the expression.
 
         analyze optimizes the expression and triggers a computation. It records statistics
@@ -484,8 +519,7 @@ Expr={expr}"""
 
         Returns
         -------
-            None, but writes a graph representation of the expression enriched with
-            statistics to disk.
+            The graphviz.Digraph written to disk, enriched with expression statistics.
         """
         out = self
         if not isinstance(out, Scalar):
@@ -2786,12 +2820,8 @@ class DataFrame(FrameBase):
             else:
                 index = context[1][0].index
         else:
-            try:
-                import inspect
-
-                method_name = f"`{inspect.stack()[3][3]}`"
-            except IndexError:
-                method_name = "This method"
+            funcname = _wrapped_numpy_funcname()
+            method_name = f"`{funcname}`" if funcname else "This method"
 
             raise NotImplementedError(
                 f"{method_name} is not implemented for `dask.dataframe.DataFrame`."
@@ -4208,12 +4238,8 @@ class Series(FrameBase):
             else:
                 index = context[1][0].index
         else:
-            try:
-                import inspect
-
-                method_name = f"`{inspect.stack()[3][3]}`"
-            except IndexError:
-                method_name = "This method"
+            funcname = _wrapped_numpy_funcname()
+            method_name = f"`{funcname}`" if funcname else "This method"
             raise NotImplementedError(
                 f"{method_name} is not implemented for `dask.dataframe.Series`."
             )
@@ -4323,6 +4349,15 @@ class Series(FrameBase):
         Returns
         -------
         uniques : Series
+
+        Notes
+        -----
+        Unlike :meth:`pandas.Series.unique`, the order of the returned
+        values is not guaranteed to match the order of first appearance
+        in the data, because ``unique`` shuffles the data under the hood
+        to avoid overloading a single worker. To preserve the original
+        order, pass ``split_out=1`` to use a tree reduction instead
+        (only suitable for low-cardinality data).
         """
         shuffle_method = _get_shuffle_preferring_order(shuffle_method)
         return new_collection(Unique(self, split_every, split_out, shuffle_method))

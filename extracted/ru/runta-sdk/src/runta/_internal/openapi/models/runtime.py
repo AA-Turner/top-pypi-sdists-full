@@ -37,8 +37,8 @@ class Runtime:
         display_name (str): User-chosen display name.
         egress_policy (AllowlistEgressPolicy | DenylistEgressPolicy): Per-runtime egress gateway policy.
         llm_tool_io_capture_enabled (bool): Whether official LLM HTTP API tool input/output capture is enabled.
-        llm_session_content_capture_enabled (bool): Explicitly opt in to user, assistant, and tool conversation content
-            capture. Disabled by default; independent from tool-only capture.
+        llm_session_content_capture_enabled (bool): Explicitly enable capture of user, assistant, and tool conversation
+            content. Disabled by default. Independent from tool-only capture.
         llm_token_saving_policy (LlmTokenSavingPolicy): Canonical per-runtime LLM tool-output compression settings.
         idle_policy (DisabledIdlePolicy | SuspendAndWakeupIdlePolicy | SuspendOnlyIdlePolicy): Runtime idle suspension
             and automatic wakeup policy.
@@ -59,6 +59,8 @@ class Runtime:
         can_manage (bool): Whether the current caller may perform control operations on this runtime.
         revision (int): Monotonic runtime aggregate revision.
         secret_configuration (list[RuntimeSecretConfiguration]): Canonical inline secret injection configuration.
+        deleted_at (str | Unset): Deletion completion time for a read-only audit record.
+        deleted_by (str | Unset): Deleting user UUID, or system for automatic deletion.
         auto_shutdown_at (datetime.datetime | Unset): Current session deadline, absent until running or when disabled.
         auto_delete_at (datetime.datetime | Unset): Deletion deadline, absent until shutdown or when disabled.
         environment_variables (RuntimeEnvironmentVariables | Unset): Non-secret environment variables the runtime
@@ -98,6 +100,8 @@ class Runtime:
     can_manage: bool
     revision: int
     secret_configuration: list[RuntimeSecretConfiguration]
+    deleted_at: str | Unset = UNSET
+    deleted_by: str | Unset = UNSET
     auto_shutdown_at: datetime.datetime | Unset = UNSET
     auto_delete_at: datetime.datetime | Unset = UNSET
     environment_variables: RuntimeEnvironmentVariables | Unset = UNSET
@@ -177,6 +181,10 @@ class Runtime:
             secret_configuration_item = secret_configuration_item_data.to_dict()
             secret_configuration.append(secret_configuration_item)
 
+        deleted_at = self.deleted_at
+
+        deleted_by = self.deleted_by
+
         auto_shutdown_at: str | Unset = UNSET
         if not isinstance(self.auto_shutdown_at, Unset):
             auto_shutdown_at = self.auto_shutdown_at.isoformat()
@@ -252,6 +260,10 @@ class Runtime:
                 "secret_configuration": secret_configuration,
             }
         )
+        if deleted_at is not UNSET:
+            field_dict["deleted_at"] = deleted_at
+        if deleted_by is not UNSET:
+            field_dict["deleted_by"] = deleted_by
         if auto_shutdown_at is not UNSET:
             field_dict["auto_shutdown_at"] = auto_shutdown_at
         if auto_delete_at is not UNSET:
@@ -405,6 +417,10 @@ class Runtime:
 
             secret_configuration.append(secret_configuration_item)
 
+        deleted_at = d.pop("deleted_at", UNSET)
+
+        deleted_by = d.pop("deleted_by", UNSET)
+
         _auto_shutdown_at = d.pop("auto_shutdown_at", UNSET)
         auto_shutdown_at: datetime.datetime | Unset
         if isinstance(_auto_shutdown_at, Unset):
@@ -501,6 +517,8 @@ class Runtime:
             can_manage=can_manage,
             revision=revision,
             secret_configuration=secret_configuration,
+            deleted_at=deleted_at,
+            deleted_by=deleted_by,
             auto_shutdown_at=auto_shutdown_at,
             auto_delete_at=auto_delete_at,
             environment_variables=environment_variables,

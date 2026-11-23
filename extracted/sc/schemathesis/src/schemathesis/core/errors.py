@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import enum
+import os
 import re
+import sysconfig
 import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -201,12 +203,13 @@ class InvalidSchema(SchemathesisError):
         message = "Unresolvable reference in the schema"
         # Get the pointer value from "Unresolvable JSON pointer: 'components/UnknownParameter'"
         message += f"\n\nError details:\n    Reference: {reference}"
-        if not reference.startswith(("http://", "https://", "#/")):
+        # A relative reference points to a remote document when the schema itself has a remote base URI
+        if isinstance(error.__cause__, RemoteDocumentError):
+            message += f"\n    {error.__cause__}"
+        elif not reference.startswith(("http://", "https://", "#/")):
             message += "\n    File reference could not be resolved. Check that the file exists."
         elif reference.startswith(("#/components", "#/definitions")):
             message += "\n    Component does not exist in the schema."
-        elif isinstance(error.__cause__, RemoteDocumentError):
-            message += f"\n    {error.__cause__}"
         return cls(message, path=path, method=method)
 
     def as_failing_test_function(self) -> Callable:
@@ -248,15 +251,19 @@ class HookExecutionError(SchemathesisError):
 
     hook_name: str
     original_error: Exception | SystemExit
+    # The extension whose method raised, if any
+    extension: str | None
 
-    __slots__ = ("hook_name", "original_error")
+    __slots__ = ("hook_name", "original_error", "extension")
 
-    def __init__(self, hook_name: str, original_error: Exception | SystemExit) -> None:
+    def __init__(self, hook_name: str, original_error: Exception | SystemExit, *, extension: str | None = None) -> None:
         self.hook_name = hook_name
         self.original_error = original_error
+        self.extension = extension
 
     def __str__(self) -> str:
-        return f"Error in `{self.hook_name}` hook: {type(self.original_error).__name__}: {self.original_error}"
+        owner = f" of `{self.extension}` extension" if self.extension is not None else ""
+        return f"Error in `{self.hook_name}` hook{owner}: {type(self.original_error).__name__}: {self.original_error}"
 
 
 class InvalidRegexType(InvalidSchema):
@@ -439,6 +446,14 @@ class AuthenticationError(SchemathesisError):
                 "  - Logic error in the authentication provider implementation"
             )
         super().__init__(text)
+
+
+class DictionaryLoadingError(SchemathesisError):
+    """A `from-operation` dictionary could not be filled from its source operation."""
+
+
+class ApplicationShutdownError(SchemathesisError):
+    """An in-process application failed while it was shutting down."""
 
 
 class NoLinksFound(IncorrectUsage):
@@ -744,6 +759,29 @@ def format_exception(
         trace = extract_nth_traceback(trace, skip_frames)
     lines = traceback.format_exception(type(error), error, trace)
     return "".join(lines).strip()
+
+
+# Frames from Schemathesis itself, the standard library and installed packages are not application code.
+_FOREIGN_CODE = (
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    *(sysconfig.get_path(name) for name in ("stdlib", "purelib", "platlib")),
+)
+
+
+def format_app_exception(error: BaseException, *, roots: tuple[str, ...]) -> str:
+    """Format an exception an application raised, with only the frames of the application's own code.
+
+    Frames under `roots`, the application's package directories or module files, are its own even when installed.
+    """
+    frames = [frame for frame in traceback.extract_tb(error.__traceback__) if _is_app_frame(frame.filename, roots)]
+    lines = traceback.format_list(frames) + traceback.format_exception_only(type(error), error)
+    return "".join(lines).strip()
+
+
+def _is_app_frame(filename: str, roots: tuple[str, ...]) -> bool:
+    if any(filename == root or filename.startswith(root + os.sep) for root in roots):
+        return True
+    return not filename.startswith(_FOREIGN_CODE)
 
 
 def extract_nth_traceback(trace: TracebackType | None, n: int) -> TracebackType | None:

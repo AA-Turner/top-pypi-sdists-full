@@ -283,6 +283,10 @@ class FileActionMapper:
             self.__inject_ssh_properties(action)
 
     def __inject_url(self, action, file_type):
+        source_url = action.source.get("url")
+        if source_url:
+            action.url = source_url
+            return
         url_base = self.files_endpoint
         if not url_base:
             raise Exception(MISSING_FILES_ENDPOINT_ERROR)
@@ -310,6 +314,8 @@ UNSET_ACTION_KWD = "__UNSET__"
 
 class BaseAction:
     whole_directory_transfer_supported = False
+    # Staged path is the source file itself, so its mode must not be changed.
+    shares_source_inode = False
     action_spec: ClassVar[Dict[str, Any]] = {}
     action_type: str
 
@@ -452,9 +458,13 @@ class CopyAction(BaseAction):
 
 
 class HardlinkAction(BaseAction):
-    """Create hardlinks on the client for files on a shared filesystem."""
+    """Create hardlinks on the client for files on a shared filesystem.
+
+    Use only for path types that the job does not write to, such as ``input``.
+    """
     action_type = "hardlink"
     staging = STAGING_ACTION_LOCAL
+    shares_source_inode = True
 
 
 class RemoteCopyAction(BaseAction):
@@ -484,9 +494,13 @@ class RemoteCopyAction(BaseAction):
 
 
 class RemoteHardlinkAction(BaseAction):
-    """Create hardlinks on the Pulsar server for files on a shared filesystem."""
+    """Create hardlinks on the Pulsar server for files on a shared filesystem.
+
+    Use only for path types that the job does not write to, such as ``input``.
+    """
     action_type = "remote_hardlink"
     staging = STAGING_ACTION_REMOTE
+    shares_source_inode = True
 
     @classmethod
     def from_dict(cls, action_dict):
@@ -664,6 +678,7 @@ class MessageAction:
     """
     action_type = "message"
     staging = STAGING_ACTION_DEFAULT
+    shares_source_inode = False
 
     def __init__(self, contents, client=None):
         self.contents = contents

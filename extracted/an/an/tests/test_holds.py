@@ -85,7 +85,9 @@ def _lowest_ink(doc, path, t):
 
 
 def _event(doc, name, item="stick", index=0):
-    return [e for e in _holds(doc)["events"] if e["event"] == name and e["item"] == item][index]
+    return [
+        e for e in _holds(doc)["events"] if e["event"] == name and e["item"] == item
+    ][index]
 
 
 def _hand(doc, t):
@@ -409,7 +411,9 @@ def test_a_dropped_item_keeps_the_mirror_it_was_let_go_with(tmp_path):
         assert _pose(doc, t)[("stick", "scale_x")] < 0, t
     x0 = _stage(doc, "stick", 2.0, point=(0.0, 0.0))[0]
     for t in _times(2.0, land):
-        assert _stage(doc, "stick", t, point=(0.0, 0.0))[0] == pytest.approx(x0, abs=0.5), t
+        assert _stage(doc, "stick", t, point=(0.0, 0.0))[0] == pytest.approx(
+            x0, abs=0.5
+        ), t
     assert _lowest_ink(doc, "stick", rest + 0.1) == pytest.approx(GROUND, abs=1.0)
 
 
@@ -666,19 +670,24 @@ def test_a_taken_item_turns_to_how_the_hand_holds_things(tmp_path):
     actions = "- {{kind: grasp, by: fig/arm_r, item: stick, start: 0.5{}}}\n- {{kind: tween, target: fig/arm_r, property: rotation, from: 0.0, to: 0.4, duration: 0.5, start: 2.0}}"
     aligned = _compile(_project(tmp_path / "a", actions.format("")))
     kept = _compile(_project(tmp_path / "k", actions.format(", align: false")))
+    from an.stage.solve import SOLVED_POSE_TOLERANCE_PX
+
+    # the arm's solved keys are compacted at its own lever (an#779): a root on a
+    # one-body chain, its share of the budget at its 200-unit length
+    angle = SOLVED_POSE_TOLERANCE_PX / ((math.sqrt(2.0) + 1.0) * 200.0 * K)
     g = _gesture(aligned, "grasp")
     contact = round(g["contact"] * 24) / 24
     for t in (g["end"] + 0.05, 2.25, 3.0):
         pose = _pose(aligned, t)
         assert pose[("stick", "rotation")] == pytest.approx(
-            pose[("fig/arm_r", "rotation")], abs=1e-5
+            pose[("fig/arm_r", "rotation")], abs=angle
         ), t
         assert math.dist(_hand(aligned, t), _grip(aligned, t)) < GRASP_TOLERANCE_PX
     at_contact, later = _pose(kept, contact), _pose(kept, 3.0)
     turned = later[("fig/arm_r", "rotation")] - at_contact[("fig/arm_r", "rotation")]
     assert later[("stick", "rotation")] - at_contact[
         ("stick", "rotation")
-    ] == pytest.approx(turned, abs=1e-5)
+    ] == pytest.approx(turned, abs=2 * angle)
 
 
 def test_a_passenger_part_does_not_swing_when_its_body_moves(tmp_path):
@@ -1186,6 +1195,33 @@ def test_the_floor_is_where_the_figure_stands_not_its_lowest_part(tmp_path):
         for y in (-100.0, 100.0)
     )
     assert lowest == pytest.approx(GROUND, abs=1e-3)
+
+
+def test_the_hold_layer_and_the_support_check_share_one_standing_rule(
+    tmp_path, monkeypatch
+):
+    """an#795: the hold layer places an entity by its ``origin`` exactly when
+    :func:`an.stage.support.origin_stands` says it stands there, the rule
+    ``contacts_of`` uses: deny it, and the figure of the test above is no
+    longer floored by its feet (the stick then lands on its hanging hand's
+    line instead of y 200)."""
+    import an.stage.support as support
+
+    seen = []
+    real = support.origin_stands
+
+    def spy(doc, entity, rig, mall):
+        got = real(doc, entity, rig, mall)
+        seen.append((entity.id, got))
+        return got
+
+    monkeypatch.setattr(support, "origin_stands", spy)
+    test_the_floor_is_where_the_figure_stands_not_its_lowest_part(tmp_path / "a")
+    assert ("fig", True) in seen
+
+    monkeypatch.setattr(support, "origin_stands", lambda *a: False)
+    with pytest.raises(AssertionError):
+        test_the_floor_is_where_the_figure_stands_not_its_lowest_part(tmp_path / "b")
 
 
 def test_a_rig_placed_by_its_middle_is_not_standing_on_it(tmp_path):

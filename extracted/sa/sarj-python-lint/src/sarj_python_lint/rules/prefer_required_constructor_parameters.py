@@ -154,7 +154,6 @@ def _binding(provenance: ResourceProvenance, name: str, at: ast.AST) -> ast.AST 
 
 
 def _enclosing_scope(provenance: ResourceProvenance, scope: ast.AST) -> ast.AST | None:
-    # Enclosing class namespaces do not become lexical closures for nested classes or functions.
     outer = provenance.scope(scope)
     while isinstance(outer, ast.ClassDef):
         outer = provenance.scope(outer)
@@ -168,7 +167,6 @@ def _declared_binding(
     scope: ast.AST,
     bindings: Sequence[ast.AST],
 ) -> ast.AST | None:
-    # Declarations redirect lookup without replacing values; subsequent writes retain conservative warnings.
     bindings = _evaluated_bindings(provenance.context, bindings, at)
     if any(not isinstance(binding, ast.Global | ast.Nonlocal) for binding in bindings):
         return None
@@ -237,8 +235,6 @@ def _visible_bindings(bindings: Sequence[ast.AST], scope: ast.AST, at: ast.AST, 
             at, "lineno", 0
         )
     ]
-    # A future function local cannot fall back to an outer name, whereas a
-    # class or module lookup can still use a prior enclosing import.
     if earlier or not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
         return earlier
     return bindings
@@ -248,10 +244,13 @@ def _imported(context: PythonFileContext, binding: ast.AST | None) -> str | None
     if not isinstance(binding, ast.alias):
         return None
     statement = context.parents.get(binding)
-    if isinstance(statement, ast.Import):
-        return binding.name if binding.asname else binding.name.partition(".")[0]
-    if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module is not None:
-        return f"{statement.module}.{binding.name}"
+    match statement:
+        case ast.Import():
+            return binding.name if binding.asname else binding.name.partition(".")[0]
+        case ast.ImportFrom() if statement.level == 0 and statement.module is not None:
+            return f"{statement.module}.{binding.name}"
+        case _:
+            pass
     return None
 
 

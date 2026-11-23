@@ -3,7 +3,7 @@ import pytest
 from hypothesis.database import DirectoryBasedExampleDatabase, InMemoryExampleDatabase
 
 import schemathesis
-from schemathesis.config import ProjectConfig, SchemathesisConfig
+from schemathesis.config import ProjectConfig, SchemathesisConfig, WarningsConfig
 
 LABEL = "PUT /users/{user_id}"
 
@@ -45,9 +45,7 @@ def test_auth_for(operation, matcher, expected):
         }
     )
     project = config.projects.get_default()
-    # No specific API operation - global auth
     assert project.auth_for() == ("user", "global")
-    # Specific for operation
     assert project.auth_for(operation=operation) == ("user", expected)
 
 
@@ -72,15 +70,12 @@ def test_headers_for_override_and_fallback(operation, matcher, expected):
     )
     project = config.projects.get_default()
 
-    # No operation passed -> global headers
     assert project.headers_for() == {"X-Test": "global"}
 
-    # Operation passed -> override or fallback per matcher
     assert project.headers_for(operation=operation) == expected
 
 
 def test_headers_for_none_when_unset(operation):
-    # No headers defined globally or per-operation -> empty dict
     config = SchemathesisConfig.from_dict({})
     project = config.projects.get_default()
 
@@ -117,9 +112,8 @@ def test_hypothesis_database_and_reuse_phase(operation, db_value, expected_type,
     assert hypothesis.Phase.explain not in settings.phases
     assert hypothesis.Phase.shrink in settings.phases
 
-    # operation-specific should be identical (no overrides)
     op_settings = project.get_hypothesis_settings(operation=operation)
-    # __eq__ implementation is not available in older Hypothesis versions
+    # Older Hypothesis databases lack `__eq__`.
     assert str(op_settings.database) == str(settings.database)
     assert op_settings.phases == settings.phases
 
@@ -179,6 +173,101 @@ def test_transport_setting_for_operation(operation, matcher, key, project_value,
     assert (getter(project), getter(project, operation=operation)) == (project_value, expected)
 
 
+@pytest.mark.parametrize(
+    ("key", "operation_value", "option", "cli_value", "getter"),
+    [
+        ("max-redirects", 1, "max_redirects", 5, ProjectConfig.max_redirects_for),
+        ("request-timeout", 0.5, "request_timeout", 10, ProjectConfig.request_timeout_for),
+        ("request-retries", 5, "request_retries", 3, ProjectConfig.request_retries_for),
+        ("tls-verify", False, "tls_verify", "/cli/ca.pem", ProjectConfig.tls_verify_for),
+        ("proxy", "http://local:8080", "proxy", "http://cli:8080", ProjectConfig.proxy_for),
+        ("rate-limit", "1/s", "rate_limit", "auto", ProjectConfig.rate_limit_for),
+        ("continue-on-failure", False, "continue_on_failure", True, ProjectConfig.continue_on_failure_for),
+        ("request-cert", "/local.pem", "request_cert", "/cli.pem", ProjectConfig.request_cert_for),
+        ("headers", {"X-Local": "local"}, "headers", {"X-Cli": "cli"}, ProjectConfig.headers_for),
+        (
+            "auth",
+            {"basic": {"username": "user", "password": "local"}},
+            "basic_auth",
+            ("user", "cli"),
+            ProjectConfig.auth_for,
+        ),
+        ("warnings", False, "warnings", WarningsConfig.from_value(["missing_auth"]), ProjectConfig.warnings_for),
+    ],
+    ids=[
+        "max-redirects",
+        "request-timeout",
+        "request-retries",
+        "tls-verify",
+        "proxy",
+        "rate-limit",
+        "continue-on-failure",
+        "request-cert",
+        "headers",
+        "auth",
+        "warnings",
+    ],
+)
+def test_command_line_overrides_operation_setting(operation, key, operation_value, option, cli_value, getter):
+    config = SchemathesisConfig.from_dict({"operations": [{"include-name": LABEL, key: operation_value}]})
+    config.projects.override.update(**{option: cli_value})
+    assert getter(config.projects.get_default(), operation=operation) == cli_value
+
+
+def _max_examples(project, operation):
+    return project.generation_for(operation=operation, phase="fuzzing").max_examples
+
+
+@pytest.mark.parametrize(
+    ("raw", "apply", "resolve", "expected"),
+    [
+        (
+            {"operations": [{"include-name": LABEL, "generation": {"max-examples": 5}}]},
+            lambda override: override.generation.update(max_examples=10),
+            _max_examples,
+            10,
+        ),
+        (
+            {"operations": [{"include-name": LABEL, "phases": {"fuzzing": {"generation": {"max-examples": 5}}}}]},
+            lambda override: override.generation.update(max_examples=10),
+            _max_examples,
+            10,
+        ),
+        (
+            {"phases": {"fuzzing": {"generation": {"max-examples": 5}}}},
+            lambda override: override.generation.update(max_examples=10),
+            _max_examples,
+            10,
+        ),
+        (
+            {"operations": [{"include-name": LABEL, "phases": {"coverage": {"enabled": True}}}]},
+            lambda override: override.phases.update(phases=["fuzzing"]),
+            lambda project, operation: project.phases_for(operation=operation).coverage.enabled,
+            False,
+        ),
+        (
+            {"operations": [{"include-name": LABEL, "checks": {"max_response_time": 20}}]},
+            lambda override: override.checks.update(max_response_time=5),
+            lambda project, operation: (
+                project.checks_config_for(operation=operation, phase="fuzzing").max_response_time.limit
+            ),
+            5,
+        ),
+    ],
+    ids=[
+        "operation-generation",
+        "operation-phase-generation",
+        "phase-generation",
+        "operation-phases",
+        "operation-response-time",
+    ],
+)
+def test_command_line_overrides_operation_and_phase_sections(operation, raw, apply, resolve, expected):
+    config = SchemathesisConfig.from_dict(raw)
+    apply(config.projects.override)
+    assert resolve(config.projects.get_default(), operation) == expected
+
+
 def test_project_operations_take_precedence_over_global_operations(ctx):
     raw_schema = ctx.openapi.build_schema({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
     config = SchemathesisConfig.from_dict(
@@ -236,7 +325,9 @@ def test_operation_disables_project_continue_on_failure(ctx, cli):
     result = cli.run(
         overridden.schema_url,
         *args,
-        "--continue-on-failure",
-        config={"operations": [{"include-path": "/api/multiple_failures", "continue-on-failure": False}]},
+        config={
+            "continue-on-failure": True,
+            "operations": [{"include-path": "/api/multiple_failures", "continue-on-failure": False}],
+        },
     )
     assert len(overridden.requests) == len(stopping.requests), result.stdout

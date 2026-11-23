@@ -116,6 +116,7 @@ def test_readiness_timeout_bounds_sleep(
         RuntimeStatus.ERROR,
         RuntimeStatus.CRASHED,
         RuntimeStatus.DELETING,
+        RuntimeStatus.DELETED,
     ],
 )
 def test_readiness_terminal_status_does_not_sleep(monkeypatch, asynchronous, status):

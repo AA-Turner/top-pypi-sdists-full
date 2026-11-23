@@ -27,6 +27,7 @@ pub(crate) struct MmapSpec {
     pub(crate) has_shared_params: Option<bool>,
     pub(crate) is_active: Option<bool>,
     pub(crate) version: Option<u32>,
+    pub(crate) served_version: Option<u32>,
     pub(crate) target_app_ids: Option<Vec<u64>>,
     pub(crate) forward_all_exposures: Option<bool>,
     pub(crate) fields_used: Option<Vec<u64>>,
@@ -55,6 +56,7 @@ impl MmapSpec {
             has_shared_params: spec.has_shared_params,
             is_active: spec.is_active,
             version: spec.version,
+            served_version: spec.served_version,
             target_app_ids: spec
                 .target_app_ids
                 .as_ref()

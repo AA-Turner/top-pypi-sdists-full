@@ -22,9 +22,10 @@ from html import escape as html_escape
 import pypdf
 from reportlab.lib import pdfencrypt
 from reportlab.platypus.doctemplate import NextPageTemplate
-from reportlab.platypus.flowables import Spacer
+from reportlab.platypus.flowables import PageBreakIfNotEmpty, Spacer
 
 from xhtml2pdf.builders.inserts import insert_pages
+from xhtml2pdf.builders.margin_boxes import prepare_margin_boxes
 from xhtml2pdf.builders.pdfx import PDFXOptions, make_pdfx
 from xhtml2pdf.builders.position import PositionAnchor
 from xhtml2pdf.builders.preflight import scan, warn
@@ -109,6 +110,7 @@ def pisaStory(
         render_budget(context.resource_policy),
     ):
         pisaParser(src, context, default_css, xhtml, encoding, xml_output)
+        prepare_margin_boxes(context)
 
     # Avoid empty documents
     if not context.story:
@@ -238,6 +240,33 @@ def start_on_leading_template(
         return
     doc._firstPageTemplateIndex = ids.index(name)
     del story[:leading]
+
+
+def start_on_first_page(doc, templates, story) -> None:
+    """
+    Begin the document on its ``@page :first`` template, if it has one.
+
+    The first page takes ``<name>_first`` for the template it would begin on,
+    and a NextPageTemplate put ahead of the story sends the pages after it
+    back to that template -- or to the :left/:right cycle.
+    """
+    ids = [template.id for template in templates]
+    start = doc._firstPageTemplateIndex
+    if isinstance(start, list):
+        following: str | list[str] = start
+        base = DEFAULT_PAGE_NAME
+    else:
+        following = base = ids[start]
+    first = f"{base}_first"
+    if first not in ids:
+        return
+    doc._firstPageTemplateIndex = ids.index(first)
+    # After a leading forced break, which reportlab drops only when it is
+    # the first thing on the page.
+    index = 0
+    while index < len(story) and isinstance(story[index], PageBreakIfNotEmpty):
+        index += 1
+    story.insert(index, NextPageTemplate(following))
 
 
 def pisaDocument(
@@ -473,6 +502,7 @@ def _build(
         declared_body=declared_body,
         body_named=context.bodyPageNamed,
     )
+    start_on_first_page(doc, templates, context.story)
 
     # Use multibuild e.g. if a TOC has to be created
     if context.multiBuild:

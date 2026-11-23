@@ -2199,7 +2199,7 @@ class DockerComposeProps:
         :deprecated:
 
         - The top level ``version`` field is obsolete per the Compose Specification.
-        {@link https://github.com/compose-spec/compose-spec/blob/master/spec.md#version-and-name-top-level-elements Compose Specification}
+        {@link https://github.com/compose-spec/compose-spec/blob/master/spec.md#version-and-name-top-level-elements | Compose Specification}
 
         :stability: deprecated
         '''

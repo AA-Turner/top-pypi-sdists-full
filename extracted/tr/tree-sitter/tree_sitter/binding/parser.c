@@ -6,6 +6,10 @@
 #include <io.h>
 #endif
 
+// Only release the GIL when the input size exceeds 16KB
+// to avoid hitting the switch interval for small inputs
+#define PARSE_RELEASE_GIL_MIN_BYTES 16384
+
 PyObject *point_new_internal(ModuleState *state, TSPoint point);
 
 #define SET_ATTRIBUTE_ERROR(name)                                                                  \
@@ -25,9 +29,21 @@ typedef struct {
 static void free_logger(const TSParser *parser) {
     TSLogger logger = ts_parser_logger(parser);
     if (logger.payload != NULL) {
-        PyMem_Free(logger.payload);
+        PyMem_RawFree(logger.payload);
     }
 }
+
+static inline bool lock_parser(Parser *self) {
+    bool was_locked = self->locked;
+    if (was_locked) {
+        PyErr_SetString(PyExc_RuntimeError, "the parser is already in use");
+    } else {
+        self->locked = true;
+    }
+    return !was_locked;
+}
+
+static inline void unlock_parser(Parser *self) { self->locked = false; }
 
 PyObject *parser_new(PyTypeObject *cls, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwargs)) {
     Parser *self = (Parser *)cls->tp_alloc(cls, 0);
@@ -35,12 +51,14 @@ PyObject *parser_new(PyTypeObject *cls, PyObject *Py_UNUSED(args), PyObject *Py_
         self->parser = ts_parser_new();
         self->language = NULL;
         self->logger = NULL;
+        self->locked = false;
     }
     return (PyObject *)self;
 }
 
 void parser_dealloc(Parser *self) {
     free_logger(self->parser);
+    ts_parser_print_dot_graphs(self->parser, -1);
     ts_parser_delete(self->parser);
     Py_XDECREF(self->language);
     Py_XDECREF(self->logger);
@@ -97,11 +115,12 @@ static const char *parser_read_wrapper(void *payload, uint32_t byte_offset, TSPo
     // Store buffer in payload.
     // If something other than None is returned, it must support the buffer protocol.
     if (PyObject_GetBuffer(rv, source_view, PyBUF_SIMPLE) < 0) {
-        Py_XDECREF(rv);
+        Py_DECREF(rv);
         PyErr_SetString(PyExc_TypeError, "read callable must return a bytestring");
         *bytes_read = 0;
         return NULL;
     }
+    Py_DECREF(rv);
 
     *bytes_read = (uint32_t)source_view->len;
     const char *source_bytes = (const char *)source_view->buf;
@@ -109,7 +128,6 @@ static const char *parser_read_wrapper(void *payload, uint32_t byte_offset, TSPo
 }
 
 static bool parser_progress_callback(TSParseState *state) {
-    // Py_BuildValue only accepts the "p" format since Python 3.14
     PyObject *result =
         PyObject_CallFunction((PyObject *)state->payload, "IO", state->current_byte_offset,
                               state->has_error ? Py_True : Py_False);
@@ -160,7 +178,13 @@ PyObject *parser_parse(Parser *self, PyObject *args, PyObject *kwargs) {
 
     TSTree *new_tree = NULL;
     Py_buffer source_view;
-    if (PyObject_GetBuffer(source_or_callback, &source_view, PyBUF_SIMPLE) > -1) {
+    if (PyObject_GetBuffer(source_or_callback, &source_view, PyBUF_SIMPLE) >= 0) {
+        if (source_view.len > UINT32_MAX) {
+            PyErr_Format(PyExc_BufferError, "buffer length %zd exceeds the maximum %u",
+                         source_view.len, UINT32_MAX);
+            PyBuffer_Release(&source_view);
+            return NULL;
+        }
         if (progress_callback_obj != NULL) {
             const char *warning = "The progress_callback is ignored when parsing a bytestring";
             if (PyErr_WarnEx(PyExc_UserWarning, warning, 1) < 0) {
@@ -171,8 +195,30 @@ PyObject *parser_parse(Parser *self, PyObject *args, PyObject *kwargs) {
         // parse a buffer
         const char *source_bytes = (const char *)source_view.buf;
         uint32_t length = (uint32_t)source_view.len;
+        if (!lock_parser(self)) {
+            PyBuffer_Release(&source_view);
+            return NULL;
+        }
+        if (old_tree_obj != NULL) {
+            ++((Tree *)old_tree_obj)->busy;
+        }
+        // Do not release the GIL when:
+        // (A) the parser has a logger (the GIL is required for Python callbacks)
+        // (B) the old_tree parameter is set (incremental parses are faster)
+        // (C) the input length is lower than a threshold (parsing is expected to be fast)
+        PyThreadState *saved_thread = NULL;
+        if (self->logger == NULL && old_tree == NULL && length >= PARSE_RELEASE_GIL_MIN_BYTES) {
+            saved_thread = PyEval_SaveThread();
+        }
         new_tree = ts_parser_parse_string_encoding(self->parser, old_tree, source_bytes, length,
                                                    input_encoding);
+        if (saved_thread != NULL) {
+            PyEval_RestoreThread(saved_thread);
+        }
+        if (old_tree_obj != NULL) {
+            --((Tree *)old_tree_obj)->busy;
+        }
+        unlock_parser(self);
         PyBuffer_Release(&source_view);
     } else if (PyCallable_Check(source_or_callback)) {
         // clear the GetBuffer error
@@ -190,19 +236,30 @@ PyObject *parser_parse(Parser *self, PyObject *args, PyObject *kwargs) {
             .encoding = input_encoding,
             .decode = NULL,
         };
-        if (progress_callback_obj == NULL) {
-            new_tree = ts_parser_parse(self->parser, old_tree, input);
-        } else if (!PyCallable_Check(progress_callback_obj)) {
+        if (progress_callback_obj != NULL && !PyCallable_Check(progress_callback_obj)) {
             PyErr_Format(PyExc_TypeError, "progress_callback must be a callable, not %s",
                          progress_callback_obj->ob_type->tp_name);
             return NULL;
+        }
+        if (!lock_parser(self)) {
+            return NULL;
+        }
+        if (old_tree_obj != NULL) {
+            ++((Tree *)old_tree_obj)->busy;
+        }
+        TSParseOptions options = {
+            .payload = progress_callback_obj,
+            .progress_callback = parser_progress_callback,
+        };
+        if (progress_callback_obj == NULL) {
+            new_tree = ts_parser_parse(self->parser, old_tree, input);
         } else {
-            TSParseOptions options = {
-                .payload = progress_callback_obj,
-                .progress_callback = parser_progress_callback,
-            };
             new_tree = ts_parser_parse_with_options(self->parser, old_tree, input, options);
         }
+        if (old_tree_obj != NULL) {
+            --((Tree *)old_tree_obj)->busy;
+        }
+        unlock_parser(self);
         if (source_view.obj) {
             PyBuffer_Release(&source_view);
             source_view.obj = NULL;
@@ -224,24 +281,34 @@ PyObject *parser_parse(Parser *self, PyObject *args, PyObject *kwargs) {
 
     Tree *tree = PyObject_New(Tree, state->tree_type);
     if (tree == NULL) {
+        ts_tree_delete(new_tree);
         return NULL;
     }
+    tree->busy = 0;
     tree->tree = new_tree;
     tree->language = self->language;
     tree->source = source_or_callback;
     Py_INCREF(tree->source);
     Py_INCREF(tree->language);
-    return PyObject_Init((PyObject *)tree, state->tree_type);
+    return (PyObject *)tree;
 }
 
 PyObject *parser_reset(Parser *self, void *Py_UNUSED(payload)) {
+    if (!lock_parser(self)) {
+        return NULL;
+    }
     ts_parser_reset(self->parser);
+    unlock_parser(self);
     Py_RETURN_NONE;
 }
 
 PyObject *parser_print_dot_graphs(Parser *self, PyObject *arg) {
     if (arg == Py_None) {
+        if (!lock_parser(self)) {
+            return NULL;
+        }
         ts_parser_print_dot_graphs(self->parser, -1);
+        unlock_parser(self);
     } else {
         int fd = PyObject_AsFileDescriptor(arg);
         if (fd < 0) {
@@ -255,9 +322,16 @@ PyObject *parser_print_dot_graphs(Parser *self, PyObject *arg) {
         if (fd < 0) {
             return PyErr_SetFromErrno(PyExc_OSError);
         }
-        Py_BEGIN_ALLOW_THREADS
+        if (!lock_parser(self)) {
+#ifndef _WIN32
+            close(fd);
+#else
+            _close(fd);
+#endif
+            return NULL;
+        }
         ts_parser_print_dot_graphs(self->parser, fd);
-        Py_END_ALLOW_THREADS
+        unlock_parser(self);
     }
     Py_RETURN_NONE;
 }
@@ -271,20 +345,31 @@ PyObject *parser_get_included_ranges(Parser *self, void *Py_UNUSED(payload)) {
 
     ModuleState *state = GET_MODULE_STATE(self);
     PyObject *list = PyList_New(count);
+    if (list == NULL) {
+        return NULL;
+    }
     for (uint32_t i = 0; i < count; ++i) {
         Range *range = PyObject_New(Range, state->range_type);
         if (range == NULL) {
+            Py_DECREF(list);
             return NULL;
         }
         range->range = ranges[i];
-        PyList_SET_ITEM(list, i, PyObject_Init((PyObject *)range, state->range_type));
+        if (PyList_SetItem(list, i, (PyObject *)range) < 0) {
+            Py_DECREF(list);
+            return NULL;
+        }
     }
     return list;
 }
 
 int parser_set_included_ranges(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {
     if (arg == NULL || arg == Py_None) {
+        if (!lock_parser(self)) {
+            return -1;
+        }
         ts_parser_set_included_ranges(self->parser, NULL, 0);
+        unlock_parser(self);
         return 0;
     }
     if (!PyList_Check(arg)) {
@@ -294,9 +379,9 @@ int parser_set_included_ranges(Parser *self, PyObject *arg, void *Py_UNUSED(payl
     }
 
     uint32_t length = (uint32_t)PyList_Size(arg);
-    TSRange *ranges = PyMem_Calloc(length, sizeof(TSRange));
+    TSRange *ranges = PyMem_RawCalloc(length, sizeof(TSRange));
     if (!ranges) {
-        PyErr_Format(PyExc_MemoryError, "Failed to allocate memory for ranges of length %u",
+        PyErr_Format(PyExc_MemoryError, "failed to allocate memory for ranges of length %u",
                      length);
         return -1;
     }
@@ -304,33 +389,41 @@ int parser_set_included_ranges(Parser *self, PyObject *arg, void *Py_UNUSED(payl
     ModuleState *state = GET_MODULE_STATE(self);
     for (uint32_t i = 0; i < length; ++i) {
         PyObject *range = PyList_GetItem(arg, i);
+        if (range == NULL) {
+            PyMem_RawFree(ranges);
+            return -1;
+        }
         if (!PyObject_IsInstance(range, (PyObject *)state->range_type)) {
-            PyErr_Format(PyExc_TypeError, "Item at index %u is not a tree_sitter.Range object", i);
-            PyMem_Free(ranges);
+            PyErr_Format(PyExc_TypeError, "item at index %u is not a tree_sitter.Range object", i);
+            PyMem_RawFree(ranges);
             return -1;
         }
         ranges[i] = ((Range *)range)->range;
     }
 
-    if (!ts_parser_set_included_ranges(self->parser, ranges, length)) {
-        PyErr_SetString(PyExc_ValueError, "Included ranges cannot overlap");
-        PyMem_Free(ranges);
+    if (!lock_parser(self)) {
+        PyMem_RawFree(ranges);
         return -1;
     }
-
-    PyMem_Free(ranges);
+    bool valid = ts_parser_set_included_ranges(self->parser, ranges, length);
+    unlock_parser(self);
+    PyMem_RawFree(ranges);
+    if (!valid) {
+        PyErr_SetString(PyExc_ValueError, "Included ranges cannot overlap");
+        return -1;
+    }
     return 0;
 }
 
 PyObject *parser_get_language(Parser *self, void *Py_UNUSED(payload)) {
-    if (!self->language) {
+    if (self->language == NULL) {
         Py_RETURN_NONE;
     }
     return Py_NewRef(self->language);
 }
 
 PyObject *parser_get_logger(Parser *self, void *Py_UNUSED(payload)) {
-    if (!self->logger) {
+    if (self->logger == NULL) {
         Py_RETURN_NONE;
     }
     return Py_NewRef(self->logger);
@@ -340,22 +433,25 @@ static void log_callback(void *payload, TSLogType log_type, const char *buffer) 
     LoggerPayload *logger_payload = (LoggerPayload *)payload;
     PyObject *log_type_enum =
         PyObject_CallFunction((PyObject *)logger_payload->log_type_type, "i", log_type);
-    if (log_type_enum == NULL) {
-        return;
+    if (log_type_enum != NULL) {
+        PyObject *result =
+            PyObject_CallFunction(logger_payload->callback, "Os", log_type_enum, buffer);
+        Py_DECREF(log_type_enum);
+        Py_XDECREF(result);
     }
-    PyObject *result = PyObject_CallFunction(logger_payload->callback, "Os", log_type_enum, buffer);
-    Py_DECREF(log_type_enum);
-    Py_XDECREF(result);
 }
 
 int parser_set_logger(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {
-    free_logger(self->parser);
-
+    if (!lock_parser(self)) {
+        return -1;
+    }
     if (arg == NULL || arg == Py_None) {
+        free_logger(self->parser);
         Py_XDECREF(self->logger);
         self->logger = NULL;
         TSLogger logger = {NULL, NULL};
         ts_parser_set_logger(self->parser, logger);
+        unlock_parser(self);
         return 0;
     }
     if (!PyCallable_Check(arg)) {
@@ -364,21 +460,31 @@ int parser_set_logger(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {
         return -1;
     }
 
-    Py_XSETREF(self->logger, Py_NewRef(arg));
-
     ModuleState *state = GET_MODULE_STATE(self);
-    LoggerPayload *payload = PyMem_Malloc(sizeof(LoggerPayload));
-    payload->callback = self->logger;
+    LoggerPayload *payload = PyMem_RawMalloc(sizeof(LoggerPayload));
+    if (!payload) {
+        PyErr_Format(PyExc_MemoryError, "failed to allocate memory for logger payload");
+        unlock_parser(self);
+        return -1;
+    }
+    payload->callback = arg;
     payload->log_type_type = state->log_type_type;
+    free_logger(self->parser);
     TSLogger logger = {payload, log_callback};
     ts_parser_set_logger(self->parser, logger);
-
+    Py_XSETREF(self->logger, Py_NewRef(arg));
+    unlock_parser(self);
     return 0;
 }
 
 int parser_set_language(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {
     if (arg == NULL || arg == Py_None) {
-        self->language = NULL;
+        if (!lock_parser(self)) {
+            return -1;
+        }
+        ts_parser_set_language(self->parser, NULL);
+        Py_CLEAR(self->language);
+        unlock_parser(self);
         return 0;
     }
     if (!IS_INSTANCE(arg, language_type)) {
@@ -392,18 +498,22 @@ int parser_set_language(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {
     if (language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION ||
         TREE_SITTER_LANGUAGE_VERSION < language->abi_version) {
         PyErr_Format(PyExc_ValueError,
-                     "Incompatible Language version %u. Must be between %u and %u",
+                     "incompatible Language version %u. Must be between %u and %u",
                      language->abi_version, TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION,
                      TREE_SITTER_LANGUAGE_VERSION);
         return -1;
     }
 
-    if (!ts_parser_set_language(self->parser, language->language)) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to set the parser language");
+    if (!lock_parser(self)) {
         return -1;
     }
-
+    if (!ts_parser_set_language(self->parser, language->language)) {
+        unlock_parser(self);
+        PyErr_SetString(PyExc_RuntimeError, "failed to set the parser language");
+        return -1;
+    }
     Py_XSETREF(self->language, Py_NewRef(language));
+    unlock_parser(self);
     return 0;
 }
 
@@ -430,11 +540,13 @@ int parser_init(Parser *self, PyObject *args, PyObject *kwargs) {
 
 PyDoc_STRVAR(
     parser_parse_doc,
-    "parse(self, source, /, old_tree=None, encoding=\"utf8\")\n--\n\n"
+    "parse(self, source, /, old_tree=None, encoding=\"utf8\", progress_callback=None)\n--\n\n"
     "Parse a slice of a bytestring or bytes provided in chunks by a callback.\n\n"
     "The callback function takes a byte offset and position and returns a bytestring starting "
     "at that offset and position. The slices can be of any length. If the given position "
-    "is at the end of the text, the callback should return an empty slice." DOC_RETURNS
+    "is at the end of the text, the callback should return an empty slice.\n\n"
+    "Parsing halts if the progress callback returns ``True``." DOC_RAISES
+    "RuntimeError\n\n If the parser is being used from another thread." DOC_RETURNS
     "A :class:`Tree` if parsing succeeded or ``None`` if the parser does not have an "
     "assigned language or the timeout expired.");
 PyDoc_STRVAR(

@@ -133,10 +133,10 @@ MAX_TITLE_LEN = 200
 MAX_TITLE_ROWS = 32
 
 #: The segment's ceiling in terminal columns, leading indent included: the widest line that must render whole,
-#: `  ● on (daemon) | <20-column title> | session transcript not recorded` (72). Derived, so it moves when
+#: `  ● on (inline) | <20-column title> | session transcript not recorded` (72). Derived, so it moves when
 #: the words do; only words reachable today count (a manual chat's `, manual` re-derives it).
 MAX_SEGMENT_CHARS = (
-    len(_INDENT) + _GLYPH_WIDTH + len("on (daemon)")
+    len(_INDENT) + _GLYPH_WIDTH + len("on (inline)")
     + len(STATUS_DIVIDER) + TITLE_ROOM_WITH_NOTE + len(STATUS_DIVIDER) + len(NOTE_TRANSCRIPT_NOT_RECORDED)
 )
 #: The title's budget with no note: the same in every state, so it never moves when the state does.

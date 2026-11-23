@@ -12,12 +12,10 @@ from flask import jsonify, request
     "config_content",
     [
         pytest.param(
-            # Syntactically incorrect TOML (missing '=' and comma issues)
             "color true\nsuppress-health-check = [data_too_large,]",
             id="syntactic_error",
         ),
         pytest.param(
-            # Valid TOML but contains an unknown top-level property ("unknown_key")
             textwrap.dedent(
                 """
                 unknown_key = true
@@ -27,7 +25,6 @@ from flask import jsonify, request
             id="unknown_property",
         ),
         pytest.param(
-            # Valid TOML but an operations entry is invalid because it does not include any required include/exclude property
             textwrap.dedent(
                 """
                 [[operations]]
@@ -37,7 +34,6 @@ from flask import jsonify, request
             id="operation_missing_includes",
         ),
         pytest.param(
-            # Duplicated filter
             textwrap.dedent(
                 """
                 [[operations]]
@@ -48,7 +44,6 @@ from flask import jsonify, request
             id="operation_duplicate_filter",
         ),
         pytest.param(
-            # Invalid expression
             textwrap.dedent(
                 """
                 [[operations]]
@@ -58,7 +53,6 @@ from flask import jsonify, request
             id="operation_invalid_expression",
         ),
         pytest.param(
-            # Invalid regex
             textwrap.dedent(
                 """
                 [[operations]]
@@ -68,7 +62,6 @@ from flask import jsonify, request
             id="operation_invalid_regex",
         ),
         pytest.param(
-            # NULL byte
             textwrap.dedent(
                 """
                 [reports]
@@ -189,6 +182,21 @@ def test_report_path_parent_dir_not_writable(cli, tmp_path, snapshot_cli):
         )
     finally:
         os.chmod(readonly, 0o755)
+
+
+def test_report_paths_sharing_one_file(cli, tmp_path, snapshot_cli):
+    output = tmp_path / "report.xml"
+    output.write_text("existing report", encoding="utf-8")
+    assert (
+        cli.main(
+            "run",
+            "http://127.0.0.1",
+            f"--report-json-path={output}",
+            config={"reports": {"junit": {"path": "./report.xml"}}},
+        )
+        == snapshot_cli
+    )
+    assert output.read_text(encoding="utf-8") == "existing report"
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="chmod doesn't work the same way on Windows")

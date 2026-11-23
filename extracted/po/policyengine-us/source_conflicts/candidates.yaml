@@ -7630,6 +7630,117 @@ candidates:
   state: unreviewed
   note: 'The open PR applies the regulation from 2024; main''s source choice is unspecified, and no statute is supplied.
     Code not yet on main: mo_federal_adjusted_gross_income, gov.states.mo.tax.income.federal_agi.negative_floor_applies.'
+- id: us-mo:property-tax-credit-child-support
+  program: property-tax-credit
+  years:
+    from: 2021
+    type: tax
+  question: Does household income for the Missouri property tax credit include child support received, which Form
+    MO-PTS line 6 lists but RSMo 135.010(5) does not?
+  sources:
+  - kind: statute
+    citation: RSMo 135.010(5)
+    url: https://revisor.mo.gov/main/OneSection.aspx?section=135.010
+  - kind: form
+    citation: 2025 Form MO-PTS, line 6, PDF page 2
+    url: https://dor.mo.gov/forms/MO-PTS_2025.pdf#page=2
+  - kind: instructions
+    citation: 2025 MO-1040 instructions, Form MO-PTS line 6, PDF page 18
+    url: https://dor.mo.gov/forms/MO-1040%20Instructions_2025.pdf#page=18
+  readings:
+    statute: Income is Missouri adjusted gross income "increased, where necessary, to reflect the following", items (a)
+      to (e). Item (c) is "Public relief, public assistance, and unemployment benefits received in cash, other than
+      benefits received under this chapter". Child support is not among the items and is not in Missouri adjusted
+      gross income, so it does not count.
+    other: 'Form MO-PTS line 6 asks for "the total amount received by you, your spouse, and your minor children from:
+      public assistance, Supplemental Security Income (SSI), child support, or Temporary Assistance payments (TA and
+      TANF)". The line 6 instructions say "Include the amount of public assistance, Supplemental Security Income (SSI),
+      child support, and Temporary Assistance payments received by you and your minor children."'
+  example: In 2025 a claimant with a $20,000 pension who receives $3,000 of child support for a minor child has
+    household income of $23,000 when child support counts, or $20,000 when only the statute's items count.
+  pe_us:
+    follows: conflicting-source
+    code:
+    - policyengine_us/parameters/gov/states/mo/tax/income/credits/property_tax/public_assistance_types.yaml
+    - policyengine_us/variables/gov/states/mo/tax/income/credits/property_tax/mo_ptc_gross_income.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11175
+  state: unreviewed
+  note: PolicyEngine follows the form, as main did before this PR, and counts child_support_received with public
+    assistance on line 6 (public_assistance_types.yaml). PolicyEngine has recorded no ruling.
+- id: us-mo:property-tax-credit-nonbusiness-loss
+  program: property-tax-credit
+  years:
+    from: 2008
+    type: tax
+  question: Does the Missouri property tax credit add back rental, farm rental, and estate or trust losses as losses
+    "not incurred in a trade or business"?
+  sources:
+  - kind: statute
+    citation: RSMo 135.010(5)(d)
+    url: https://revisor.mo.gov/main/OneSection.aspx?section=135.010
+  - kind: instructions
+    citation: 2025 MO-1040 instructions, Form MO-PTS line 7, PDF page 18
+    url: https://dor.mo.gov/forms/MO-1040%20Instructions_2025.pdf#page=18
+  readings:
+    statute: Income is increased to reflect "no deduction being allowed for losses not incurred in a trade or
+      business". Section 135.010 doesn't define a trade or business, and under federal usage a rental activity can
+      be one, so some of these losses could stay deducted.
+    other: The line 7 instructions define a nonbusiness loss as "a loss of income that did not result from a trade or
+      business" and add "Losses from Federal Form 1040 or 1040-SR, Schedule F and Schedule C are considered business
+      losses and should not be included here." Form MO-PTS line 7 says to include capital losses.
+  example: In 2025 a claimant with a $20,000 pension and a $6,000 rental loss has household income of $20,000 when the
+    rental loss is a nonbusiness loss, or $14,000 when the rental activity is a trade or business.
+  pe_us:
+    follows: gap-fill
+    code:
+    - policyengine_us/parameters/gov/states/mo/tax/income/credits/property_tax/nonbusiness_loss_sources.yaml
+    - policyengine_us/variables/gov/states/mo/tax/income/credits/property_tax/mo_ptc_gross_income.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11175
+  state: unreviewed
+  note: PolicyEngine adds back the deducted part of rental, farm rental, and estate or trust losses, with the net
+    capital loss deduction. It leaves Schedule C, Schedule F, and partnership or S corporation losses deducted, since a
+    partner's or shareholder's share keeps the entity's trade or business character (IRC 702(b), 1366(b)). The model
+    has no input that separates a rental's trade or business losses from its other losses.
+- id: us-mo:property-tax-credit-pension-excludable-cost
+  program: property-tax-credit
+  years:
+    from: 2021
+    type: tax
+  question: Does household income for the Missouri property tax credit include the excludable cost of pensions,
+    annuities and retirement account distributions (the recipient's own after-tax contributions or other basis), which
+    RSMo 135.010(5)(b) counts in "the total amount" but the Form MO-PTS line 3 instructions leave out?
+  sources:
+  - kind: statute
+    citation: RSMo 135.010(5)(b)
+    url: https://revisor.mo.gov/main/OneSection.aspx?section=135.010
+  - kind: form
+    citation: 2025 Form MO-PTS, line 3, PDF page 1
+    url: https://dor.mo.gov/forms/MO-PTS_2025.pdf#page=1
+  - kind: instructions
+    citation: 2025 MO-1040 instructions, Form MO-PTS line 3, PDF page 18
+    url: https://dor.mo.gov/forms/MO-1040%20Instructions_2025.pdf#page=18
+  readings:
+    statute: Income is increased to reflect "(b) The total amount of all other public and private pensions and
+      annuities". Form MO-PTS line 3 likewise asks for "the total amount of pensions, annuities, dividends, rental
+      income, unemployment compensation, or interest income not included in Line 1."
+    other: The line 3 instructions add "(Do not include amount of excludable costs of pensions or annuities.)" They also
+      point to "Form(s) 1099-R - Total amount before deduction not included on Form MO-1040, Line 6 (Missouri adjusted
+      gross income)."
+  example: In 2025 a claimant with a $20,000 taxable pension and a $4,000 qualified Roth IRA distribution, $3,000 of it a
+    return of contributions, has household income of $24,000 under the statute or $21,000 under the instructions.
+  pe_us:
+    follows: statute
+    code:
+    - policyengine_us/variables/gov/states/mo/tax/income/credits/property_tax/mo_ptc_gross_income.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11175
+  state: unreviewed
+  note: PolicyEngine adds tax_exempt_pension_income in full, as main did before this PR, and from this PR adds
+    tax_exempt_retirement_distributions (tax-exempt IRA, 401(k), SEP and 403(b) distributions) in full too. Under the
+    instructions' reading the contribution basis of a Roth distribution, or the nondeductible basis of a traditional
+    IRA distribution, would be left out. No input separates basis from earnings.
 - id: us-mo:property-tax-credit-rounding
   program: property-tax-credit
   years:
@@ -7661,6 +7772,51 @@ candidates:
   note: 'PE-US follows the DOR charts: the formula reproduces the published charts, which its comment says round
     the credit down and the phase-out up, although the statute says the nearest whole dollar (mo_property_tax_credit.py).
     The statute-first rule requires nearest-dollar rounding; verify other chart years before extending beyond 2025.'
+- id: us-mo:property-tax-credit-veteran-exception-scope
+  program: property-tax-credit
+  years:
+    from: 2021
+    type: tax
+  question: When the claimant or spouse is a one hundred percent service-connected disabled veteran, does the "unless"
+    clause in RSMo 135.010(5)(a) leave out only veterans payments and benefits, or Social Security and railroad
+    retirement benefits too?
+  sources:
+  - kind: statute
+    citation: RSMo 135.010(5)(a)
+    url: https://revisor.mo.gov/main/OneSection.aspx?section=135.010
+  - kind: form
+    citation: 2025 Form MO-PTS, lines 2, 4 and 5, PDF page 1
+    url: https://dor.mo.gov/forms/MO-PTS_2025.pdf#page=1
+  - kind: instructions
+    citation: 2025 MO-1040 instructions, Form MO-PTS lines 2 and 5, PDF page 18
+    url: https://dor.mo.gov/forms/MO-1040%20Instructions_2025.pdf#page=18
+  readings:
+    statute: Income is increased to reflect "(a) Social Security, railroad retirement, and veterans payments and benefits
+      unless the claimant is a one hundred percent service-connected, disabled veteran or a spouse of a one hundred
+      percent service-connected, disabled veteran." One reading takes the words literally, so the "unless" clause follows
+      all three kinds of benefits. Another applies the last-antecedent rule, so the clause modifies only "veterans
+      payments and benefits". The next sentence supports that reading, saying that "The one hundred percent
+      service-connected disabled veteran shall not be required to list veterans payments and benefits".
+    other: Form MO-PTS line 2 (nontaxable Social Security benefits) and line 4 (railroad retirement benefits) carry no
+      exception, nor do the line 2 instructions. The line 5 instructions say "If a veteran is 100 percent disabled
+      entirely as a result of military service, do not include veteran payments and benefits as household income on
+      Form MO-PTS."
+  example: In 2025 a single 100 percent service-connected disabled veteran with a $10,000 pension, $14,000 of Social
+    Security and $20,000 of veterans disability compensation has household income of $24,000 when only the veterans
+    benefits are left out, or $10,000 when the clause also reaches Social Security.
+  pe_us:
+    follows: gap-fill
+    code:
+    - policyengine_us/variables/gov/states/mo/tax/income/credits/property_tax/mo_ptc_gross_income.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11175
+  state: unreviewed
+  note: The statute's words allow either reading, and the department breaks the tie. Its form and instructions apply
+    the exception only to line 5 veterans payments and benefits, the second reading. PolicyEngine follows the department
+    pending project-lead confirmation. It counts nontaxable Social Security on line 2 for every claimant and leaves out
+    every member's veterans benefits on line 5 when the claimant or spouse is a one hundred percent service-connected
+    disabled veteran. Line 4 railroad retirement benefits are left to PolicyEngine/policyengine-us#10722. Both statutory
+    readings remain open, and PolicyEngine has recorded no ruling.
 - id: us-mo:sab-personal-standard-rounding
   program: supplemental-aid-to-the-blind
   question: Is SAB's earnings standard exactly 10% under the manual or the rounded-up value in the regulation's
@@ -8014,6 +8170,60 @@ candidates:
     "all nontaxable income", and how far a Montana rule binds against its statute, is open for the project lead.
     The 2009 statute, the three ARM 42.4.301 expressions in force from 8/20/2004 to 11/9/2017 (whose (2) text is
     the same) and the 2016 booklet pages are captured under source_conflicts/sources/us-mt/.
+- id: us-mt:elderly-credit-ira-distribution-basis
+  program: elderly-homeowner-renter-credit
+  years:
+    from: 2024
+    type: tax
+  question: Does gross household income count a nontaxable IRA distribution, such as a qualified Roth IRA distribution,
+    less the taxpayer's basis under the statute, or in full under Schedule 2EC line 4 and, on one reading, the
+    regulation?
+  sources:
+  - kind: statute
+    citation: MCA 15-30-2337(9)(b)
+    url: https://mca.legmt.gov/bills/mca/title_0150/chapter_0300/part_0230/section_0370/0150-0300-0230-0370.html
+  - kind: regulation
+    citation: ARM 42.4.301(2)(d), expression effective 9/7/2024
+    url: https://rules.mt.gov/api/policy-library-public/collections/aec52c46-128e-4279-9068-8af5d5432d74/policies/c90ea93a-03a2-4605-a0f8-f2f3760198bf/document/768c8344-24ee-4950-9d5e-9d8fc97ec0f7
+  - kind: instructions
+    citation: 2024 Montana Form 2 instructions, Schedule 2EC lines 4 and 5, PDF page 47
+    url: https://revenue.mt.gov/files/forms/Montana-Individual-Income-Tax-Return-Form-2-Instructions/2024_Montana_Individual_Income_Tax_Return_Form_2_Instructions.pdf#page=47
+  - kind: instructions
+    citation: 2025 Montana Form 2 instructions, Schedule 2EC lines 4 and 5, PDF page 45
+    url: https://revenue.mt.gov/files/forms/Montana-Individual-Income-Tax-Return-Form-2-Instructions/2025_Montana_Individual_Income_Tax_Return_Form_2_Instructions.pdf#page=45
+  readings:
+    statute: '(9)(b): "For the purposes of this subsection (9), income is reduced by the taxpayer''s basis", so a
+      nontaxable IRA distribution counts only the part above the taxpayer''s basis, such as the Roth IRA contributions
+      it returns.'
+    other: 'Schedule 2EC line 4 says "Enter all IRA distributions, both taxable and nontaxable, received during the tax
+      year" and leaves out only "nontaxable rollovers"; line 5, for pensions and annuities, also leaves out "your cost
+      or net investment". Read as displacing the basis reduction for IRAs, ARM 42.4.301(2)(d) counts "all federal
+      taxable and nontaxable pension, annuity, and IRA payments received during the year" to the same effect.'
+  example: A claimant with a $20,000 taxable pension and a $10,000 qualified Roth IRA distribution, $7,000 of it the
+    claimant's own contributions, has 2025 gross household income of $23,000 under the statute and $30,000 under
+    line 4, which is what PE-US computes.
+  pe_us:
+    follows: conflicting-source
+    code:
+    - policyengine_us/parameters/gov/states/mt/tax/income/credits/elderly_homeowner_or_renter/gross_income_sources.yaml
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11180
+  state: open
+  note: 'PE-US counts tax_exempt_ira_distributions in full, through tax_exempt_retirement_distributions in
+    elderly_homeowner_or_renter/gross_income_sources.yaml, because the inputs are whole distributions, basis included,
+    and no input holds basis, so the statute''s reduction cannot be modelled. tax_exempt_401k_distributions,
+    tax_exempt_403b_distributions and tax_exempt_sep_distributions count in full for the same reason; issue 11198
+    tracks their basis, and issue 10802 that of tax_exempt_pension_income. That describes what the code does; no one
+    has ruled between (9)(b) and the regulation, and how far a Montana rule binds against its statute is open for the
+    project lead. ARM 42.4.301(2)(d) can be read two ways. ARM 42.4.301(2) opens ''"Gross household income" means
+    the same as the term defined in 15-30-2337, MCA'', and the same words, "nontaxable pension, annuity, and IRA
+    payments", cover the pensions and annuities that Schedule 2EC line 5 counts without "your cost or net
+    investment". Read that way, (2)(d) works with (9)(b), and the conflict is only with line 4''s instructions. Read
+    the other way, "all ... nontaxable ... IRA payments" displaces the basis reduction for IRAs. Through 2023 the
+    instructions let a household member reduce an item of income by basis, so the conflict starts in 2024. Its
+    texts for the register are captured in source_conflicts/sources/us-mt/arm-42-4-301-2024.html (the expression
+    effective 9/7/2024, with (2)(d)), form-2-instructions-2024-p47.txt and form-2-instructions-2025-p45.txt
+    (Schedule 2EC lines 4 and 5).'
 - id: us-mt:liheap-business-equity-limit
   program: liheap
   years:

@@ -315,45 +315,6 @@ def is_grouping_identity(concept: BuildConcept) -> bool:
     )
 
 
-GroupingSpec = tuple[
-    AggregateGroupingMode, tuple[str, ...], tuple[tuple[str, ...], ...]
-]
-
-
-def nonstandard_grouping_spec(lineage: Any) -> GroupingSpec | None:
-    """Identity of the ROLLUP/CUBE/GROUPING SETS pass an aggregate computes in
-    (None for standard grouping or non-aggregate lineage). Aggregates sharing a
-    spec are outputs of one grouping pass; their visible dims are NOT a row
-    identity across grouping sets (a rolled-up NULL and a data NULL collide), so
-    they must co-source in that pass rather than be joined back on the dims."""
-    if not isinstance(lineage, BuildAggregateWrapper):
-        return None
-    if not lineage.grouping.nulls_grouping_keys:
-        return None
-    return (
-        lineage.grouping,
-        tuple(c.address for c in lineage.by),
-        tuple(tuple(c.address for c in gs) for gs in lineage.grouping_sets),
-    )
-
-
-def nonstandard_grouping_lineage(concept: Any) -> BuildAggregateWrapper | None:
-    """The concept's aggregate lineage when that aggregate emits ROLLUP/CUBE/
-    GROUPING SETS rows, else None. The concept-level companion to
-    `nonstandard_grouping_spec`.
-
-    Returns the wrapper rather than a bool so callers that go on to read `by`
-    or `grouping_sets` keep the narrowed type — the reason this predicate kept
-    being open-coded at each site instead of shared."""
-    lineage = concept.lineage
-    if (
-        isinstance(lineage, BuildAggregateWrapper)
-        and lineage.grouping.nulls_grouping_keys
-    ):
-        return lineage
-    return None
-
-
 def concept_is_relevant(
     concept: BuildConcept,
     others: list[BuildConcept],
@@ -374,7 +335,6 @@ def _concept_is_relevant(
     if (
         isinstance(concept.lineage, BuildAggregateWrapper)
         and concept.lineage.function.operator in GROUPING_IDENTITY_FUNCTIONS
-        and concept.lineage.grouping != AggregateGroupingMode.STANDARD
     ):
         return True
     if concept.is_aggregate and not (
@@ -1815,11 +1775,41 @@ class BuildFunction(DataTyped, BuildConceptArgs):
 
 
 @dataclass(slots=True)
+class BuildGroupingSets:
+    """The ROLLUP/CUBE/GROUPING SETS a GroupNode groups by in place of its
+    plain GROUP BY: owned by the node (and its datasource and CTE), never by
+    the aggregates it computes, which stay standard to the planner."""
+
+    mode: AggregateGroupingMode
+    by: list[BuildConcept]
+    sets: list[list[BuildConcept]] = field(default_factory=list)
+
+    @property
+    def keys(self) -> set[str]:
+        return {c.address for c in self.by} | {c.address for s in self.sets for c in s}
+
+    def computes(self, concept: BuildConcept) -> bool:
+        """An aggregate at the pass's keys: one of its outputs."""
+        lineage = concept.lineage
+        return isinstance(lineage, BuildAggregateWrapper) and {
+            c.address for c in lineage.by
+        } == {c.address for c in self.by}
+
+    @property
+    def has_empty_set(self) -> bool:
+        if self.mode in (AggregateGroupingMode.ROLLUP, AggregateGroupingMode.CUBE):
+            return True
+        return any(not s for s in self.sets)
+
+    def __str__(self) -> str:
+        sets = ";".join(",".join(c.address for c in s) for s in self.sets)
+        return f"{self.mode.value}({','.join(c.address for c in self.by)}|{sets})"
+
+
+@dataclass(slots=True)
 class BuildAggregateWrapper(BuildConceptArgs, DataTyped):
     function: BuildFunction
     by: list[BuildConcept] = field(default_factory=list)
-    grouping: AggregateGroupingMode = AggregateGroupingMode.STANDARD
-    grouping_sets: list[list[BuildConcept]] = field(default_factory=list)
     # True when the author pinned no grain (`sum(x)` not `sum(x) by ...`), so
     # `by` was filled from the resolution grain — i.e. the value silently took
     # the enclosing select's grain. Diagnostic metadata only, excluded from
@@ -2877,6 +2867,26 @@ class EnvBaseline:
     concept_count: int = 0
 
 
+def rebase_locals(donor: EnvBaseline, dirty: set[str]) -> dict[str, BuildConcept]:
+    """The donor's builds a rebase onto `dirty` keeps: everything but the
+    dirty names and what only dirty units wrote. A minted name is spelled
+    from the addresses it reads, so one written under a rebound concept
+    keeps its name and loses its meaning; a unit that is kept and reads it
+    reads none of the dirty names, so its copy is still right."""
+    kept: set[str] = set()
+    written: set[str] = set()
+    for unit in donor.units:
+        if unit.key in dirty:
+            written.update(unit.written)
+        else:
+            kept.update(unit.footprint)
+            kept.add(unit.key)
+    purged = dirty | (written - kept)
+    return {
+        name: built for name, built in donor.end_locals.items() if name not in purged
+    }
+
+
 class JoinScope:
     """Everything a Factory derives from its scoped-join set: the declared
     domain graph, the substitution / identity registries and the pseudonym map
@@ -3163,6 +3173,12 @@ def _constant_value(value: Any) -> Any:
     return value
 
 
+MultiSelectBuildCache = dict[
+    tuple[type, tuple[str, ...], tuple[tuple[str, str, JoinType], ...]],
+    tuple[MultiSelectLineage, BuildMultiSelectLineage],
+]
+
+
 class Factory:
 
     def __init__(
@@ -3183,6 +3199,7 @@ class Factory:
         join_scope: JoinScope | None = None,
         select_anchors: dict[str, frozenset[str]] | None = None,
         select_where: WhereClause | None = None,
+        multi_select_build_cache: MultiSelectBuildCache | None = None,
     ):
         self.grain = grain or Grain()
         # Each output of the select this factory builds -> its row keys. A
@@ -3309,6 +3326,11 @@ class Factory:
         # every sub-select in a resolution.
         self.datasource_build_cache: dict[str, BuildDatasource] = (
             {} if datasource_build_cache is None else datasource_build_cache
+        )
+        # Cross-factory cache of built multi-select lineages; see
+        # `_build_multi_select_lineage`. Same lifecycle as the caches above.
+        self.multi_select_build_cache: MultiSelectBuildCache = (
+            {} if multi_select_build_cache is None else multi_select_build_cache
         )
         # Per-grain column-build scopes shared by the datasources this factory
         # builds (see `_datasource_local_scope`).
@@ -3724,7 +3746,7 @@ class Factory:
         if not isinstance(lineage, BuildAggregateWrapper) or len(lineage.by) < 2:
             return lineage
         # A ROLLUP/CUBE key is a subtotal level, not only a grouping key.
-        if lineage.grouping.nulls_grouping_keys:
+        if self.select_grouping is not None:
             return lineage
         # Statement joins declare SUBSET/INCOMPARABLE, never EQUAL, so the
         # closure is the same for a datasource column and a query's concept.
@@ -3753,26 +3775,27 @@ class Factory:
             return grain
         out: list[str] = []
         seen: set[str] = set()
-
-        def expand(addr: str) -> None:
-            if addr in seen:
-                return
-            seen.add(addr)
-            concept = self.environment.concepts.get(addr)
-            if (
-                addr in building
-                and concept is not None
-                and concept.purpose == Purpose.METRIC
-                and concept.grain.components
-            ):
-                for component in concept.grain.component_order:
-                    expand(component)
-            elif addr not in out:
-                out.append(addr)
-
         for component in grain.component_order:
-            expand(component)
+            self._expand_building_metric(component, building, out, seen)
         return Grain(components=set(out), component_order=out)
+
+    def _expand_building_metric(
+        self, addr: str, building: set[str], out: list[str], seen: set[str]
+    ) -> None:
+        if addr in seen:
+            return
+        seen.add(addr)
+        concept = self.environment.concepts.get(addr)
+        if (
+            addr in building
+            and concept is not None
+            and concept.purpose == Purpose.METRIC
+            and concept.grain.components
+        ):
+            for component in concept.grain.component_order:
+                self._expand_building_metric(component, building, out, seen)
+        elif addr not in out:
+            out.append(addr)
 
     def _build_concept(self, base: Concept) -> BuildConcept:
         if self._env_footprint is not None:
@@ -4042,60 +4065,30 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: AggregateWrapper) -> BuildAggregateWrapper:
+        # A bare aggregate in a select with a grouping spec computes in its one
+        # ROLLUP/CUBE/GROUPING SETS pass, keyed in the spec's order; the pass
+        # is the select's (`BuildGroupingSets`), never the aggregate's.
         spec = self.select_grouping
-        grouping = base.grouping
-        grouping_sets_source = base.grouping_sets
-        if not base.by:
-            if spec is not None and base.grouping == AggregateGroupingMode.STANDARD:
-                # A bare aggregate materialized in this select's projection
-                # scope computes in the select's single ROLLUP/CUBE/GROUPING
-                # SETS pass; inferred-key specs (`by rollup ()`) group by the
-                # resolution grain.
-                grouping = spec.mode
-                grouping_sets_source = spec.grouping_sets
-                if spec.by:
-                    by = self._build_over_items(list(spec.by))
-                else:
-                    agg_grain = (
-                        self.aggregate_grain
-                        if self.aggregate_grain is not None
-                        else self.grain
-                    )
-                    by = [
-                        self._build_concept(self.environment.concepts[c])
-                        for c in agg_grain.component_order
-                    ]
-            else:
-                agg_grain = (
-                    self.aggregate_grain
-                    if self.aggregate_grain is not None
-                    else self.grain
-                )
-                by = [
-                    self._build_concept(self.environment.concepts[c])
-                    for c in agg_grain.component_order
-                ]
+        keys = list(base.by) or (list(spec.by) if spec is not None else [])
+        if keys:
+            by = self._build_over_items(keys)
+            ordered = not base.by or base.grouping != AggregateGroupingMode.STANDARD
         else:
-            by = self._build_over_items(list(base.by))
-        grouping_sets = [
-            self._build_over_items(list(grouping_set))
-            for grouping_set in grouping_sets_source
-        ]
-        if grouping != AggregateGroupingMode.STANDARD and not by and not grouping_sets:
-            # A rollup/cube over zero keys has exactly one grouping set - the
-            # grand total - which is what a standard grouping with no keys
-            # already renders. `by rollup ()` on a grainless select (only
-            # constants and aggregates projected) lands here.
-            grouping = AggregateGroupingMode.STANDARD
-        if grouping == AggregateGroupingMode.STANDARD:
+            agg_grain = (
+                self.aggregate_grain if self.aggregate_grain is not None else self.grain
+            )
+            by = [
+                self._build_concept(self.environment.concepts[c])
+                for c in agg_grain.component_order
+            ]
+            ordered = spec is not None
+        if not ordered:
             by = sorted(by, key=lambda x: x.address)
 
         parent: BuildFunction = self._build_aggregate_input(base)
         return BuildAggregateWrapper(
             function=parent,
             by=by,
-            grouping=grouping,
-            grouping_sets=grouping_sets,
             grain_inherited=base.grain_inherited or not base.by,
         )
 
@@ -4607,6 +4600,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
         )
 
     @_build_dispatch.register
@@ -4675,6 +4669,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
         )._build_where_clause(where)
 
     def _normalize_grain_components(self, components) -> set[str]:
@@ -4799,6 +4794,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
             scoped_joins=self.scoped_joins,
             join_scope=self.join_scope,
             select_grouping=base.grouping,
@@ -4837,6 +4833,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
             scoped_joins=self.scoped_joins,
             join_scope=self.join_scope,
             # cross-row virtuals in the WHERE are population-scope gates and
@@ -4929,6 +4926,40 @@ class Factory:
         outputs_only: bool = False,
         extra_lineage_kwargs: dict[str, Any] | None = None,
     ) -> BuildMultiSelectLineage:
+        """Every output of a multi-select carries its own copy of the whole
+        statement as its lineage, so each output rebuilt every arm, and a
+        nested union once per output per enclosing output. Past its grain,
+        built here for the names it reads and writes in this factory, the
+        build is a function of the statement, the environment and the join
+        set alone: one serves every factory sharing the cache."""
+        final_grain = self.build(base.grain)
+        key = (
+            base.__class__,
+            tuple(sorted(base.derived_concepts)),
+            tuple(self.scoped_joins),
+        )
+        held = self.multi_select_build_cache.get(key)
+        if (
+            held is not None
+            and held[1].grain == final_grain
+            and (held[0] is base or held[0] == base)
+        ):
+            return held[1]
+        lineage = self._build_multi_select_lineage_once(
+            base, final_grain, build_cls, derivation, outputs_only, extra_lineage_kwargs
+        )
+        self.multi_select_build_cache[key] = (base, lineage)
+        return lineage
+
+    def _build_multi_select_lineage_once(
+        self,
+        base: MultiSelectLineage,
+        final_grain: BuildGrain,
+        build_cls: type[BuildMultiSelectLineage],
+        derivation: Derivation,
+        outputs_only: bool,
+        extra_lineage_kwargs: dict[str, Any] | None,
+    ) -> BuildMultiSelectLineage:
         local_build_cache: dict[str, BuildConcept] = {}
 
         parents: list[BuildSelectLineage] = [self.build(x) for x in base.selects]
@@ -4938,8 +4969,6 @@ class Factory:
             for k, v in select.local_concepts.items():
                 base_local[k] = v
 
-        # this requires custom handling to avoid circular dependencies
-        final_grain = self.build(base.grain)
         derived_base = []
         for k in base.derived_concepts:
             if k in local_build_cache:
@@ -4997,6 +5026,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
             scoped_joins=env_scoped_joins,
         )
         where_factory = Factory(
@@ -5004,6 +5034,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
             scoped_joins=env_scoped_joins,
         )
         lineage = build_cls(
@@ -5180,6 +5211,56 @@ class Factory:
             written=tuple(writes),
         )
 
+    def _env_copy_unit(self, new, held, unit: EnvUnit) -> None:
+        if unit.section == "concept":
+            v_build = held.concepts[unit.key]
+            new.concepts[unit.key] = v_build
+            new.canonical_concepts[v_build.canonical_address] = v_build
+        elif unit.section == "datasource":
+            new.datasources[unit.key] = held.datasources[unit.key]
+        else:  # alias / merge both land in alias_origin_lookup
+            a_build = held.alias_origin_lookup[unit.key]
+            new.alias_origin_lookup[unit.key] = a_build
+            new.canonical_concepts[a_build.canonical_address] = a_build
+
+    def build_environment_rebased(
+        self, base: Environment, donor: EnvBaseline, dirty: set[str]
+    ) -> EnvBaseline:
+        """`build_environment_recorded` for `base`, a duplicate of the
+        environment `donor` was recorded over: a unit whose author object is
+        still the duplicate of the donor's, and reads none of the `dirty`
+        names, takes the donor's result; every other unit is built here. This
+        factory's `local_concepts` must be `rebase_locals(donor, dirty)`.
+
+        Sound where `dirty` holds every name whose build can differ: the
+        concepts rebound or removed since duplication plus everything the
+        author model reads them through (`reference_index.dependents`). A
+        unit outside that set is built from equal author objects reading
+        equal author objects, and reads nothing else of the model that a
+        concept added later would not also leave alone."""
+        new = self._env_shell(base)
+        new.class_baseline = donor.environment
+        held = {(u.section, u.key): u for u in donor.units}
+        units: list[EnvUnit] = []
+        for section, key, author_ref, canonical_addr in self._env_units(base):
+            found = held.get((section, key))
+            if found is not None and key not in dirty:
+                self._env_copy_unit(new, donor.environment, found)
+                units.append(dc_replace(found, author_ref=author_ref))
+            else:
+                units.append(
+                    self._env_run_recorded_unit(
+                        new, base, section, key, author_ref, canonical_addr
+                    )
+                )
+        return EnvBaseline(
+            environment=self._env_finish(new),
+            end_locals=self.local_concepts,
+            units=units,
+            unit_keys={(u.section, u.key) for u in units},
+            concept_count=len(base.concepts.data),
+        )
+
     def build_environment_extend(self, base: Environment, baseline: EnvBaseline):
         """Append to `baseline` the units `base` gained since it was recorded
         (a `select ... as alias` registers a concept; a bundle stamped on
@@ -5263,16 +5344,8 @@ class Factory:
                 for name in writes:
                     if end.get(name) is not self.local_concepts.get(name):
                         changed.add(name)
-            elif unit.section == "concept":
-                v_build = b_env.concepts[unit.key]
-                new.concepts[unit.key] = v_build
-                new.canonical_concepts[v_build.canonical_address] = v_build
-            elif unit.section == "datasource":
-                new.datasources[unit.key] = b_env.datasources[unit.key]
-            else:  # alias / merge both land in alias_origin_lookup
-                a_build = b_env.alias_origin_lookup[unit.key]
-                new.alias_origin_lookup[unit.key] = a_build
-                new.canonical_concepts[a_build.canonical_address] = a_build
+            else:
+                self._env_copy_unit(new, b_env, unit)
         return self._env_finish(new)
 
     @_build_dispatch.register
@@ -5334,6 +5407,7 @@ class Factory:
                 else None
             ),
             canonical_build_cache=self.canonical_build_cache,
+            multi_select_build_cache=self.multi_select_build_cache,
             # collapse merged-away source keys (and mark partial bindings) when
             # building this datasource's columns/grain.
             scoped_joins=self.scoped_joins,

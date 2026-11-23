@@ -23,6 +23,26 @@ select 'happy'::mood$0;
 }
 
 #[test]
+fn cast_to_derived_array_type() {
+    assert_snapshot!(goto("
+create type mood as enum (
+  'happy',
+  'sad'
+);
+select '{happy}'::_mood$0;
+"), @"
+    info: goto definition
+      ╭▸ file0.sql:2:13
+      │
+    2 │ create type mood as enum (
+      │             ──── 2. destination
+      ‡
+    6 │ select '{happy}'::_mood;
+      ╰╴                  ───── 1. source
+    ");
+}
+
+#[test]
 fn cast_function_syntax() {
     assert_snapshot!(goto("
 create domain posint as int check (value > 0);
@@ -97,19 +117,43 @@ select mood$0 'happy';
 #[test]
 fn treat_type() {
     assert_snapshot!(goto("
+select treat(1 as text$0);
+"), @"
+    info: goto definition
+          ╭▸ file0.sql:2:19
+          │
+        2 │ select treat(1 as text);
+          │                   ──── 1. source
+          │
+          ⸬  builtins.sql:344:24
+          │
+      344 │ create type pg_catalog.text;
+          │                        ──── 2. destination
+          ‡
+    32396 │ create type pg_catalog.text (
+          ╰╴                       ──── 3. destination
+    ");
+}
+
+#[test]
+fn treat_function() {
+    assert_snapshot!(goto("
 create type mood as enum (
   'happy',
   'sad'
 );
+create function pg_catalog.mood(text) returns mood
+  language sql
+  as $$ select $1::mood $$;
 select treat('happy' as mood$0);
 "), @"
     info: goto definition
-      ╭▸ file0.sql:2:13
+      ╭▸ file0.sql:6:28
       │
-    2 │ create type mood as enum (
-      │             ──── 2. destination
+    6 │ create function pg_catalog.mood(text) returns mood
+      │                            ──── 2. destination
       ‡
-    6 │ select treat('happy' as mood);
+    9 │ select treat('happy' as mood);
       ╰╴                        ──── 1. source
     ");
 }
@@ -673,6 +717,29 @@ create function f(x t.a$0%type) returns int
 }
 
 #[test]
+fn percent_type_aggregate_stype() {
+    assert_snapshot!(goto("
+create table t (a int);
+create function f(int, int) returns int
+  language sql
+  as 'select 1';
+create aggregate agg(int) (
+  sfunc = f,
+  stype = t.a$0%type
+);
+"), @"
+    info: goto definition
+      ╭▸ file0.sql:2:17
+      │
+    2 │ create table t (a int);
+      │                 ─ 2. destination
+      ‡
+    8 │   stype = t.a%type
+      ╰╴            ─ 1. source
+    ");
+}
+
+#[test]
 fn type_reference_before_rename() {
     assert_snapshot!(goto("
 create type ty as (
@@ -833,5 +900,24 @@ select xmlserialize(content '<a/>'::xml as d$0);
       │               ─ 2. destination
     3 │ select xmlserialize(content '<a/>'::xml as d);
       ╰╴                                           ─ 1. source
+    ");
+}
+
+#[test]
+fn implicit_shell_type_reference_goes_to_shell_and_full_definition() {
+    assert_snapshot!(goto("
+create function t_in(cstring) returns t language internal as 'int4in';
+create function t_out(t$0) returns cstring language internal as 'int4out';
+create type t (input = t_in, output = t_out);
+"), @"
+    info: goto definition
+      ╭▸ file0.sql:2:39
+      │
+    2 │ create function t_in(cstring) returns t language internal as 'int4in';
+      │                                       ─ 2. destination
+    3 │ create function t_out(t) returns cstring language internal as 'int4out';
+      │                       ─ 1. source
+    4 │ create type t (input = t_in, output = t_out);
+      ╰╴            ─ 3. destination
     ");
 }

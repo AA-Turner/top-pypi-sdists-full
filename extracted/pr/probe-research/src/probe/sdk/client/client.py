@@ -26,6 +26,7 @@ from probe.sdk.client.resources.artifacts import ArtifactsMixin, ArtifactsResour
 from probe.sdk.client.resources.auth import AuthMixin, AuthResource
 from probe.sdk.client.resources.catalog import CatalogMixin, CatalogResource
 from probe.sdk.client.resources.charts import ChartsMixin, ChartsResource
+from probe.sdk.client.resources.compute import ComputeMixin
 from probe.sdk.client.resources.decisions import DecisionsMixin
 from probe.sdk.client.resources.delivery import DeliveryMixin
 from probe.sdk.client.resources.history import DigestMixin, DigestResource
@@ -95,6 +96,7 @@ class Client(
     PanesMixin,
     PinsMixin,
     DecisionsMixin,
+    ComputeMixin,
     ExperimentLocatorMixin,
     ExperimentsMixin,
     ExperimentAdminMixin,

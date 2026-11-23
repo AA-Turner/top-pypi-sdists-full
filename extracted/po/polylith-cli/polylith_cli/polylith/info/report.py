@@ -55,6 +55,7 @@ def print_bricks_in_projects(projects_data: List[dict], bases: List[str], compon
 def print_workspace_summary(projects_data: List[dict], bases: List[str], components: List[str], options: dict) -> None:
     save = options.get('save', False)
     groups = ', '.join(options.get('groups') or set())
+    teams = ', '.join(options.get('teams') or set())
     console = Console(theme=theme.poly_theme, record=save)
     console.print(Padding('[data]Workspace summary[/]', (1, 0, 1, 0)))
     number_of_projects = len([p for p in projects_data if is_project(p)])
@@ -67,5 +68,7 @@ def print_workspace_summary(projects_data: List[dict], bases: List[str], compone
     console.print(f'[data]development[/]: [data]{number_of_dev}[/]')
     if groups:
         console.print(Padding(f'[data]group[/]: [proj]{groups}[/]', (1, 0, 0, 0)))
+    if teams:
+        console.print(Padding(f'[data]team[/]: [proj]{teams}[/]', (1, 0, 0, 0)))
     if save:
         output.save_recorded(console, options, 'workspace_summary')

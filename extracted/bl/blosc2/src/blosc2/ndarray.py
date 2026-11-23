@@ -732,9 +732,6 @@ def sum(
         correctly against the input array.
     where: array_like of bool, optional
         Elements to include in the reduction. False entries are ignored.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments supported by the :func:`empty` constructor.
 
@@ -785,9 +782,6 @@ def cumulative_sum(
         Data type of the returned array.
     include_initial : bool
         Boolean indicating whether to include the initial value as the first value in the output. Initial value will be zero. Default: False.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments supported by the :func:`empty` constructor.
 
@@ -821,9 +815,6 @@ def cumulative_prod(
         Data type of the returned array.
     include_initial : bool
         Boolean indicating whether to include the initial value as the first value in the output. Initial value will be one. Default: False.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments supported by the :func:`empty` constructor.
 
@@ -904,9 +895,6 @@ def std(
         against the input array.
     where: array_like of bool, optional
         Elements to include in the reduction. False entries are ignored.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments that are supported by the :func:`empty` constructor.
 
@@ -914,6 +902,14 @@ def std(
     -------
     std_along_axis: np.ndarray or :ref:`NDArray` or scalar
         The standard deviation of the elements along the axis.
+
+    Notes
+    -----
+    Eligible full-domain 1-D floating reductions can use native centered block
+    moments without decoding the input twice. Float32 moments accumulate in
+    float64 and the result retains the requested dtype. Rounding can differ
+    from the two-pass implementation. Explicit accuracy/backend policies and
+    unsupported requests retain their existing evaluation paths.
 
     References
     ----------
@@ -1041,9 +1037,6 @@ def min(
         against the input array.
     where: array_like of bool, optional
         Elements to include in the reduction. False entries are ignored.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Keyword arguments that are supported by the :func:`empty` constructor.
 
@@ -1173,9 +1166,6 @@ def argmin(
 
     keepdims: bool
         If True, reduced axis included in the result as singleton dimension. Otherwise, axis not included in the result. Default: False.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
 
     Returns
     -------
@@ -1203,9 +1193,6 @@ def argmax(
 
     keepdims: bool
         If True, reduced axis included in the result as singleton dimension. Otherwise, axis not included in the result. Default: False.
-    fp_accuracy: :class:`blosc2.FPAccuracy`, optional
-        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
-        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
 
     Returns
     -------
@@ -2094,8 +2081,8 @@ def contains(ndarr: blosc2.Array, value: str | bytes | blosc2.Array, /) -> blosc
     #     # output[...] = np.isin(x1, x2, assume_unique=assume_unique, invert=invert, kind=kind)
     #     output[...] = np.char.find(x1, x2) != -1
 
-    if not isinstance(value, str | bytes | NDArray):
-        raise TypeError("value should be a string, bytes or a NDArray!")
+    if not isinstance(value, str | bytes | np.ndarray | Operand):
+        raise TypeError("value should be a string, bytes or an Array!")
 
     return blosc2.LazyExpr(new_op=(ndarr, "contains", value))
 
@@ -2249,7 +2236,7 @@ def isinf(ndarr: blosc2.Array, /) -> blosc2.LazyExpr:
 #     return ndarr.__ne__(0)
 
 
-def count_nonzero(ndarr: blosc2.Array, axis: int | Sequence[int] | None = None) -> int:
+def count_nonzero(ndarr: blosc2.Array, axis: int | Sequence[int] | None = None) -> np.ndarray:
     """
     Return number of nonzero values along axes.
 
@@ -2263,8 +2250,8 @@ def count_nonzero(ndarr: blosc2.Array, axis: int | Sequence[int] | None = None) 
 
     Returns
     -------
-    out: int
-        Number of nonzero elements.
+    out: np.ndarray
+        Number of nonzero elements, as a zero-dimensional array for a full reduction.
 
     References
     ----------
@@ -4257,7 +4244,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
         nbytes  : 80 (80 B)
         cbytes  : 98 (98 B)
         cratio  : 0.82x
-        cparams : CParams(codec=<Codec.ZSTD: 5>, codec_meta=0, clevel=5, use_dict=False, typesize=8,
+        cparams : CParams(codec=<Codec.ZSTD: 5>, codec_meta=0, clevel=1, use_dict=False, typesize=8,
                 : nthreads=..., blocksize=80, splitmode=<SplitMode.AUTO_SPLIT: 3>,
                 : filters=[<Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>,
                 : <Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>, <Filter.SHUFFLE: 1>], filters_meta=[0, 0,
@@ -6498,7 +6485,10 @@ def empty(
         Keyword arguments supported:
             chunks: tuple or list
                 The chunk shape. If None (default), Blosc2 will compute
-                an efficient chunk shape.
+                an efficient chunk shape. For frame-backed storage, very large
+                arrays may need larger automatic chunks to keep the chunk
+                offsets within the native buffer limit. Explicit chunks are
+                preserved; exceeding this limit raises ``ValueError``.
             blocks: tuple or list
                 The block shape. If None (default), Blosc2 will compute
                 an efficient block shape. This will override the `blocksize`
@@ -6756,15 +6746,37 @@ def ones(
     return full(shape, 1, dtype, **kwargs)
 
 
-def _menudet_ramp(start, step, dtype, shape, *, execution, partitions=None, endpoint_stop=None):
+_RAMP_JIT_MIN_ITEMS = 4_000_000
+
+
+def _has_direct_aot_ramp(dtype, execution, *, integer_inputs=False):
+    """Whether miniexpr's interpreter dispatches this ramp directly to an AOT SIMD kernel."""
+    return _menudet_ramp_supported(dtype, execution, eager=True) and (
+        (dtype.kind == "f" and dtype.itemsize in (4, 8)) or (dtype.kind in "iu" and integer_inputs)
+    )
+
+
+def _resolve_ramp_jit(execution, size, dtype=None, *, integer_inputs=False):
+    if execution["jit"] is None:
+        if dtype is not None and _has_direct_aot_ramp(dtype, execution, integer_inputs=integer_inputs):
+            execution["jit"] = False
+        else:
+            execution["jit"] = bool(size >= _RAMP_JIT_MIN_ITEMS)
+
+
+def _menudet_ramp(
+    start, step, dtype, shape, *, execution, partitions=None, endpoint_stop=None, integer_inputs=False
+):
     """Build an input-free Menudet ramp and bind it to a logical shape."""
+    from .menudet_kernel import prepare_menudet_generator
+
     # Complex kernels have no JIT backend; use portable interpretation even
     # when the caller requests JIT, as for the existing WASM ramp path.
     if blosc2.IS_WASM or dtype.kind == "c":
         execution = {**execution, "jit": False, "jit_backend": None}
 
     if (
-        dtype == np.dtype(np.int64)
+        (integer_inputs or dtype == np.dtype(np.int64))
         and isinstance(start, (int, np.integer))
         and isinstance(step, (int, np.integer))
     ):
@@ -6777,20 +6789,16 @@ def _menudet_ramp(start, step, dtype, shape, *, execution, partitions=None, endp
         start = float(start)
         step = float(step)
 
-    @SourceKernel
-    def ramp(start, step):
-        return start + _flat_idx * step  # noqa: F821
-
-    if dtype.kind == "f":
-        ramp = SourceKernel.from_source(
-            "def ramp(start, step):\n    return float(start) + _flat_idx * float(step)\n"
-        )
+    if dtype.kind == "f" or (dtype.kind in "biu" and not isinstance(start, int)):
+        source = "def ramp(start, step):\n    return float(start) + _flat_idx * float(step)\n"
+    else:
+        source = "def ramp(start, step):\n    return start + _flat_idx * step\n"
 
     constants = {"start": start, "step": step}
     if endpoint_stop is not None:
         # Avoid accumulated rounding at the endpoint, also for partial reads
         # and rechunked materialization of a complex lazy linspace.
-        ramp = SourceKernel.from_source(
+        source = (
             "def ramp(start, step, stop, last):\n"
             "    if _flat_idx == last:\n"
             "        return stop\n"
@@ -6800,17 +6808,22 @@ def _menudet_ramp(start, step, dtype, shape, *, execution, partitions=None, endp
 
     backend = execution.get("jit_backend")
     if backend in {"tcc", "cc"}:
-        ramp.dsl_source = f"# me:compiler={backend}\n" + ramp.dsl_source
-    artifact = ramp.export({}, dtype, constants=constants, ndim=len(shape))
-    jit_option = execution.get("jit")
-    jit_mode = math.prod(shape) >= 4_000_000 if jit_option is None else bool(jit_option)
-    kernel = blosc2.MenudetKernel.from_json(artifact, jit=jit_mode)
+        env_backend = os.environ.get("ME_DSL_JIT_COMPILER", "").strip().lower()
+        if env_backend in {"tcc", "cc"}:
+            backend = env_backend
+        source = f"# me:compiler={backend}\n{source}"
+    with blosc2.compute_options(**execution):
+        kernel = prepare_menudet_generator(
+            source, "ramp", dtype, constants=constants, ndim=len(shape), jit=execution["jit"]
+        )
     return kernel.lazy({}, shape=shape, partitions=partitions)
 
 
-def _menudet_ramp_supported(dtype, execution):
+def _menudet_ramp_supported(dtype, execution, *, eager=False):
     """Return whether Menudet ramp semantics/options match this constructor call."""
-    if dtype not in (
+    if eager and dtype.kind in "biuf" and not dtype.isnative:
+        dtype = dtype.newbyteorder("=")
+    if not (eager and dtype.kind in "biu") and dtype not in (
         np.dtype(np.int64),
         np.dtype(np.float32),
         np.dtype(np.float64),
@@ -6820,15 +6833,33 @@ def _menudet_ramp_supported(dtype, execution):
         return False
     if execution.get("jit_backend") == "js":
         return False
-    # MenudetKernel currently consumes compiler policy from the artifact pragma,
-    # not every task-local C compiler/cache override.
-    if builtins.any(execution.get(name) for name in ("compiler", "cflags", "cache_dir", "compiler_output")):
+    if builtins.any(
+        execution.get(name) for name in ("compiler", "cflags", "cache_dir", "compiler_output")
+    ) and (
+        not eager or not getattr(blosc2.blosc2_ext, "menudet_artifact_options_available", lambda: False)()
+    ):
         return False
-    return execution.get("fp_accuracy", blosc2.FPAccuracy.DEFAULT) == blosc2.FPAccuracy.DEFAULT
+    # Ramp arithmetic has no accuracy-selectable math functions.
+    return eager or execution.get("fp_accuracy", blosc2.FPAccuracy.DEFAULT) == blosc2.FPAccuracy.DEFAULT
 
 
-def _compute_menudet_ramp(start, step, dtype, shape, execution, kwargs, *, endpoint_stop=None):
+def _ramp_fits_integer_dtype(start, step, size, dtype):
+    """Match Menudet's checked, truncating float-to-integer conversions."""
+    bounds = np.iinfo(dtype)
+    last = start + (size - 1) * step
+    if not (math.isfinite(start) and math.isfinite(last)):
+        return False
+    return bounds.min <= math.trunc(start) <= bounds.max and bounds.min <= math.trunc(last) <= bounds.max
+
+
+def _compute_menudet_ramp(
+    start, step, dtype, shape, execution, kwargs, *, endpoint_stop=None, integer_inputs=False
+):
     """Evaluate a Menudet ramp and materialize it into Blosc2 storage."""
+    if dtype.kind in "biuf" and not dtype.isnative:
+        # Source-authored eager ramps already materialize the native artifact's
+        # byte order. Use it for the allocation as well as for the kernel.
+        dtype = dtype.newbyteorder("=")
     storage_kwargs = {key: value for key, value in kwargs.items() if key not in execution}
     output = blosc2.empty(shape, dtype=dtype, **storage_kwargs)
     kernel_lazy = _menudet_ramp(
@@ -6839,6 +6870,7 @@ def _compute_menudet_ramp(start, step, dtype, shape, execution, kwargs, *, endpo
         execution=execution,
         partitions=output.chunks,
         endpoint_stop=endpoint_stop,
+        integer_inputs=integer_inputs,
     )
     if blosc2.blosc2_ext.menudet_prefilter_inputs_eligible({}, output=output):
         kernel_lazy.kernel._handle.evaluate_prefilter({}, out=output)
@@ -6851,6 +6883,35 @@ def _compute_menudet_ramp(start, step, dtype, shape, execution, kwargs, *, endpo
         )
         output[item] = values
     return output
+
+
+# Remember initial global defaults: replacing the codec or the filter list (even
+# with the same values) or editing filters in place is an explicit global configuration.
+_INITIAL_DEFAULT_CODEC = blosc2.cparams_dflts["codec"]
+_INITIAL_DEFAULT_FILTERS = blosc2.cparams_dflts["filters"]
+_INITIAL_DEFAULT_FILTER_VALUES = tuple(_INITIAL_DEFAULT_FILTERS)
+
+
+def _ramp_storage_defaults(kwargs):
+    """Supply ramp codec and filters without mutating or replacing explicit user settings."""
+    cparams = kwargs.get("cparams")
+    if cparams is None:
+        cparams = {}
+    elif not isinstance(cparams, dict):
+        # A CParams instance specifies a complete compression configuration.
+        return
+    else:
+        cparams = cparams.copy()
+    if "codec" not in cparams and blosc2.cparams_dflts["codec"] == _INITIAL_DEFAULT_CODEC:
+        cparams["codec"] = blosc2.Codec.BLOSCLZ
+    global_filters = blosc2.cparams_dflts["filters"]
+    if (
+        "filters" not in cparams
+        and global_filters is _INITIAL_DEFAULT_FILTERS
+        and tuple(global_filters) == _INITIAL_DEFAULT_FILTER_VALUES
+    ):
+        cparams["filters"] = [blosc2.Filter.SHUFFLE, blosc2.Filter.BYTEDELTA]
+    kwargs["cparams"] = cparams
 
 
 def arange(  # noqa: C901
@@ -6900,16 +6961,22 @@ def arange(  # noqa: C901
     ----------------
     jit: bool or None, optional
         Execution policy for the ramp: None (default) inherits the
-        configured JIT policy; unset uses interpretation below 4 million elements
-        and tries JIT for larger Menudet ramps. True tries JIT,
-        and False disables it. Native compilation or allocation failure falls
-        back quietly to the interpreter. See :ref:`JITOptions`.
+        configured JIT policy; unset uses direct AOT SIMD interpretation without
+        runtime compilation for float32/float64 and integer-input integer ramps,
+        and otherwise interprets below 4 million elements and tries JIT for
+        larger Menudet ramps. True tries JIT, and False disables it. Native
+        compilation or allocation failure falls back quietly to the interpreter.
+        See :ref:`JITOptions`.
     jit_backend: {"tcc", "cc", "js"} or None, optional
         Select the runtime compiler. Native defaults use bundled TCC without
         disk caching. CC needs an installed compiler and uses persistent caching;
         JS is WebAssembly/Pyodide-only. See :ref:`JITOptions` for limitations.
     kwargs: dict, optional
         Keyword arguments that are supported by the :func:`empty` constructor.
+        Eager arrays default to BLOSCLZ with SHUFFLE followed by BYTEDELTA.
+        Customized ``blosc2.cparams_dflts['codec']`` / ``blosc2.cparams_dflts['filters']``,
+        explicit codec/filters, or a complete :class:`CParams` configuration override
+        these constructor-specific defaults; other compression settings are preserved.
 
     Returns
     -------
@@ -6940,10 +7007,6 @@ def arange(  # noqa: C901
         else:  # use linspace to have finer control over exclusion of endpoint for float types
             output[:] = np.linspace(start, stop, lout, endpoint=False, dtype=output.dtype)
 
-    @SourceKernel
-    def ramp_arange(start, step):
-        return start + _flat_idx * step  # noqa: F821  # DSL index/shape symbols resolved by miniexpr
-
     if step is None:  # not array-api compliant but for backwards compatibility
         step = 1
     if stop is None:
@@ -6967,8 +7030,14 @@ def arange(  # noqa: C901
     if type(lazy) is not bool:
         raise TypeError("lazy must be a bool")
 
+    int_bounds = np.iinfo(np.int64)
+    integer_inputs = dtype.kind in "biu" and builtins.all(
+        isinstance(value, (int, np.integer)) and int_bounds.min <= value <= int_bounds.max
+        for value in (start, step)
+    )
     execution = blosc2.jit_config.execution_options()
     execution.update(blosc2.jit_config.pop_execution_options(kwargs))
+    _resolve_ramp_jit(execution, NUM, dtype, integer_inputs=integer_inputs)
     storage_kwargs = kwargs.copy()
     if lazy:
         if storage_kwargs:
@@ -6983,29 +7052,30 @@ def arange(  # noqa: C901
             )
         return _menudet_ramp(start, step, dtype, tuple(shape), execution=execution)
 
+    _ramp_storage_defaults(kwargs)
+    storage_kwargs = kwargs.copy()
     if is_inside_new_expr() or NUM == 0:
         # We already have the dtype and shape, so return immediately
         return blosc2.zeros(shape, dtype=dtype, **storage_kwargs)
 
     kwargs.update(execution)
 
-    # Avoid compilation latency for small one-shot ramps unless explicitly requested.
-    if execution["jit"] is None:
-        execution["jit"] = NUM >= 4_000_000
-    if c_order and _menudet_ramp_supported(dtype, execution):
-        if dtype == np.dtype(np.int64):
-            valid_int = (
-                isinstance(start, (int, np.integer))
-                and isinstance(step, (int, np.integer))
-                and np.iinfo(np.int64).min <= start <= np.iinfo(np.int64).max
-                and np.iinfo(np.int64).min <= step <= np.iinfo(np.int64).max
-            )
-            if valid_int:
-                return _compute_menudet_ramp(start, step, dtype, tuple(shape), execution, kwargs)
+    # Real ramps have historically used logical C-order coordinates even
+    # with c_order=False. Complex fallbacks have separate reshape semantics.
+    if (c_order or dtype.kind != "c") and _menudet_ramp_supported(dtype, execution, eager=True):
+        if dtype.kind in "biu":
+            if integer_inputs:
+                return _compute_menudet_ramp(
+                    start, step, dtype, tuple(shape), execution, kwargs, integer_inputs=True
+                )
+            if isinstance(start, (float, np.floating)) or isinstance(step, (float, np.floating)):
+                first, delta = float(start), float(step)
+                if dtype.kind == "b" or _ramp_fits_integer_dtype(first, delta, NUM, dtype):
+                    return _compute_menudet_ramp(first, delta, dtype, tuple(shape), execution, kwargs)
         else:
             return _compute_menudet_ramp(start, step, dtype, tuple(shape), execution, kwargs)
 
-    # Retain the legacy path for insertion order or unsupported execution options.
+    # Preserve compatibility for unsupported signatures and explicit JS.
     if blosc2.isdtype(dtype, "complex floating"):
         lshape = (math.prod(shape),)
         lazyarr = blosc2.lazyudf(arange_fill, (start, stop, step), dtype=dtype, shape=lshape)
@@ -7016,6 +7086,11 @@ def arange(  # noqa: C901
 
         return reshape(lazyarr, shape, c_order=c_order, **storage_kwargs)
     else:
+
+        @SourceKernel
+        def ramp_arange(start, step):
+            return start + _flat_idx * step  # noqa: F821  # DSL index resolved by miniexpr
+
         lazyarr = blosc2.lazyudf(ramp_arange, (start, step), dtype=dtype, shape=shape)
         return lazyarr.compute(**kwargs)
 
@@ -7066,15 +7141,21 @@ def linspace(  # noqa: C901
         Complex ramps are interpreter-only, even when JIT is requested.
     **kwargs: Any
         Storage arguments accepted by :func:`empty`, plus the execution options below.
+        Eager arrays default to BLOSCLZ with SHUFFLE followed by BYTEDELTA.
+        Customized ``blosc2.cparams_dflts['codec']`` / ``blosc2.cparams_dflts['filters']``,
+        explicit codec/filters, or a complete :class:`CParams` configuration override
+        these constructor-specific defaults; other compression settings are preserved.
 
     Other Parameters
     ----------------
     jit: bool or None, optional
         Execution policy for the ramp: None (default) inherits the
-        configured JIT policy; unset uses interpretation below 4 million elements
-        and tries JIT for larger Menudet ramps. True tries JIT,
-        and False disables it. Native compilation or allocation failure falls
-        back quietly to the interpreter. See :ref:`JITOptions`.
+        configured JIT policy; unset uses direct AOT SIMD interpretation without
+        runtime compilation for float32/float64 and integer-input integer ramps,
+        and otherwise interprets below 4 million elements and tries JIT for
+        larger Menudet ramps. True tries JIT, and False disables it. Native
+        compilation or allocation failure falls back quietly to the interpreter.
+        See :ref:`JITOptions`.
     jit_backend: {"tcc", "cc", "js"} or None, optional
         Select the runtime compiler. Native defaults use bundled TCC without
         disk caching. CC needs an installed compiler and uses persistent caching;
@@ -7100,10 +7181,6 @@ def linspace(  # noqa: C901
             output[:] = np.linspace(start_, stop, lout, endpoint=endpoint, dtype=output.dtype)
         else:
             output[:] = np.linspace(start_, stop_, lout, endpoint=False, dtype=output.dtype)
-
-    @SourceKernel
-    def ramp_linspace(start, step):
-        return float(start) + _flat_idx * float(step)  # noqa: F821  # DSL index/shape symbols resolved by miniexpr
 
     if shape is None:
         if num is None:
@@ -7142,6 +7219,7 @@ def linspace(  # noqa: C901
 
     execution = blosc2.jit_config.execution_options()
     execution.update(blosc2.jit_config.pop_execution_options(kwargs))
+    _resolve_ramp_jit(execution, num, dtype)
     storage_kwargs = kwargs.copy()
     if lazy:
         if storage_kwargs:
@@ -7158,20 +7236,27 @@ def linspace(  # noqa: C901
             start, step, dtype, tuple(shape), execution=execution, endpoint_stop=endpoint_stop
         )
 
+    _ramp_storage_defaults(kwargs)
+    storage_kwargs = kwargs.copy()
     if is_inside_new_expr() or num == 0:
         # We already have the dtype and shape, so return immediately
         return blosc2.zeros(shape, dtype=dtype, **storage_kwargs)  # will return empty array for num == 0
 
     kwargs.update(execution)
 
-    if execution["jit"] is None:
-        execution["jit"] = num >= 4_000_000
-    if c_order and _menudet_ramp_supported(dtype, execution):
-        return _compute_menudet_ramp(
-            start, step, dtype, tuple(shape), execution, kwargs, endpoint_stop=endpoint_stop
-        )
+    if (c_order or dtype.kind != "c") and _menudet_ramp_supported(dtype, execution, eager=True):
+        if dtype.kind in "iu":
+            # Menudet checks floating-to-integer conversions. Only admit this
+            # route when both ends (including the rounded last value) fit.
+            first = float(start)
+            if _ramp_fits_integer_dtype(first, step, num, dtype):
+                return _compute_menudet_ramp(first, step, dtype, tuple(shape), execution, kwargs)
+        else:
+            return _compute_menudet_ramp(
+                start, step, dtype, tuple(shape), execution, kwargs, endpoint_stop=endpoint_stop
+            )
 
-    # Retain the legacy path for insertion order or unsupported execution options.
+    # Preserve compatibility for unsupported signatures and explicit JS.
     if blosc2.isdtype(dtype, "complex floating"):
         inputs = (start, stop, num, endpoint)
         lazyarr = blosc2.lazyudf(linspace_fill, inputs, dtype=dtype, shape=(num,))
@@ -7181,9 +7266,32 @@ def linspace(  # noqa: C901
 
         return reshape(lazyarr, shape, c_order=c_order, **storage_kwargs)
     else:
+
+        @SourceKernel
+        def ramp_linspace(start, step):
+            return float(start) + _flat_idx * float(step)  # noqa: F821  # DSL index resolved by miniexpr
+
         inputs = (start, step)
         lazyarr = blosc2.lazyudf(ramp_linspace, inputs, dtype=dtype, shape=shape)
         return lazyarr.compute(**kwargs)
+
+
+def _diagonal_chunk_indices(shape, chunks, k):
+    """Yield C-order chunk indices intersecting diagonal k, without scanning the grid."""
+    rows, cols = shape
+    chunk_rows, chunk_cols = chunks
+    row_begin = builtins.max(0, -k)
+    row_end = builtins.min(rows, cols - k)
+    if row_begin >= row_end:
+        return
+    column_chunks = (cols + chunk_cols - 1) // chunk_cols
+    for row_chunk in range(row_begin // chunk_rows, (row_end - 1) // chunk_rows + 1):
+        r0 = row_chunk * chunk_rows
+        r1 = builtins.min(rows, r0 + chunk_rows)
+        c_begin = builtins.max(0, r0 + k)
+        c_end = builtins.min(cols, r1 + k)
+        for column_chunk in range(c_begin // chunk_cols, (c_end - 1) // chunk_cols + 1):
+            yield row_chunk * column_chunks + column_chunk
 
 
 def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
@@ -7211,7 +7319,9 @@ def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
         Select the native compiler ("tcc" or "cc").
     **kwargs: Any
         Storage arguments accepted by :func:`empty`. Default chunk and block
-        shapes localize the diagonal so zero-only blocks skip kernel evaluation.
+        shapes localize the diagonal. Zero-only chunks retain their special
+        zero representation; within diagonal chunks, zero-only blocks skip
+        kernel evaluation on the native prefilter path.
         Complex output and WebAssembly retain the chunkwise NumPy callback.
 
     Returns
@@ -7260,28 +7370,32 @@ def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
         lazyarr = blosc2.lazyudf(fill_eye, (k,), dtype=dtype, shape=shape)
         return lazyarr.compute(**kwargs)
 
-    @SourceKernel
-    def diagonal(k):
-        return _i1 - _i0 == k  # noqa: F821
+    from .menudet_kernel import prepare_menudet_generator
 
+    source = "def diagonal(k):\n    return _i1 - _i0 == k\n"
     backend = execution.get("jit_backend")
     if backend in {"tcc", "cc"}:
-        diagonal.dsl_source = f"# me:compiler={backend}\n" + diagonal.dsl_source
-    artifact = diagonal.export({}, dtype, constants={"k": k}, ndim=2)
-    kernel = blosc2.MenudetKernel.from_json(artifact, jit=execution.get("jit"))
+        source = f"# me:compiler={backend}\n{source}"
+    kernel = prepare_menudet_generator(
+        source, "diagonal", dtype, constants={"k": k}, ndim=2, jit=execution["jit"]
+    )
     # Square blocks localize the diagonal. Row-wide default blocks would all
     # intersect it, preventing the scheduler from skipping zero-only blocks.
     if kwargs.get("chunks") is None:
         kwargs["chunks"] = tuple(builtins.min(1024, builtins.max(1, n)) for n in shape)
     if kwargs.get("blocks") is None:
         kwargs["blocks"] = tuple(builtins.min(128, c) for c in kwargs["chunks"])
-    output = blosc2.empty(shape, dtype=dtype, **kwargs)
+    output = blosc2.zeros(shape, dtype=dtype, **kwargs)
     if not output.size:
         return output
+    chunk_indices = _diagonal_chunk_indices(shape, output.chunks, k)
     if blosc2.blosc2_ext.menudet_prefilter_inputs_eligible({}, output=output):
-        kernel._handle.evaluate_prefilter({}, out=output, _diagonal=k)
+        kernel._handle.evaluate_prefilter({}, out=output, _diagonal=k, _chunk_indices=chunk_indices)
         return output
-    for origin in itertools.product(*(range(0, n, c) for n, c in zip(shape, output.chunks, strict=True))):
+    column_chunks = (shape[1] + output.chunks[1] - 1) // output.chunks[1]
+    for chunk in chunk_indices:
+        row_chunk, column_chunk = divmod(chunk, column_chunks)
+        origin = (row_chunk * output.chunks[0], column_chunk * output.chunks[1])
         extent = tuple(builtins.min(c, n - o) for o, c, n in zip(origin, output.chunks, shape, strict=True))
         item = tuple(slice(o, o + e) for o, e in zip(origin, extent, strict=True))
         output[item] = kernel.evaluate_block(

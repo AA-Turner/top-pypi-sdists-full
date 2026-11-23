@@ -5,7 +5,7 @@ from collections.abc import Callable
 import hypothesis
 import hypothesis.errors
 import jsonschema_rs
-from flask import request
+from flask import jsonify, request
 
 import schemathesis
 from schemathesis.core.errors import InvalidRegexPattern, InvalidRegexType, InvalidSchema
@@ -13,6 +13,7 @@ from schemathesis.engine import Status, events
 from schemathesis.engine.run import PhaseName
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from test.apps.catalog.openapi import basic
+from test.apps.runtime import OpenAPIApp
 from test.engine.helpers import (
     raise_invalid_argument,
     raise_keyboard_interrupt,
@@ -29,7 +30,7 @@ def _coverage_only(schema) -> EventStream:
 
 
 def _hooked_coverage_stream(ctx, raise_naturally: Callable[[], None]) -> EventStream:
-    # `raise_naturally` must throw via real execution — never `raise SomeException(...)`.
+    # `raise_naturally` must throw through real execution, not `raise SomeException(...)`.
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
 
@@ -147,7 +148,7 @@ def test_coverage_phase_stops_iteration_when_max_failures_reached(ctx):
 
 
 def test_coverage_phase_promotes_success_to_failure_on_continue_on_failure(ctx):
-    # `continue_on_failure` records failed checks without raising — final status must still surface as FAILURE.
+    # `continue_on_failure` records failed checks without raising; the final status must still be FAILURE.
     api = ctx.openapi.apps.failure()
     schema = schemathesis.openapi.from_url(api.schema_url)
     schema.config.continue_on_failure = True
@@ -352,8 +353,7 @@ def test_unique_inputs_dedupes_repeated_explicit_examples(ctx, app_runner):
     def run(unique: bool) -> list[str]:
         captured.clear()
         schema = schemathesis.openapi.from_url(url)
-        # TODO: `phases.update(...)` resets per-phase generation defaults and clobbers user-set
-        # `generation.unique_inputs`. Drop this manual disabling once that bug is fixed.
+        # TODO: `phases.update(...)` clobbers user-set `generation.unique_inputs`; drop this once that is fixed.
         schema.config.phases.coverage.enabled = False
         schema.config.phases.fuzzing.enabled = False
         schema.config.phases.stateful.enabled = False
@@ -420,7 +420,7 @@ def test_coverage_phase_handles_keyboard_interrupt_during_iteration(ctx):
 
 
 def test_coverage_phase_negative_multiple_of_with_float_bounds(ctx, app_runner):
-    # Negating `multipleOf` next to float bounds used to build a schema with a duplicated `type` list.
+    # Negating `multipleOf` next to float bounds must not duplicate the `type` list.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/data": {
@@ -457,3 +457,39 @@ def test_coverage_phase_negative_empty_array_path_parameter(ctx):
     ).execute()
 
     assert stream.find_all(events.NonFatalError) == []
+
+
+def test_coverage_phase_sends_oversized_strings_after_every_other_case(ctx):
+    # A very long string may break a server for good, so it must not cut off the operations tested after it.
+    app, spec = ctx.openapi.make_flask_app(
+        {
+            "/notes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"text": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/tags": {"get": {"responses": {"200": {"description": "OK"}}}},
+        }
+    )
+
+    @app.route("/notes", methods=["POST"])
+    def notes():
+        return jsonify({})
+
+    @app.route("/tags", methods=["GET"])
+    def tags():
+        return jsonify([])
+
+    api = ctx.openapi.serve(OpenAPIApp(spec=spec, server=app))
+    _coverage_only(schemathesis.openapi.from_url(api.schema_url))
+
+    sent = ["oversized" if len(item.body) > 65536 else f"{item.method} {item.path}" for item in api.requests]
+    assert sent[sent.index("oversized") :] == ["oversized"]

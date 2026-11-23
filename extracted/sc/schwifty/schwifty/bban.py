@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from random import Random
 from typing import Any
 from typing import Self
 
-from rstr import Rstr
+from rstr import Xeger
 
 from schwifty import common
 from schwifty import exceptions
@@ -69,6 +70,26 @@ def compute_national_checksum(country_code: str, components: dict[Component, str
         return ""
 
     return algo.compute([components[key] for key in algo.accepts])
+
+
+def _split_branch_code(
+    components: dict[Component, str],
+    ranges: dict[Component, Range],
+    values: Mapping[str | Component, Any] | None = None,
+) -> None:
+    bank_code_length = ranges[Component.BANK_CODE].length
+    branch_code_length = ranges[Component.BRANCH_CODE].length
+
+    raw_branch_code = "" if values is None else (values.get(Component.BRANCH_CODE) or "")
+    bank_code = components[Component.BANK_CODE]
+    if (
+        not common.clean(raw_branch_code)
+        and len(bank_code) == bank_code_length + branch_code_length
+    ):
+        components[Component.BRANCH_CODE] = bank_code[
+            bank_code_length : bank_code_length + branch_code_length
+        ]
+        components[Component.BANK_CODE] = bank_code[:bank_code_length]
 
 
 _LENGTH_ERRORS = {
@@ -152,14 +173,7 @@ class BBAN(common.Base):
         for key, range_ in ranges.items():
             components[key] = common.clean(values.get(key, "")).zfill(range_.length)
 
-        bank_code_length: int = ranges[Component.BANK_CODE].length
-        branch_code_length: int = ranges[Component.BRANCH_CODE].length
-
-        if len(components[Component.BANK_CODE]) == bank_code_length + branch_code_length:
-            components[Component.BRANCH_CODE] = components[Component.BANK_CODE][
-                bank_code_length : bank_code_length + branch_code_length
-            ]
-            components[Component.BANK_CODE] = components[Component.BANK_CODE][:bank_code_length]
+        _split_branch_code(components, ranges, values)
 
         for component, range_ in ranges.items():
             if range_.is_empty:
@@ -221,7 +235,7 @@ class BBAN(common.Base):
         if not country_code:
             country_code = random.choice(registry.get_countries())
 
-        rstr = Rstr(random)
+        xeger = Xeger(random)
         spec = _get_bban_spec(country_code)
         bank: Bank | None
         lookup_by = spec.bic_lookup_components or [Component.BANK_CODE]
@@ -236,7 +250,7 @@ class BBAN(common.Base):
             bank = _get_random_bank(country_code, random) if use_registry else None
 
         if not spec.has_positions:
-            return cls(country_code, rstr.xeger(spec.regex).upper())
+            return cls(country_code, xeger.xeger(spec.regex).upper())
 
         ranges = spec.positions
         algo = _get_national_checksum_algorithm(country_code, bank)
@@ -249,7 +263,7 @@ class BBAN(common.Base):
         # The loop only re-runs on the rare occasions where a particular random
         # account body admits no valid check digit for the selected method.
         for _ in range(_MAX_RANDOM_ATTEMPTS):
-            bban = rstr.xeger(spec.regex).upper()
+            bban = xeger.xeger(spec.regex).upper()
             components: dict[Component, str] = {}
             for key, range_ in ranges.items():
                 if (value := values.get(key)) is not None:
@@ -260,14 +274,7 @@ class BBAN(common.Base):
                         bank_value or spec.defaults.get(f"default_{key.value}") or range_.cut(bban)
                     )
 
-            bank_code = components[Component.BANK_CODE]
-            bank_code_length = ranges[Component.BANK_CODE].length
-            branch_code_length = ranges[Component.BRANCH_CODE].length
-
-            if len(bank_code) >= bank_code_length + branch_code_length:
-                start = bank_code_length
-                end = start + branch_code_length
-                components[Component.BRANCH_CODE] = bank_code[start:end]
+            _split_branch_code(components, ranges, values)
 
             for key, value in components.items():
                 components[key] = value[: ranges[key].length]

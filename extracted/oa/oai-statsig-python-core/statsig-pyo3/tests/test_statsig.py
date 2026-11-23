@@ -37,6 +37,8 @@ def test_runtime_thread_start_callback_runs_on_each_statsig_worker():
 def statsig_setup(httpserver: HTTPServer):
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     json_data = json.loads(dcs_content)
+    json_data["dynamic_configs"]["big_number"]["servedVersion"] = 7
+    json_data["feature_gates"]["test_public"]["servedVersion"] = 6
 
     httpserver.expect_request(
         "/v2/download_config_specs"
@@ -73,6 +75,7 @@ def test_get_feature_gate(statsig_setup):
     assert gate.rule_id == "6X3qJgyfwA81IJ2dxI7lYp"
     assert gate.id_type == "userID"
     assert gate.details.reason == "Network:Recognized"
+    assert gate.details.served_version == 6
     assert isinstance(gate.details.lcut, int)
     assert isinstance(gate.details.received_at, int)
 
@@ -87,6 +90,7 @@ def test_get_dynamic_config(statsig_setup):
     assert config.rule_id == "default"
     assert config.id_type == "userID"
     assert config.details.reason == "Network:Recognized"
+    assert config.details.served_version == 7
     assert isinstance(config.details.lcut, int)
     assert isinstance(config.details.received_at, int)
 

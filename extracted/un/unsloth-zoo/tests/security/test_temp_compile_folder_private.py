@@ -14,13 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""The compile cache's temp fallback must not reuse a folder another user made.
-
-`<tmp>/unsloth_compiled_cache` has a fixed name in a shared directory. Another
-account can create it (or a link to a folder it owns) before us, and the cache
-then serves Python it can rewrite. A folder owned by someone else is simulated by
-patching `os.geteuid`; creating a really foreign folder would need root.
-"""
+"""Compile cache temp fallback must not reuse a folder another user made:
+<tmp>/unsloth_compiled_cache has a fixed name, so another account could pre-create it and serve
+rewritable Python; foreign ownership is faked by patching os.geteuid, since a real one needs
+root."""
 import os
 import stat
 import sys
@@ -98,3 +95,23 @@ def test_folder_owned_by_another_user_is_not_used(temp_base, monkeypatch):
     monkeypatch.setattr(compiler.os, "lstat", lstat)
     location, _ = compiler._get_compile_folder(use_tempfile = True)
     assert location == str(temp_base / f"unsloth_compiled_cache_{real_uid + 1}")
+
+
+def test_group_writable_own_folder_falls_back_to_private(temp_base):
+    # An older 0775 folder (umask 002) in a shared group: a group member could plant modules in it.
+    planted = temp_base / "unsloth_compiled_cache"
+    planted.mkdir()
+    os.chmod(planted, 0o775)
+    location, _ = compiler._get_compile_folder(use_tempfile = True)
+    assert location == str(temp_base / f"unsloth_compiled_cache_{os.geteuid()}")
+    _assert_private(location)
+    again, _ = compiler._get_compile_folder(use_tempfile = True)
+    assert again == location
+
+
+def test_own_0755_folder_is_still_reused(temp_base):
+    existing = temp_base / "unsloth_compiled_cache"
+    existing.mkdir()
+    os.chmod(existing, 0o755)
+    location, _ = compiler._get_compile_folder(use_tempfile = True)
+    assert location == str(existing)

@@ -14,6 +14,7 @@ AFTER the targets phase when the effective target is known
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apm_cli.install.errors import PolicyViolationError
@@ -88,7 +89,11 @@ def run(ctx: InstallContext) -> None:
     # ------------------------------------------------------------------
     # 4. Run dependency policy checks
     # ------------------------------------------------------------------
-    from apm_cli.policy.policy_checks import run_dependency_policy_checks
+    from apm_cli.policy.policy_checks import (
+        MarketplaceOrigins,
+        marketplace_resolution_origins,
+        run_dependency_policy_checks,
+    )
 
     mcp_deps = getattr(ctx, "direct_mcp_deps", None)
 
@@ -120,6 +125,16 @@ def run(ctx: InstallContext) -> None:
         declared_refs=getattr(ctx, "declared_direct_refs", None) or None,
         # This install locks deps_to_install; a required one it adds is not absent.
         installing=True,
+        # Root ``marketplaces:`` origins, and the catalog origins of locked
+        # and freshly resolved marketplace deps, meet marketplace.allow (#2903).
+        marketplace_origins=MarketplaceOrigins(
+            getattr(apm_package, "marketplaces", None),
+            marketplace_resolution_origins(
+                ctx.existing_lockfile,
+                keys=[d.get_unique_key() for d in ctx.deps_to_install],
+                provenance=getattr(ctx, "marketplace_provenance", None),
+            ),
+        ),
         **extra_kwargs,
     )
 
@@ -277,3 +292,46 @@ def _drop_policy_refused_replacement_errors(ctx: InstallContext, dependency_grap
         error = errors.get(dep_ref.get_unique_key())
         if error in dependency_graph.resolution_errors:
             dependency_graph.resolution_errors.remove(error)
+
+
+def enforce_content_types(ctx: InstallContext, materialized) -> None:
+    """Judge ``manifest.content_types`` on the package images integrate will deploy.
+
+    Runs once every package is acquired and normalized, before any deploy
+    write, so a blocking policy refuses the install with nothing deployed and
+    the lockfile untouched (``PolicyViolationError`` refuses the commit);
+    ``warn`` reports and continues.
+    """
+    fetch = getattr(ctx, "policy_fetch", None)
+    policy = getattr(fetch, "policy", None)
+    if (
+        not getattr(ctx, "policy_enforcement_active", False)
+        or policy is None
+        or policy.manifest.content_types is None
+        or getattr(ctx, "dry_run", False) is True
+    ):
+        return
+    from apm_cli.policy.content_types_check import check_content_types
+    from apm_cli.policy.install_preflight import emit_check_violations
+    from apm_cli.policy.models import CIAuditResult
+
+    # A package with no targets materializes without package_info and deploys nothing.
+    roots = {
+        source.dep_key: (Path(materialization.package_info.install_path),)
+        for source, materialization in materialized
+        if materialization.package_info is not None
+    }
+    check = check_content_types(roots, policy.manifest)
+    if check.passed:
+        return
+    severity = "block" if policy.enforcement == "block" else "warn"
+    if ctx.logger:
+        emit_check_violations(ctx.logger, check, severity=severity, source=fetch.source)
+    if severity == "block":
+        raise PolicyViolationError(
+            "Install blocked by org policy manifest.content_types -- see violations above. "
+            "Remove the packages that ship those content types from apm.yml (run "
+            "'apm policy status' to see the active policy), then re-run the install.",
+            audit_result=CIAuditResult(checks=[check]),
+            policy_source=fetch.source or "unknown",
+        )

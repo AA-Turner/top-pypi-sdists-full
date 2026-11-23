@@ -301,13 +301,14 @@ def test_kernel_no_inputs_with_explicit_shape():
     np.testing.assert_equal(res, expected)
 
 
-def test_dsl_kernel_with_no_inputs_sum_returns_scalar():
+def test_dsl_kernel_with_no_inputs_sum_returns_zero_dimensional_array():
     shape = (10, 5)
     expr = blosc2.lazyudf(kernel_index_ramp_no_inputs, (), dtype=np.float32, shape=shape)
     result = expr.sum()
 
     expected = np.arange(np.prod(shape), dtype=np.float32).reshape(shape).sum()
-    assert np.isscalar(result)
+    assert isinstance(result, np.ndarray)
+    assert result.shape == ()
     np.testing.assert_allclose(result, expected, rtol=0.0, atol=0.0)
 
 
@@ -715,7 +716,9 @@ def test_kernel_failure_raises_strict_off(monkeypatch):
     def failing_export(*args, **kwargs):
         raise blosc2.MenudetError("forced miniexpr failure", status="invalid_source")
 
-    monkeypatch.setattr(DSLKernel, "export", failing_export)
+    monkeypatch.setattr(
+        importlib.import_module("blosc2.menudet_kernel"), "prepare_menudet_kernel", failing_export
+    )
 
     try:
         _, _, a2, b2 = _make_arrays(shape=(32, 32), chunks=(16, 16), blocks=(8, 8))
@@ -739,7 +742,9 @@ def test_kernel_failure_includes_backend_error(monkeypatch):
     def failing_export(*args, **kwargs):
         raise blosc2.MenudetError("forced miniexpr backend failure details", status="invalid_source")
 
-    monkeypatch.setattr(DSLKernel, "export", failing_export)
+    monkeypatch.setattr(
+        importlib.import_module("blosc2.menudet_kernel"), "prepare_menudet_kernel", failing_export
+    )
 
     try:
         _, _, a2, b2 = _make_arrays(shape=(32, 32), chunks=(16, 16), blocks=(8, 8))
@@ -773,7 +778,9 @@ def test_kernel_failure_prefers_validate_error(monkeypatch):
             "error": "synthetic validate_dsl diagnostics",
         }
 
-    monkeypatch.setattr(DSLKernel, "export", failing_export)
+    monkeypatch.setattr(
+        importlib.import_module("blosc2.menudet_kernel"), "prepare_menudet_kernel", failing_export
+    )
     monkeypatch.setattr(lazyexpr_mod, "validate_dsl", fake_validate_dsl, raising=False)
 
     try:

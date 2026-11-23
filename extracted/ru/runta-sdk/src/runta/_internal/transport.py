@@ -12,7 +12,6 @@ from .openapi.models import (
     AllowlistEgressPolicyMode,
     Checkpoint,
     CheckpointRuntimeRestoreRequest,
-    ColdRestoreResources,
     DenylistEgressPolicy,
     DenylistEgressPolicyMode,
     ErrorEnvelope,
@@ -68,8 +67,8 @@ def create_runtime_request(
     name: str | None,
     *,
     checkpoint_id: str | None,
-    vcpus: int,
-    memory_mib: int,
+    vcpus: int | None,
+    memory_mib: int | None,
     memory_max_mib: int | None,
     resources: _public.CreateRuntimeResources | Mapping[str, Any] | None,
     ingress_specs: Sequence[Mapping[str, Any]] | None,
@@ -99,22 +98,22 @@ def create_runtime_request(
         "name": name if name is not None else UNSET,
     }
     if checkpoint_id is not None:
-        return CheckpointRuntimeRestoreRequest(
-            checkpoint_id=checkpoint_id,
-            resources=ColdRestoreResources.from_dict(
-                resources.to_json()
-                if isinstance(resources, _public.CreateRuntimeResources)
-                else dict(resources)
+        if (
+            resources is not None
+            or vcpus is not None
+            or memory_mib is not None
+            or memory_max_mib is not None
+        ):
+            raise ValueError(
+                "Checkpoint restores preserve recorded CPU and memory resources; "
+                "omit resource overrides and use update_resources() after restoration."
             )
-            if resources is not None
-            else UNSET,
-            **common,
-        )
+        return CheckpointRuntimeRestoreRequest(checkpoint_id=checkpoint_id, **common)
     return FreshRuntimeCreateRequest(
         resources=create_runtime_resources_to_openapi(
             resources,
-            vcpus=vcpus,
-            memory_mib=memory_mib,
+            vcpus=1 if vcpus is None else vcpus,
+            memory_mib=1024 if memory_mib is None else memory_mib,
             memory_max_mib=memory_max_mib,
         ),
         **common,
@@ -227,6 +226,9 @@ def ingress_spec_to_openapi(spec: Mapping[str, Any]) -> PublicIngressSpec:
     return PublicIngressSpec(
         protocol=PublicIngressProtocol(str(spec["protocol"])),
         runtime_port=int(spec["runtime_port"]),
+        hostname_label=spec["hostname_label"]
+        if spec.get("hostname_label") is not None
+        else UNSET,
     )
 
 

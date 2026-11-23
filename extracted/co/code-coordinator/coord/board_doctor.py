@@ -66,7 +66,7 @@ from typing import TYPE_CHECKING, Any, Callable, Collection, Mapping, Sequence
 
 from coord import board_doctor_followthrough, queue_diagnose
 from coord.dao import TERMINAL_STATUSES as _ASSIGNMENT_TERMINAL_STATUSES
-from coord.models import Board
+from coord.models import Board, coordinator_owned_docs
 
 if TYPE_CHECKING:
     from coord.entry_truth import EntryTruth
@@ -1437,6 +1437,25 @@ def _covering_prs_by_issue(github_repo: str) -> dict[int, int]:
     return index
 
 
+def _process_upstream_gaps_for_followthrough(
+    final_message: str, *, config: Any, repo_name: str, issue_number: int,
+) -> list[Any]:
+    """`process_upstream_gaps` seam for :func:`run_followthrough_sweep`
+    (#4079c): the same filer `coord.notify._capture_upstream_gaps` already
+    calls at transition time (:func:`coord.upstream_gaps.process_upstream_gaps`
+    — one question, one answer), just reusing the *config* this sweep
+    already has in hand rather than reloading it. Safe to call even when
+    the transition-time capture already filed the same gap — filing is
+    idempotent (see that function's own docstring).
+    """
+    from coord.upstream_gaps import process_upstream_gaps  # noqa: PLC0415
+
+    return process_upstream_gaps(
+        final_message, config=config, repo_name=repo_name,
+        issue_number=issue_number,
+    )
+
+
 def _covering_open_pr(github_repo: str, issue_number: int) -> int | None:
     """An open PR in *github_repo* whose body already carries a GitHub
     closing keyword for *issue_number* — remediation for the parent is
@@ -1925,10 +1944,27 @@ def run_followthrough_sweep(
     rather than aborting the whole sweep.
 
     A row resolved as :data:`~coord.board_doctor_followthrough.
-    ACTION_ALREADY_COVERED` does not consume one of *max_rows*' slots —
-    see the loop's own comment for why.
+    ACTION_ALREADY_COVERED`, :data:`~coord.board_doctor_followthrough.
+    ACTION_UPSTREAM_PARKED` or :data:`~coord.board_doctor_followthrough.
+    ACTION_UPSTREAM_ALREADY_PARKED` does not consume one of *max_rows*'
+    slots — see the loop's own comment for why.
+
+    *coordinator_owned_docs* (#4079a, :func:`coord.models.coordinator_owned_docs`)
+    and *process_upstream_gaps* (#4079c,
+    :func:`_process_upstream_gaps_for_followthrough`) are forwarded to
+    :func:`~coord.board_doctor_followthrough.run_followthrough` so a plan
+    naming a coordinator-owned doc, or a parent whose resolution text
+    itself carries a `BLOCKED_ON_UPSTREAM` marker, is handled there rather
+    than closing the parent on either. *run_followthrough*'s own
+    ``already_upstream_parked`` argument is seeded here from
+    :func:`~coord.board_doctor_followthrough.upstream_parked_keys`'s read of
+    the durable decision log — the same "already filed → reuse, don't
+    rewrite" shape *already_refiled* uses for :func:`run_refile_sweep` below
+    — so a row this (or an earlier) sweep already parked is never
+    re-commented on.
     """
     from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+    from coord.state import board_doctor_decisions  # noqa: PLC0415
 
     if board is None:
         from coord.state import build_board  # noqa: PLC0415
@@ -1939,6 +1975,9 @@ def run_followthrough_sweep(
     check_covering_pr = covering_pr_check or _default_covering_pr_check()
     load_pending = pending_loader or _load_pending_followthrough
     row_writer = writer or board_doctor_followthrough.GitHubFollowThroughWriter()
+    already_parked: set[str] = board_doctor_followthrough.upstream_parked_keys(
+        board_doctor_decisions()
+    )
     cap = getattr(
         getattr(config, "board_doctor", None), "followthrough_cap",
         board_doctor_followthrough.DEFAULT_FOLLOWUP_CAP,
@@ -2015,12 +2054,32 @@ def run_followthrough_sweep(
             epic_exists=lambda epic_number, _r=github_repo: _issue_exists(_r, epic_number),
             milestone_exists=lambda title, _r=github_repo: _milestone_exists(_r, title),
             covering_issue_open=lambda number, _r=github_repo: _issue_open(_r, number),
+            coordinator_owned_docs=coordinator_owned_docs(config.repo(repo_name)),
+            process_upstream_gaps=(
+                lambda final_message, *, repo_name=repo_name, issue_number=issue_number: (
+                    _process_upstream_gaps_for_followthrough(
+                        final_message, config=config, repo_name=repo_name,
+                        issue_number=issue_number,
+                    )
+                )
+            ),
+            already_upstream_parked=row.key in already_parked,
             dry_run=dry_run,
             auto_queue=auto_queue,
             coverage=coverage,
         )
         dispositions.append(disposition)
-        if disposition.action != board_doctor_followthrough.ACTION_ALREADY_COVERED:
+        # Neither `ACTION_ALREADY_COVERED` nor an upstream-parked disposition
+        # (fresh or already-parked) dispatches a plan leg, and by design
+        # neither ever resolves on its own (the parent stays open as the
+        # tracker) — counting either toward the cap would starve the rest
+        # of the sweep's real budget indefinitely (#4079c, see the cap's
+        # own comment above).
+        if disposition.action not in (
+            board_doctor_followthrough.ACTION_ALREADY_COVERED,
+            board_doctor_followthrough.ACTION_UPSTREAM_PARKED,
+            board_doctor_followthrough.ACTION_UPSTREAM_ALREADY_PARKED,
+        ):
             dispatched += 1
     return dispositions
 

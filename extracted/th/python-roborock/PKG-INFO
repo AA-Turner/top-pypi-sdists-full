@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-roborock
-Version: 7.26.1
+Version: 7.30.1
 Summary: A package to control Roborock vacuums.
 Project-URL: Repository, https://github.com/python-roborock/python-roborock
 Project-URL: Documentation, https://python-roborock.readthedocs.io/
@@ -20,8 +20,8 @@ Requires-Dist: aiomqtt<3,>=2.5.0
 Requires-Dist: construct<3,>=2.10.57
 Requires-Dist: paho-mqtt<3.0.0,>=1.6.1
 Requires-Dist: protobuf<8,>=6.31.1
+Requires-Dist: pycryptodome<5,>=3.18
 Requires-Dist: pycryptodomex~=3.18; sys_platform == 'darwin'
-Requires-Dist: pycryptodome~=3.18
 Requires-Dist: pyrate-limiter<5,>=4.0.0
 Requires-Dist: vacuum-map-parser-roborock
 Provides-Extra: cli

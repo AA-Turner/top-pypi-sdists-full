@@ -1,11 +1,13 @@
 import contextlib
 import io
+import math
 import os
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import replace
 from typing import Any
 from unittest import skipIf
+from unittest.mock import patch
 
 from aioquic import tls
 from aioquic.buffer import UINT_VAR_MAX, Buffer, encode_uint_var
@@ -25,6 +27,8 @@ from aioquic.quic.connection import (
     QuicNetworkPath,
     QuicReceiveContext,
     dump_cid,
+    stream_is_client_initiated,
+    stream_is_unidirectional,
 )
 from aioquic.quic.crypto import CryptoPair
 from aioquic.quic.exceptions import (
@@ -53,6 +57,7 @@ from aioquic.quic.packet import (
 )
 from aioquic.quic.packet_builder import QuicDeliveryState, QuicPacketBuilder
 from aioquic.quic.recovery import K_GRANULARITY, QuicPacketPacer
+from cryptography.hazmat.backends import default_backend
 
 from .utils import (
     SERVER_CACERTFILE,
@@ -62,6 +67,7 @@ from .utils import (
     SKIP_TESTS,
     TestCase,
     load_cert_chain,
+    send_first_key_share_only,
 )
 
 CLIENT_ADDR = ("1.2.3.4", 1234)
@@ -77,7 +83,7 @@ SERVER_PREFERRED_ADDRESS = QuicPreferredAddress(
     stateless_reset_token=bytes(16),
 )
 SPOOFED_ADDR = ("6.7.8.9", 1234)
-SERVER_INITIAL_DATAGRAM_SIZES = [1200, 1162]
+SERVER_INITIAL_DATAGRAM_SIZES = [1200, 1129]
 
 HANDSHAKE_COMPLETED_EVENTS = [
     events.HandshakeCompleted,
@@ -162,6 +168,7 @@ def create_standalone_client(self: TestCase, **client_options: Any) -> QuicConne
         )
     )
     client._ack_delay = 0
+    disable_x25519mlkem768(client)
 
     # kick-off handshake
     client.connect(SERVER_ADDR, now=time.time())
@@ -206,6 +213,19 @@ def new_connection_id(
     return buf
 
 
+def only_support_secp256r1(connection: QuicConnection) -> None:
+    """
+    Patch a connection's TLS initialization to only support SECP256R1.
+    """
+    real_initialize = connection._initialize
+
+    def patched_initialize(peer_cid: bytes) -> None:
+        real_initialize(peer_cid)
+        connection.tls._supported_groups = [tls.Group.SECP256R1]
+
+    connection._initialize = patched_initialize  # type: ignore[method-assign]
+
+
 @contextlib.contextmanager
 def client_and_server(
     client_kwargs: dict[str, Any] = {},
@@ -226,6 +246,7 @@ def client_and_server(
     client = QuicConnection(configuration=client_configuration, **client_kwargs)
     client._ack_delay = 0
     disable_packet_pacing(client)
+    disable_x25519mlkem768(client)
     client_patch(client)
 
     server_configuration = QuicConfiguration(
@@ -264,6 +285,25 @@ def disable_packet_pacing(connection: QuicConnection) -> None:
             return None
 
     connection._loss._pacer = DummyPacketPacer()
+
+
+def disable_x25519mlkem768(connection: QuicConnection) -> None:
+    """
+    Patch a connection's TLS initialization to leave out X25519MLKEM768, as
+    without ML-KEM support, so that the client's ClientHello fits in one INITIAL
+    packet whether or not ML-KEM is supported.
+    """
+    real_initialize = connection._initialize
+
+    def patched_initialize(peer_cid: bytes) -> None:
+        real_initialize(peer_cid)
+        connection.tls._supported_groups = [
+            group
+            for group in connection.tls._supported_groups
+            if group != tls.Group.X25519MLKEM768
+        ]
+
+    connection._initialize = patched_initialize  # type: ignore[method-assign]
 
 
 def encode_transport_parameters(parameters: QuicTransportParameters) -> bytes:
@@ -518,6 +558,8 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
         buf.push_bytes(data)
         datagrams, packets = builder.flush()
         client._packet_number = builder.packet_number
+        space = client._spaces[tls.Epoch.ONE_RTT]
+        space.largest_sent_packet = packets[-1].packet_number
         return datagrams[0]
 
     def test_ack_delay_exponent(self) -> None:
@@ -619,7 +661,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.send_stream_data(stream_id, bytes(100000), end_stream=True)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200, 1200, 1200])
-            self.assertAlmostEqual(server.get_timer(), 60.05)
+            self.assertAlmostEqual(server.get_timer(), 10.05)
             self.assertSentPackets(server, [1, 1, 3])
             self.assertEvents(
                 server, [events.ProtocolNegotiated, events.StreamDataReceived]
@@ -644,18 +686,18 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200, 1200, 1200])
-            self.assertAlmostEqual(server.get_timer(), 0.1598506)
+            self.assertAlmostEqual(server.get_timer(), 0.15987736)
             self.assertSentPackets(server, [0, 1, 6])
             self.assertEvents(server, [])
             self.assertEqual(self.acked_ranges(server), [[[0, 0]], [[1, 1]]])
 
             # Server's pacing timer fires, but there is no room even for an INITIAL
-            # packet, so only the idle timer is armed.
+            # packet, so only the handshake timer is armed.
             now = self.advance_to_timer(now, server)
             server.handle_timer(now=now)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [])
-            self.assertAlmostEqual(server.get_timer(), 60.15)
+            self.assertAlmostEqual(server.get_timer(), 10.05)
             self.assertSentPackets(server, [0, 1, 6])
             self.assertEvents(server, [])
 
@@ -696,13 +738,13 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
 
             # Server receives INITIAL + 0-RTT request, sends INITIAL + HANDSHAKE
             # and 0.5-RTT data until the anti-amplification limit, which leaves no
-            # room for the ACK or a probe, so only the idle timeout remains.
+            # room for the ACK or a probe, so only the handshake timeout remains.
             now = self.advance_by_tick(now)
             server.receive_datagram(client_items[0][0], CLIENT_ADDR, now=now)
             server.send_stream_data(stream_id, bytes(100000), end_stream=True)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200, 1200, 1200])
-            self.assertAlmostEqual(server.get_timer(), 60.05)
+            self.assertAlmostEqual(server.get_timer(), 10.05)
             self.assertSentPackets(server, [1, 1, 3])
             self.assertEvents(
                 server, [events.ProtocolNegotiated, events.StreamDataReceived]
@@ -716,7 +758,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.receive_datagram(client_items[0][0], CLIENT_ADDR, now=now)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200, 1200, 1200])
-            self.assertAlmostEqual(server.get_timer(), 60.05)
+            self.assertAlmostEqual(server.get_timer(), 10.05)
             self.assertSentPackets(server, [1, 1, 6])
             self.assertEvents(server, [])
             self.assertEqual(self.acked_ranges(server), [[[0, 0]], [[1, 1]]])
@@ -897,14 +939,19 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             now = self.advance_by_tick(now)
             client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
             self.assertEqual(
-                client._loss.congestion_window - client._loss.bytes_in_flight, 684
+                client._loss.congestion_window - client._loss.bytes_in_flight, 201
             )
             items = client.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200, 580])
+            self.assertEqual(datagram_sizes(items), [1200, 55])
             self.assertAlmostEqual(client.get_timer(), 0.604)
             self.assertSentPackets(client, [0, 1, 12])
             self.assertEvents(
-                client, [events.ProtocolNegotiated] + HANDSHAKE_COMPLETED_EVENTS
+                client,
+                [
+                    events.ProtocolNegotiated,
+                    events.HandshakeCompleted,
+                    events.ConnectionIdIssued,
+                ],
             )
 
     def test_connect_with_0rtt_without_loss(self) -> None:
@@ -1009,7 +1056,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             now = self.advance_to_timer(now, server)
             server.handle_timer(now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertEqual(datagram_sizes(items), [1200, 71])
 
             # No session ticket has been issued or sent.
             self.assertEqual(ticket_store.tickets, {})
@@ -1037,6 +1084,291 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             self.assertEqual(
                 client_tickets[0].ticket, list(ticket_store.tickets.keys())[0]
             )
+
+    def test_connect_with_delayed_client_initial_and_ping_probe(self) -> None:
+        """
+        Check the handshake completes if the client's PTO probe contains a PING
+        and arrives before the client's delayed INITIAL.
+
+        The first packet sent by a client always contains a CRYPTO frame, and PING
+        frames are allowed in INITIAL packets (RFC 9000 section 17.2.2).
+        """
+        with client_and_server(handshake=False) as (client, server):
+            self.watch_timers(client, server)
+
+            # Client sends INITIAL, which is delayed.
+            now = 0.0
+            client.connect(SERVER_ADDR, now=now)
+            delayed = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(delayed), [1200])
+            self.assertEqual(client.get_timer(), 0.2)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Client's PTO fires and it sends a probe. aioquic retransmits its
+            # ClientHello, other clients send a PING: replace the probe with an
+            # INITIAL containing a PING.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 0.6)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+            builder = QuicPacketBuilder(
+                host_cid=client.host_cid,
+                is_client=True,
+                max_datagram_size=SMALLEST_MAX_DATAGRAM_SIZE,
+                packet_number=1,
+                peer_cid=client._peer_cid.cid,
+                version=client._version,
+            )
+            crypto = CryptoPair()
+            crypto.setup_initial(
+                client._peer_cid.cid, is_client=True, version=client._version
+            )
+            builder.start_packet(QuicPacketType.INITIAL, crypto)
+            builder.start_frame(QuicFrameType.PING)
+            datagrams, _ = builder.flush()
+            self.assertEqual([len(data) for data in datagrams], [1200])
+
+            # Server receives PING, sends ACK.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(datagrams[0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [49])
+            self.assertEqual(self.acked_ranges(server), [[[1, 1]]])
+            self.assertAlmostEqual(server.get_timer(), 10.25)  # handshake timeout
+            self.assertSentPackets(server, [1, 0, 0])
+            self.assertEvents(server, [])
+
+            # Client receives ACK, sends nothing.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [])
+            self.assertAlmostEqual(client.get_timer(), 0.8)
+            self.assertSentPackets(client, [0, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives the delayed INITIAL, sends INITIAL + HANDSHAKE.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(delayed[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1130])
+            self.assertEqual(self.acked_ranges(server), [[[1, 1]], [[0, 1]]])
+            self.assertAlmostEqual(server.get_timer(), 0.55)
+            self.assertSentPackets(server, [2, 2, 0])
+            self.assertEvents(server, [events.ProtocolNegotiated])
+
+            # Client receives INITIAL + HANDSHAKE, sends FINISHED.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            client.receive_datagram(items[1][0], SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), CLIENT_HANDSHAKE_DATAGRAM_SIZES)
+            self.assertAlmostEqual(client.get_timer(), 0.7)
+            self.assertSentPackets(client, [0, 1, 1])
+            self.assertEvents(
+                client, [events.ProtocolNegotiated] + HANDSHAKE_COMPLETED_EVENTS
+            )
+
+            # Server receives FINISHED, sends HANDSHAKE_DONE.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [229])
+            self.assertAlmostEqual(server.get_timer(), 0.725)
+            self.assertSentPackets(server, [0, 0, 1])
+            self.assertEvents(server, HANDSHAKE_COMPLETED_EVENTS)
+
+            # Client receives HANDSHAKE_DONE, sends ACK.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [32])
+            self.assertAlmostEqual(client.get_timer(), 60.5)  # idle timeout
+            self.assertSentPackets(client, [0, 0, 1])
+            self.assertEvents(client, [])
+
+    def test_connect_with_handshake_timeout(self) -> None:
+        """
+        Check the server terminates a connection whose handshake has not completed
+        10 seconds after its first datagram, although the client's retransmissions
+        restart its idle timer (RFC 9000 section 21.6).
+
+        All the server's datagrams are lost.
+        """
+        with client_and_server(handshake=False) as (client, server):
+            self.watch_timers(client, server)
+
+            # Client sends INITIAL.
+            now = 0.0
+            client.connect(SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertEqual(client.get_timer(), 0.2)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, sends INITIAL + HANDSHAKE, which are lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), SERVER_INITIAL_DATAGRAM_SIZES)
+            self.assertAlmostEqual(server.get_timer(), 0.25)
+            self.assertSentPackets(server, [1, 2, 0])
+            self.assertEvents(server, [events.ProtocolNegotiated])
+
+            # Client's PTO fires, it retransmits INITIAL.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 0.6)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, retransmits INITIAL + HANDSHAKE, which are
+            # lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), SERVER_INITIAL_DATAGRAM_SIZES)
+            self.assertAlmostEqual(server.get_timer(), 0.45)
+            self.assertSentPackets(server, [1, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's PTO fires, it retransmits up to the anti-amplification
+            # limit, so its PTO is not armed and only the handshake timeout remains.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1124])
+            self.assertAlmostEqual(server.get_timer(), 10.05)
+            self.assertSentPackets(server, [1, 2, 0])
+            self.assertEvents(server, [])
+
+            # Client's PTO fires, it retransmits INITIAL.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 1.4)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, sends ACK, which is lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [49])
+            self.assertAlmostEqual(server.get_timer(), 0.85)
+            self.assertSentPackets(server, [2, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's PTO fires, it retransmits INITIAL + HANDSHAKE.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1124])
+            self.assertAlmostEqual(server.get_timer(), 1.65)
+            self.assertSentPackets(server, [2, 2, 0])
+            self.assertEvents(server, [])
+
+            # Client's PTO fires, it retransmits INITIAL.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 3.0)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, sends ACK, which is lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [49])
+            self.assertAlmostEqual(server.get_timer(), 1.65)
+            self.assertSentPackets(server, [3, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's PTO fires, it retransmits INITIAL + HANDSHAKE.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1124])
+            self.assertAlmostEqual(server.get_timer(), 3.25)
+            self.assertSentPackets(server, [3, 2, 0])
+            self.assertEvents(server, [])
+
+            # Client's PTO fires, it retransmits INITIAL.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 6.2)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, sends ACK, which is lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [49])
+            self.assertAlmostEqual(server.get_timer(), 3.25)
+            self.assertSentPackets(server, [4, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's PTO fires, it retransmits INITIAL + HANDSHAKE.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1124])
+            self.assertAlmostEqual(server.get_timer(), 6.45)
+            self.assertSentPackets(server, [4, 2, 0])
+            self.assertEvents(server, [])
+
+            # Client's PTO fires, it retransmits INITIAL.
+            now = self.advance_to_timer(now, client)
+            client.handle_timer(now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 12.6)
+            self.assertSentPackets(client, [1, 0, 0])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL, which restarts its idle timer, sends ACK,
+            # which is lost.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [49])
+            self.assertAlmostEqual(server.get_timer(), 6.45)
+            self.assertSentPackets(server, [5, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's PTO fires, it retransmits up to the anti-amplification
+            # limit, so its PTO is not armed and only the handshake timeout remains.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 1124])
+            self.assertAlmostEqual(server.get_timer(), 10.05)
+            self.assertSentPackets(server, [5, 2, 0])
+            self.assertEvents(server, [])
+
+            # Server's handshake timeout fires, it terminates the connection
+            # without sending anything.
+            now = self.advance_to_timer(now, server)
+            server.handle_timer(now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [])
+            self.assertIsNone(server.get_timer())
+            self.assertSentPackets(server, [0, 0, 0])
+            self.assertEvents(server, [events.ConnectionTerminated])
+            self.assertEqual(server._close_event.reason_phrase, "Handshake timeout")
 
     def test_connect_with_late_server_handshake(self) -> None:
         """
@@ -1311,7 +1643,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             now = self.advance_to_timer(now, server)
             server.handle_timer(now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1024])
+            self.assertEqual(datagram_sizes(items), [1057])
 
             # Client completes the handshake.
             now = self.advance_by_tick(now)
@@ -1363,9 +1695,9 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             self.assertEvents(client, [events.ProtocolNegotiated])
 
             # Server's PTO fires, it retransmits INITIAL + HANDSHAKE but its
-            # anti-amplification budget only allows one datagram, which mostly
-            # carries data the client already has. Its PTO is not armed again, so
-            # only the idle timeout remains.
+            # anti-amplification budget only allows one full datagram and a small
+            # one, which mostly carry data the client already has. Its PTO is not
+            # armed again, so only the handshake timeout remains.
             now = self.advance_to_timer(now, server)
             with self.assertLogs("quic", level="DEBUG") as cm:
                 server.handle_timer(now=now)
@@ -1374,14 +1706,15 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
                 "\n".join(cm.output),
             )
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200])
-            self.assertAlmostEqual(server.get_timer(), 60.05)
-            self.assertSentPackets(server, [1, 1, 0])
+            self.assertEqual(datagram_sizes(items), [1200, 71])
+            self.assertAlmostEqual(server.get_timer(), 10.05)
+            self.assertSentPackets(server, [1, 2, 0])
             self.assertEvents(server, [])
 
-            # Client receives the datagram and sends ACK.
+            # Client receives the datagrams and sends ACK.
             now = self.advance_by_tick(now)
-            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            for data, addr in items:
+                client.receive_datagram(data, SERVER_ADDR, now=now)
             ack_items = client.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(ack_items), [50])
             self.assertAlmostEqual(client.get_timer(), 0.3)
@@ -1403,7 +1736,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.receive_datagram(ack_items[0][0], CLIENT_ADDR, now=now)
             server.receive_datagram(ping_items[0][0], CLIENT_ADDR, now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1162])
+            self.assertEqual(datagram_sizes(items), [1106])
             self.assertAlmostEqual(server.get_timer(), 0.65)
             self.assertSentPackets(server, [0, 1, 0])
             self.assertEvents(server, [])
@@ -1471,8 +1804,8 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
             server.send_stream_data(3, bytes(20000))
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200, 1200, 1155, 45])
-            self.assertAlmostEqual(server.get_timer(), 60.05)  # idle timeout
+            self.assertEqual(datagram_sizes(items), [1200, 1200, 1122, 78])
+            self.assertAlmostEqual(server.get_timer(), 10.05)  # handshake timeout
             self.assertSentPackets(server, [1, 3, 1])
             self.assertEvents(server, [events.ProtocolNegotiated])
 
@@ -1493,19 +1826,19 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             now = self.advance_by_tick(now)
             server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200] * 10 + [1110])
+            self.assertEqual(datagram_sizes(items), [1200] * 10 + [1044])
             self.assertAlmostEqual(server.get_timer(), 0.1625)
             self.assertSentPackets(server, [0, 1, 12])
             self.assertEvents(server, [])
-            self.assertEqual(server._loss.bytes_in_flight, 14355)
-            self.assertEqual(server._loss.congestion_window, 14355)
+            self.assertEqual(server._loss.bytes_in_flight, 14322)
+            self.assertEqual(server._loss.congestion_window, 14322)
 
             # Server's loss timer fires, it declares the HANDSHAKE packet lost
             # and resends its data although the congestion window is full.
             now = self.advance_to_timer(now, server)
             server.handle_timer(now=now)
-            self.assertEqual(server._loss.bytes_in_flight, 13155)
-            self.assertEqual(server._loss.congestion_window, 7177)
+            self.assertEqual(server._loss.bytes_in_flight, 13122)
+            self.assertEqual(server._loss.congestion_window, 7161)
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200])
             self.assertAlmostEqual(server.get_timer(), 0.4125)
@@ -1823,16 +2156,16 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             self.assertAlmostEqual(client.get_timer(), 0.6)
 
             # Server's PTO fires, it only has enough anti-amplification budget left
-            # to retransmit one datagram, which is lost. Its PTO is not armed
-            # again, so only the idle timeout remains.
+            # to retransmit one full datagram and a small one, which are lost. Its
+            # PTO is not armed again, so only the handshake timeout remains.
             now = self.advance_to_timer(now, server)
             server.handle_timer(now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200])
-            self.assertAlmostEqual(server.get_timer(), 60.05)
-            self.assertSentPackets(server, [1, 1, 0])
+            self.assertEqual(datagram_sizes(items), [1200, 71])
+            self.assertAlmostEqual(server.get_timer(), 10.05)
+            self.assertSentPackets(server, [1, 2, 0])
             self.assertEqual(network_path.bytes_received, 1200)
-            self.assertEqual(network_path.bytes_sent, 3562)
+            self.assertEqual(network_path.bytes_sent, 3600)
 
             # Client's PTO fires, it retransmits INITIAL which is lost.
             now = self.advance_to_timer(now, client)
@@ -1853,7 +2186,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             now = self.advance_by_tick(now)
             server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
             items = server.datagrams_to_send(now=now)
-            self.assertEqual(datagram_sizes(items), [1200, 1164])
+            self.assertEqual(datagram_sizes(items), [1200, 1131])
             self.assertAlmostEqual(server.get_timer(), 1.85)
             self.assertSentPackets(server, [1, 2, 0])
             self.assertEqual(network_path.bytes_received, 2400)
@@ -1932,8 +2265,8 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
                 server.receive_datagram(data, CLIENT_ADDR, now=now)
             self.assertSentPackets(server, [0, 0, 1])
 
-            # The PTO is not armed, only the idle timeout remains.
-            self.assertEqual(server.get_timer(), server._close_at)
+            # The PTO is not armed, only the handshake timeout remains.
+            self.assertAlmostEqual(server.get_timer(), 10.05)
 
     def test_connect_without_loss(self) -> None:
         """
@@ -2383,7 +2716,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server.send_stream_data(1, bytes(30000))
             server_items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(server_items), [1200] * 4)
-            self.assertAlmostEqual(server.get_timer(), 0.40822425)
+            self.assertAlmostEqual(server.get_timer(), 0.40824289)
             self.assertSentPackets(server, [0, 0, 4])
 
             # Server receives the PING without the budget it brings, so it cannot
@@ -2392,7 +2725,7 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
             server._network_paths[0].bytes_sent += 3 * 29
             items = server.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [])
-            self.assertAlmostEqual(server.get_timer(), 0.40822425)
+            self.assertAlmostEqual(server.get_timer(), 0.40824289)
             self.assertEvents(server, [])
 
             # Server's pacing timer fires, but the ACK still has no room and comes
@@ -3066,6 +3399,27 @@ class QuicConnectionTimelineTest(QuicConnectionTestCase):
 
 
 class QuicConnectionTest(QuicConnectionTestCase):
+    def assertCanSendStreamData(
+        self, connection: QuicConnection, stream_id: int
+    ) -> None:
+        """
+        Check data can be sent on the stream, and that send_stream_data() agrees,
+        as H3 relies on it.
+        """
+        self.assertTrue(connection.can_send_stream_data(stream_id))
+        connection.send_stream_data(stream_id, b"")
+
+    def assertCannotSendStreamData(
+        self, connection: QuicConnection, stream_id: int
+    ) -> None:
+        """
+        Check data cannot be sent on the stream, and that send_stream_data()
+        agrees, as H3 relies on it.
+        """
+        self.assertFalse(connection.can_send_stream_data(stream_id))
+        with self.assertRaises((StreamStateError, StreamTypeError)):
+            connection.send_stream_data(stream_id, b"")
+
     def check_0rtt_rejected(
         self,
         server_options: dict[str, Any] = {},
@@ -3164,6 +3518,51 @@ class QuicConnectionTest(QuicConnectionTestCase):
         for i in range(7):
             self.assertEqual(type(server.next_event()), events.ConnectionIdIssued)
         self.assertIsNone(server.next_event())
+
+    def test_can_send_stream_data(self) -> None:
+        with client_and_server() as (client, server):
+            # Data can be sent on our streams not created yet, but not on the
+            # peer's unidirectional streams, nor on streams the peer has not opened.
+            self.assertCanSendStreamData(client, 0)
+            self.assertCanSendStreamData(client, 2)
+            self.assertCannotSendStreamData(client, 3)
+            self.assertCannotSendStreamData(client, 1)
+
+            # The client sends data, then ends the stream.
+            client.send_stream_data(0, b"hello")
+            self.assertCanSendStreamData(client, 0)
+            client.send_stream_data(0, b"", end_stream=True)
+            self.assertCannotSendStreamData(client, 0)
+
+            # The client resets a stream.
+            client.send_stream_data(4, b"hello")
+            client.reset_stream(4, QuicErrorCode.NO_ERROR)
+            self.assertCannotSendStreamData(client, 4)
+
+            # The client asks the server to stop sending.
+            client.send_stream_data(8, b"hello")
+            client.stop_stream(8, QuicErrorCode.NO_ERROR)
+            roundtrip(client, server)
+            self.assertCanSendStreamData(server, 0)
+            self.assertCannotSendStreamData(server, 8)
+
+            # The server ends stream 0, then both discard it.
+            server.send_stream_data(0, b"world", end_stream=True)
+            roundtrip(server, client)
+            roundtrip(client, server)
+            self.assertNotIn(0, client._streams)
+            self.assertNotIn(0, server._streams)
+            self.assertCannotSendStreamData(client, 0)
+            self.assertCannotSendStreamData(server, 0)
+
+    def test_can_send_stream_data_out_of_range(self) -> None:
+        with client_and_server() as (client, server):
+            for stream_id in (-4, UINT_VAR_MAX + 1):
+                with self.subTest(stream_id=stream_id):
+                    with self.assertRaisesMessage(
+                        OutOfRangeError, "Stream ID must be between 0 and 2^62 - 1"
+                    ):
+                        client.can_send_stream_data(stream_id)
 
     def test_close_out_of_range(self) -> None:
         with client_and_server() as (client, server):
@@ -3358,6 +3757,7 @@ class QuicConnectionTest(QuicConnectionTestCase):
         client_configuration.load_verify_locations(cafile=SERVER_CACERTFILE)
 
         client = QuicConnection(configuration=client_configuration)
+        disable_x25519mlkem768(client)
 
         now = 0.0
         client.connect(SERVER_ADDR, now=now)
@@ -3385,6 +3785,25 @@ class QuicConnectionTest(QuicConnectionTestCase):
             assert isinstance(event, events.StreamDataReceived)
             self.assertEqual(event.data, bytes(2500))
             self.assertTrue(event.end_stream)
+
+    def test_connect_with_hello_retry_and_different_transport_parameters(
+        self,
+    ) -> None:
+        """
+        The ClientHello after a HelloRetryRequest must have the same transport
+        parameters as the first one (RFC 9846 section 4.2.2).
+        """
+        with self._connect_with_hello_retry_request(
+            other_extensions=[(tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS, b"")]
+        ) as (client, server, hello_retry_request):
+            self.assertEqual(
+                server._close_event,
+                events.ConnectionTerminated(
+                    error_code=QuicErrorCode.TRANSPORT_PARAMETER_ERROR,
+                    frame_type=QuicFrameType.CRYPTO,
+                    reason_phrase="ClientHello has different transport parameters",
+                ),
+            )
 
     def test_connect_with_legacy_session_id(self) -> None:
         def patch_with(legacy_session_id: bytes) -> Callable[[QuicConnection], None]:
@@ -3481,6 +3900,34 @@ class QuicConnectionTest(QuicConnectionTestCase):
                 with self.assertRaisesMessage(ConnectionConfigurationError, message):
                     QuicConnection(configuration=configuration, **kwargs)
 
+    def test_init_with_invalid_idle_timeout(self) -> None:
+        # The last value is 2^62 - 1 milliseconds, which rounds up to 2^62 as a float.
+        for idle_timeout in (-1, 0, 0.0009, math.nan, math.inf, UINT_VAR_MAX / 1000):
+            with self.subTest(idle_timeout=idle_timeout):
+                with self.assertRaisesMessage(
+                    ConnectionConfigurationError,
+                    "The idle timeout must be between 0.001 and 4611686018427387 "
+                    "seconds",
+                ):
+                    QuicConnection(
+                        configuration=QuicConfiguration(
+                            is_client=True, idle_timeout=idle_timeout
+                        )
+                    )
+
+    def test_init_with_smallest_and_largest_idle_timeout(self) -> None:
+        for idle_timeout, advertised in (
+            (0.001, 1),
+            (4611686018427387.0, 4611686018427386880),
+        ):
+            with self.subTest(idle_timeout=idle_timeout):
+                with client_and_server(
+                    client_options={"idle_timeout": idle_timeout}
+                ) as (client, server):
+                    self.assertEqual(
+                        server._remote_max_idle_timeout, advertised / 1000.0
+                    )
+
     def test_initial_that_is_too_small(self) -> None:
         """
         Check that a too-small initial datagram from the client is dropped by the
@@ -3510,19 +3957,6 @@ class QuicConnectionTest(QuicConnectionTestCase):
         with self.assertPacketsDropped(server, ["invalid"]):
             for datagram in builder.flush()[0]:
                 server.receive_datagram(datagram, SERVER_ADDR, now=time.time())
-
-    def test_connect_with_no_crypto_frame(self) -> None:
-        def patch(client: QuicConnection) -> None:
-            """
-            Patch client to send PING instead of CRYPTO.
-            """
-            client._push_crypto_data = client._send_probe  # type: ignore[method-assign]
-
-        with client_and_server(client_patch=patch) as (client, server):
-            self.assertEqual(
-                server._close_event.reason_phrase,
-                "Packet contains no CRYPTO frame",
-            )
 
     def test_connect_with_no_transport_parameters(self) -> None:
         def patch(client: QuicConnection) -> None:
@@ -3575,6 +4009,160 @@ class QuicConnectionTest(QuicConnectionTestCase):
             },
         ) as (client, server):
             # check handshake completed
+            self.check_handshake(client=client, server=server)
+            self.assertEqual(client._version, QuicProtocolVersion.VERSION_2)
+            self.assertEqual(server._version, QuicProtocolVersion.VERSION_2)
+
+    @contextlib.contextmanager
+    def _connect_with_hello_retry_request(
+        self, **second_client_hello_changes: Any
+    ) -> Iterator[tuple[QuicConnection, QuicConnection, list[bytes]]]:
+        """
+        Connect a client which originally uses version 1 but prefers version 2,
+        to a server which asks for another key share with a HelloRetryRequest.
+
+        Yield the client, the server and the datagrams which carry the
+        HelloRetryRequest, once the server has handled the second ClientHello.
+        """
+
+        client_hellos: list[tls.ClientHello] = []
+        real_push_client_hello = tls.push_client_hello
+
+        def push_client_hello(buf: Buffer, hello: tls.ClientHello) -> None:
+            """
+            Only send the client's first key share, which is X25519.
+            """
+            hello = replace(hello, key_share=hello.key_share[:1])
+            client_hellos.append(hello)
+            real_push_client_hello(buf, hello)
+
+        with client_and_server(
+            client_options={
+                "original_version": QuicProtocolVersion.VERSION_1,
+                "supported_versions": [
+                    QuicProtocolVersion.VERSION_2,
+                    QuicProtocolVersion.VERSION_1,
+                ],
+            },
+            handshake=False,
+            server_patch=only_support_secp256r1,
+        ) as (client, server):
+            # Client sends INITIAL.
+            now = 0.0
+            with patch("aioquic.tls.push_client_hello", push_client_hello):
+                client.connect(SERVER_ADDR, now=now)
+            for data, addr in client.datagrams_to_send(now=now):
+                server.receive_datagram(data, CLIENT_ADDR, now=now)
+
+            # Server sends a HelloRetryRequest.
+            hello_retry_request = [
+                data for data, addr in server.datagrams_to_send(now=now)
+            ]
+            self.assertEqual(server.tls.state, tls.State.SERVER_EXPECT_CLIENT_HELLO)
+
+            # The client cannot answer a HelloRetryRequest yet, so send its second
+            # ClientHello, with the requested key share, directly. It still uses
+            # version 1, which the server must accept (RFC 9369 section 4.1).
+            buf = Buffer(capacity=4096)
+            tls.push_client_hello(
+                buf,
+                replace(
+                    client_hellos[0],
+                    key_share=[
+                        client.tls._key_exchanges[tls.Group.SECP256R1].key_share
+                    ],
+                    **second_client_hello_changes,
+                ),
+            )
+            client._crypto_streams[tls.Epoch.INITIAL].sender.write(buf.data)
+            for data, addr in client.datagrams_to_send(now=now):
+                server.receive_datagram(data, CLIENT_ADDR, now=now)
+
+            yield client, server, hello_retry_request
+
+    def test_connect_with_compatible_version_negotiation_1_to_2_and_hello_retry(
+        self,
+    ) -> None:
+        """
+        The client originally connects using version 1 but prefers version 2,
+        and the server asks for another key share with a HelloRetryRequest.
+
+        The server sets the Negotiated Version to version 2 before it sends the
+        HelloRetryRequest, as it sends all CRYPTO data in the Negotiated Version
+        (RFC 9369 section 4.1).
+        """
+        with self._connect_with_hello_retry_request() as (
+            client,
+            server,
+            hello_retry_request,
+        ):
+            self.assertEqual(
+                [
+                    pull_quic_header(Buffer(data=data), host_cid_length=8).version
+                    for data in hello_retry_request
+                ],
+                [QuicProtocolVersion.VERSION_2],
+            )
+
+            # Server sends its ServerHello in version 2.
+            self.assertEqual(server.tls.state, tls.State.SERVER_EXPECT_FINISHED)
+            self.assertEqual(server._version, QuicProtocolVersion.VERSION_2)
+            for data, addr in server.datagrams_to_send(now=0.0):
+                self.assertEqual(
+                    pull_quic_header(Buffer(data=data), host_cid_length=8).version,
+                    QuicProtocolVersion.VERSION_2,
+                )
+
+    def test_connect_with_compatible_version_negotiation_1_to_2_and_client_retry(
+        self,
+    ) -> None:
+        """
+        The client originally connects using version 1 but prefers version 2,
+        and answers the server's HelloRetryRequest, which is in version 2.
+
+        The client sends its second ClientHello in version 1, and only switches
+        to version 2 with the ServerHello.
+        """
+
+        def versions(items: list[tuple[bytes, NetworkAddress]]) -> list[int]:
+            return [
+                pull_quic_header(Buffer(data=data), host_cid_length=8).version
+                for data, addr in items
+            ]
+
+        with client_and_server(
+            client_options={
+                "original_version": QuicProtocolVersion.VERSION_1,
+                "supported_versions": [
+                    QuicProtocolVersion.VERSION_2,
+                    QuicProtocolVersion.VERSION_1,
+                ],
+            },
+            handshake=False,
+            server_patch=only_support_secp256r1,
+        ) as (client, server):
+            # Client sends a ClientHello with only its X25519 key share.
+            now = time.time()
+            with send_first_key_share_only():
+                client.connect(SERVER_ADDR, now=now)
+            for data, addr in client.datagrams_to_send(now=now):
+                server.receive_datagram(data, CLIENT_ADDR, now=now)
+
+            # Server sends a HelloRetryRequest in version 2.
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(versions(items), [QuicProtocolVersion.VERSION_2])
+            for data, addr in items:
+                client.receive_datagram(data, SERVER_ADDR, now=now)
+            self.assertTrue(client.tls.hello_retry_requested)
+
+            # Client sends its second ClientHello in version 1.
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(versions(items), [QuicProtocolVersion.VERSION_1])
+            for data, addr in items:
+                server.receive_datagram(data, CLIENT_ADDR, now=now)
+
+            # The handshake completes in version 2.
+            roundtrip_until_done(server, client)
             self.check_handshake(client=client, server=server)
             self.assertEqual(client._version, QuicProtocolVersion.VERSION_2)
             self.assertEqual(server._version, QuicProtocolVersion.VERSION_2)
@@ -3635,6 +4223,25 @@ class QuicConnectionTest(QuicConnectionTestCase):
 
             self.assertEqual(received, b"hello")
 
+    @skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+    def test_connect_with_x25519mlkem768(self) -> None:
+        def patch(client: QuicConnection) -> None:
+            """
+            Patch client's TLS initialization to only offer X25519MLKEM768, whose
+            key share makes the ClientHello span two Initial packets.
+            """
+            real_initialize = client._initialize
+
+            def patched_initialize(peer_cid: bytes) -> None:
+                real_initialize(peer_cid)
+                client.tls._supported_groups = [tls.Group.X25519MLKEM768]
+
+            client._initialize = patched_initialize  # type: ignore[method-assign]
+
+        with client_and_server(client_patch=patch) as (client, server):
+            self.assertEqual(client.tls.state, tls.State.CLIENT_POST_HANDSHAKE)
+            self.assertEqual(server.tls.state, tls.State.SERVER_POST_HANDSHAKE)
+
     def test_connect_with_0rtt(self) -> None:
         client_ticket, ticket_store = self.create_session_ticket()
 
@@ -3655,6 +4262,45 @@ class QuicConnectionTest(QuicConnectionTestCase):
             event = server.next_event()
             assert isinstance(event, events.StreamDataReceived)
             self.assertEqual(event.data, b"hello")
+
+    def test_connect_with_0rtt_and_hello_retry_request(self) -> None:
+        """
+        A HelloRetryRequest rejects 0-RTT (RFC 9001 section 4.6.2), so the client
+        stops sending 0-RTT packets, and its data is sent again in 1-RTT ones.
+        """
+        client_ticket, ticket_store = self.create_session_ticket()
+
+        with client_and_server(
+            client_options={"session_ticket": client_ticket},
+            server_kwargs={"session_ticket_fetcher": ticket_store.pop},
+            server_patch=only_support_secp256r1,
+            handshake=False,
+        ) as (client, server):
+            # Client sends a ClientHello with only its X25519 key share, and 0-RTT
+            # data.
+            with send_first_key_share_only():
+                client.connect(SERVER_ADDR, now=time.time())
+            stream_id = client.get_next_available_stream_id()
+            client.send_stream_data(stream_id, b"hello")
+            self.assertTrue(client._cryptos[tls.Epoch.ZERO_RTT].send.is_valid())
+
+            # Server asks for a SECP256R1 key share, client stops sending 0-RTT.
+            roundtrip(client, server)
+            self.assertTrue(client.tls.hello_retry_requested)
+            self.assertFalse(client._cryptos[tls.Epoch.ZERO_RTT].send.is_valid())
+
+            # The handshake resumes the session, and the data arrives.
+            roundtrip_until_done(client, server)
+            self.assertEqual(client.tls.state, tls.State.CLIENT_POST_HANDSHAKE)
+            self.assertTrue(client.tls.session_resumed)
+            self.assertEqual(
+                [
+                    event.data
+                    for event in iter(server.next_event, None)
+                    if isinstance(event, events.StreamDataReceived)
+                ],
+                [b"hello"],
+            )
 
     def test_connect_with_0rtt_bad_max_early_data(self) -> None:
         client_ticket = None
@@ -4311,6 +4957,34 @@ class QuicConnectionTest(QuicConnectionTestCase):
         datagram = bytes.fromhex("c00000000080")
         client.receive_datagram(datagram, SERVER_ADDR, now=time.time())
 
+    def test_receive_datagram_padding(self) -> None:
+        with client_and_server(handshake=False) as (client, server):
+            client.connect(SERVER_ADDR, now=time.time())
+            [(datagram, _)] = client.datagrams_to_send(now=time.time())
+
+            # The client pads its INITIAL datagram with zeros after the packet.
+            header = pull_quic_header(Buffer(data=datagram))
+            padding = datagram[header.packet_length :]
+            self.assertGreater(len(padding), 0)
+            self.assertEqual(padding, bytes(len(padding)))
+
+            # The padding is not reported as a dropped packet.
+            with self.assertPacketsDropped(server, []):
+                server.receive_datagram(datagram, CLIENT_ADDR, now=time.time())
+            self.assertEqual(server._state, QuicConnectionState.CONNECTED)
+
+    def test_receive_datagram_padding_not_zero(self) -> None:
+        with client_and_server(handshake=False) as (client, server):
+            client.connect(SERVER_ADDR, now=time.time())
+            [(datagram, _)] = client.datagrams_to_send(now=time.time())
+
+            # Trailing bytes which are not all zeros are reported as dropped.
+            with self.assertPacketsDropped(server, ["invalid"]):
+                server.receive_datagram(
+                    datagram[:-1] + b"\x01", CLIENT_ADDR, now=time.time()
+                )
+            self.assertEqual(server._state, QuicConnectionState.CONNECTED)
+
     def test_receive_datagram_reserved_bits_non_zero(self) -> None:
         client = create_standalone_client(self)
 
@@ -4628,7 +5302,7 @@ class QuicConnectionTest(QuicConnectionTestCase):
         client = create_standalone_client(self)
 
         client._handle_ack_frame(
-            client_receive_context(client),
+            client_receive_context(client, epoch=tls.Epoch.INITIAL),
             QuicFrameType.ACK_ECN,
             Buffer(data=b"\x00\x02\x00\x00\x00\x00\x00"),
         )
@@ -4648,6 +5322,27 @@ class QuicConnectionTest(QuicConnectionTestCase):
         self.assertEqual(
             cm.exception.reason_phrase, "ACK range contains a negative packet number"
         )
+
+    def test_handle_ack_frame_unsent_packet(self) -> None:
+        client = create_standalone_client(self)
+        space = client._spaces[tls.Epoch.INITIAL]
+        self.assertEqual(space.largest_sent_packet, 0)
+
+        # Client receives an ACK frame for packet 1, which it has not sent.
+        with self.assertRaises(QuicConnectionError) as cm:
+            client._handle_ack_frame(
+                client_receive_context(client, epoch=tls.Epoch.INITIAL),
+                QuicFrameType.ACK,
+                Buffer(data=b"\x01\x00\x00\x01"),
+            )
+        self.assertEqual(cm.exception.error_code, QuicErrorCode.PROTOCOL_VIOLATION)
+        self.assertEqual(cm.exception.frame_type, QuicFrameType.ACK)
+        self.assertEqual(
+            cm.exception.reason_phrase,
+            "ACK frame acknowledges a packet which was not sent",
+        )
+        self.assertEqual(space.largest_acked_packet, 0)
+        self.assertEqual(list(space.sent_packets), [0])
 
     def test_handle_connection_close_frame(self) -> None:
         with client_and_server() as (client, server):
@@ -4750,6 +5445,30 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertEqual(
                 cm.exception.reason_phrase, "offset + length cannot exceed 2^62 - 1"
             )
+
+    def test_handle_crypto_frame_too_many_ranges(self) -> None:
+        with client_and_server() as (client, server):
+            stream = client._crypto_streams[tls.Epoch.ONE_RTT]
+            start = stream.receiver.starting_offset()
+
+            # Client receives 1-byte CRYPTO frames with 1-byte gaps.
+            with self.assertRaises(QuicConnectionError) as cm:
+                for offset in range(start + 1, start + 1001, 2):
+                    client._handle_crypto_frame(
+                        client_receive_context(client),
+                        QuicFrameType.CRYPTO,
+                        Buffer(
+                            data=encode_uint_var(offset) + encode_uint_var(1) + b"\x00"
+                        ),
+                    )
+            self.assertEqual(
+                cm.exception.error_code, QuicErrorCode.CRYPTO_BUFFER_EXCEEDED
+            )
+            self.assertEqual(cm.exception.frame_type, QuicFrameType.CRYPTO)
+            self.assertEqual(
+                cm.exception.reason_phrase, "Too many gaps in received data"
+            )
+            self.assertEqual(len(stream.receiver._ranges), 65)
 
     def test_excessive_crypto_buffering(self) -> None:
         with client_and_server() as (client, server):
@@ -5295,6 +6014,36 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertTrue(server._network_paths[0].is_validated)
             self.assertEqual(server._network_paths[1].addr, ("1.2.3.4", 2345))
             self.assertTrue(server._network_paths[1].is_validated)
+
+    def test_is_closing(self) -> None:
+        with client_and_server() as (client, server):
+            consume_events(client)
+            consume_events(server)
+            self.assertFalse(client.is_closing())
+            self.assertFalse(server.is_closing())
+
+            # The connection is closing as soon as close() is called.
+            client.close()
+            self.assertTrue(client.is_closing())
+
+            # The peer is closing once it receives CONNECTION_CLOSE.
+            self.assertEqual(roundtrip(client, server), (1, 0))
+            self.assertTrue(server.is_closing())
+
+            # Both stay closing once the connection is closed.
+            for connection in (client, server):
+                connection.handle_timer(connection.get_timer())
+                self.assertEvents(connection, [events.ConnectionTerminated])
+                self.assertTrue(connection.is_closing())
+
+    def test_is_closing_after_idle_timeout(self) -> None:
+        with client_and_server() as (client, server):
+            consume_events(client)
+            self.assertFalse(client.is_closing())
+
+            client.handle_timer(client.get_timer())
+            self.assertEvents(client, [events.ConnectionTerminated])
+            self.assertTrue(client.is_closing())
 
     def test_local_path_challenges_are_bounded(self) -> None:
         network_path = QuicNetworkPath(("1.2.3.4", 2345))
@@ -5922,18 +6671,42 @@ class QuicConnectionTest(QuicConnectionTestCase):
 
             self.assertIsNone(client.next_event())
 
-            # client receives another STOP_SENDING
+            # client receives another STOP_SENDING, which changes nothing
             client._handle_stop_sending_frame(
                 client_receive_context(client),
                 QuicFrameType.STOP_SENDING,
                 Buffer(data=b"\x00\x12"),
             )
+            self.assertIsNone(client.next_event())
 
-            event = client.next_event()
-            assert isinstance(event, events.StopSendingReceived)
-            self.assertEqual(event.stream_id, 0)
-            self.assertEqual(event.error_code, 0x12)
+    def test_handle_stop_sending_frame_after_fin(self) -> None:
+        with client_and_server() as (client, server):
+            client.send_stream_data(stream_id=0, data=b"hello", end_stream=True)
+            consume_events(client)
 
+            # The stream is reset, but the application already ended it.
+            client._handle_stop_sending_frame(
+                client_receive_context(client),
+                QuicFrameType.STOP_SENDING,
+                Buffer(data=b"\x00\x11"),
+            )
+            self.assertTrue(client._streams[0].sender.reset_pending)
+            self.assertIsNone(client.next_event())
+
+    def test_handle_stop_sending_frame_after_reset_stream(self) -> None:
+        with client_and_server() as (client, server):
+            client.send_stream_data(stream_id=0, data=b"hello")
+            client.reset_stream(stream_id=0, error_code=7)
+            consume_events(client)
+
+            # The application already reset the stream.
+            client._handle_stop_sending_frame(
+                client_receive_context(client),
+                QuicFrameType.STOP_SENDING,
+                Buffer(data=b"\x00\x11"),
+            )
+            frame = client._streams[0].sender.get_reset_frame()
+            self.assertEqual(frame.error_code, 7)
             self.assertIsNone(client.next_event())
 
     def test_handle_stop_sending_frame_after_reset_stream_at(self) -> None:
@@ -5943,6 +6716,7 @@ class QuicConnectionTest(QuicConnectionTestCase):
         ):
             client.send_stream_data(0, b"abcdefgh")
             client.reset_stream_at(0, 7, 3)
+            consume_events(client)
             stream = client._streams[0]
 
             # The RESET_STREAM keeps the error code of the RESET_STREAM_AT.
@@ -5955,6 +6729,7 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertTrue(stream.sender.reset_pending)
             frame = stream.sender.get_reset_frame()
             self.assertEqual((frame.error_code, frame.reliable_size), (7, None))
+            self.assertIsNone(client.next_event())
 
     def test_handle_stop_sending_frame_receive_only(self) -> None:
         with client_and_server() as (client, server):
@@ -6217,6 +6992,31 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertEqual(cm.exception.frame_type, QuicFrameType.STREAM_BASE)
             self.assertEqual(cm.exception.reason_phrase, "Stream is send-only")
 
+    def test_handle_stream_frame_too_many_ranges(self) -> None:
+        with client_and_server() as (client, server):
+            frame_type = QuicFrameType.STREAM_BASE | 6
+            stream_id = 1
+
+            # Client receives 1-byte STREAM frames with 1-byte gaps.
+            with self.assertRaises(QuicConnectionError) as cm:
+                for offset in range(1, 1001, 2):
+                    client._handle_stream_frame(
+                        client_receive_context(client),
+                        frame_type,
+                        Buffer(
+                            data=encode_uint_var(stream_id)
+                            + encode_uint_var(offset)
+                            + encode_uint_var(1)
+                            + b"x"
+                        ),
+                    )
+            self.assertEqual(cm.exception.error_code, QuicErrorCode.INTERNAL_ERROR)
+            self.assertEqual(cm.exception.frame_type, frame_type)
+            self.assertEqual(
+                cm.exception.reason_phrase, "Too many gaps in received data"
+            )
+            self.assertEqual(len(client._streams[stream_id].receiver._ranges), 65)
+
     def test_handle_stream_frame_wrong_initiator(self) -> None:
         with client_and_server() as (client, server):
             # client receives STREAM frame
@@ -6334,6 +7134,18 @@ class QuicConnectionTest(QuicConnectionTestCase):
         client._parse_transport_parameters(extensions)
         self.assertAlmostEqual(client._remote_max_idle_timeout, 0.001)
         self.assertAlmostEqual(client._idle_timeout(), 0.6)
+
+        # Remote idle of 0s, meaning no preference, and local idle of 60s.
+        client = create_standalone_client(self)
+        extensions = transport_parameters_extensions(
+            QuicTransportParameters(
+                original_destination_connection_id=client.original_destination_connection_id,
+                max_idle_timeout=0,
+            )
+        )
+        client._parse_transport_parameters(extensions)
+        self.assertIsNone(client._remote_max_idle_timeout)
+        self.assertAlmostEqual(client._idle_timeout(), 60.0)
 
     def test_parse_transport_parameters_malformed(self) -> None:
         client = create_standalone_client(self)
@@ -6543,6 +7355,31 @@ class QuicConnectionTest(QuicConnectionTestCase):
             cm.exception.reason_phrase,
             "version_information's chosen_version does not match the version in use",
         )
+
+    def test_parse_transport_parameters_with_idle_timeout_from_session_ticket(
+        self,
+    ) -> None:
+        client = create_standalone_client(self)
+
+        # The session ticket has an idle timeout of 10s.
+        client._parse_transport_parameters(
+            transport_parameters_extensions(
+                QuicTransportParameters(max_idle_timeout=10000)
+            ),
+            from_session_ticket=True,
+        )
+        self.assertAlmostEqual(client._idle_timeout(), 10.0)
+
+        # The handshake has none, so the local idle timeout of 60s applies.
+        client._parse_transport_parameters(
+            transport_parameters_extensions(
+                QuicTransportParameters(
+                    original_destination_connection_id=client.original_destination_connection_id,
+                )
+            )
+        )
+        self.assertIsNone(client._remote_max_idle_timeout)
+        self.assertAlmostEqual(client._idle_timeout(), 60.0)
 
     def test_parse_transport_parameters_with_preferred_address(self) -> None:
         client = create_standalone_client(self)
@@ -7103,8 +7940,8 @@ class QuicConnectionTest(QuicConnectionTestCase):
             # window too strictly as its exact value depends on the size
             # of our ACKs, which depends on the execution time.
             self.assertEqual(client._loss.bytes_in_flight, 0)
-            self.assertGreaterEqual(client._loss.congestion_window, 13472)
-            self.assertLessEqual(client._loss.congestion_window, 13540)
+            self.assertGreaterEqual(client._loss.congestion_window, 13311)
+            self.assertLessEqual(client._loss.congestion_window, 13379)
 
             # Artificially raise the consumed data counter.
             client._local_max_data_consumed = client._local_max_data.value
@@ -8287,3 +9124,28 @@ class QuicNetworkPathTest(TestCase):
         path.bytes_sent += 3
         self.assertTrue(path.can_send(0))
         self.assertFalse(path.can_send(1))
+
+
+class StreamIdTest(TestCase):
+    # The four stream types (RFC 9000 section 2.1).
+    STREAM_TYPES = [
+        # stream_id, client_initiated, unidirectional
+        (0, True, False),
+        (1, False, False),
+        (2, True, True),
+        (3, False, True),
+        (4, True, False),
+        (UINT_VAR_MAX, False, True),
+    ]
+
+    def test_stream_is_client_initiated(self) -> None:
+        for stream_id, client_initiated, _ in self.STREAM_TYPES:
+            with self.subTest(stream_id=stream_id):
+                self.assertEqual(
+                    stream_is_client_initiated(stream_id), client_initiated
+                )
+
+    def test_stream_is_unidirectional(self) -> None:
+        for stream_id, _, unidirectional in self.STREAM_TYPES:
+            with self.subTest(stream_id=stream_id):
+                self.assertEqual(stream_is_unidirectional(stream_id), unidirectional)

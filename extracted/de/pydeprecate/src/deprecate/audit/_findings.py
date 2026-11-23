@@ -16,6 +16,9 @@ from typing import Optional
 from deprecate._types import TargetMode
 from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject
 
+_MIN_GRACE_SLUG = "min-grace"
+_MESSAGE_REQUIRED_SLUG = "message-required"
+
 
 class _Rule(str, enum.Enum):
     """What a finding is about; the value is the slug a report shows."""
@@ -29,8 +32,8 @@ class _Rule(str, enum.Enum):
     CHAIN = "chain"
     EXPIRED = "expired"
     #: The two policy rules keep the slugs of :class:`~deprecate.audit.PolicyRule`.
-    MIN_GRACE = "min-grace"
-    MESSAGE_REQUIRED = "message-required"
+    MIN_GRACE = _MIN_GRACE_SLUG
+    MESSAGE_REQUIRED = _MESSAGE_REQUIRED_SLUG
 
 
 class _Check(str, enum.Enum):
@@ -40,6 +43,21 @@ class _Check(str, enum.Enum):
     EXPIRY = "expiry"
     POLICY = "policy"
     CHAINS = "chains"
+
+
+#: The check that owns each rule, shared by audit findings and CLI gates.
+_RULE_CHECKS: dict[_Rule, _Check] = {
+    _Rule.INVALID_ARGS: _Check.CHECK,
+    _Rule.MISCONFIGURED_TARGET: _Check.CHECK,
+    _Rule.INNER_ORDER_PROPERTY: _Check.CHECK,
+    _Rule.IDENTITY_MAPPING: _Check.CHECK,
+    _Rule.NO_EFFECT: _Check.CHECK,
+    _Rule.POSITIONAL_ONLY_MAPPING: _Check.CHECK,
+    _Rule.CHAIN: _Check.CHAINS,
+    _Rule.EXPIRED: _Check.EXPIRY,
+    _Rule.MIN_GRACE: _Check.POLICY,
+    _Rule.MESSAGE_REQUIRED: _Check.POLICY,
+}
 
 
 @dataclass(frozen=True)
@@ -57,6 +75,8 @@ class _Finding:
         details: Rule-specific items, such as the invalid argument names or the chain kind.
         deprecated_in: The wrapper's ``deprecated_in``, ``None`` when empty.
         remove_in: The wrapper's ``remove_in``, ``None`` when empty.
+        source_file: Absolute path of the file defining the wrapper, ``None`` when it cannot be located.
+        source_line: First line of the wrapper's definition, ``None`` when unknown.
 
     """
 
@@ -70,6 +90,8 @@ class _Finding:
     details: tuple[str, ...] = ()
     deprecated_in: Optional[str] = None
     remove_in: Optional[str] = None
+    source_file: Optional[str] = None
+    source_line: Optional[int] = None
 
     @property
     def id(self) -> str:
@@ -103,14 +125,46 @@ def _make_finding(
         details=details,
         deprecated_in=config.deprecated_in or None,
         remove_in=config.remove_in or None,
+        source_file=info.source_file,
+        source_line=info.source_line,
     )
 
 
 def _misconfiguration(info: DeprecationWrapperInfo) -> str:
-    """Name the contradictory target configuration that makes *info* a ``misconfigured-target`` finding."""
+    """Name the contradictory target configuration that makes *info* a ``misconfigured-target`` finding.
+
+    Examples:
+        >>> from deprecate._types import DeprecationConfig
+        >>> config = DeprecationConfig(target=None, args_extra={"bias": 1}, misconfigured=True, call_options_inert=True)
+        >>> _misconfiguration(DeprecationWrapperInfo(module="pkg", function="OLD", deprecated_info=config))
+        '`args_extra` on a served object that is not callable'
+        >>> config = DeprecationConfig(target=TargetMode.ARGS_REMAP, args_mapping={}, misconfigured=True)
+        >>> _misconfiguration(DeprecationWrapperInfo(module="pkg", function="OLD", deprecated_info=config))
+        '`TargetMode.ARGS_REMAP` with an empty `args_mapping`'
+
+    """
     config = info.deprecated_info
+    if config.call_options_inert:
+        # Checked first: for an object that is never called the stored target reads as ``ARGS_REMAP`` (an
+        # ``args_mapping`` without a replacement), ``None`` (``args_extra`` alone) or the replacement itself, and none
+        # of the target-based labels below would name the real problem.
+        options = " and ".join(f"`{name}`" for name in ("args_mapping", "args_extra") if getattr(config, name))
+        return f"{options or 'call-time options'} on a served object that is not callable"
     if config.target is TargetMode.ARGS_REMAP:
-        return "`TargetMode.ARGS_REMAP` with an empty `args_mapping`"
+        if not config.args_mapping:
+            return "`TargetMode.ARGS_REMAP` with an empty `args_mapping`"
+        if config.attrs_mapping:
+            return "`TargetMode.ARGS_REMAP` with both mappings (attribute redirects remain active)"
+        return "misconfigured `TargetMode.ARGS_REMAP`"
+    if config.target is TargetMode.ATTRS_REMAP:
+        # ``ATTRS_REMAP`` needs an ``attrs_mapping`` and ignores call-time options such as ``args_mapping``
+        if not config.attrs_mapping:
+            return "`TargetMode.ATTRS_REMAP` without an `attrs_mapping`"
+        ignored = next((name for name in ("args_mapping", "args_extra") if getattr(config, name)), None)
+        if ignored is not None:
+            return f"`TargetMode.ATTRS_REMAP` with `{ignored}`"
+        # Legacy target normalization can preserve the misconfiguration flag without any call-time options.
+        return "misconfigured `TargetMode.ATTRS_REMAP` (for example, normalized from `target=False`)"
     for field_name in ("args_mapping", "attrs_mapping", "args_extra"):
         if getattr(config, field_name):
             return f"`TargetMode.NOTIFY` with `{field_name}`"
@@ -118,7 +172,14 @@ def _misconfiguration(info: DeprecationWrapperInfo) -> str:
 
 
 def _no_effect_reasons(info: DeprecationWrapperInfo) -> tuple[str, ...]:
-    """Return why *info* has no effect on its callers, in report order."""
+    """Return why *info* has no effect on its callers, in report order.
+
+    Examples:
+        >>> info = DeprecationWrapperInfo(module="pkg", function="old", empty_args_mapping=True, self_reference=True)
+        >>> _no_effect_reasons(info)
+        ('Empty mapping', 'Self reference')
+
+    """
     reasons = (
         (info.empty_args_mapping, "Empty mapping"),
         (info.self_reference, "Self reference"),

@@ -8,7 +8,7 @@ import jsonschema_rs
 
 from schemathesis.core import deserialization
 from schemathesis.core.errors import InvalidSchema, SchemaLocation
-from schemathesis.core.failures import Failure, FailureGroup, MalformedJson
+from schemathesis.core.failures import Failure, FailureGroup, MalformedJson, as_reported_failure
 from schemathesis.core.jsonschema import bundled_name
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, unbundle_path
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
@@ -87,9 +87,7 @@ def validate_documented_response(
             operation=operation
         ).response_schema_conformance.validate_formats
         try:
-            validator = definition.get_validator(
-                resolved.media_type, resolved.schema, validate_formats=validate_formats
-            )
+            validator = definition.get_validator(resolved.media_type, validate_formats=validate_formats)
         except jsonschema_rs.ValidationError as exc:
             raise InvalidSchema.from_jsonschema_error(
                 exc,
@@ -99,8 +97,7 @@ def validate_documented_response(
                 location=SchemaLocation.response_schema(schema.specification.version),
                 location_path=unbundle_path(exc.instance_path, resolved.name_to_uri),
             ) from exc
-        if validator is None:
-            return None
+        assert validator is not None
 
     if resolved_content_type is None:
         formatted_content_types = [f"\n- `{content_type}`" for content_type in documented_media_types]
@@ -187,8 +184,7 @@ def validate_documented_response(
                         failure.message = f"Item #{failure.instance_path[0]}: {failure.message}"
                     failures.append(failure)
         except ValueError as exc:
-            # jsonschema_rs raises ValueError for lone Unicode surrogate characters (e.g. \uDCF3);
-            # not valid JSON per RFC 8259 even though Python's json.loads accepts them.
+            # Lone surrogates (e.g. \uDCF3) are invalid JSON per RFC 8259, though Python's `json.loads` accepts them.
             doc = response.content.decode("latin-1")
             position, lineno, colno = _find_surrogate_location(doc)
             failures.append(
@@ -221,6 +217,8 @@ def _sse_failure(
             root_schema=cause.content_schema,
             config=operation.schema.config.output,
             name_to_uri=resolved.name_to_uri,
+            # The event schema reports the failure at `contentMediaType`, next to the `contentSchema` that failed.
+            location=(*exc.schema_path[:-1], "contentSchema"),
         )
     assert resolved.schema is not None
     return JsonSchemaError.from_exception(
@@ -371,4 +369,5 @@ def maybe_raise_one_or_more(failures: list[Failure]) -> None:
         return
     if len(failures) == 1:
         raise failures[0] from None
-    raise FailureGroup(failures) from None
+    group = as_reported_failure(FailureGroup(failures))
+    raise group from None

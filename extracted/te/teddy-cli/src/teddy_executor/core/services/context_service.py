@@ -6,7 +6,8 @@ from teddy_executor.core.domain.models import ProjectContext, ContextItem
 from teddy_executor.core.utils.markdown import (
     embed_in_fence,
     get_language_from_path,
-    is_session_file_path,
+    is_own_session_path,
+    is_session_history_path,
     get_session_history_display_name,
     get_session_history_sort_key,
 )
@@ -53,6 +54,8 @@ class ContextService(IGetContextUseCase):
         cache_dir: Optional[str] = None,
         current_turn: Optional[str] = None,
         system_prompt_tokens: int = 0,
+        session_root: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> ProjectContext:
         """
         Gathers all project context information by orchestrating its dependencies.
@@ -108,10 +111,10 @@ class ContextService(IGetContextUseCase):
             web_cache = {}
 
         content = self._format_content(
-            repo_tree, scoped_paths, file_contents, git_status
+            repo_tree, scoped_paths, file_contents, git_status, session_root
         )
         content_tokens = (
-            self._llm_client.get_text_token_count(content) if include_tokens else 0
+            self._count_text_tokens(content, model) if include_tokens else 0
         )
 
         return ProjectContext(
@@ -120,12 +123,13 @@ class ContextService(IGetContextUseCase):
             scoped_paths=scoped_paths,
             git_status=git_status,
             items=self._collect_items(
-                scoped_paths, file_contents, git_status, include_tokens
+                scoped_paths, file_contents, git_status, include_tokens, model
             ),
             agent_name=agent_name,
             total_window=total_window,
             system_prompt_tokens=system_prompt_tokens,
             content_tokens=content_tokens,
+            session_root=session_root,
         )
 
     def _cap_plan_contents(
@@ -274,6 +278,7 @@ class ContextService(IGetContextUseCase):
         file_contents: Dict[str, Optional[str]],
         git_status: Optional[str],
         include_tokens: bool,
+        model: Optional[str] = None,
     ) -> List[ContextItem]:
         """
         Orchestrates the assembly of ContextItem metadata DTOs.
@@ -281,7 +286,7 @@ class ContextService(IGetContextUseCase):
         """
         parsed_status = self._parse_git_status(git_status)
         path_to_tokens = self._get_path_to_tokens(
-            scoped_paths, file_contents, include_tokens
+            scoped_paths, file_contents, include_tokens, model
         )
 
         # Deduplication map: path -> ContextItem
@@ -305,11 +310,23 @@ class ContextService(IGetContextUseCase):
 
         return list(items_map.values())
 
+    def _count_text_tokens(self, text: str, model: Optional[str]) -> int:
+        """Count tokens with the effective model, preserving the no-model shape.
+
+        A caller without an effective model issues the same single-argument call
+        as before, so existing call-argument assertions and side-effect fakes
+        that accept only the text stay valid.
+        """
+        if model:
+            return self._llm_client.get_text_token_count(text, model=model)
+        return self._llm_client.get_text_token_count(text)
+
     def _get_path_to_tokens(
         self,
         scoped_paths: Dict[str, List[str]],
         file_contents: Dict[str, Optional[str]],
         include_tokens: bool,
+        model: Optional[str] = None,
     ) -> Dict[str, int]:
         """Calculates token counts for all unique files in parallel."""
         if not include_tokens:
@@ -323,7 +340,7 @@ class ContextService(IGetContextUseCase):
 
         def get_count(path: str) -> tuple[str, int]:
             content = file_contents.get(path) or ""
-            return path, self._llm_client.get_text_token_count(content)
+            return path, self._count_text_tokens(content, model)
 
         # Parallelize to handle large repositories without stalling the UI.
         # We use a ThreadPoolExecutor as token counting is often offloaded or involves latency.
@@ -391,6 +408,7 @@ class ContextService(IGetContextUseCase):
         scoped_paths: Dict[str, List[str]],
         file_contents: Dict[str, Optional[str]],
         git_status: Optional[str] = None,
+        session_root: Optional[str] = None,
     ) -> str:
         """Formats the main content section of the context report."""
         # Gather all unique paths
@@ -400,9 +418,10 @@ class ContextService(IGetContextUseCase):
                 if p not in all_paths:
                     all_paths.append(p)
 
-        # Partition standard workspace files and session files
-        workspace_paths = [p for p in all_paths if not is_session_file_path(p)]
-        session_paths = [p for p in all_paths if is_session_file_path(p)]
+        # Partition this session's own artifacts from ordinary resources. A path
+        # read from another session is a resource, not our own history.
+        session_paths = [p for p in all_paths if is_own_session_path(p, session_root)]
+        workspace_paths = [p for p in all_paths if p not in session_paths]
 
         git_status_body = (
             embed_in_fence(git_status, "")
@@ -424,7 +443,7 @@ class ContextService(IGetContextUseCase):
 
         # Prepend Session History section first (after header's System Information)
         session_history_parts = self._format_session_history(
-            session_paths, file_contents
+            session_paths, file_contents, session_root
         )
         if session_history_parts:
             content_parts = session_history_parts + content_parts
@@ -514,13 +533,14 @@ class ContextService(IGetContextUseCase):
         self,
         session_paths: List[str],
         file_contents: Dict[str, Optional[str]],
+        session_root: Optional[str] = None,
     ) -> List[str]:
         """Formats the session history section."""
         if not session_paths:
             return []
 
         recognized_session_paths = [
-            p for p in session_paths if get_session_history_display_name(p) is not None
+            p for p in session_paths if is_session_history_path(p, session_root)
         ]
         if not recognized_session_paths:
             return []
@@ -528,7 +548,7 @@ class ContextService(IGetContextUseCase):
         recognized_session_paths.sort(key=get_session_history_sort_key)
         parts = ["\n## Session History"]
         for path in recognized_session_paths:
-            disp_name = get_session_history_display_name(path)
+            disp_name = get_session_history_display_name(path, session_root)
             content = file_contents.get(path) or ""
             content_str = content.strip()
             lang = get_language_from_path(path)

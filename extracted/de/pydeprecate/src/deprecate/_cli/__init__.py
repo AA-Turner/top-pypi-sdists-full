@@ -13,6 +13,10 @@ Subcommands:
     all     — Run all four checks in a single scan pass.
     status  — Render a markdown deprecation table to stdout (and optionally save it to a file).
 
+``expiry`` and ``policy`` also take ``--static``: the scanned source is read with :mod:`ast` and nothing from the
+scanned package is imported or executed. Findings match the import-based scan; anything the source alone does not
+settle is reported as a ``pydeprecate gap: not statically resolvable:`` line instead of being skipped.
+
 The whole ``deprecate._cli`` package is internal and may change without notice; the public Python API
 for the same checks is :mod:`deprecate.audit`. This module stays import-light — the parser, the subcommands and the
 audit layer load only when :func:`cli` runs.
@@ -26,6 +30,9 @@ from deprecate import __about__
 #: Option of every subcommand naming the file the run's machine-readable report goes to; ``cli`` handles it itself.
 #: The GitHub Action probes for this name to tell whether the installed CLI writes reports.
 _REPORT_OPTION = "--report-json"
+#: Option of every gate subcommand naming the SARIF 2.1.0 file of the run; ``cli`` handles it itself.
+#: The GitHub Action probes for this name too, to skip its ``sarif`` input on an installed CLI that lacks the option.
+_SARIF_OPTION = "--report-sarif"
 #: Exit code of a run that crashed: the scanned package could not be imported, or the CLI itself failed. Distinct
 #: from 1 (findings) and 2 (usage error), and never downgraded by ``--exit-zero``.
 _CRASH_EXIT = 3
@@ -37,15 +44,16 @@ def cli() -> None:
     """CLI entry point for pydeprecate.
 
     Parses the command line with :func:`~deprecate._cli.argv._parse_cli_args` and runs the subcommand; its integer
-    return value becomes the process exit code. A usage error (unknown option, malformed value, a second path) exits 2
+    return value becomes the process exit code. A usage error (unknown option, malformed value, a bad path) exits 2
     before anything is scanned, and ``--help`` exits 0. Acts as the single top-level exception handler: a scanned
     package that cannot be imported exits 3 with ``pydeprecate: scan error: ...``, and any other exception from a
     subcommand exits 3 with ``pydeprecate: internal error: <type>: <message>`` and where to report it (the type prefix
     keeps the line meaningful when the exception carries no message); neither writes a report. Every submodule the scan
     skipped because importing it raised gets one ``pydeprecate gap: module not audited: <module>: <error>`` line on
-    stderr at the end of the run, whatever warnings filters the audited package installs; every other advisory about a
+    stderr right after the scan, whatever warnings filters the audited package installs; every other advisory about a
     part of the audit that did not run (unresolved version, missing ``packaging``, unscanned files) is printed as an
-    unwrapped stderr line starting with ``pydeprecate gap: <kind>:`` as well.
+    unwrapped stderr line starting with ``pydeprecate gap: <kind>:`` as well. With ``--strict`` (``check``, ``expiry``,
+    ``policy``, ``chains``, ``all``) any such gap fails the run with exit 1.
 
     A path whose name collides with a subcommand (``check``, ``expiry``, ``policy``, ``chains``, ``all``, ``status``) is
     treated as that subcommand by the implicit-``check`` shim. Scan such a path explicitly, e.g. ``pydeprecate check
@@ -53,32 +61,37 @@ def cli() -> None:
 
     Flags may appear before, between or after the positionals (``check --exit-zero src/pkg`` scans ``src/pkg``), in
     either spelling (``--exit-zero``, ``--exit_zero``). A boolean flag takes ``true``/``false``/``1``/``0`` attached
-    (``--exit-zero=false``) or as the next argument, and is negated with ``--no-<flag>`` or ``--no<flag>``. Only the
-    path and, for ``expiry``, ``all`` and ``status``, the version are positional; a further positional exits 2. Direct
-    calls to the ``cmd_*`` functions keep their signatures, including the internal ``_*`` parameters, which are never
-    command-line options.
+    (``--exit-zero=false``) or as the next argument, and is negated with ``--no-<flag>`` or ``--no<flag>``. Every
+    positional is a path, and several paths are audited in one run with one exit code; with exactly two positionals,
+    ``expiry``, ``all`` and ``status`` still read a second one that names no path and parses as a version as the
+    deprecated positional version, never one given after a ``--`` separator. Direct calls to the ``cmd_*`` functions
+    keep their signatures, including the internal ``_*`` parameters, which are never command-line options.
 
     Every subcommand also takes ``--report-json PATH``: once the subcommand ran with exit code 0 or 1, the run's
     machine-readable record is written there — the deprecation table of the very scan that gated and every gap, each
     with its kind, detail and hint (see :func:`~deprecate._cli.report._write_report`). A usage error (exit 2) writes no
-    report, and a failure to write one never changes the exit code.
+    report, and a failure to write one never changes the exit code. Every subcommand but ``status`` also takes
+    ``--report-sarif PATH``: the run's active findings as a SARIF 2.1.0 file for code scanning (see
+    :func:`~deprecate._cli.sarif._write_sarif`), written under the same rule — only on exit code 0 or 1, and a failure
+    to write it never changes the exit code.
 
     """
     from deprecate._cli.argv import _ensure_utf8_streams, _parse_cli_args
-    from deprecate._cli.report import _print, _print_skipped_modules, _record_run, _run_active, _write_report
+    from deprecate._cli.report import _print, _record_run, _run_active, _write_report
     from deprecate._cli.scan import _ScanError
-    from deprecate.audit._scan import _collect_skipped_modules
 
     _ensure_utf8_streams()
     parsed = _parse_cli_args(sys.argv[1:])
     if parsed is None:  # bare `pydeprecate`: the help was printed
         return
-    command, kwargs, report_path = parsed
+    command, kwargs, (report_path, sarif_path) = parsed
     if _run_active():
         # an audited package whose import runs the CLI again sees the outer `sys.argv`; only the outermost run may
         # write the report, or the nested run's report would pass for the outer scan's
-        report_path = None
-    with _record_run() as run_record, _collect_skipped_modules() as skipped_modules:
+        report_path = sarif_path = None
+    with _record_run() as run_record:
+        run_record.command = command.function.__name__.replace("cmd_", "", 1)
+        run_record.wants_report = report_path is not None or sarif_path is not None
         try:
             exit_code = command.function(**kwargs)
         except _ScanError as exc:
@@ -89,10 +102,11 @@ def cli() -> None:
             _print(f"pydeprecate: internal error: {type(exc).__name__}: {exc}", stderr=True)
             _print(f"  please report this at {_ISSUES}", stderr=True)
             exit_code = _CRASH_EXIT
-        finally:
-            # Unlike the `audit: skipped` warning, these lines survive the audited package's own warnings filters.
-            _print_skipped_modules(skipped_modules)
-    # written after the skipped-module gaps are recorded, and never for a usage error (exit 2): nothing was scanned
+    # never written for a usage error (exit 2): nothing was scanned
     if report_path is not None and exit_code in (0, 1):
-        _write_report(report_path, run_record)
+        _write_report(report_path, run_record, exit_code)
+    if sarif_path is not None and exit_code in (0, 1):
+        from deprecate._cli.sarif import _write_sarif
+
+        _write_sarif(sarif_path, run_record, exit_code)
     sys.exit(exit_code)

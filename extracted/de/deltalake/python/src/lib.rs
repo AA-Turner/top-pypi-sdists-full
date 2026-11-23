@@ -35,6 +35,7 @@ use pyo3_arrow::PyDataType;
 use deltalake::arrow::array::{
     ArrayRef, BooleanBuilder, LargeStringBuilder, ListBuilder, RecordBatchIterator,
 };
+use deltalake::datafile::properties::{DEFAULT_PARQUET_PROPERTIES, OPTIMIZE_PARQUET_PROPERTIES};
 use deltalake::delta_datafusion::create_session_state_with_spill_config;
 use deltalake::delta_datafusion::expr::parse_sql_predicate_to_kernel;
 use deltalake::errors::DeltaTableError;
@@ -44,10 +45,8 @@ use deltalake::kernel::{
     Action, Add, EagerSnapshot, IsolationLevel, LogicalFileView, MetadataExt as _, Remove,
     Transaction, Version,
 };
-use deltalake::lakefs::LakeFSCustomExecuteHandler;
 use deltalake::logstore::LogStoreRef;
 use deltalake::logstore::{IORuntime, ObjectStoreRef};
-use deltalake::operations::CustomExecuteHandler;
 use deltalake::operations::convert_to_delta::{ConvertToDeltaBuilder, PartitionStrategy};
 use deltalake::operations::optimize::OptimizeType;
 use deltalake::operations::update_table_metadata::TableMetadataUpdate;
@@ -55,7 +54,7 @@ use deltalake::operations::vacuum::VacuumMode;
 use deltalake::operations::write::WriteBuilder;
 use deltalake::parquet::basic::{Compression, Encoding};
 use deltalake::parquet::errors::ParquetError;
-use deltalake::parquet::file::properties::{EnabledStatistics, WriterProperties};
+use deltalake::parquet::file::properties::{EnabledStatistics, WriterProperties, WriterVersion};
 use deltalake::partitions::{
     FilterLiteral, FilterValue, conjunction_to_kernel_predicate, dnf_to_kernel_predicate,
     filter_literal,
@@ -78,13 +77,11 @@ use schema::PySchema;
 use serde_json::{Map, Value};
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
-use std::ffi::CString;
 use std::future::IntoFuture;
 use std::num::NonZeroU64;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time;
-use uuid::Uuid;
 
 use writer::maybe_lazy_cast_reader;
 
@@ -143,6 +140,62 @@ struct RawDeltaTable {
     _table: Arc<Mutex<deltalake::DeltaTable>>,
     // storing the config additionally on the table helps us make pickling work.
     _config: FsConfig,
+}
+
+type CommitInfo = deltalake::kernel::models::CommitInfo;
+
+/// Iterator over a table's commit infos, newest first, yielded as JSON strings.
+///
+/// A background task owns a clone of the table and pushes commit infos through a
+/// bounded channel, so commit files are only read as Python consumes the iterator.
+#[pyclass(module = "deltalake._internal", name = "CommitInfoIterator", frozen)]
+struct CommitInfoIterator {
+    latest_version: Version,
+    state: Mutex<CommitInfoIteratorState>,
+}
+
+struct CommitInfoIteratorState {
+    first: Option<CommitInfo>,
+    rx: Option<tokio::sync::mpsc::Receiver<DeltaResult<CommitInfo>>>,
+}
+
+#[pymethods]
+impl CommitInfoIterator {
+    /// Version of the newest commit yielded by this iterator.
+    #[getter]
+    fn latest_version(&self) -> Version {
+        self.latest_version
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&self, py: Python<'_>) -> PyResult<Option<String>> {
+        let commit = py.detach(|| -> PyResult<Option<CommitInfo>> {
+            let mut state = self.state.lock().map_err(to_rt_err)?;
+            if let Some(commit) = state.first.take() {
+                return Ok(Some(commit));
+            }
+            let Some(rx) = state.rx.as_mut() else {
+                return Ok(None);
+            };
+            match rt().block_on(rx.recv()) {
+                Some(Ok(commit)) => Ok(Some(commit)),
+                Some(Err(err)) => {
+                    state.rx = None;
+                    Err(PythonError::from(err).into())
+                }
+                None => {
+                    state.rx = None;
+                    Ok(None)
+                }
+            }
+        })?;
+        commit
+            .map(|commit| serde_json::to_string(&commit).map_err(to_rt_err))
+            .transpose()
+    }
 }
 
 #[pyclass(frozen, get_all)]
@@ -298,7 +351,7 @@ impl RawDeltaTable {
     }
 
     fn object_store(&self) -> PyResult<ObjectStoreRef> {
-        self.with_table(|t| Ok(t.log_store().object_store(None).clone()))
+        self.with_table(|t| Ok(t.log_store().object_store().clone()))
     }
 
     fn cloned_state(&self) -> PyResult<EagerSnapshot> {
@@ -416,6 +469,7 @@ impl RawDeltaTable {
     #[pyo3(signature = (table_uri, storage_options = None))]
     #[staticmethod]
     pub fn is_deltatable(
+        py: Python,
         table_uri: &str,
         storage_options: Option<HashMap<String, String>>,
     ) -> PyResult<bool> {
@@ -428,14 +482,16 @@ impl RawDeltaTable {
         if let Some(storage_options) = storage_options {
             builder = builder.with_storage_options(storage_options)
         }
-        Ok(rt()
-            .block_on(async {
-                match builder.build() {
-                    Ok(table) => table.verify_deltatable_existence().await,
-                    Err(err) => Err(err),
-                }
-            })
-            .map_err(PythonError::from)?)
+        py.detach(|| {
+            Ok(rt()
+                .block_on(async {
+                    match builder.build() {
+                        Ok(table) => table.verify_deltatable_existence().await,
+                        Err(err) => Err(err),
+                    }
+                })
+                .map_err(PythonError::from)?)
+        })
     }
 
     pub fn table_uri(&self) -> PyResult<String> {
@@ -711,10 +767,6 @@ impl RawDeltaTable {
                 cmd = cmd.with_keep_versions(keep_versions_vec.as_slice());
             }
 
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
-
             rt().block_on(cmd.into_future())
                 .map_err(PythonError::from)
                 .map_err(PyErr::from)
@@ -749,7 +801,8 @@ impl RawDeltaTable {
 
             if let Some(writer_props) = writer_properties {
                 cmd = cmd.with_writer_properties(
-                    set_writer_properties(writer_props).map_err(PythonError::from)?,
+                    set_writer_properties(writer_props, &DEFAULT_PARQUET_PROPERTIES)
+                        .map_err(PythonError::from)?,
                 );
             }
 
@@ -765,10 +818,6 @@ impl RawDeltaTable {
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties);
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             rt().block_on(cmd.into_future())
@@ -833,7 +882,8 @@ impl RawDeltaTable {
 
             if let Some(writer_props) = writer_properties {
                 cmd = cmd.with_writer_properties(
-                    set_writer_properties(writer_props).map_err(PythonError::from)?,
+                    set_writer_properties(writer_props, &OPTIMIZE_PARQUET_PROPERTIES)
+                        .map_err(PythonError::from)?,
                 );
             }
 
@@ -841,10 +891,6 @@ impl RawDeltaTable {
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties);
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             let partition_filters = partition_filters.unwrap_or_default();
@@ -915,7 +961,8 @@ impl RawDeltaTable {
 
             if let Some(writer_props) = writer_properties {
                 cmd = cmd.with_writer_properties(
-                    set_writer_properties(writer_props).map_err(PythonError::from)?,
+                    set_writer_properties(writer_props, &OPTIMIZE_PARQUET_PROPERTIES)
+                        .map_err(PythonError::from)?,
                 );
             }
 
@@ -923,10 +970,6 @@ impl RawDeltaTable {
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties);
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             let partition_filters = partition_filters.unwrap_or_default();
@@ -967,10 +1010,6 @@ impl RawDeltaTable {
                 cmd = cmd.with_commit_properties(commit_properties);
             }
 
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
-
             rt().block_on(cmd.into_future())
                 .map_err(PythonError::from)
                 .map_err(PyErr::from)
@@ -1003,10 +1042,6 @@ impl RawDeltaTable {
                 cmd = cmd.with_commit_properties(commit_properties);
             }
 
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
-
             rt().block_on(cmd.into_future())
                 .map_err(PythonError::from)
                 .map_err(PyErr::from)
@@ -1033,10 +1068,6 @@ impl RawDeltaTable {
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties);
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             rt().block_on(cmd.into_future())
@@ -1069,10 +1100,6 @@ impl RawDeltaTable {
                 cmd = cmd.with_commit_properties(commit_properties);
             }
 
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
-
             rt().block_on(cmd.into_future())
                 .map_err(PythonError::from)
                 .map_err(PyErr::from)
@@ -1099,10 +1126,6 @@ impl RawDeltaTable {
                 cmd = cmd.with_commit_properties(commit_properties);
             }
 
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
-
             rt().block_on(cmd.into_future())
                 .map_err(PythonError::from)
                 .map_err(PyErr::from)
@@ -1112,11 +1135,13 @@ impl RawDeltaTable {
     }
 
     #[pyo3()]
-    pub fn generate(&self, _py: Python) -> PyResult<()> {
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        rt().block_on(async { table.generate().await })
-            .map_err(PythonError::from)?;
-        Ok(())
+    pub fn generate(&self, py: Python) -> PyResult<()> {
+        py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            rt().block_on(async { table.generate().await })
+                .map_err(PythonError::from)?;
+            Ok(())
+        })
     }
 
     #[pyo3(signature = (
@@ -1140,57 +1165,57 @@ impl RawDeltaTable {
         predicate: Option<String>,
         allow_out_of_range: bool,
     ) -> PyResult<Arro3RecordBatchReader> {
-        let ctx = SessionContext::new();
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table.scan_cdf();
-
-        if let Some(sv) = starting_version {
-            cmd = cmd.with_starting_version(sv);
-        }
-        if let Some(ev) = ending_version {
-            cmd = cmd.with_ending_version(ev);
-        }
-        if let Some(st) = starting_timestamp {
-            let starting_ts: DateTime<Utc> = DateTime::<Utc>::from_str(&st)
-                .map_err(|pe| PyValueError::new_err(pe.to_string()))?
-                .to_utc();
-            cmd = cmd.with_starting_timestamp(starting_ts);
-        }
-        if let Some(et) = ending_timestamp {
-            let ending_ts = DateTime::<Utc>::from_str(&et)
-                .map_err(|pe| PyValueError::new_err(pe.to_string()))?
-                .to_utc();
-            cmd = cmd.with_ending_timestamp(ending_ts);
-        }
-
-        if allow_out_of_range {
-            cmd = cmd.with_allow_out_of_range();
-        }
-
-        let table_provider: Arc<dyn TableProvider> =
-            Arc::new(DeltaCdfTableProvider::try_new(cmd).map_err(PythonError::from)?);
-
-        let table_name: String = "source".to_string();
-
-        ctx.register_table(table_name.clone(), table_provider)
-            .map_err(PythonError::from)?;
-        let select_string = if let Some(columns) = columns {
-            columns.join(", ")
-        } else {
-            "*".to_string()
-        };
-
-        let sql = if let Some(predicate) = predicate {
-            format!("SELECT {select_string} FROM `{table_name}` WHERE ({predicate}) ")
-        } else {
-            format!("SELECT {select_string} FROM `{table_name}`")
-        };
-
-        let stream = rt()
-            .block_on(async { ctx.sql(&sql).await?.execute_stream().await })
-            .map_err(PythonError::from)?;
-
         py.detach(|| {
+            let ctx = SessionContext::new();
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table.scan_cdf();
+
+            if let Some(sv) = starting_version {
+                cmd = cmd.with_starting_version(sv);
+            }
+            if let Some(ev) = ending_version {
+                cmd = cmd.with_ending_version(ev);
+            }
+            if let Some(st) = starting_timestamp {
+                let starting_ts: DateTime<Utc> = DateTime::<Utc>::from_str(&st)
+                    .map_err(|pe| PyValueError::new_err(pe.to_string()))?
+                    .to_utc();
+                cmd = cmd.with_starting_timestamp(starting_ts);
+            }
+            if let Some(et) = ending_timestamp {
+                let ending_ts = DateTime::<Utc>::from_str(&et)
+                    .map_err(|pe| PyValueError::new_err(pe.to_string()))?
+                    .to_utc();
+                cmd = cmd.with_ending_timestamp(ending_ts);
+            }
+
+            if allow_out_of_range {
+                cmd = cmd.with_allow_out_of_range();
+            }
+
+            let table_provider: Arc<dyn TableProvider> =
+                Arc::new(DeltaCdfTableProvider::try_new(cmd).map_err(PythonError::from)?);
+
+            let table_name: String = "source".to_string();
+
+            ctx.register_table(table_name.clone(), table_provider)
+                .map_err(PythonError::from)?;
+            let select_string = if let Some(columns) = columns {
+                columns.join(", ")
+            } else {
+                "*".to_string()
+            };
+
+            let sql = if let Some(predicate) = predicate {
+                format!("SELECT {select_string} FROM `{table_name}` WHERE ({predicate}) ")
+            } else {
+                format!("SELECT {select_string} FROM `{table_name}`")
+            };
+
+            let stream = rt()
+                .block_on(async { ctx.sql(&sql).await?.execute_stream().await })
+                .map_err(PythonError::from)?;
+
             let stream = convert_stream_to_reader(stream);
             Ok(stream.into())
         })
@@ -1210,7 +1235,7 @@ impl RawDeltaTable {
             // Same session setup as PyQueryBuilder::register: a Delta-tuned context
             // with the table's object store registered so non-local storage works.
             let ctx = DeltaSessionContext::new().into_inner();
-            ctx.register_object_store(log_store.root_url(), log_store.root_object_store(None));
+            ctx.register_object_store(log_store.root_url(), log_store.root_object_store());
 
             let config = DeltaScanConfig::new().with_wrap_partition_values(false);
             let provider =
@@ -1302,13 +1327,6 @@ impl RawDeltaTable {
         commit_properties: Option<PyCommitProperties>,
     ) -> PyResult<PyMergeBuilder> {
         py.detach(|| {
-            let handler: Option<Arc<dyn CustomExecuteHandler>> =
-                if self.log_store()?.name() == "LakeFSLogStore" {
-                    Some(Arc::new(LakeFSCustomExecuteHandler {}))
-                } else {
-                    None
-                };
-
             Ok(PyMergeBuilder::new(
                 self.log_store()?,
                 self.cloned_state()?,
@@ -1325,7 +1343,6 @@ impl RawDeltaTable {
                 writer_properties,
                 post_commithook_properties,
                 commit_properties,
-                handler,
             )
             .map_err(PythonError::from)?)
         })
@@ -1352,17 +1369,18 @@ impl RawDeltaTable {
     ))]
     pub fn restore(
         &self,
+        py: Python,
         target: Option<&Bound<'_, PyAny>>,
         ignore_missing_files: bool,
         protocol_downgrade_allowed: bool,
         commit_properties: Option<PyCommitProperties>,
         post_commithook_properties: Option<PyPostCommitHookProperties>,
     ) -> PyResult<String> {
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table.restore();
+        let mut version_to_restore = None;
+        let mut datetime_to_restore = None;
         if let Some(val) = target {
             if let Ok(version) = val.extract::<Version>() {
-                cmd = cmd.with_version_to_restore(version)
+                version_to_restore = Some(version);
             }
             if let Ok(ds) = val.extract::<PyBackedStr>() {
                 let datetime = DateTime::<Utc>::from(
@@ -1370,25 +1388,32 @@ impl RawDeltaTable {
                         PyValueError::new_err(format!("Failed to parse datetime string: {err}"))
                     })?,
                 );
-                cmd = cmd.with_datetime_to_restore(datetime)
+                datetime_to_restore = Some(datetime);
             }
         }
-        cmd = cmd.with_ignore_missing_files(ignore_missing_files);
-        cmd = cmd.with_protocol_downgrade_allowed(protocol_downgrade_allowed);
 
-        if let Some(commit_properties) =
-            maybe_create_commit_properties(commit_properties, post_commithook_properties)
-        {
-            cmd = cmd.with_commit_properties(commit_properties);
-        }
+        let (table, metrics) = py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table.restore();
+            if let Some(version) = version_to_restore {
+                cmd = cmd.with_version_to_restore(version)
+            }
+            if let Some(datetime) = datetime_to_restore {
+                cmd = cmd.with_datetime_to_restore(datetime)
+            }
+            cmd = cmd.with_ignore_missing_files(ignore_missing_files);
+            cmd = cmd.with_protocol_downgrade_allowed(protocol_downgrade_allowed);
 
-        if self.log_store()?.name() == "LakeFSLogStore" {
-            cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
+            if let Some(commit_properties) =
+                maybe_create_commit_properties(commit_properties, post_commithook_properties)
+            {
+                cmd = cmd.with_commit_properties(commit_properties);
+            }
 
-        let (table, metrics) = rt()
-            .block_on(cmd.into_future())
-            .map_err(PythonError::from)?;
+            rt().block_on(cmd.into_future())
+                .map_err(PythonError::from)
+                .map_err(PyErr::from)
+        })?;
         self.set_state(table.state)?;
         Ok(serde_json::to_string(&metrics).unwrap())
     }
@@ -1396,38 +1421,43 @@ impl RawDeltaTable {
     /// Run the History command on the Delta Table: Returns provenance information,
     /// including the operation, user, and so on, for each write to a table.
     ///
-    /// Returns `(latest_version, commits)` where `latest_version` is the version of
-    /// the most recent commit in `commits`, captured atomically with the history
-    /// fetch so concurrent writes cannot shift the version numbering on the Python
+    /// Returns a lazy [CommitInfoIterator] whose `latest_version` is the version of
+    /// the most recent commit it yields, captured under the same lock as the table
+    /// snapshot so concurrent writes cannot shift the version numbering on the Python
     /// side. See https://github.com/delta-io/delta-rs/issues/4488.
     #[pyo3(signature = (limit=None))]
-    pub fn history(&self, limit: Option<usize>) -> PyResult<(Version, Vec<String>)> {
-        #[allow(clippy::await_holding_lock)]
-        rt().block_on(async {
-            match self._table.lock() {
-                Ok(table) => {
-                    let history: Vec<deltalake::kernel::models::CommitInfo> = table
-                        .history(limit)
-                        .try_collect()
-                        .await
-                        .map_err(PythonError::from)
-                        .map_err(PyErr::from)?;
-                    // history() iterates the loaded snapshot, so version() is Some
-                    // here. Capturing it under the same lock guarantees it matches
-                    // the commits we just returned.
-                    let version = table.version().ok_or_else(|| {
-                        PyRuntimeError::new_err(
-                            "table snapshot is not loaded; cannot determine history version",
-                        )
-                    })?;
-                    let commits = history
-                        .into_iter()
-                        .map(|c| serde_json::to_string(&c).unwrap())
-                        .collect();
-                    Ok((version, commits))
+    pub fn history(&self, py: Python<'_>, limit: Option<usize>) -> PyResult<CommitInfoIterator> {
+        let (table, latest_version) = {
+            let table = self._table.lock().map_err(to_rt_err)?;
+            let version = table.version().ok_or_else(|| {
+                PyRuntimeError::new_err(
+                    "table snapshot is not loaded; cannot determine history version",
+                )
+            })?;
+            (table.clone(), version)
+        };
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        rt().spawn(async move {
+            let mut commits = table.history(limit);
+            while let Some(commit) = commits.try_next().await.transpose() {
+                let failed = commit.is_err();
+                if tx.send(commit).await.is_err() || failed {
+                    break;
                 }
-                Err(e) => Err(PyRuntimeError::new_err(e.to_string())),
             }
+        });
+
+        // The log listing includes commits newer than the snapshot, so it must finish
+        // before returning; otherwise a later write would shift the version numbering.
+        let (first, rx) = match py.detach(|| rt().block_on(rx.recv())) {
+            Some(Ok(commit)) => (Some(commit), Some(rx)),
+            Some(Err(err)) => return Err(PythonError::from(err).into()),
+            None => (None, None),
+        };
+        Ok(CommitInfoIterator {
+            latest_version,
+            state: Mutex::new(CommitInfoIteratorState { first, rx }),
         })
     }
 
@@ -1584,8 +1614,7 @@ impl RawDeltaTable {
         let active_partitions: HashSet<Vec<(&str, Option<String>)>> = adds
             .iter()
             .flat_map(|add| {
-                #[allow(deprecated)]
-                let partition_values = add.add_action().partition_values;
+                let partition_values = add.partition_values_map();
                 Ok::<_, PythonError>(
                     partition_column_keys
                         .iter()
@@ -1745,42 +1774,16 @@ impl RawDeltaTable {
 
     pub fn create_checkpoint(&self, py: Python) -> PyResult<()> {
         py.detach(|| {
-            let operation_id = Uuid::new_v4();
-            let handle = Arc::new(LakeFSCustomExecuteHandler {});
-            let store = &self.log_store()?;
-
-            // Runs lakefs pre-execution
-            if store.name() == "LakeFSLogStore" {
-                #[allow(clippy::await_holding_lock)]
-                rt().block_on(async {
-                    handle
-                        .before_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-
             #[allow(clippy::await_holding_lock)]
-            let result = rt().block_on(async {
+            rt().block_on(async {
                 match self._table.lock() {
-                    Ok(table) => create_checkpoint(&table, Some(operation_id))
+                    Ok(table) => create_checkpoint(&table)
                         .await
                         .map_err(PythonError::from)
                         .map_err(PyErr::from),
                     Err(e) => Err(PyRuntimeError::new_err(e.to_string())),
                 }
-            });
-
-            // Runs lakefs post-execution for file operations
-            if store.name() == "LakeFSLogStore" {
-                rt().block_on(async {
-                    handle
-                        .after_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-            result
+            })
         })?;
 
         Ok(())
@@ -1794,44 +1797,16 @@ impl RawDeltaTable {
         ending_version: u64,
     ) -> PyResult<()> {
         py.detach(|| {
-            let operation_id = Uuid::new_v4();
-            let handle = Arc::new(LakeFSCustomExecuteHandler {});
-            let store = &self.log_store()?;
-
-            // Runs lakefs pre-execution
-            if store.name() == "LakeFSLogStore" {
-                #[allow(clippy::await_holding_lock)]
-                rt().block_on(async {
-                    handle
-                        .before_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-
             #[allow(clippy::await_holding_lock)]
-            let result = rt().block_on(async {
+            rt().block_on(async {
                 match self._table.lock() {
-                    Ok(table) => {
-                        compact_logs(&table, starting_version, ending_version, Some(operation_id))
-                            .await
-                            .map_err(PythonError::from)
-                            .map_err(PyErr::from)
-                    }
+                    Ok(table) => compact_logs(&table, starting_version, ending_version)
+                        .await
+                        .map_err(PythonError::from)
+                        .map_err(PyErr::from),
                     Err(e) => Err(PyRuntimeError::new_err(e.to_string())),
                 }
-            });
-
-            // Runs lakefs post-execution for file operations
-            if store.name() == "LakeFSLogStore" {
-                rt().block_on(async {
-                    handle
-                        .after_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-            result
+            })
         })?;
 
         Ok(())
@@ -1839,26 +1814,11 @@ impl RawDeltaTable {
 
     pub fn cleanup_metadata(&self, py: Python) -> PyResult<()> {
         let (_result, new_state) = py.detach(|| {
-            let operation_id = Uuid::new_v4();
-            let handle = Arc::new(LakeFSCustomExecuteHandler {});
-            let store = &self.log_store()?;
-
-            // Runs lakefs pre-execution
-            if store.name() == "LakeFSLogStore" {
-                #[allow(clippy::await_holding_lock)]
-                rt().block_on(async {
-                    handle
-                        .before_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-
             #[allow(clippy::await_holding_lock)]
-            let result = rt().block_on(async {
+            rt().block_on(async {
                 match self._table.lock() {
                     Ok(table) => {
-                        let result = cleanup_metadata(&table, Some(operation_id))
+                        let result = cleanup_metadata(&table)
                             .await
                             .map_err(PythonError::from)
                             .map_err(PyErr::from)?;
@@ -1877,18 +1837,7 @@ impl RawDeltaTable {
                     }
                     Err(e) => Err(PyRuntimeError::new_err(e.to_string())),
                 }
-            });
-
-            // Runs lakefs post-execution for file operations
-            if store.name() == "LakeFSLogStore" {
-                rt().block_on(async {
-                    handle
-                        .after_post_commit_hook(store, true, operation_id)
-                        .await
-                })
-                .map_err(PythonError::from)?;
-            }
-            result
+            })
         })?;
 
         if new_state.is_some() {
@@ -1956,17 +1905,14 @@ impl RawDeltaTable {
             }
             if let Some(writer_props) = writer_properties {
                 cmd = cmd.with_writer_properties(
-                    set_writer_properties(writer_props).map_err(PythonError::from)?,
+                    set_writer_properties(writer_props, &DEFAULT_PARQUET_PROPERTIES)
+                        .map_err(PythonError::from)?,
                 );
             }
             if let Some(commit_properties) =
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties);
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             rt().block_on(cmd.into_future())
@@ -1985,30 +1931,29 @@ impl RawDeltaTable {
     ))]
     pub fn set_table_properties(
         &self,
+        py: Python,
         properties: HashMap<String, String>,
         raise_if_not_exists: bool,
         commit_properties: Option<PyCommitProperties>,
         post_commithook_properties: Option<PyPostCommitHookProperties>,
     ) -> PyResult<()> {
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table
-            .set_tbl_properties()
-            .with_properties(properties)
-            .with_raise_if_not_exists(raise_if_not_exists);
+        let table = py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table
+                .set_tbl_properties()
+                .with_properties(properties)
+                .with_raise_if_not_exists(raise_if_not_exists);
 
-        if let Some(commit_properties) =
-            maybe_create_commit_properties(commit_properties, post_commithook_properties)
-        {
-            cmd = cmd.with_commit_properties(commit_properties);
-        }
+            if let Some(commit_properties) =
+                maybe_create_commit_properties(commit_properties, post_commithook_properties)
+            {
+                cmd = cmd.with_commit_properties(commit_properties);
+            }
 
-        if self.log_store()?.name() == "LakeFSLogStore" {
-            cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
-
-        let table = rt()
-            .block_on(cmd.into_future())
-            .map_err(PythonError::from)?;
+            rt().block_on(cmd.into_future())
+                .map_err(PythonError::from)
+                .map_err(PyErr::from)
+        })?;
         self.set_state(table.state)?;
         Ok(())
     }
@@ -2016,6 +1961,7 @@ impl RawDeltaTable {
     #[pyo3(signature = (name, commit_properties=None, post_commithook_properties=None))]
     pub fn set_table_name(
         &self,
+        py: Python,
         name: String,
         commit_properties: Option<PyCommitProperties>,
         post_commithook_properties: Option<PyPostCommitHookProperties>,
@@ -2024,22 +1970,20 @@ impl RawDeltaTable {
             name: Some(name),
             description: None,
         };
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table.update_table_metadata().with_update(update);
+        let table = py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table.update_table_metadata().with_update(update);
 
-        if let Some(commit_properties) =
-            maybe_create_commit_properties(commit_properties, post_commithook_properties)
-        {
-            cmd = cmd.with_commit_properties(commit_properties);
-        }
+            if let Some(commit_properties) =
+                maybe_create_commit_properties(commit_properties, post_commithook_properties)
+            {
+                cmd = cmd.with_commit_properties(commit_properties);
+            }
 
-        if self.log_store()?.name() == "LakeFSLogStore" {
-            cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}));
-        }
-
-        let table = rt()
-            .block_on(cmd.into_future())
-            .map_err(PythonError::from)?;
+            rt().block_on(cmd.into_future())
+                .map_err(PythonError::from)
+                .map_err(PyErr::from)
+        })?;
         self.set_state(table.state)?;
         Ok(())
     }
@@ -2051,6 +1995,7 @@ impl RawDeltaTable {
     ))]
     pub fn set_table_description(
         &self,
+        py: Python,
         description: String,
         commit_properties: Option<PyCommitProperties>,
         post_commithook_properties: Option<PyPostCommitHookProperties>,
@@ -2059,22 +2004,20 @@ impl RawDeltaTable {
             name: None,
             description: Some(description),
         };
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table.update_table_metadata().with_update(update);
+        let table = py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table.update_table_metadata().with_update(update);
 
-        if let Some(commit_properties) =
-            maybe_create_commit_properties(commit_properties, post_commithook_properties)
-        {
-            cmd = cmd.with_commit_properties(commit_properties);
-        }
+            if let Some(commit_properties) =
+                maybe_create_commit_properties(commit_properties, post_commithook_properties)
+            {
+                cmd = cmd.with_commit_properties(commit_properties);
+            }
 
-        if self.log_store()?.name() == "LakeFSLogStore" {
-            cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}));
-        }
-
-        let table = rt()
-            .block_on(cmd.into_future())
-            .map_err(PythonError::from)?;
+            rt().block_on(cmd.into_future())
+                .map_err(PythonError::from)
+                .map_err(PyErr::from)
+        })?;
         self.set_state(table.state)?;
         Ok(())
     }
@@ -2084,26 +2027,25 @@ impl RawDeltaTable {
     #[pyo3(signature = (dry_run = true, commit_properties = None, post_commithook_properties=None))]
     pub fn repair(
         &self,
+        py: Python,
         dry_run: bool,
         commit_properties: Option<PyCommitProperties>,
         post_commithook_properties: Option<PyPostCommitHookProperties>,
     ) -> PyResult<String> {
-        let table = self._table.lock().map_err(to_rt_err)?.clone();
-        let mut cmd = table.filesystem_check().with_dry_run(dry_run);
+        let (table, metrics) = py.detach(|| {
+            let table = self._table.lock().map_err(to_rt_err)?.clone();
+            let mut cmd = table.filesystem_check().with_dry_run(dry_run);
 
-        if let Some(commit_properties) =
-            maybe_create_commit_properties(commit_properties, post_commithook_properties)
-        {
-            cmd = cmd.with_commit_properties(commit_properties);
-        }
+            if let Some(commit_properties) =
+                maybe_create_commit_properties(commit_properties, post_commithook_properties)
+            {
+                cmd = cmd.with_commit_properties(commit_properties);
+            }
 
-        if self.log_store()?.name() == "LakeFSLogStore" {
-            cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
-
-        let (table, metrics) = rt()
-            .block_on(cmd.into_future())
-            .map_err(PythonError::from)?;
+            rt().block_on(cmd.into_future())
+                .map_err(PythonError::from)
+                .map_err(PyErr::from)
+        })?;
         self.set_state(table.state)?;
         Ok(serde_json::to_string(&metrics).unwrap())
     }
@@ -2150,10 +2092,6 @@ impl RawDeltaTable {
                 maybe_create_commit_properties(commit_properties, post_commithook_properties)
             {
                 cmd = cmd.with_commit_properties(commit_properties)
-            }
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                cmd = cmd.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
             }
 
             rt().block_on(cmd.into_future())
@@ -2230,7 +2168,8 @@ impl RawDeltaTable {
 
             if let Some(writer_props) = writer_properties {
                 builder = builder.with_writer_properties(
-                    set_writer_properties(writer_props).map_err(PythonError::from)?,
+                    set_writer_properties(writer_props, &DEFAULT_PARQUET_PROPERTIES)
+                        .map_err(PythonError::from)?,
                 );
             }
 
@@ -2262,11 +2201,6 @@ impl RawDeltaTable {
             {
                 builder = builder.with_commit_properties(commit_properties);
             };
-
-            if self.log_store()?.name() == "LakeFSLogStore" {
-                builder =
-                    builder.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-            }
 
             rt().block_on(builder.into_future())
                 .map_err(PythonError::from)
@@ -2302,12 +2236,11 @@ Install datafusion=={required}.* (matching major) to use DataFusion SessionConte
         }
 
         let handle = rt().handle();
-        let name = CString::new("datafusion_table_provider").unwrap();
         let table = self.with_table(|t| Ok(t.clone()))?;
 
         let log_store = table.log_store();
         let object_store_url = log_store.root_url().as_object_store_url();
-        let object_store = log_store.root_object_store(None);
+        let object_store = log_store.root_object_store();
 
         let config = DeltaScanConfig::new().with_wrap_partition_values(false);
         let snapshot = table
@@ -2330,7 +2263,7 @@ Install datafusion=={required}.* (matching major) to use DataFusion SessionConte
             None,
         );
 
-        PyCapsule::new(py, provider, Some(name.clone()))
+        PyCapsule::new_with_value(py, provider, c"datafusion_table_provider")
     }
 }
 
@@ -2345,13 +2278,19 @@ fn set_post_commithook_properties(
     commit_properties
 }
 
-fn set_writer_properties(writer_properties: PyWriterProperties) -> DeltaResult<WriterProperties> {
-    let mut properties = WriterProperties::builder();
+/// Layer the Python `WriterProperties` over `base`, the operation's own default,
+/// so unset knobs keep its compression and the delta-rs `created_by`.
+fn set_writer_properties(
+    writer_properties: PyWriterProperties,
+    base: &WriterProperties,
+) -> DeltaResult<WriterProperties> {
+    let mut properties = base.clone().into_builder();
     let data_page_size_limit = writer_properties.data_page_size_limit;
     let dictionary_page_size_limit = writer_properties.dictionary_page_size_limit;
     let data_page_row_count_limit = writer_properties.data_page_row_count_limit;
     let write_batch_size = writer_properties.write_batch_size;
     let max_row_group_size = writer_properties.max_row_group_size;
+    let writer_version = writer_properties.writer_version;
     let compression = writer_properties.compression;
     let statistics_truncate_length = writer_properties.statistics_truncate_length;
     let default_column_properties = writer_properties.default_column_properties;
@@ -2372,7 +2311,14 @@ fn set_writer_properties(writer_properties: PyWriterProperties) -> DeltaResult<W
     if let Some(row_group_size) = max_row_group_size {
         properties = properties.set_max_row_group_row_count(Some(row_group_size));
     }
-    properties = properties.set_statistics_truncate_length(statistics_truncate_length);
+    if let Some(truncate_length) = statistics_truncate_length {
+        properties = properties.set_statistics_truncate_length(Some(truncate_length));
+    }
+    if let Some(writer_version) = writer_version {
+        let version = WriterVersion::from_str(&writer_version)
+            .map_err(|err| DeltaTableError::Generic(err.to_string()))?;
+        properties = properties.set_writer_version(version);
+    }
 
     if let Some(compression) = compression {
         let compress: Compression = compression
@@ -2407,7 +2353,7 @@ fn set_writer_properties(writer_properties: PyWriterProperties) -> DeltaResult<W
                 properties = properties.set_bloom_filter_fpp(bloom_filter_fpp);
             }
             if let Some(bloom_filter_ndv) = bloom_filter_properties.ndv {
-                properties = properties.set_bloom_filter_ndv(bloom_filter_ndv);
+                properties = properties.set_bloom_filter_max_ndv(bloom_filter_ndv);
             }
         }
     }
@@ -2455,7 +2401,7 @@ fn set_writer_properties(writer_properties: PyWriterProperties) -> DeltaResult<W
                     }
                     if let Some(bloom_filter_ndv) = bloom_filter_properties.ndv {
                         properties = properties
-                            .set_column_bloom_filter_ndv(column_name.into(), bloom_filter_ndv);
+                            .set_column_bloom_filter_max_ndv(column_name.into(), bloom_filter_ndv);
                     }
                 }
             }
@@ -2542,16 +2488,14 @@ fn scalar_to_py<'py>(value: &Scalar, py_date: &Bound<'py, PyAny>) -> PyResult<Bo
         Float(val) => val.into_py_any(py)?,
         Double(val) => val.into_py_any(py)?,
         Timestamp(_) => {
-            // We need to manually append 'Z' add to end so that pyarrow can cast the
-            // scalar value to pa.timestamp("us","UTC") or pa.timestamp("ns", "UTC")
-            let value = value.serialize();
-            format!("{value}Z").into_py_any(py)?
+            // pyarrow needs an explicit UTC offset to cast the scalar value to
+            // pa.timestamp("us", "UTC") or pa.timestamp("ns", "UTC"), and
+            // serialize() already emits one (`...Z`) for timezone-aware
+            // timestamps, so the value can be passed through as-is.
+            value.serialize().into_py_any(py)?
         }
         #[cfg(feature = "nanosecond-timestamps")]
-        TimestampNanos(_) => {
-            let value = value.serialize();
-            format!("{value}Z").into_py_any(py)?
-        }
+        TimestampNanos(_) => value.serialize().into_py_any(py)?,
         #[cfg(feature = "nanosecond-timestamps")]
         TimestampNanosNtz(_) => {
             let value = value.serialize();
@@ -2801,6 +2745,7 @@ impl From<&PyAddAction> for Add {
 }
 
 #[derive(FromPyObject)]
+#[non_exhaustive]
 pub enum PyFileAction {
     Remove(PyRemoveAction),
     Add(PyAddAction),
@@ -2828,6 +2773,7 @@ pub struct PyWriterProperties {
     data_page_row_count_limit: Option<usize>,
     write_batch_size: Option<usize>,
     max_row_group_size: Option<usize>,
+    writer_version: Option<String>,
     statistics_truncate_length: Option<usize>,
     compression: Option<String>,
     default_column_properties: Option<ColumnProperties>,
@@ -3201,8 +3147,6 @@ fn create_deltalake(
 
         let mode = mode.parse().map_err(PythonError::from)?;
 
-        let use_lakefs_handler = table.log_store().name() == "LakeFSLogStore";
-
         let mut builder = table
             .create()
             .with_columns(schema.fields().cloned())
@@ -3227,10 +3171,6 @@ fn create_deltalake(
         {
             builder = builder.with_commit_properties(commit_properties);
         };
-
-        if use_lakefs_handler {
-            builder = builder.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
 
         rt().block_on(builder.into_future())
             .map_err(PythonError::from)?;
@@ -3279,8 +3219,6 @@ fn create_table_with_add_actions(
             .build()
             .map_err(PythonError::from)?;
 
-        let use_lakefs_handler = table.log_store().name() == "LakeFSLogStore";
-
         let mut builder = table
             .create()
             .with_columns(schema.fields().cloned())
@@ -3305,10 +3243,6 @@ fn create_table_with_add_actions(
         {
             builder = builder.with_commit_properties(commit_properties);
         };
-
-        if use_lakefs_handler {
-            builder = builder.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
 
         rt().block_on(builder.into_future())
             .map_err(PythonError::from)?;
@@ -3385,10 +3319,6 @@ fn convert_to_deltalake(
             builder = builder.with_commit_properties(commit_properties);
         };
 
-        if uri.starts_with("lakefs://") {
-            builder = builder.with_custom_execute_handler(Arc::new(LakeFSCustomExecuteHandler {}))
-        }
-
         rt().block_on(builder.into_future())
             .map_err(PythonError::from)?;
         Ok(())
@@ -3434,6 +3364,7 @@ fn _internal(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(write_to_deltalake, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(convert_to_deltalake, m)?)?;
     m.add_class::<RawDeltaTable>()?;
+    m.add_class::<CommitInfoIterator>()?;
     m.add_class::<PyMergeBuilder>()?;
     m.add_class::<PyQueryBuilder>()?;
     m.add_class::<RawDeltaTableMetaData>()?;

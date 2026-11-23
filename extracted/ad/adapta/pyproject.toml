@@ -1,6 +1,6 @@
 [project]
 name = "adapta"
-version = "5.3.8"
+version = "5.3.9"
 description = "Logging, data connectors, monitoring, secret handling and general lifehacks to make data people lives easier."
 requires-python = ">=3.11, <3.16"
 readme = "README.md"

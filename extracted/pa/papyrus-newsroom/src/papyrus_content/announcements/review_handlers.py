@@ -35,14 +35,19 @@ def _scope(arguments: dict) -> dict[str, str]:
 
 
 def review_show(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore) -> Outcome:
+    return Outcome(show_review(policy, _tenant(client), arguments), _publication(client))
+
+
+def show_review(policy: AgentPolicyStore, tenant: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    """What ``announcements_review_show`` answers, from the policy alone: the command line's handler and the agent-policy function (the console's door) both call it."""
     from . import review_policy
 
-    state = policy.read(_tenant(client))
+    state = policy.read(tenant)
     summary = review_policy.review_summary(state)
     if arguments.get("channel") and arguments.get("kind"):
         choice = review_policy.choose(state, channel=arguments["channel"], kind=arguments["kind"], list_id=arguments.get("list"))
         summary["chosen"] = {"approval": choice.approval, "rung": choice.rung, "policy": choice.policy, "reason": choice.reason}
-    return Outcome(summary, _publication(client))
+    return summary
 
 
 def review_set(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore) -> Outcome:
@@ -64,22 +69,33 @@ def review_set(client: Any, arguments: dict, caller: Caller, policy: AgentPolicy
         except PolicyError as error:
             raise ImageOperationError(error.code, error.message) from error
         reason = f"{reason.strip()} {added}"
-    before = policy.read(tenant)
     try:
-        if approval == "inherit":
-            if not scope:
-                raise PolicyError("invalid_input", "inherit takes an override away: name the channel, kind or list it was for.")
-            after = review_policy.remove_override(policy, tenant, caller, scope, reason=reason)
-        else:
-            after = review_policy.set_review(policy, tenant, caller, approval, reason=reason, scope=scope or None)
+        result = set_review_by_person(policy, tenant, caller, approval, scope, reason)
     except PolicyError as error:
         raise ImageOperationError(error.code, error.message) from error
+    return Outcome(result, _publication(client))
+
+
+def set_review_by_person(policy: AgentPolicyStore, tenant: str, caller: Caller, approval: str, scope: Mapping[str, str], reason: str) -> dict[str, Any]:
+    """The change ``announcements_review_set`` makes once who is asking is settled, and its answer. Raises ``PolicyError``. The command line's handler calls it after an agent's
+    delegation; the agent-policy function (the console's door) calls it only for an admin signed in through a person-only app client."""
+    from papyrus_content.agent_policy import PolicyError
+
+    from . import review_policy
+
+    before = policy.read(tenant)
+    if approval == "inherit":
+        if not scope:
+            raise PolicyError("invalid_input", "inherit takes an override away: name the channel, kind or list it was for.")
+        after = review_policy.remove_override(policy, tenant, caller, scope, reason=reason)
+    else:
+        after = review_policy.set_review(policy, tenant, caller, approval, reason=reason, scope=scope or None)
     rung = review_policy.RUNG_OF.get(approval)
-    return Outcome({"policyVersion": after.version, "approval": None if approval == "inherit" else approval, "rung": rung or "inherit", "scope": scope or None,
-                    "changed": after.version != before.version}, _publication(client))
+    return {"policyVersion": after.version, "approval": None if approval == "inherit" else approval, "rung": rung or "inherit", "scope": dict(scope) if scope else None,
+            "changed": after.version != before.version}
 
 
-def delivery_review_set(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore) -> Outcome:
+def delivery_review_set(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore, timers: Any = None) -> Outcome:
     from .deliveries import Deliveries   # the records read the relation types (yaml); the image service function imports this module with the standard library only
     from .records import RecordError
 
@@ -96,7 +112,7 @@ def delivery_review_set(client: Any, arguments: dict, caller: Caller, policy: Ag
             caller, instruction = on_instruction_of(known, person=arguments.get("onInstructionOf", ""), quote=arguments.get("quote", ""), agent=arguments.get("agent", ""))
         except PolicyError as error:
             raise ImageOperationError(error.code, error.message) from error
-    deliveries = Deliveries(client)
+    deliveries = Deliveries(client, timers=timers)
     row = deliveries.get(arguments["delivery"])
     if row is None:
         raise ImageOperationError("not_found", f"No Delivery {arguments['delivery']!r} on this site.")
@@ -212,13 +228,13 @@ def withdraw(client: Any, arguments: dict, caller: Caller, policy: AgentPolicySt
     return Outcome({"id": written["id"], "state": written["state"], "withdrawnBy": by, "cost": written.get("cost"), "announcementState": state}, _publication(client))
 
 
-def release(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore) -> Outcome:
+def release(client: Any, arguments: dict, caller: Caller, policy: AgentPolicyStore, timers: Any = None) -> Outcome:
     """Release a Delivery (PPY-65d8b6): approve the version that would go, as the caller. The approval is a change the announce agent wakes for (PPY-1de948), and that run
     sends what is due, so a released Delivery goes now, through its channel's own attempt. Releasing one already approved changes nothing."""
     from .deliveries import Deliveries
     from .records import NONE, RecordError
 
-    deliveries = Deliveries(client)
+    deliveries = Deliveries(client, timers=timers)
     row = deliveries.get(arguments["delivery"])
     if row is None:
         raise ImageOperationError("not_found", f"No Delivery {arguments['delivery']!r} on this site.")
@@ -274,15 +290,16 @@ WRITE_DOOR_MUTATION = ("mutation AnnouncementsWrite($op: String!, $input: AWSJSO
                        "{ announcementsWrite(op: $op, input: $input, requestId: $requestId, actorKind: $actorKind) }")
 
 
-def door_write_handlers(client: Any, files: Any = None) -> dict[str, Handler]:
+def door_write_handlers(client: Any, files: Any = None, timers: Any = None) -> dict[str, Handler]:
     """The door's handlers over the service function's own client. None of them reads the agent policy, so no policy store is opened; a Delivery's words are its own
-    attachments (``deliveries.AttachmentFiles``), uploaded through presigned slots."""
+    attachments (``deliveries.AttachmentFiles``), uploaded through presigned slots. ``timers`` are the site's follow-up timers for its Deliveries
+    (``delivery_timers.DeliveryTimers``): a review change, a release, an edit or an unlock that moves a Delivery's due time moves its timer, so it is sent at its time."""
     from .edit_handlers import DOOR_EDIT_OPERATIONS, EDIT_HANDLERS
 
-    handlers: dict[str, Handler] = {name: (lambda function: lambda arguments, caller: function(client, arguments, caller, None))(REVIEW_HANDLERS[name])
+    handlers: dict[str, Handler] = {name: (lambda function: lambda arguments, caller: function(client, arguments, caller, None, timers=timers))(REVIEW_HANDLERS[name])
                                     for name in ("announcements_delivery_review_set", "announcements_release")}
     for name in DOOR_EDIT_OPERATIONS:
-        handlers[name] = (lambda function: lambda arguments, caller: function(client, arguments, caller, None, files))(EDIT_HANDLERS[name])
+        handlers[name] = (lambda function: lambda arguments, caller: function(client, arguments, caller, None, files, timers=timers))(EDIT_HANDLERS[name])
     return handlers
 
 

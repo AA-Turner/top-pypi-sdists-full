@@ -74,10 +74,13 @@ def _cast_receiver(node: ast.Call | ast.Subscript, provenance: ResourceProvenanc
     if not isinstance(node.ctx, ast.Load) or _static_text(node.slice) != "cast":
         return None
     namespace = node.value
-    if isinstance(namespace, ast.Attribute) and namespace.attr == "__dict__" and isinstance(namespace.value, ast.Name):
-        return namespace.value
-    if isinstance(namespace, ast.Call) and len(namespace.args) == 1 and _builtin_call(namespace, "vars", provenance):
-        return namespace.args[0] if isinstance(namespace.args[0], ast.Name) else None
+    match namespace:
+        case ast.Attribute() if namespace.attr == "__dict__" and isinstance(namespace.value, ast.Name):
+            return namespace.value
+        case ast.Call() if len(namespace.args) == 1 and _builtin_call(namespace, "vars", provenance):
+            return namespace.args[0] if isinstance(namespace.args[0], ast.Name) else None
+        case _:
+            pass
     return None
 
 
@@ -111,7 +114,6 @@ def _lexical_scopes(node: ast.AST, provenance: ResourceProvenance) -> Iterator[a
     scope = _evaluation_scope(node, provenance)
     immediate = True
     while scope is not None:
-        # Ordinary nested code blocks do not capture class locals.
         if immediate or not isinstance(scope, ast.ClassDef):
             yield scope
         immediate = False
@@ -128,7 +130,6 @@ def _evaluation_scope(node: ast.AST, provenance: ResourceProvenance) -> ast.AST 
         iterable = scope.generators[0].iter
         if iterable is not node and not provenance.contains(iterable, node):
             break
-        # A comprehension's first iterable is evaluated in the enclosing scope.
         node, scope = scope, provenance.scope(scope)
     return scope
 
@@ -182,7 +183,6 @@ def _outside_parameter_scope(
     if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
         outside.extend(owner.args.defaults)
         outside.extend(value for value in owner.args.kw_defaults if value is not None)
-    # Defaults and decorators evaluate in the enclosing scope.
     return any(value is node or provenance.contains(value, node) for value in outside)
 
 
@@ -196,13 +196,11 @@ def _local_binding_overrides(name: str, node: ast.AST, owner: ast.AST, provenanc
 
 
 def _static_text(node: ast.expr, depth: int = 0) -> str | None:
-    # Evaluate only bounded, side-effect-free string syntax, never runtime code.
     if depth > _MAX_LITERAL_DEPTH:
         return None
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value if len(node.value) <= _CAST_LENGTH else None
     if isinstance(node, ast.JoinedStr):
-        # Parsing adjacent static f-strings folds them into one Constant.
         return _static_text(node.values[0], depth + 1) if len(node.values) == 1 else None
     if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Add):
         return None
@@ -214,10 +212,13 @@ def _static_text(node: ast.expr, depth: int = 0) -> str | None:
 
 
 def _reflection_carrier(node: ast.Call | ast.Subscript) -> ast.AST | None:
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-        return node.func
-    if isinstance(node, ast.Subscript):
-        return node.value.func if isinstance(node.value, ast.Call) else node.value
+    match node:
+        case ast.Call() if isinstance(node.func, ast.Attribute):
+            return node.func
+        case ast.Subscript():
+            return node.value.func if isinstance(node.value, ast.Call) else node.value
+        case _:
+            pass
     return None
 
 

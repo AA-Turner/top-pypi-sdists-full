@@ -1,12 +1,8 @@
-"""Unit testing by Schemathesis Engine.
-
-This module provides high-level flow for single-, and multi-threaded modes.
-"""
-
 from __future__ import annotations
 
 import uuid
 import warnings
+from functools import partial
 from queue import Queue
 from typing import TYPE_CHECKING
 
@@ -25,8 +21,15 @@ from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.spec import Scheduler
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.recorder import ScenarioRecorder
-from schemathesis.engine.run import UNIT_PHASES, PhaseName, PhaseProgress, relay_events, report_outage
-from schemathesis.engine.run.unit._direct_executor import run_driver
+from schemathesis.engine.run import (
+    UNIT_PHASES,
+    PhaseName,
+    PhaseProgress,
+    deferred_interrupt,
+    relay_events,
+    report_outage,
+)
+from schemathesis.engine.run.unit._direct_executor import HeldBackCases, run_driver
 from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
 from schemathesis.engine.run.unit._pool import WORKER_FINISHED, DefaultScheduler, WorkerPool, split_results
 from schemathesis.engine.supervisor import SchedulingDirective, Verdict
@@ -37,9 +40,12 @@ from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, Hyp
 from schemathesis.generation.hypothesis.reporting import ignore_hypothesis_output
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from schemathesis.config import PhasesConfig
     from schemathesis.engine.context import EngineContext
     from schemathesis.engine.run import Phase
+    from schemathesis.generation.case import Case
     from schemathesis.generation.overrides import Override
     from schemathesis.schemas import APIOperation
 
@@ -88,13 +94,17 @@ def _scheduler_for_layers(
     return LayeredScheduler(layers, errors=errors)
 
 
-def execute(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None = None) -> events.EventGenerator:
-    """Run a set of unit tests.
+def execute(
+    engine: EngineContext,
+    phase: Phase,
+    *,
+    only: frozenset[str] | None = None,
+    held_back: Mapping[str, list[Case]] | None = None,
+) -> events.EventGenerator:
+    """Run one unit-test phase; worker threads pull operations from the scheduler and test them.
 
-    Implemented as a producer-consumer pattern via a task queue.
-    The main thread provides an iterator over API operations and worker threads create test functions and run them.
+    With `held_back`, each coverage operation sends these cases instead of generating its own.
     """
-    # Create scheduler based on ordering configuration
     try:
         scheduler, total_entries = _create_scheduler(engine, phase, only=only)
     except HookExecutionError as exc:
@@ -108,22 +118,27 @@ def execute(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None 
     progress = PhaseProgress()
 
     try:
-        with WorkerPool(
-            # A worker beyond the entry count would find nothing to run, yet its thread still costs memory.
-            workers_num=min(engine.config.workers, total_entries),
-            scheduler=scheduler,
-            worker_factory=worker_task,
-            ctx=engine,
-            phase=phase.name,
-            suite_id=suite_started.id,
-        ) as pool:
+        # Ctrl-C while workers start or are joined must stop the run as well as one during the relay
+        with (
+            deferred_interrupt() as interrupted,
+            WorkerPool(
+                # A worker beyond the entry count would find nothing to run, yet its thread still costs memory.
+                workers_num=min(engine.config.workers, total_entries),
+                scheduler=scheduler,
+                worker_factory=partial(worker_task, held_back=held_back),
+                ctx=engine,
+                phase=phase.name,
+                suite_id=suite_started.id,
+            ) as pool,
+        ):
             try:
                 yield from _consume_worker_events(pool, engine, phase.name, progress)
             except KeyboardInterrupt:
                 # Soft stop, waiting for workers to terminate
-                engine.stop()
-                progress.status = Status.INTERRUPTED
-                yield events.Interrupted(phase=phase.name)
+                yield from _interrupt(engine, phase.name, progress)
+        # Ctrl-C after the last event, while workers wound down
+        if interrupted.is_set() and progress.status != Status.INTERRUPTED:
+            yield from _interrupt(engine, phase.name, progress)
     except KeyboardInterrupt as exc:
         # Hard stop, don't wait for worker threads
         if isinstance(exc.__context__, GeneratorExit):
@@ -134,9 +149,15 @@ def execute(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None 
     yield from report_outage(engine, phase.name, progress)
     yield from _report_unreached(engine, scheduler, phase.name, suite_started.id)
     status = progress.final_status(phase)
-    # NOTE: Right now there is just one suite, hence two events go one after another
+    # A unit phase has one suite, so the two events go back to back
     yield events.SuiteFinished(id=suite_started.id, phase=phase.name, status=status)
     yield events.PhaseFinished(phase=phase, status=status, payload=None)
+
+
+def _interrupt(engine: EngineContext, phase: PhaseName, progress: PhaseProgress) -> events.EventGenerator:
+    engine.stop()
+    progress.status = Status.INTERRUPTED
+    yield events.Interrupted(phase=phase)
 
 
 def _consume_worker_events(
@@ -204,6 +225,7 @@ def worker_task(
     ctx: EngineContext,
     phase: PhaseName,
     suite_id: uuid.UUID,
+    held_back: Mapping[str, list[Case]] | None,
 ) -> None:
     from hypothesis.errors import HypothesisWarning
 
@@ -213,11 +235,17 @@ def worker_task(
             while not ctx.has_to_stop:
                 result = scheduler.next_operation()
                 if result is None:
-                    # All operations exhausted
                     break
 
                 if isinstance(result, Ok):
-                    _run_operation(result.ok(), events_queue=events_queue, ctx=ctx, phase=phase, suite_id=suite_id)
+                    _run_operation(
+                        result.ok(),
+                        events_queue=events_queue,
+                        ctx=ctx,
+                        phase=phase,
+                        suite_id=suite_id,
+                        held_back=held_back,
+                    )
                 else:
                     _put_error(events_queue, result.err(), phase=phase, suite_id=suite_id)
         except KeyboardInterrupt:
@@ -231,6 +259,7 @@ def _run_operation(
     ctx: EngineContext,
     phase: PhaseName,
     suite_id: uuid.UUID,
+    held_back: Mapping[str, list[Case]] | None,
 ) -> None:
     """Test one operation in this phase, or report why it is skipped."""
     ctx.take_operation_slice()
@@ -244,7 +273,7 @@ def _run_operation(
             events_queue, operation.label, phase, suite_id, skip_reason=verdict.reason, skip_warning=verdict.warning
         )
         return
-    _run_scenario(operation, events_queue=events_queue, ctx=ctx, phase=phase, suite_id=suite_id)
+    _run_scenario(operation, events_queue=events_queue, ctx=ctx, phase=phase, suite_id=suite_id, held_back=held_back)
 
 
 _DISABLED_VERDICT = Verdict(directive=SchedulingDirective.SKIP, reason="Disabled for this operation")
@@ -264,6 +293,7 @@ def _run_scenario(
     ctx: EngineContext,
     phase: PhaseName,
     suite_id: uuid.UUID,
+    held_back: Mapping[str, list[Case]] | None,
 ) -> None:
     scenario_started = events.ScenarioStarted(label=operation.label, phase=phase, suite_id=suite_id)
     events_queue.put(scenario_started)
@@ -271,7 +301,7 @@ def _run_scenario(
         override = overrides.with_config_headers(ctx.config, operation=operation)
         feedback = ctx.feedback_for(operation=operation, phase=phase)
         if phase in (PhaseName.COVERAGE, PhaseName.EXAMPLES):
-            generator = _build_driver_generator(operation, ctx, phase, override, feedback)
+            generator = _build_driver_generator(operation, ctx, phase, override, feedback, held_back)
             _put_all(
                 events_queue,
                 run_driver(
@@ -299,8 +329,11 @@ def _build_driver_generator(
     phase: PhaseName,
     override: Override,
     feedback: FeedbackSources,
+    held_back: Mapping[str, list[Case]] | None,
 ) -> CaseGenerator:
     if phase == PhaseName.COVERAGE:
+        if held_back is not None:
+            return HeldBackCases(operation=operation, cases=held_back[operation.label])
         return build_coverage_generator(
             ctx.config, operation, override=override, feedback=feedback, session=ctx.coverage_session
         )
@@ -343,10 +376,8 @@ def _run_hypothesis_test(
             exc = InvalidRegexPattern.from_jsonschema_rs_error(exc)
         _finish_with_error(events_queue, exc, scenario_started)
         return
-    # The test is blocking, meaning that even if CTRL-C comes to the main thread, this tasks will
-    # continue executing. However, as we set a stop event, it will be checked before the next
-    # network request. However, this is still suboptimal, as there could be slow requests and they
-    # will block for longer
+    # The test blocks: after CTRL-C it runs until the next network request checks the stop event,
+    # so slow requests delay the stop.
     _put_all(
         events_queue,
         run_test(

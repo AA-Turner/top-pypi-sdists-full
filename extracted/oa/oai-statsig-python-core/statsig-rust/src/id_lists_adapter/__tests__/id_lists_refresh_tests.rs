@@ -770,7 +770,7 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
                     .await
                     .map(|_| ())
             } else {
-                adapter.refresh(RefreshTrigger::PrivateInitialize).await
+                adapter.refresh(RefreshTrigger::Initialize).await
             };
             assert!(result.is_err());
             let mut markers = Vec::new();
@@ -1363,8 +1363,6 @@ async fn serialized_shutdown_during_file_backoff_does_not_retry() {
 async fn id_list_snapshot_opt_in_preserves_the_send_only_raw_provider() {
     use crate::SpecStore;
     use crate::sdk_event_emitter::SdkEventEmitter;
-    // A legacy listener (including the shared publisher) and a private EF
-    // listener must both use the existing send-only transport without advertising EF.
     for private in [false, true] {
         let (provider, mut adapter, _) = setup(&["a"]);
         let adapter = Arc::get_mut(&mut adapter).unwrap();

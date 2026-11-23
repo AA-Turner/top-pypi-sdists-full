@@ -1,6 +1,6 @@
 [project]
 name = "contree-sdk"
-version = "0.5.1"
+version = "0.5.2"
 readme = "README.md"
 description = "SDK for ConTree container runtime with versioned filesystem state"
 license = { text = "Apache-2.0" }
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "contree-client[httpx]>=0.5.3",
+    "contree-client[httpx]>=0.6.0",
     "typing-extensions; python_version < '3.11'",
 ]
 

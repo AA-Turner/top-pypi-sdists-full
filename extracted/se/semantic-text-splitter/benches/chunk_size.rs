@@ -133,6 +133,15 @@ mod text {
             .bench(|| splitter.chunks(&text).for_each(black_box_drop));
     }
 
+    #[divan::bench(args = [100_000, 200_000, 400_000])]
+    fn long_ascii_word(bencher: Bencher<'_, '_>, bytes: usize) {
+        let text = "a".repeat(bytes);
+        let splitter = TextSplitter::new(100);
+        bencher
+            .counter(BytesCount::of_str(&text))
+            .bench(|| splitter.chunks(&text).for_each(black_box_drop));
+    }
+
     #[cfg(feature = "tiktoken-rs")]
     #[divan::bench(args = TEXT_FILENAMES, consts = CHUNK_SIZES)]
     fn tiktoken<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
@@ -143,7 +152,7 @@ mod text {
         });
     }
 
-    #[cfg(feature = "tokenizers")]
+    #[cfg(any(feature = "tokenizers-onig", feature = "tokenizers-fancy-regex"))]
     #[divan::bench(args = TEXT_FILENAMES, consts = CHUNK_SIZES)]
     fn tokenizers<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
         bench(bencher, filename, || {
@@ -200,7 +209,7 @@ mod markdown {
         });
     }
 
-    #[cfg(feature = "tokenizers")]
+    #[cfg(any(feature = "tokenizers-onig", feature = "tokenizers-fancy-regex"))]
     #[divan::bench(args = MARKDOWN_FILENAMES, consts = CHUNK_SIZES)]
     fn tokenizers<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
         bench(bencher, filename, || {
@@ -277,7 +286,7 @@ mod code {
         });
     }
 
-    #[cfg(feature = "tokenizers")]
+    #[cfg(any(feature = "tokenizers-onig", feature = "tokenizers-fancy-regex"))]
     #[divan::bench(args = CODE_FILENAMES, consts = CHUNK_SIZES)]
     fn tokenizers<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
         bench(bencher, filename, || {

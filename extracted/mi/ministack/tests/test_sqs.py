@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import copy
 import io
 import json
@@ -2683,7 +2684,7 @@ def test_invalid_update_preserves_all_attributes(queue, invalid):
     before = copy.deepcopy(sqs_svc._queues[url])
     status, _, body = _request("json", "SetQueueAttributes", url, {"Policy": "", **invalid})
     assert status == 400
-    assert json.loads(body)["__type"] == "InvalidAttributeValue"
+    assert json.loads(body)["__type"] == "com.amazonaws.sqs#InvalidAttributeValue"
     assert sqs_svc._queues[url] == before
 
 
@@ -2775,3 +2776,475 @@ def test_sqs_sender_id_is_the_user_or_role_session(sqs):
                                      MessageSystemAttributeNames=["SenderId"]).get("Messages", []):
             seen[m["Body"]] = m["Attributes"]["SenderId"]
     assert seen == {"from-user": user["UserId"], "from-role-session": f"{role['RoleId']}:my-session"}
+
+
+# ── Message move tasks (dead-letter queue redrive) ─────────
+
+def _redrive_queues(sqs, fifo=False):
+    """A DLQ, a queue that dead-letters into it after one receive, and an unrelated queue: (url, arn) each."""
+    tag, sfx = _uuid_mod.uuid4().hex[:8], ".fifo" if fifo else ""
+    base = {"FifoQueue": "true", "ContentBasedDeduplication": "true"} if fifo else {}
+
+    def make(name, **extra):
+        url = sqs.create_queue(QueueName=f"mv-{name}-{tag}{sfx}", Attributes={**base, **extra})["QueueUrl"]
+        return url, sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+
+    dlq = make("dlq")
+    src = make("src", RedrivePolicy=json.dumps({"deadLetterTargetArn": dlq[1], "maxReceiveCount": "1"}))
+    return dlq, src, make("other")
+
+
+def _send_to_dlq(sqs, src_url, bodies, **kw):
+    for body in bodies:
+        sqs.send_message(QueueUrl=src_url, MessageBody=body, **kw)
+    for _ in range(2):
+        sqs.receive_message(QueueUrl=src_url, MaxNumberOfMessages=10, VisibilityTimeout=0)
+
+
+def _depth(sqs, url):
+    return int(sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["ApproximateNumberOfMessages"])
+               ["Attributes"]["ApproximateNumberOfMessages"])
+
+
+def test_sqs_move_task_redrives_back_to_the_source(sqs):
+    (dlq_url, dlq), (src_url, _src), _ = _redrive_queues(sqs)
+    sqs.send_message(QueueUrl=src_url, MessageBody="a",
+                     MessageAttributes={"k": {"DataType": "String", "StringValue": "v"}})
+    _send_to_dlq(sqs, src_url, ["b"])
+    dead = sqs.receive_message(QueueUrl=dlq_url, MaxNumberOfMessages=10, VisibilityTimeout=0)["Messages"]
+    handle = sqs.start_message_move_task(SourceArn=dlq)["TaskHandle"]
+    assert json.loads(base64.b64decode(handle))["sourceArn"] == dlq
+    [task] = sqs.list_message_move_tasks(SourceArn=dlq)["Results"]
+    assert task == {"Status": "COMPLETED", "SourceArn": dlq, "ApproximateNumberOfMessagesMoved": 2,
+                    "ApproximateNumberOfMessagesToMove": 2, "StartedTimestamp": task["StartedTimestamp"]}
+    moved = sqs.receive_message(QueueUrl=src_url, MaxNumberOfMessages=10, AttributeNames=["All"],
+                                MessageAttributeNames=["All"])["Messages"]
+    assert sorted(m["Body"] for m in moved) == ["a", "b"] and _depth(sqs, dlq_url) == 0
+    assert not {m["MessageId"] for m in moved} & {m["MessageId"] for m in dead}
+    for m in moved:
+        assert m["Attributes"]["ApproximateReceiveCount"] == "1"
+        assert "DeadLetterQueueSourceArn" not in m["Attributes"]
+    assert next(m for m in moved if m["Body"] == "a")["MessageAttributes"] == {
+        "k": {"StringValue": "v", "DataType": "String"}}
+
+
+def test_sqs_move_task_to_a_destination_and_fifo(sqs):
+    (dlq_url, dlq), _, (other_url, other) = _redrive_queues(sqs)
+    for i in range(3):
+        sqs.send_message(QueueUrl=dlq_url, MessageBody=f"m{i}")
+    sqs.start_message_move_task(SourceArn=dlq, DestinationArn=other)
+    [task] = sqs.list_message_move_tasks(SourceArn=dlq, MaxResults=10)["Results"]
+    assert (task["Status"], task["DestinationArn"], task["ApproximateNumberOfMessagesMoved"]) == ("COMPLETED", other, 3)
+    assert (_depth(sqs, dlq_url), _depth(sqs, other_url)) == (0, 3)
+
+    (fdlq_url, fdlq), (fsrc_url, _), _ = _redrive_queues(sqs, fifo=True)
+    _send_to_dlq(sqs, fsrc_url, ["f"], MessageGroupId="g", MessageDeduplicationId="d")
+    [dead] = sqs.receive_message(QueueUrl=fdlq_url, AttributeNames=["All"], VisibilityTimeout=0)["Messages"]
+    sqs.start_message_move_task(SourceArn=fdlq)
+    [moved] = sqs.receive_message(QueueUrl=fsrc_url, AttributeNames=["All"])["Messages"]
+    assert moved["MessageId"] != dead["MessageId"]
+    assert all(moved["Attributes"][k] == dead["Attributes"][k] for k in ("MessageGroupId", "MessageDeduplicationId"))
+    assert int(moved["Attributes"]["SequenceNumber"]) > int(dead["Attributes"]["SequenceNumber"])
+
+
+def test_sqs_move_task_fails_for_a_message_without_a_source(sqs):
+    (dlq_url, dlq), _, _ = _redrive_queues(sqs)
+    sqs.send_message(QueueUrl=dlq_url, MessageBody="sent straight to the DLQ")
+    sqs.start_message_move_task(SourceArn=dlq)
+    [task] = sqs.list_message_move_tasks(SourceArn=dlq)["Results"]
+    assert (task["Status"], task["FailureReason"], task["ApproximateNumberOfMessagesMoved"]) == (
+        "FAILED", "CouldNotDetermineMessageSource", 0)
+    assert _depth(sqs, dlq_url) == 1
+
+
+def test_sqs_move_task_errors(sqs):
+    (dlq_url, dlq), _, (_, other) = _redrive_queues(sqs)
+    (_, fifo_dlq), _, _ = _redrive_queues(sqs, fifo=True)
+    missing = dlq + "-missing"
+    fmt = "You must use this format to specify the {}: arn:<partition>:<service>:<region>:<account-id>:<resource-id>"
+    start, list_, cancel = sqs.start_message_move_task, sqs.list_message_move_tasks, sqs.cancel_message_move_task
+    nf = 404
+
+    def err(fn, **kw):
+        with pytest.raises(ClientError) as exc:
+            fn(**kw)
+        r = exc.value.response
+        return r["ResponseMetadata"]["HTTPStatusCode"], r["Error"]["Code"], r["Error"]["Message"]
+
+    bad = (400, "InvalidParameterValue")
+    assert err(start, SourceArn=other) == (*bad, "Source queue must be configured as a Dead Letter Queue.")
+    assert err(start, SourceArn=missing) == (
+        nf, "ResourceNotFoundException", "The resource that you specified for the SourceArn parameter doesn't exist.")
+    assert err(start, SourceArn="not-an-arn") == (*bad, fmt.format("SourceArn"))
+    assert err(start, SourceArn=dlq, DestinationArn="not-an-arn") == (*bad, fmt.format("DestinationArn"))
+    assert err(start, SourceArn=dlq, DestinationArn=fifo_dlq) == (
+        *bad, "The source queue and destination queue must be of the same queue type.")
+    for rate in (0, 501):
+        assert err(start, SourceArn=dlq, MaxNumberOfMessagesPerSecond=rate) == (
+            *bad, "Value for parameter MaxNumberOfMessagesPerSecond is invalid. "
+                  "Reason: You must enter a number that's between 1 and 500.")
+    assert "Results" not in list_(SourceArn=dlq) and "Results" not in list_(SourceArn=other)
+    for n in (0, 11):
+        assert err(list_, SourceArn=dlq, MaxResults=n) == (
+            *bad, "Value for parameter MaxResults is invalid. Reason: You must enter a number that's between 1 and 10.")
+    assert err(cancel, TaskHandle="bm90LWEtaGFuZGxl") == (*bad, "Value for parameter TaskHandle is invalid.")
+    unknown = base64.b64encode(json.dumps({"taskId": str(_uuid_mod.uuid4()), "sourceArn": dlq}).encode()).decode()
+    assert err(cancel, TaskHandle=unknown) == (nf, "ResourceNotFoundException", "Task does not exist.")
+    done = start(SourceArn=dlq)["TaskHandle"]  # an empty DLQ completes at once
+    assert err(cancel, TaskHandle=done) == (*bad, "Only active tasks can be cancelled.")
+    sqs.delete_queue(QueueUrl=dlq_url)
+    assert err(cancel, TaskHandle=done) == (
+        nf, "ResourceNotFoundException", "The resource that you specified for the SourceArn parameter doesn't exist.")
+
+
+def _move_inproc(monkeypatch, n=20):
+    monkeypatch.setattr(sqs_svc, "_move_tasks", AccountRegionScopedDict())
+    clock, create, counts, _ = _sqs_inproc(monkeypatch)
+    tag = _uuid_mod.uuid4().hex[:8]
+
+    def arn(url):
+        return sqs_svc._act_get_queue_attributes({"QueueUrl": url, "AttributeNames": ["QueueArn"]}, url)[
+            "Attributes"]["QueueArn"]
+
+    dlq = create(f"mv-dlq-{tag}")
+    create(f"mv-src-{tag}", RedrivePolicy=json.dumps({"deadLetterTargetArn": arn(dlq), "maxReceiveCount": "1"}))
+    dest = create(f"mv-dest-{tag}")
+    for i in range(n):
+        sqs_svc._act_send_message({"QueueUrl": dlq, "MessageBody": f"m{i}"}, dlq)
+
+    def call(action, **data):
+        return asyncio.run(sqs_svc._dispatch(action, data, ""))
+
+    return clock, counts, call, (dlq, arn(dlq)), (dest, arn(dest))
+
+
+def test_sqs_move_task_rate_and_cancel(monkeypatch):
+    clock, counts, call, (dlq, dlq_arn), (dest, dest_arn) = _move_inproc(monkeypatch)
+    handle = call("StartMessageMoveTask", SourceArn=dlq_arn, DestinationArn=dest_arn,
+                  MaxNumberOfMessagesPerSecond=2)["TaskHandle"]
+    clock.now += 3
+    [task] = call("ListMessageMoveTasks", SourceArn=dlq_arn)["Results"]
+    assert (task["Status"], task["TaskHandle"], task["MaxNumberOfMessagesPerSecond"]) == ("RUNNING", handle, 2)
+    assert (task["ApproximateNumberOfMessagesMoved"], task["ApproximateNumberOfMessagesToMove"]) == (6, 20)
+    assert (counts(dlq)[0], counts(dest)[0]) == (14, 6)
+    with pytest.raises(sqs_svc._Err) as exc:
+        call("StartMessageMoveTask", SourceArn=dlq_arn)
+    assert exc.value.message.startswith("There is already a task running.")
+    assert call("CancelMessageMoveTask", TaskHandle=handle) == {"ApproximateNumberOfMessagesMoved": 6}
+    assert call("CancelMessageMoveTask", TaskHandle=handle) == {"ApproximateNumberOfMessagesMoved": 6}
+    clock.now += 2  # CANCELLING goes on moving at the rate
+    [task] = call("ListMessageMoveTasks", SourceArn=dlq_arn)["Results"]
+    assert (task["Status"], task["ApproximateNumberOfMessagesMoved"]) == ("CANCELLING", 10)
+    assert "TaskHandle" not in task
+    with pytest.raises(sqs_svc._Err):
+        call("StartMessageMoveTask", SourceArn=dlq_arn)
+    clock.now += 20
+    [task] = call("ListMessageMoveTasks", SourceArn=dlq_arn)["Results"]
+    assert (task["Status"], task["ApproximateNumberOfMessagesMoved"]) == ("CANCELLED", 10)
+    assert counts(dlq)[0] == 10
+    assert call("CancelMessageMoveTask", TaskHandle=handle) == {"ApproximateNumberOfMessagesMoved": 10}
+    call("StartMessageMoveTask", SourceArn=dlq_arn, DestinationArn=dest_arn)
+    tasks = call("ListMessageMoveTasks", SourceArn=dlq_arn, MaxResults=10)["Results"]
+    assert [(t["Status"], t["ApproximateNumberOfMessagesMoved"]) for t in tasks] == [
+        ("COMPLETED", 10), ("CANCELLED", 10)]
+
+
+def test_sqs_move_tasks_keep_the_ten_most_recent(monkeypatch):
+    clock, _, call, (_, dlq_arn), _ = _move_inproc(monkeypatch, n=0)
+    for _ in range(12):
+        clock.now += 1
+        call("StartMessageMoveTask", SourceArn=dlq_arn)
+    assert len(sqs_svc._source_tasks(dlq_arn)) == 10
+
+
+def test_sqs_move_task_query_protocol(monkeypatch):
+    clock, _, _, (_, dlq_arn), (_, dest_arn) = _move_inproc(monkeypatch)
+
+    def query(action, **params):
+        body = urlencode({"Action": action, **params}).encode()
+        status, _, raw = asyncio.run(sqs_svc.handle_request(
+            "POST", "/", {"content-type": "application/x-www-form-urlencoded"}, body, {}))
+        return status, ET.fromstring(raw)
+
+    ns = "{http://queue.amazonaws.com/doc/2012-11-05/}"
+    status, doc = query("StartMessageMoveTask", SourceArn=dlq_arn, DestinationArn=dest_arn,
+                        MaxNumberOfMessagesPerSecond="5")
+    assert status == 200 and doc.findtext(f"{ns}StartMessageMoveTaskResult/{ns}TaskHandle")
+    clock.now += 1
+    status, doc = query("ListMessageMoveTasks", SourceArn=dlq_arn, MaxResults="10")
+    [entry] = doc.findall(f"{ns}ListMessageMoveTasksResult/{ns}ListMessageMoveTasksResultEntry")
+    assert (entry.findtext(f"{ns}Status"), entry.findtext(f"{ns}ApproximateNumberOfMessagesMoved")) == ("RUNNING", "5")
+    status, doc = query("StartMessageMoveTask", SourceArn=dest_arn)
+    assert status == 400 and doc.findtext(f"{ns}Error/{ns}Code") == "InvalidParameterValue"
+
+
+def test_sqs_move_tasks_survive_a_restore(monkeypatch):
+    clock, _, call, (_, dlq_arn), (_, dest_arn) = _move_inproc(monkeypatch)
+    call("StartMessageMoveTask", SourceArn=dlq_arn, DestinationArn=dest_arn, MaxNumberOfMessagesPerSecond=1)
+    saved = copy.deepcopy(sqs_svc.get_state())
+    monkeypatch.setattr(sqs_svc, "_move_tasks", AccountRegionScopedDict())
+    sqs_svc.load_persisted_state(saved)
+    clock.now += 5
+    [task] = call("ListMessageMoveTasks", SourceArn=dlq_arn)["Results"]
+    assert (task["Status"], task["ApproximateNumberOfMessagesMoved"]) == ("RUNNING", 5)
+
+
+def _kms_queue(sqs, kms_client, *, fifo=False, key=None, state="Disabled", **attrs):
+    key = key or kms_client.create_key()["KeyMetadata"]
+    name = f"kms-{_uuid_mod.uuid4().hex[:8]}" + (".fifo" if fifo else "")
+    a = {"KmsMasterKeyId": key["Arn"], **{k: str(v) for k, v in attrs.items()}}
+    if fifo:
+        a["FifoQueue"] = "true"
+    url = sqs.create_queue(QueueName=name, Attributes=a)["QueueUrl"]
+    if state == "Disabled":
+        kms_client.disable_key(KeyId=key["KeyId"])
+    elif state == "PendingDeletion":
+        kms_client.schedule_key_deletion(KeyId=key["KeyId"], PendingWindowInDays=7)
+    return url, key
+
+
+_KMS_TAIL = r" \(Service: AWSKMS; Status Code: 400; Error Code: {}; Request ID: [0-9a-f-]{{36}}; Proxy: null\)"
+
+
+def test_sqs_send_message_disabled_key_matches_aws(sqs, kms_client):
+    url, key = _kms_queue(sqs, kms_client)
+    try:
+        with pytest.raises(ClientError) as exc:
+            sqs.send_message(QueueUrl=url, MessageBody="x")
+        err, meta = exc.value.response["Error"], exc.value.response["ResponseMetadata"]
+        assert (err["Code"], err["QueryErrorCode"], err["Type"]) == ("KMS.DisabledException", "KmsDisabled", "Sender")
+        assert meta["HTTPStatusCode"] == 400
+        assert meta["HTTPHeaders"]["x-amzn-query-error"] == "KMS.DisabledException;Sender"
+        assert re.fullmatch(re.escape(f"{key['Arn']} is disabled.") + _KMS_TAIL.format("DisabledException"),
+                            err["Message"])
+        # An empty queue answers a receive without asking KMS for a data key.
+        assert "Messages" not in sqs.receive_message(QueueUrl=url)
+        # The request checks come first.
+        with pytest.raises(ClientError) as exc:
+            sqs.send_message(QueueUrl=url, MessageBody="\x00")
+        assert exc.value.response["Error"]["Code"] == "InvalidMessageContents"
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_send_message_batch_disabled_key_matches_aws(sqs, kms_client):
+    url, key = _kms_queue(sqs, kms_client)
+    try:
+        r = sqs.send_message_batch(QueueUrl=url, Entries=[
+            {"Id": "a", "MessageBody": "one"}, {"Id": "b", "MessageBody": "\x00"}, {"Id": "c", "MessageBody": "two"}])
+        assert r.get("Successful", []) == []
+        assert [(f["Id"], f["Code"], f["SenderFault"]) for f in r["Failed"]] == [
+            ("b", "InvalidMessageContents", True),
+            ("a", "KMS.DisabledException", True), ("c", "KMS.DisabledException", True)]
+        assert r["Failed"][1]["Message"] == r["Failed"][2]["Message"]
+        assert r["Failed"][1]["Message"].startswith(f"{key['Arn']} is disabled. (Service: AWSKMS;")
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_fifo_dedup_resend_still_needs_the_key(sqs, kms_client):
+    key = kms_client.create_key()["KeyMetadata"]
+    url, _ = _kms_queue(sqs, kms_client, fifo=True, key=key, state="Enabled")
+    try:
+        sqs.send_message(QueueUrl=url, MessageBody="x", MessageGroupId="g", MessageDeduplicationId="d")
+        kms_client.disable_key(KeyId=key["KeyId"])
+        # The queue's send-side data key is cached for the reuse period; a new queue on the key is not.
+        url2, _ = _kms_queue(sqs, kms_client, fifo=True, key=key, state="Enabled")
+        try:
+            with pytest.raises(ClientError) as exc:
+                sqs.send_message(QueueUrl=url2, MessageBody="x", MessageGroupId="g", MessageDeduplicationId="d")
+            assert exc.value.response["Error"]["Code"] == "KMS.DisabledException"
+        finally:
+            sqs.delete_queue(QueueUrl=url2)
+        # Inside the reuse period the first queue still answers the dedup hit with the first MessageId.
+        assert sqs.send_message(QueueUrl=url, MessageBody="x", MessageGroupId="g", MessageDeduplicationId="d")
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_receive_with_messages_needs_the_key(sqs, kms_client):
+    key = kms_client.create_key()["KeyMetadata"]
+    url, _ = _kms_queue(sqs, kms_client, key=key, state="Enabled")
+    try:
+        sqs.send_message(QueueUrl=url, MessageBody="x")
+        kms_client.disable_key(KeyId=key["KeyId"])
+        with pytest.raises(ClientError) as exc:
+            sqs.receive_message(QueueUrl=url, VisibilityTimeout=30)
+        assert exc.value.response["Error"]["Code"] == "KMS.DisabledException"
+        attrs = sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["All"])["Attributes"]
+        assert (attrs["ApproximateNumberOfMessages"], attrs["ApproximateNumberOfMessagesNotVisible"]) == ("1", "0")
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_send_missing_or_pending_deletion_key_matches_aws(sqs, kms_client):
+    account, region = "000000000000", sqs.meta.region_name
+    missing = "11111111-2222-3333-4444-555555555555"
+    other_region = "us-west-2" if region != "us-west-2" else "eu-north-1"
+    cases = [
+        ("alias/sqs-missing", "KMS.NotFoundException", "KmsNotFound", "NotFoundException",
+         f"Alias arn:aws:kms:{region}:{account}:alias/sqs-missing is not found."),
+        (missing, "KMS.NotFoundException", "KmsNotFound", "NotFoundException",
+         f"Key 'arn:aws:kms:{region}:{account}:key/{missing}' does not exist"),
+        (f"arn:aws:kms:{region}:{account}:key/{missing}", "KMS.NotFoundException", "KmsNotFound",
+         "NotFoundException", f"Key 'arn:aws:kms:{region}:{account}:key/{missing}' does not exist"),
+        ("not-a-key", "KMS.NotFoundException", "KmsNotFound", "NotFoundException", "Invalid keyId not-a-key"),
+        ("1234", "KMS.NotFoundException", "KmsNotFound", "NotFoundException", "Invalid keyId 1234"),
+        ("alias/", "KMS.NotFoundException", "KmsNotFound", "NotFoundException",
+         f"Alias arn:aws:kms:{region}:{account}:alias/ is not found."),
+        (f"arn:aws:kms:{region}:{account}:key/bad", "KMS.NotFoundException", "KmsNotFound", "NotFoundException",
+         "Invalid keyId bad"),
+        (f"arn:aws:kms:{other_region}:{account}:key/{missing}", "KMS.NotFoundException", "KmsNotFound",
+         "NotFoundException", f"Invalid arn {other_region}"),
+        ("arn:aws:s3:::bucket", "KMS.NotFoundException", "KmsNotFound", "NotFoundException", "Invalid arn s3"),
+        (f"arn:aws:kms:{region}:111122223333:key/{missing}", "KMS.AccessDeniedException", "KmsAccessDenied",
+         "AccessDeniedException",
+         f"User: arn:aws:iam::{account}:root is not authorized to perform: kms:GenerateDataKey on this resource "
+         "because the resource does not exist in this Region, no resource-based policies allow access, or a "
+         "resource-based policy explicitly denies access"),
+    ]
+    for key_ref, code, shape, kms_code, text in cases:
+        url = sqs.create_queue(QueueName=f"kms-{_uuid_mod.uuid4().hex[:8]}",
+                               Attributes={"KmsMasterKeyId": key_ref})["QueueUrl"]
+        try:
+            with pytest.raises(ClientError) as exc:
+                sqs.send_message(QueueUrl=url, MessageBody="x")
+            err = exc.value.response["Error"]
+            assert (err["Code"], err["QueryErrorCode"]) == (code, shape)
+            assert re.fullmatch(re.escape(text) + _KMS_TAIL.format(kms_code), err["Message"]), err["Message"]
+        finally:
+            sqs.delete_queue(QueueUrl=url)
+    url, key = _kms_queue(sqs, kms_client, state="PendingDeletion")
+    try:
+        with pytest.raises(ClientError) as exc:
+            sqs.send_message(QueueUrl=url, MessageBody="x")
+        err = exc.value.response["Error"]
+        assert (err["Code"], err["QueryErrorCode"]) == ("KMS.InvalidStateException", "KmsInvalidState")
+        assert re.fullmatch(re.escape(f"{key['Arn']} is pending deletion.")
+                            + _KMS_TAIL.format("KMSInvalidStateException"), err["Message"])
+        assert "Messages" not in sqs.receive_message(QueueUrl=url)
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_disabled_key_alias_names_the_key_arn(sqs, kms_client):
+    key = kms_client.create_key()["KeyMetadata"]
+    alias = f"alias/sqs-{_uuid_mod.uuid4().hex[:8]}"
+    kms_client.create_alias(AliasName=alias, TargetKeyId=key["KeyId"])
+    url, _ = _kms_queue(sqs, kms_client, key={**key, "Arn": alias})
+    try:
+        with pytest.raises(ClientError) as exc:
+            sqs.send_message(QueueUrl=url, MessageBody="x")
+        assert exc.value.response["Error"]["Message"].startswith(f"{key['Arn']} is disabled. (Service: AWSKMS;")
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+        kms_client.delete_alias(AliasName=alias)
+
+
+def test_sqs_disabled_key_error_envelopes_match_aws(sqs, kms_client):
+    url, key = _kms_queue(sqs, kms_client)
+    try:
+        status, body = _sqs_query_raw({"Action": "SendMessage", "QueueUrl": url, "MessageBody": "x"})
+        assert status == 400
+        m = re.fullmatch(
+            r'<\?xml version="1\.0"\?><ErrorResponse xmlns="http://queue\.amazonaws\.com/doc/2012-11-05/">'
+            r"<Error><Type>Sender</Type><Code>KMS\.DisabledException</Code><Message>(.*)</Message><Detail/></Error>"
+            r"<RequestId>[0-9a-f-]{36}</RequestId></ErrorResponse>", body)
+        assert m, body
+        # The queue repeats one KMS refusal, same Request ID, across protocols and SendMessageBatch.
+        status, raw = _sqs_json_raw("SendMessage", {"QueueUrl": url, "MessageBody": "x"})
+        assert status == 400
+        assert json.loads(raw) == {"__type": "com.amazonaws.sqs#KmsDisabled", "message": m.group(1)}
+        r = sqs.send_message_batch(QueueUrl=url, Entries=[{"Id": "a", "MessageBody": "one"}])
+        assert r["Failed"][0]["Message"] == m.group(1)
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_queue_on_the_s3_managed_key_is_refused(sqs):
+    url = sqs.create_queue(QueueName=f"kms-{_uuid_mod.uuid4().hex[:8]}",
+                           Attributes={"KmsMasterKeyId": "alias/aws/s3"})["QueueUrl"]
+    try:
+        with pytest.raises(ClientError) as exc:
+            sqs.send_message(QueueUrl=url, MessageBody="x")
+        err = exc.value.response["Error"]
+        assert (err["Code"], err["QueryErrorCode"]) == ("KMS.AccessDeniedException", "KmsAccessDenied")
+        assert re.fullmatch(r"User: \S+ is not authorized to perform: kms:GenerateDataKey on resource: "
+                            r"arn:aws:kms:[\w-]+:\d{12}:key/[0-9a-f-]{36} because no resource-based policy allows "
+                            r"the kms:GenerateDataKey action" + _KMS_TAIL.format("AccessDeniedException"),
+                            err["Message"]), err["Message"]
+        assert "Messages" not in sqs.receive_message(QueueUrl=url)
+    finally:
+        sqs.delete_queue(QueueUrl=url)
+
+
+def test_sqs_kms_data_key_reuse_period_per_direction(monkeypatch):
+    from ministack.services import kms as kms_svc
+    clock, create, counts, receive = _sqs_inproc(monkeypatch)
+    key = json.loads(kms_svc._create_key({})[2])["KeyMetadata"]
+    url = create(f"kms-reuse-{_uuid_mod.uuid4().hex[:8]}", KmsMasterKeyId=key["Arn"], KmsDataKeyReusePeriodSeconds=60)
+    try:
+        sqs_svc._act_send_message({"MessageBody": "a"}, url)
+        assert receive(url, VisibilityTimeout=0)["Messages"]
+        kms_svc._disable_key({"KeyId": key["KeyId"]})
+        clock.now += 59
+        sqs_svc._act_send_message({"MessageBody": "b"}, url)
+        assert receive(url, VisibilityTimeout=0)["Messages"]
+        clock.now += 1
+        for act in (lambda: sqs_svc._act_send_message({"MessageBody": "c"}, url),
+                    lambda: receive(url, VisibilityTimeout=0)):
+            with pytest.raises(sqs_svc._Err) as exc:
+                act()
+            assert exc.value.code == "KmsDisabled"
+        assert counts(url) == (2, 0)
+        # The refusal repeats for 7 s, even after EnableKey, then SQS asks KMS again.
+        held = exc.value.message
+        kms_svc._enable_key({"KeyId": key["KeyId"]})
+        clock.now += 6
+        with pytest.raises(sqs_svc._Err) as exc:
+            receive(url, VisibilityTimeout=0)
+        assert exc.value.message == held
+        clock.now += 1
+        assert receive(url, VisibilityTimeout=0)["Messages"]
+        sqs_svc._act_send_message({"MessageBody": "d"}, url)
+    finally:
+        sqs_svc._act_delete_queue({"QueueUrl": url}, url)
+
+
+def _sqs_query_raw(params: dict) -> tuple[int, str]:
+    import urllib.error
+    import urllib.request
+    endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566").rstrip("/")
+    req = urllib.request.Request(
+        endpoint + "/", data=urlencode({"Version": "2012-11-05", **params}).encode(), method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded",
+                 "Authorization": "AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/sqs/aws4_request"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+
+def _sqs_json_raw(action: str, payload: dict) -> tuple[int, str]:
+    import urllib.error
+    import urllib.request
+    endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566").rstrip("/")
+    req = urllib.request.Request(
+        endpoint + "/", data=json.dumps(payload).encode(), method="POST",
+        headers={"Content-Type": "application/x-amz-json-1.0", "X-Amz-Target": f"AmazonSQS.{action}",
+                 "Authorization": "AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/sqs/aws4_request"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+
+def test_sqs_missing_queue_message_per_protocol():
+    endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566").rstrip("/")
+    url = f"{endpoint}/000000000000/ms-missing-{_uuid_mod.uuid4().hex[:8]}"
+    status, body = _sqs_json_raw("SendMessage", {"QueueUrl": url, "MessageBody": "x"})
+    assert status == 400 and json.loads(body)["message"] == "The specified queue does not exist."
+    status, body = _sqs_query_raw({"Action": "SendMessage", "QueueUrl": url, "MessageBody": "x"})
+    assert status == 400 and "<Message>The specified queue does not exist for this wsdl version.</Message>" in body

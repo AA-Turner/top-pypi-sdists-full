@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from schemathesis.core.cache import MISSING, BoundedCache
+
+if TYPE_CHECKING:
+    from io import TextIOBase
+
+    from hypothesis.control import BuildContext
 
 # Sentinel cached when generation raised `Unsatisfiable`.
 UNSATISFIABLE_RESULT: Final = object()
@@ -29,6 +34,7 @@ def setup() -> None:
     from hypothesis.vendor import pretty
 
     from schemathesis.core import INTERNAL_BUFFER_SIZE
+    from schemathesis.generation.hypothesis.marks import ApiOperationMark
 
     if getattr(setup, "_is_patched", False):
         return
@@ -47,8 +53,7 @@ def setup() -> None:
 
         entropy.register_random = _register_random
 
-    # Forcefully initializes Hypothesis' global PRNG to avoid races that initialize it
-    # if e.g. Schemathesis CLI is used with multiple workers
+    # Initialize Hypothesis' global PRNG up front; multiple CLI workers would race to initialize it
     with deterministic_PRNG():
         pass
 
@@ -65,14 +70,41 @@ def setup() -> None:
     core.is_first_param_referenced_in_function = _is_first_param_referenced_in_function
 
     class RepresentationPrinter(pretty.RepresentationPrinter):
-        def pretty(self, obj: object, *, cycle: bool = False) -> None:
-            # This one takes way too much - in the coverage phase it may give >2 orders of magnitude improvement
-            # depending on the schema size (~300 seconds -> 4.5 seconds in one of the benchmarks)
-            return None
+        def __init__(self, output: TextIOBase | None = None, *, context: BuildContext | None = None) -> None:
+            super().__init__(output, context=context)
+            # Older Hypothesis versions do not expose the running test; printing stays off for every test there
+            test = getattr(context, "wrapped_test", None)
+            self._is_silent = test is None or ApiOperationMark.is_set(test)
+
+        # Older Hypothesis versions take no `cycle` argument
+        def pretty(self, obj: object, **kwargs: bool) -> None:
+            # Pretty-printing large values is costly, most of all in the coverage phase.
+            # Tests built by Schemathesis report their failures on their own; other tests keep Hypothesis output
+            if self._is_silent:
+                return None
+            super().pretty(obj, **kwargs)
 
     # Hypothesis exposes no hook for its printer, so the class is swapped in place.
     root_core.RepresentationPrinter = RepresentationPrinter  # type: ignore[misc]
     root_core.BUFFER_SIZE = INTERNAL_BUFFER_SIZE
     engine.BUFFER_SIZE = INTERNAL_BUFFER_SIZE
     collections.BUFFER_SIZE = INTERNAL_BUFFER_SIZE
+    _skip_local_constants()
     setup._is_patched = True  # type: ignore[attr-defined]
+
+
+def _skip_local_constants() -> None:
+    # Hypothesis draws literals from local modules, such as hooks and auth files, so their secrets would reach requests
+    # and the data for a seed would depend on what is imported. No public opt-out: HypothesisWorks/hypothesis#4627
+    try:
+        from hypothesis.internal.conjecture.providers import CONSTANTS_CACHE, HypothesisProvider
+        from hypothesis.internal.constants_ast import Constants
+
+        cached_choices = CONSTANTS_CACHE.cache
+    except (ImportError, AttributeError):  # pragma: no cover
+        return
+    no_constants = Constants()
+    # A property, unlike the upstream cached one, also covers providers that already cached local constants.
+    HypothesisProvider._local_constants = property(lambda self: no_constants)  # type: ignore[assignment]
+    # Constant choices this thread cached earlier may include local constants.
+    cached_choices.clear()

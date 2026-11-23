@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from codecarbon.core import national_grid_eso_api
 from codecarbon.core.emissions import Emissions
 from codecarbon.core.units import Energy
 from codecarbon.external.geography import CloudMetadata, GeoMetadata
@@ -46,6 +47,24 @@ class TestEmissions(unittest.TestCase):
         # THEN
         assert isinstance(emissions, float)
         self.assertAlmostEqual(emissions, 0.0010, places=2)
+
+    def test_get_cloud_geo_region_returns_state(self):
+        # WHEN
+        region = self._emissions.get_cloud_geo_region(
+            CloudMetadata(provider="gcp", region="us-central1")
+        )
+
+        # THEN
+        self.assertEqual(region, "Iowa")
+
+    def test_get_cloud_geo_region_falls_back_to_city_without_state(self):
+        # WHEN
+        region = self._emissions.get_cloud_geo_region(
+            CloudMetadata(provider="gcp", region="asia-east1")
+        )
+
+        # THEN
+        self.assertEqual(region, "Changhua County")
 
     def test_get_carbon_intensity_per_source_data(self):
         # pytest tests/test_emissions.py::TestEmissions::test_get_carbon_intensity_per_source_data
@@ -119,8 +138,9 @@ class TestEmissions(unittest.TestCase):
         )
 
         # THEN
+        france = self._data_source.get_global_energy_mix_data()["FRA"]
         assert isinstance(emissions, float)
-        self.assertAlmostEqual(emissions, 56.04 / 1000, places=2)
+        self.assertAlmostEqual(emissions, france["carbon_intensity"] / 1000, places=6)
 
     def test_get_emissions_PRIVATE_INFRA_UNKNOWN(self):
         """
@@ -198,8 +218,47 @@ class TestEmissions(unittest.TestCase):
         )
 
         # THEN
+        canada = self._data_source.get_global_energy_mix_data()["CAN"]
         assert isinstance(emissions, float)
-        self.assertAlmostEqual(emissions, 0.5101, places=2)
+        self.assertAlmostEqual(
+            emissions, 3 * canada["carbon_intensity"] / 1000, places=6
+        )
+
+    def test_regional_emissions_rate_uses_the_file_unit(self):
+        lbs = Emissions._regional_emissions_rate(1000.0, "lbs/MWh")
+        grams = Emissions._regional_emissions_rate(73, "g/kWh")
+
+        self.assertAlmostEqual(lbs.kgs_per_kWh, 0.45359237, places=6)
+        self.assertAlmostEqual(grams.kgs_per_kWh, 0.073, places=9)
+        with self.assertRaises(ValueError):
+            Emissions._regional_emissions_rate(73, "kg/kWh")
+
+    def test_canada_emissions_data_has_every_province_and_territory(self):
+        canada = self._data_source.get_country_emissions_data("can")
+
+        self.assertEqual(canada["_unit"]["emissions"], "g/kWh")
+        self.assertEqual(canada["_source"]["year"], 2024)
+        regions = {k: v for k, v in canada.items() if not k.startswith("_")}
+        self.assertEqual(
+            sorted(v["regionCode"] for v in regions.values()),
+            sorted(
+                ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE"]
+                + ["QC", "SK", "YT"]
+            ),
+        )
+        self.assertTrue(all(0 < v["emissions"] < 1000 for v in regions.values()))
+
+    def test_get_emissions_PRIVATE_INFRA_CANADA_metadata_key_falls_back_to_country(
+        self,
+    ):
+        energy = Energy.from_energy(kWh=3)
+        geo = GeoMetadata(country_iso_code="CAN", country_name="Canada", region="_unit")
+
+        emissions = self._emissions.get_private_infra_emissions(energy, geo)
+
+        self.assertAlmostEqual(
+            emissions, self._emissions.get_country_emissions(energy, geo), places=6
+        )
 
     def test_get_emissions_PRIVATE_INFRA_CANADA_WITH_REGION(self):
         # WHEN
@@ -209,13 +268,13 @@ class TestEmissions(unittest.TestCase):
                 country_iso_code="CAN", country_name="Canada", region="ontario"
             ),
         )
-        manually_computed_emissions = (
-            3 * (0.995725971 * 0.0 + 0.8166885263 * 0.1 + 0.7438415916 * 8.6) / 100.1
-        )
+        # ECCC NIR 2026, Table A7-6: Ontario 2024 consumption intensity
+        # is 73 g CO2e/kWh (codecarbon/data/private_infra/2024/canada_emissions.json).
+        manually_computed_emissions = 3 * 73 / 1000
 
         # THEN
         assert isinstance(emissions, float)
-        self.assertAlmostEqual(emissions, manually_computed_emissions, places=2)
+        self.assertAlmostEqual(emissions, manually_computed_emissions, places=6)
 
     def test_get_emissions_PRIVATE_INFRA_unknown_country(self):
         """
@@ -359,9 +418,6 @@ class TestEmissions(unittest.TestCase):
                     patch.object(
                         self._data_source, "get_country_emissions_data"
                     ) as get_regional_emissions_data,
-                    patch.object(
-                        self._data_source, "get_country_energy_mix_data"
-                    ) as get_regional_energy_mix_data,
                     patch("codecarbon.core.emissions.logger.error") as log_error,
                     patch("codecarbon.core.emissions.logger.warning") as log_warning,
                 ):
@@ -370,7 +426,6 @@ class TestEmissions(unittest.TestCase):
                 self.assertAlmostEqual(emissions, expected_emissions, places=6)
                 get_nordic_data.assert_not_called()
                 get_regional_emissions_data.assert_not_called()
-                get_regional_energy_mix_data.assert_not_called()
                 log_error.assert_not_called()
                 log_warning.assert_not_called()
 
@@ -388,15 +443,11 @@ class TestEmissions(unittest.TestCase):
             patch.object(
                 self._data_source, "get_country_emissions_data"
             ) as get_regional_emissions_data,
-            patch.object(
-                self._data_source, "get_country_energy_mix_data"
-            ) as get_regional_energy_mix_data,
         ):
             emissions = self._emissions.get_private_infra_emissions(energy, geo)
 
         self.assertAlmostEqual(emissions, expected_emissions, places=6)
         get_regional_emissions_data.assert_not_called()
-        get_regional_energy_mix_data.assert_not_called()
 
     def test_try_get_nordic_region_emissions_returns_none_if_region_data_missing(self):
         # GIVEN
@@ -604,3 +655,118 @@ class TestEmissions(unittest.TestCase):
                 self.assertAlmostEqual(
                     emissions, state["emissions"] * 0.00045359237, places=9
                 )
+
+    # ------------------------------------------------------------------
+    # National Grid ESO API (opt-in)
+    # ------------------------------------------------------------------
+
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    def test_national_grid_eso_not_called_by_default(self, mocked_get_emissions):
+        # GIVEN: use_national_grid_eso_api defaults to False
+        emissions_calculator = Emissions(self._data_source)
+        geo = GeoMetadata(country_iso_code="GBR", country_name="United Kingdom")
+
+        # WHEN
+        emissions_calculator.get_private_infra_emissions(Energy.from_energy(kWh=1), geo)
+
+        # THEN: the live API is never called unless explicitly opted in
+        mocked_get_emissions.assert_not_called()
+
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    def test_national_grid_eso_called_when_opted_in(self, mocked_get_emissions):
+        # GIVEN
+        mocked_get_emissions.return_value = 0.5
+        emissions_calculator = Emissions(
+            self._data_source, use_national_grid_eso_api=True
+        )
+        geo = GeoMetadata(country_iso_code="GBR", country_name="United Kingdom")
+        energy = Energy.from_energy(kWh=1)
+
+        # WHEN
+        emissions = emissions_calculator.get_private_infra_emissions(energy, geo)
+
+        # THEN
+        mocked_get_emissions.assert_called_once_with(energy, geo)
+        self.assertEqual(emissions, 0.5)
+
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    def test_national_grid_eso_not_called_for_other_countries_even_when_opted_in(
+        self, mocked_get_emissions
+    ):
+        # GIVEN
+        emissions_calculator = Emissions(
+            self._data_source, use_national_grid_eso_api=True
+        )
+        geo = GeoMetadata(country_iso_code="FRA", country_name="France")
+
+        # WHEN
+        emissions_calculator.get_private_infra_emissions(Energy.from_energy(kWh=1), geo)
+
+        # THEN
+        mocked_get_emissions.assert_not_called()
+
+    @patch("codecarbon.core.emissions.logger")
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    def test_national_grid_eso_error_falls_back_to_country_data(
+        self, mocked_get_emissions, mocked_logger
+    ):
+        mocked_get_emissions.side_effect = (
+            national_grid_eso_api.NationalGridESOAPIError("status 503")
+        )
+        emissions_calculator = Emissions(
+            self._data_source, use_national_grid_eso_api=True
+        )
+        geo = GeoMetadata(country_iso_code="GBR", country_name="United Kingdom")
+        energy = Energy.from_energy(kWh=1)
+
+        emissions = emissions_calculator.get_private_infra_emissions(energy, geo)
+
+        self.assertAlmostEqual(
+            emissions, emissions_calculator.get_country_emissions(energy, geo)
+        )
+        mocked_logger.error.assert_called_once()
+
+    @patch("codecarbon.core.emissions.logger")
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    def test_national_grid_eso_cooldown_falls_back_without_logging_error(
+        self, mocked_get_emissions, mocked_logger
+    ):
+        mocked_get_emissions.side_effect = (
+            national_grid_eso_api.NationalGridESOAPICooldownError("in cooldown")
+        )
+        emissions_calculator = Emissions(
+            self._data_source, use_national_grid_eso_api=True
+        )
+        geo = GeoMetadata(country_iso_code="GBR", country_name="United Kingdom")
+        energy = Energy.from_energy(kWh=1)
+
+        emissions = emissions_calculator.get_private_infra_emissions(energy, geo)
+
+        self.assertAlmostEqual(
+            emissions, emissions_calculator.get_country_emissions(energy, geo)
+        )
+        mocked_logger.error.assert_not_called()
+
+    @patch("codecarbon.core.national_grid_eso_api.get_emissions")
+    @patch("codecarbon.core.electricitymaps_api.get_emissions")
+    def test_national_grid_eso_not_called_when_electricitymaps_succeeds(
+        self, mocked_em_get_emissions, mocked_ngeso_get_emissions
+    ):
+        # GIVEN: both Electricity Maps and National Grid ESO are opted in,
+        # but Electricity Maps takes priority and succeeds
+        mocked_em_get_emissions.return_value = 0.3
+        emissions_calculator = Emissions(
+            self._data_source,
+            electricitymaps_api_token="token",
+            use_national_grid_eso_api=True,
+        )
+        geo = GeoMetadata(country_iso_code="GBR", country_name="United Kingdom")
+
+        # WHEN
+        emissions = emissions_calculator.get_private_infra_emissions(
+            Energy.from_energy(kWh=1), geo
+        )
+
+        # THEN
+        self.assertEqual(emissions, 0.3)
+        mocked_ngeso_get_emissions.assert_not_called()

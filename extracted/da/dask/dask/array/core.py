@@ -27,11 +27,6 @@ from packaging.version import Version
 from tlz import accumulate, concat, first, partition
 from toolz import frequencies
 
-from dask._compatibility import import_optional_dependency
-from dask.core import flatten
-
-xr = import_optional_dependency("xarray", errors="ignore")
-
 from dask import compute, config, core
 from dask._task_spec import Alias, List, Task, TaskRef
 from dask.array import chunk
@@ -64,7 +59,7 @@ from dask.base import (
 from dask.blockwise import BlockwiseDep, broadcast_dimensions
 from dask.blockwise import blockwise as core_blockwise
 from dask.context import globalmethod
-from dask.core import quote, reshapelist
+from dask.core import flatten, quote, reshapelist
 from dask.delayed import Delayed, delayed
 from dask.highlevelgraph import HighLevelGraph, MaterializedLayer
 from dask.layers import ArrayBlockIdDep, ArraySliceDep, ArrayValuesDep
@@ -3632,7 +3627,7 @@ def from_array(
         raise ValueError(
             "Array is already a dask array. Use 'asarray' or 'rechunk' instead."
         )
-
+    xr = sys.modules.get("xarray")
     if xr is not None and isinstance(x, xr.DataArray) and x.chunks is not None:
         if isinstance(x.data, Array):
             return x.data
@@ -6076,6 +6071,10 @@ def to_npy_stack(dirname, x, axis=0):
     This partitions the dask.array along one axis and stores each block along
     that axis as a single .npy file in the specified directory
 
+    .. warning::
+       This format uses the :mod:`pickle` module to serialize array metadata.
+       The ``pickle`` module is not secure. Only load `.npy` stacks you trust.
+
     Examples
     --------
     >>> x = da.ones((5, 10, 10), chunks=(2, 4, 4))  # doctest: +SKIP
@@ -6124,6 +6123,12 @@ def to_npy_stack(dirname, x, axis=0):
 
 def from_npy_stack(dirname, mmap_mode="r"):
     """Load dask array from stack of npy files
+
+    .. warning::
+       This function uses the :mod:`pickle` module to load array metadata.
+       The ``pickle`` module is not secure against erroneous or maliciously
+       constructed data. Never load data that could have come from an untrusted
+       source, or that could have been tampered with.
 
     Parameters
     ----------

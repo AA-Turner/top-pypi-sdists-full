@@ -1,17 +1,15 @@
 Metadata-Version: 2.4
 Name: django-axes
-Version: 9.0.0
+Version: 9.1.0
 Summary: Keep track of failed login attempts in Django-powered sites.
-Home-page: https://github.com/django-commons/django-axes
-Author: Josh VanderLinden, Philip Neustrom, Michael Blume, Alex Clark, Camilo Nova, Aleksi Hakli
-Author-email: django-commons-admins@googlegroups.com
-Maintainer: Django Commons
-Maintainer-email: django-commons-admins@googlegroups.com
-License: MIT
+Author: Josh VanderLinden, Philip Neustrom, Michael Blume, Alex Clark, Camilo Nova, Aleksi Häkli
+Maintainer-email: Django Commons <django-commons-admins@googlegroups.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/django-commons/django-axes
 Project-URL: Documentation, https://django-axes.readthedocs.io/
-Project-URL: Source, https://github.com/django-commons/django-axes
-Project-URL: Tracker, https://github.com/django-commons/django-axes/issues
-Keywords: authentication django pci security
+Project-URL: Changelog, https://github.com/django-commons/django-axes/blob/master/CHANGES.rst
+Project-URL: Issues, https://github.com/django-commons/django-axes/issues
+Keywords: authentication,django,pci,security
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Plugins
@@ -21,7 +19,6 @@ Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -29,7 +26,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
@@ -40,22 +39,7 @@ Requires-Dist: django>=5.2
 Requires-Dist: asgiref>=3.6.0
 Provides-Extra: ipware
 Requires-Dist: django-ipware>=3; extra == "ipware"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 
 django-axes
@@ -88,10 +72,6 @@ django-axes
 .. image:: https://github.com/django-commons/django-axes/workflows/Test/badge.svg
    :target: https://github.com/django-commons/django-axes/actions
    :alt: GitHub Actions
-
-.. image:: https://codecov.io/gh/django-commons/django-axes/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/django-commons/django-axes
-   :alt: Coverage
 
 
 Axes is a Django plugin for keeping track of suspicious
@@ -144,6 +124,21 @@ See `CONTRIBUTING <CONTRIBUTING.rst>`__.
 
 Changes
 =======
+
+9.1.0 (2026-11-22)
+------------------
+
+- Add Python 3.15 support.
+- Add PyPy 3.11 support.
+- Raise a ``TypeError`` that names the setting when ``AXES_COOLOFF_TIME``
+  is an import path to an object that is not callable.
+- Resolve the settings that take a callable or an import path with one
+  shared helper, ``axes.helpers.resolve_callable`` (#1068, #1528, #1539).
+  [Fire162]
+- Annotate the ``query`` argument of ``axes.helpers.get_query_str`` as a
+  ``QueryDict`` instance instead of the class, so that type checkers accept
+  ``request.GET`` and ``request.POST`` (#1530).
+  [ayang-certego]
 
 9.0.0 (2026-10-30)
 ------------------

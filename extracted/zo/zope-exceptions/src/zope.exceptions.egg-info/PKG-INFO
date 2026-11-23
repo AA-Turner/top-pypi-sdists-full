@@ -1,53 +1,39 @@
 Metadata-Version: 2.4
 Name: zope.exceptions
-Version: 6.0
+Version: 6.1
 Summary: Zope Exceptions
-Home-page: https://github.com/zopefoundation/zope.exceptions
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.exceptions/issues
-Project-URL: Sources, https://github.com/zopefoundation/zope.exceptions
-Keywords: zope exceptions
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.exceptions
+Project-URL: Issues, https://github.com/zopefoundation/zope.exceptions/issues
+Keywords: zope,exceptions
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.interface
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =================
  zope.exceptions
@@ -76,10 +62,25 @@ general purpose that they don't belong in Zope application-specific packages.
 
 Please see https://zopeexceptions.readthedocs.io/ for the documentation.
 
-
 ===========================
  zope.exceptions Changelog
 ===========================
+
+6.1 (2026-11-23)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.15.
+
+- Drop support for Python 3.10.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
+- Remove run-time dependency on ``setuptools``.
+
 
 6.0 (2025-09-12)
 ================
@@ -232,7 +233,7 @@ Please see https://zopeexceptions.readthedocs.io/ for the documentation.
 4.0.1 (2012-08-20)
 ==================
 
-- Fixed optional dependency code for `'zope.security`` to work under Python 3.3.
+- Fixed optional dependency code for ``zope.security`` to work under Python 3.3.
 
 
 4.0.0.1 (2012-05-16)

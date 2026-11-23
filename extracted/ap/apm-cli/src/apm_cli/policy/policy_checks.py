@@ -12,10 +12,12 @@ import os
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import NamedTuple
 
 from apm_cli.core.scope import manifest_file
 
 from ..core.remediation import (
+    BUNDLE_PACKAGES_UNRECORDED,
     CONTENT_HASHES_MISSING,
     REQUIRED_PACKAGE_UNLOCKED,
     UNMANAGED_FILE_TRACK,
@@ -23,6 +25,7 @@ from ..core.remediation import (
 from .models import (
     CheckResult,
     CIAuditResult,
+    LocalBundleSubjects,
     PolicyRemedy,
     PolicySubject,
 )
@@ -153,11 +156,30 @@ def _required_policy_index(
     return DependencyPolicyIndex.from_dependencies(deps)
 
 
+def _declared_then_bundled(
+    deps: Sequence[DependencyReference], bundled: Sequence[DependencyReference]
+) -> list[tuple[DependencyReference, PolicyRemedy | None]]:
+    """Each declared dependency, then each bundled one not declared, with its remedy.
+
+    A declared dependency's violation suggests removing it from apm.yml; a
+    bundled one has no apm.yml entry, so it suggests no edit.
+    """
+    keys = {dep.get_unique_key() for dep in deps}
+    return [(dep, PolicyRemedy.REMOVE) for dep in deps] + [
+        (dep, None) for dep in bundled if dep.get_unique_key() not in keys
+    ]
+
+
 def _check_dependency_allowlist(
     deps: list[DependencyReference],
     policy: DependencyPolicy,
+    bundle: LocalBundleSubjects | None = None,
 ) -> CheckResult:
-    """Check 1: every dependency matches policy allow list."""
+    """Check 1: every dependency matches policy allow list.
+
+    A local *bundle* is judged by the packages it records, never by its
+    author-chosen name; one that records none is refused (#4646).
+    """
     from .matcher import check_dependency_allowed, dependency_policy_subject
 
     if policy.allow is None:
@@ -168,10 +190,12 @@ def _check_dependency_allowlist(
         )
 
     subjects: list[PolicySubject] = []
-    for dep in deps:
+    for dep, remedy in _declared_then_bundled(deps, bundle.packages if bundle else ()):
         allowed, reason = check_dependency_allowed(dep, policy)
         if not allowed and "not in allowed" in reason:
-            subjects.append(PolicySubject(dependency_policy_subject(dep), reason))
+            subjects.append(PolicySubject(dependency_policy_subject(dep), reason, remedy))
+    if bundle is not None and not bundle.packages:
+        subjects.append(_unmatchable_bundle_subject(bundle))
 
     if not subjects:
         return CheckResult(
@@ -186,11 +210,34 @@ def _check_dependency_allowlist(
     )
 
 
+def _unmatchable_bundle_subject(bundle: LocalBundleSubjects) -> PolicySubject:
+    """The allow-list refusal of a local bundle that records no packages (#4646).
+
+    Passing it would let any content through an allow list under an
+    author-chosen name, so it fails closed.
+    """
+    from .matcher import dependency_policy_subject
+
+    ref = dependency_policy_subject(bundle.names[0]) if bundle.names else "local bundle"
+    return PolicySubject(
+        ref,
+        "the bundle records no packages for dependencies.allow to match, and a bundle "
+        f"name never satisfies the allow list. {BUNDLE_PACKAGES_UNRECORDED.sentence()}",
+        None,
+    )
+
+
 def _check_dependency_denylist(
     deps: list[DependencyReference],
     policy: DependencyPolicy,
+    bundled: Sequence[DependencyReference] = (),
 ) -> CheckResult:
-    """Check 2: no dependency matches policy deny list."""
+    """Check 2: no dependency matches policy deny list.
+
+    *bundled* are packages a local bundle or a pack ships without an apm.yml
+    entry in this project; they meet the deny list only, and their
+    violations suggest no apm.yml edit. One declared in *deps* is judged once.
+    """
     from .matcher import check_dependency_allowed, dependency_policy_subject
 
     if not policy.effective_deny:
@@ -201,10 +248,10 @@ def _check_dependency_denylist(
         )
 
     subjects: list[PolicySubject] = []
-    for dep in deps:
+    for dep, remedy in _declared_then_bundled(deps, bundled):
         allowed, reason = check_dependency_allowed(dep, policy)
         if not allowed and "denied by pattern" in reason:
-            subjects.append(PolicySubject(dependency_policy_subject(dep), reason))
+            subjects.append(PolicySubject(dependency_policy_subject(dep), reason, remedy))
 
     if not subjects:
         return CheckResult(
@@ -1236,6 +1283,7 @@ def _check_registry_source(
     deps: list[DependencyReference],
     policy: RegistrySourcePolicy,
     registries_map: dict[str, str] | None,
+    lockfile=None,
 ) -> CheckResult:
     """Check registry source policy (require / allow_non_registry).
 
@@ -1264,6 +1312,15 @@ def _check_registry_source(
         key = dep.get_canonical_dependency_string()
         is_registry = getattr(dep, "source", None) == "registry"
         registry_name = getattr(dep, "registry_name", None)
+        if is_registry and registry_name is None and lockfile is not None:
+            # A replayed row (for example a registry-routed catalog entry,
+            # #4009) names no registry; judge it by the configured registry
+            # that owns its locked URL, as its download does.
+            from ..deps.registry.auth import dependency_ref_with_registry_name_from_lockfile
+
+            registry_name = dependency_ref_with_registry_name_from_lockfile(
+                dep, registries_map or {}, existing_lockfile=lockfile
+            ).registry_name
 
         reason = None
         if not policy.allow_non_registry and not is_registry:
@@ -1292,6 +1349,116 @@ def _check_registry_source(
         passed=True,
         message="All dependencies satisfy registry source policy",
     )
+
+
+class MarketplaceOrigins(NamedTuple):
+    """Marketplace catalog origins ``marketplace.allow`` judges (#2903).
+
+    *declared* holds the root ``marketplaces:`` entries; *resolved* holds
+    ``(label, catalog origin)`` per marketplace-resolved dependency
+    (:func:`marketplace_resolution_origins`).
+    """
+
+    declared: Sequence | None = None
+    resolved: Sequence[tuple[str, str]] = ()
+
+
+def marketplace_resolution_origins(
+    lockfile,
+    *,
+    keys: Iterable[str] | None = None,
+    provenance: Mapping[str, Mapping[str, str]] | None = None,
+) -> tuple[tuple[str, str], ...]:
+    """Return ``(label, catalog origin)`` for each marketplace-resolved dependency.
+
+    Reads the lock rows' ``source_url`` and, for an install, the fresh
+    resolutions in *provenance* (which replace the row they re-resolve).
+    *keys* limits the set to the dependencies being installed; ``None``
+    means every lock row (``apm audit --ci``). An empty origin means none
+    was recorded (a local catalog or an older lock).
+    """
+    wanted = None if keys is None else set(keys)
+    origins: dict[str, tuple[str, str]] = {}
+
+    def _record(key: str, via: str | None, plugin: str | None, origin: str | None) -> None:
+        if via and plugin and (wanted is None or key in wanted):
+            origins[key] = (f"{plugin}@{via} ({key})", origin or "")
+
+    for key, dep in getattr(lockfile, "dependencies", {}).items():
+        _record(key, dep.discovered_via, dep.marketplace_plugin_name, dep.source_url)
+    for key, prov in (provenance or {}).items():
+        _record(
+            key,
+            prov.get("discovered_via"),
+            prov.get("marketplace_plugin_name"),
+            prov.get("source_url"),
+        )
+    return tuple(origins[key] for key in sorted(origins))
+
+
+def _check_marketplace_allow(origins: MarketplaceOrigins, policy: MarketplacePolicy) -> CheckResult:
+    """Check marketplace catalog origins against ``marketplace.allow`` (#2903).
+
+    Covers the root ``marketplaces:`` entries and the origins resolved
+    marketplace dependencies were taken from (lock rows and fresh
+    resolutions, :func:`marketplace_resolution_origins`), so a committed
+    lock cannot install from a catalog the list does not name. A local
+    catalog, an unparseable source and a row with no recorded origin are
+    refused: an allow-list must never pass an origin it cannot name.
+    """
+    from ..core.remediation import MARKETPLACE_ALLOW_READD
+    from ..marketplace.project_marketplaces import declared_marketplace_origin
+    from ..marketplace.source_identity import marketplace_policy_subject
+    from .matcher import first_matching_pattern
+
+    check_name = "marketplace-allow"
+    patterns = tuple(marketplace_policy_subject(p) for p in policy.allow or ())
+
+    def _disallowed(origin: str) -> str | None:
+        subject = marketplace_policy_subject(origin) if origin else ""
+        if subject and first_matching_pattern(subject, patterns) is not None:
+            return None
+        return subject
+
+    subjects: list[PolicySubject] = []
+    for entry in origins.declared or ():
+        try:
+            origin = declared_marketplace_origin(entry)
+        except ValueError:
+            origin = ""
+        subject = _disallowed(origin)
+        if subject is None:
+            continue
+        reason = (
+            f"origin '{subject or entry.source}' is not in the org policy marketplace.allow "
+            "list; remove it from 'marketplaces:' in apm.yml or ask your org admin to allow it"
+        )
+        subjects.append(PolicySubject(f"marketplace '{entry.name}'", reason, remedy=None))
+    for label, origin in origins.resolved:
+        subject = _disallowed(origin)
+        if subject is None:
+            continue
+        # The lock carries a package's catalog provenance forward on every
+        # write, so only dropping its apm.yml entry (which prunes the row)
+        # and adding it back clears it; 'apm update' never does.
+        problem = (
+            f"resolved from catalog '{subject}', which is not in the org policy "
+            "marketplace.allow list"
+            if subject
+            else "has no recorded catalog origin, so the org policy marketplace.allow list "
+            "cannot admit it"
+        )
+        reason = f"{problem}; {MARKETPLACE_ALLOW_READD.clause()}, or ask your org admin to allow the catalog"
+        subjects.append(PolicySubject(label, reason, remedy=None))
+    if subjects:
+        return CheckResult(
+            name=check_name,
+            passed=False,
+            message=f"{len(subjects)} marketplace origin(s) not allowed by org policy",
+            details=[f"{s.ref}: {s.reason}" for s in subjects],
+            subjects=tuple(subjects),
+        )
+    return CheckResult(name=check_name, passed=True, message="All marketplace origins are allowed")
 
 
 def _check_pinned_constraints(
@@ -1433,7 +1600,25 @@ def _check_dependency_content_hashes(
 # -- Aggregate runners ---------------------------------------------
 
 
-def run_dependency_policy_checks(
+def run_dependency_deny_check(
+    deps: Iterable[DependencyReference],
+    policy: ApmPolicy,
+    bundled_deps: Iterable[DependencyReference] = (),
+) -> CIAuditResult:
+    """Judge *deps* and *bundled_deps* against ``dependencies.deny`` alone.
+
+    For a command that ships content rather than installing it (``apm pack``):
+    allow, require and pin rules judge what a project installs, not what it
+    may hand on.
+    """
+    result = CIAuditResult()
+    result.checks.append(
+        _check_dependency_denylist(list(deps), policy.dependencies, list(bundled_deps))
+    )
+    return result
+
+
+def run_dependency_policy_checks(  # noqa: PLR0913
     deps_to_install,
     *,
     lockfile=None,
@@ -1450,6 +1635,8 @@ def run_dependency_policy_checks(
     source_deps: Iterable[DependencyReference] | None = None,
     declared_refs: Mapping[str, Sequence[DependencyReference]] | None = None,
     installing: bool = False,
+    marketplace_origins: MarketplaceOrigins | None = None,
+    bundled_deps: Iterable[DependencyReference] | LocalBundleSubjects = (),
 ) -> CIAuditResult:
     """Evaluate :class:`ApmPolicy` against an already-resolved dependency set.
 
@@ -1521,6 +1708,17 @@ def run_dependency_policy_checks(
         ``True`` for the install gate, which is about to lock
         *deps_to_install*: a declared required package missing only from
         the previous lockfile does not block the install that records it.
+    marketplace_origins:
+        The root manifest's ``marketplaces:`` entries and the catalog
+        origins of marketplace-resolved dependencies (lock rows and fresh
+        resolutions), checked against ``marketplace.allow`` when the policy
+        sets it, so a lock cannot bypass it.
+    bundled_deps:
+        Packages shipped without an apm.yml entry in this project. A plain
+        iterable meets ``dependencies.deny`` only. A local bundle's
+        :class:`LocalBundleSubjects` meets deny with its name and packages,
+        and ``dependencies.allow`` with its packages alone (#4646). Require
+        and pin checks judge the project's own declarations.
 
     Returns
     -------
@@ -1551,9 +1749,11 @@ def run_dependency_policy_checks(
         return fail_fast and not check.passed
 
     # -- Dependency checks (1-6) -----------------------------------
-    if _run(_check_dependency_allowlist(source_list, policy.dependencies)):
+    bundle = bundled_deps if isinstance(bundled_deps, LocalBundleSubjects) else None
+    deny_bundled = [*bundle.names, *bundle.packages] if bundle else list(bundled_deps)
+    if _run(_check_dependency_allowlist(source_list, policy.dependencies, bundle)):
         return result
-    if _run(_check_dependency_denylist(source_list, policy.dependencies)):
+    if _run(_check_dependency_denylist(source_list, policy.dependencies, deny_bundled)):
         return result
     dep_names = None
     if policy.dependencies.effective_require or (
@@ -1587,7 +1787,7 @@ def run_dependency_policy_checks(
     # Collect all remaining checks into a single loop so the function
     # stays within the max-returns threshold.
     remaining_checks: list[CheckResult] = [
-        _check_registry_source(deps_list, policy.registry_source, registries),
+        _check_registry_source(deps_list, policy.registry_source, registries, lockfile),
         # Pinned-constraint: property check on declared refs. Cheap
         # (O(N) string classification, no I/O) so it always runs.
         # When direct_dep_keys is supplied, restrict to direct deps -- a
@@ -1597,6 +1797,8 @@ def run_dependency_policy_checks(
             deps_list, policy.dependencies, direct_dep_keys, declared_refs=declared_refs
         ),
     ]
+    if policy.marketplace.allow is not None and marketplace_origins is not None:
+        remaining_checks.append(_check_marketplace_allow(marketplace_origins, policy.marketplace))
     # MCP checks -- when mcp_deps is None (not provided), skip entirely.
     # When mcp_deps is an empty list (provided but no MCP deps), still
     # run MCP checks so they report "no X configured" for completeness.
@@ -1744,6 +1946,9 @@ def run_policy_checks(
         source_deps=source_deps,
         # Judge the same source-selected declarations as the install gate.
         declared_refs=collect_manifest_declarations(manifest),
+        marketplace_origins=MarketplaceOrigins(
+            manifest.marketplaces, marketplace_resolution_origins(lock)
+        ),
     )
     result.checks.extend(dep_result.checks)
 
@@ -1788,6 +1993,11 @@ def run_policy_checks(
     # Manifest checks (14-15)
     if _run(_check_required_manifest_fields(raw_yml, policy.manifest)):
         return result
+    if lock is not None and policy.manifest.content_types is not None:
+        from .content_types_check import audit_content_types
+
+        if _run(audit_content_types(lock, policy.manifest, project_root, modules_root)):
+            return result
     if _run(_check_scripts_policy(raw_yml, policy.manifest)):
         return result
 

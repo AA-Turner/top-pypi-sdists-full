@@ -274,19 +274,19 @@ class StatsigBasePy:
         r"""
         Evaluate with a fresh native cryptographic identity and optional request fields.
         """
-    def _INTERNAL_get_feature_gate_anonymous_parts(self, name: builtins.str, id_options: StatsigRandomUserID, context: typing.Optional[StatsigUserContext] = None, custom: typing.Optional[AttributesDict] = None, custom_ids: typing.Optional[CustomIdsDict] = None, ip: typing.Optional[builtins.str] = None, country: typing.Optional[builtins.str] = None, locale: typing.Optional[builtins.str] = None, user_agent: typing.Optional[builtins.str] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
+    def _INTERNAL_get_feature_gate_anonymous_parts(self, name: builtins.str, id_options: StatsigRandomUserID, context: typing.Optional[StatsigUserContext] = None, custom: typing.Optional[AttributesDict] = None, custom_ids: typing.Optional[CustomIdsDict] = None, ip: typing.Optional[builtins.str] = None, country: typing.Optional[builtins.str] = None, locale: typing.Optional[builtins.str] = None, user_agent: typing.Optional[builtins.str] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
     def _INTERNAL_get_layer_anonymous(self, name: builtins.str, id_options: StatsigRandomUserID, context: typing.Optional[StatsigUserContext] = None, custom: typing.Optional[AttributesDict] = None, custom_ids: typing.Optional[CustomIdsDict] = None, ip: typing.Optional[builtins.str] = None, country: typing.Optional[builtins.str] = None, locale: typing.Optional[builtins.str] = None, user_agent: typing.Optional[builtins.str] = None, options: typing.Optional[LayerEvaluationOptions] = None, evaluation_cache_keys: typing.Optional[collections.abc.KeysView[builtins.int]] = None) -> dict: ...
     def check_gate_with_context(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> builtins.bool:
         r"""
         Evaluate with reusable metadata and an independently supplied identity.
         """
     def _INTERNAL_get_feature_gate_with_context(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> dict: ...
-    def _INTERNAL_get_feature_gate_with_context_parts(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
+    def _INTERNAL_get_feature_gate_with_context_parts(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
     def _INTERNAL_get_dynamic_config_with_context(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[DynamicConfigEvaluationOptions] = None, evaluation_cache_keys: typing.Optional[collections.abc.KeysView[builtins.int]] = None) -> dict: ...
     def _INTERNAL_get_layer_with_context(self, context: typing.Optional[StatsigUserContext], name: builtins.str, user_id: typing.Optional[builtins.str] = None, custom: typing.Optional[AttributesDict] = None, options: typing.Optional[LayerEvaluationOptions] = None, evaluation_cache_keys: typing.Optional[collections.abc.KeysView[builtins.int]] = None) -> dict: ...
     def check_gate(self, user: StatsigUser, name: builtins.str, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> builtins.bool: ...
     def _INTERNAL_get_feature_gate(self, user: StatsigUser, name: builtins.str, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> dict: ...
-    def _INTERNAL_get_feature_gate_parts(self, user: StatsigUser, name: builtins.str, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
+    def _INTERNAL_get_feature_gate_parts(self, user: StatsigUser, name: builtins.str, options: typing.Optional[FeatureGateEvaluationOptions] = None) -> tuple[builtins.bool, str, typing.Optional[str], str, typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int], typing.Optional[builtins.int]]: ...
     def manually_log_gate_exposure(self, user: StatsigUser, name: builtins.str) -> None: ...
     def _INTERNAL_get_dynamic_config(self, user: StatsigUser, name: builtins.str, options: typing.Optional[DynamicConfigEvaluationOptions] = None, evaluation_cache_keys: typing.Optional[collections.abc.KeysView[builtins.int]] = None) -> dict: ...
     def _INTERNAL_get_dynamic_config_fields(self, user: StatsigUser, name: builtins.str, field_names: collections.abc.Sequence[builtins.str], options: typing.Optional[DynamicConfigEvaluationOptions] = None) -> typing.Optional[dict]: ...
@@ -429,12 +429,14 @@ class StatsigOptions:
     @property
     def enable_id_list_elias_fano(self) -> typing.Optional[builtins.bool]:
         r"""
-        Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
+        Private ID lists and shared ID-list files use Elias–Fano by default with raw downloads.
+        Set to False to use hash storage or True to request snapshots from an eligible download_id_list_file_api endpoint.
         """
     @enable_id_list_elias_fano.setter
     def enable_id_list_elias_fano(self, value: typing.Optional[builtins.bool]) -> None:
         r"""
-        Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
+        Private ID lists and shared ID-list files use Elias–Fano by default with raw downloads.
+        Set to False to use hash storage or True to request snapshots from an eligible download_id_list_file_api endpoint.
         """
     @property
     def id_list_init_build_concurrency(self) -> typing.Optional[int]:
@@ -477,18 +479,14 @@ class StatsigOptions:
     @property
     def shared_id_lists_dir(self) -> typing.Optional[builtins.str]:
         r"""
-        Trusted directory for shared ID lists. Omit for private lists. By default,
-        only eager workers share downloads and updates. Add "shared_initial_id_list_base"
-        to experimental_flags at SDK construction to let eligible eager and lazy
-        workers share initial indexes and fetch their own updates.
+        Trusted directory where eager and lazy workers share initial indexes.
+        Each worker fetches its own manifest and updates. Omit for private lists.
         """
     @shared_id_lists_dir.setter
     def shared_id_lists_dir(self, value: typing.Optional[builtins.str]) -> None:
         r"""
-        Trusted directory for shared ID lists. Omit for private lists. By default,
-        only eager workers share downloads and updates. Add "shared_initial_id_list_base"
-        to experimental_flags at SDK construction to let eligible eager and lazy
-        workers share initial indexes and fetch their own updates.
+        Trusted directory where eager and lazy workers share initial indexes.
+        Each worker fetches its own manifest and updates. Omit for private lists.
         """
     @property
     def download_id_list_file_api(self) -> typing.Optional[builtins.str]: ...

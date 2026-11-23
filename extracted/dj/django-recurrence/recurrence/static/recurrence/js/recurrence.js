@@ -985,6 +985,10 @@ var gettext = gettext || function(msgid) {
     }
 };
 
+var pgettext = pgettext || function(context, msgid) {
+    return gettext(msgid);
+};
+
 var interpolate = interpolate || function(fmt, obj, named) {
     if (named) {
         return fmt.replace(/%\(\w+\)s/g, function(match) {
@@ -1081,7 +1085,7 @@ recurrence.display.months = [
 ];
 recurrence.display.months_short = [
     gettext('Jan'), gettext('Feb'), gettext('Mar'),
-    gettext('Apr'), pgettext('month name', 'May'), gettext('Jun'),
+    gettext('Apr'), pgettext('abbreviated month name', 'May'), gettext('Jun'),
     gettext('Jul'), gettext('Aug'), gettext('Sep'),
     gettext('Oct'), gettext('Nov'), gettext('Dec')
 ];

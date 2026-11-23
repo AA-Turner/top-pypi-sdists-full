@@ -10,21 +10,24 @@ from hypothesis.errors import NoSuchExample
 
 import schemathesis
 from schemathesis.config import GenerationConfig, SchemathesisConfig
+from schemathesis.core.mutations import MutationMetadata
 from schemathesis.core.transforms import deepclone
 from schemathesis.generation.body_overrides import build_body_override_overlay_strategy
+from schemathesis.generation.dictionaries import DictionaryDraw
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import CaseMetadata, CoverageScenario, GenerationInfo, PhaseInfo
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.value import GeneratedValue, prune_overwritten_body_constants
-from schemathesis.python._constants.adapters import default_adapters
 from schemathesis.python._constants.orchestrator import extract_all, extract_registered
 from schemathesis.python._constants.pool import ConstantDraw, ConstantEntry, ConstantsPool, Origin
 from schemathesis.python._constants.registry import SourceRegistry
+from schemathesis.resources import PoolDraw, SemanticDraw
 from schemathesis.specs.graphql.substitution import substitute_constants
 from schemathesis.specs.openapi._hypothesis import _build_form_strategy_with_encoding
 from schemathesis.specs.openapi.adapter.parameters import build_constants_overlay_strategy
 from schemathesis.specs.openapi.negative import (
+    wrap_filter_hook_for_generated_value,
     wrap_flatmap_hook_for_generated_value,
     wrap_map_hook_for_generated_value,
 )
@@ -39,12 +42,12 @@ from test.python._constants.fixtures import (
 )
 from test.utils import find_first
 
-# Constant substitution is probabilistic; the search draws until it fires (or proves it can't).
+# Substitution is probabilistic; the search draws until it fires or exhausts its budget.
 _MAX_EXAMPLES = 200
 
 
 def _app_constants(source, *, name="provider"):
-    """Harvest constants from an app/module the way a registered source would, without the engine."""
+    """Harvest constants as a registered source would, without the engine."""
 
     def provider():
         return source
@@ -52,7 +55,7 @@ def _app_constants(source, *, name="provider"):
     provider.__name__ = name
     registry = SourceRegistry()
     registry.register(provider)
-    return extract_all(registry=registry, adapters=default_adapters())
+    return extract_all(registry=registry)
 
 
 def _harvested(source, type_):
@@ -60,7 +63,7 @@ def _harvested(source, type_):
 
 
 def test_constant_from_wsgi_app_unlocks_bug():
-    # The high-entropy unlock code exists only in the app source; reaching it requires harvesting it.
+    # The unlock code exists only in the app source, so only harvesting can reach it.
     assert buggy_app.UNLOCK_CODE in _harvested(buggy_app.app, "string")
     operation = schemathesis.openapi.from_dict(buggy_app.SCHEMA)["/unlock"]["POST"]
     case = find_first(
@@ -117,7 +120,7 @@ def test_registered_constants_apply_to_direct_state_machine():
     class Workflow(schema.as_state_machine()):
         constant_was_used = False
 
-        # Only the generated cases matter here; skip checks so an unrelated response never aborts the run.
+        # Skip checks so an unrelated response never aborts the run.
         def validate_response(self, *args, **kwargs):
             pass
 
@@ -530,8 +533,7 @@ def test_constant_applied_to_graphql_argument():
 
 
 def test_constants_auto_extracted_from_graphql_wsgi_app():
-    # The strawberry request handler is a library view, but Flask records the app's own module,
-    # so its resolver literals are reached without manual registration.
+    # The GraphQL view comes from a library, but Flask records the app's own module, so its resolvers get harvested.
     operation = _graphql_operations()["Query.lookup"]
     case = find_first(
         operation.as_strategy(generation_mode=GenerationMode.POSITIVE),
@@ -571,7 +573,7 @@ def test_graphql_constants_cover_scalar_shapes():
     # Integer, float, ID, list-element, input-object-field, and nested-object-field arguments each substitute.
     number = _graphql_case(operations["Query.byNumber"], pool, has_path("/byNumber/n"))
     assert any(d.value == graphql_app.SECRET_NUMBER for d in number._meta.constants_draws)
-    # `Float` accepts integer literals too, so pin the value we assert on the wire.
+    # `Float` accepts integer literals too, so match the exact value on the wire.
     ratio = _graphql_case(operations["Query.byRatio"], pool, has_value("/byRatio/r", graphql_app.SECRET_RATIO))
     _graphql_case(operations["Query.byId"], pool, has_path("/byId/id"))
     _graphql_case(operations["Query.byTags"], pool, has_path("/byTags/tags"))
@@ -644,7 +646,12 @@ def _parse_graphql(query):
 
 
 _GRAPHQL_SCALAR_SCHEMA = graphql.build_schema(
-    "type Query { lookup(code: String): Boolean byNumber(n: Int): Boolean byRatio(r: Float): Boolean }"
+    "input Filter { code: String tags: [String] }"
+    " type Item { code(x: String): String }"
+    " union SearchResult = Item"
+    " type Query { lookup(code: String): Boolean byNumber(n: Int): Boolean byRatio(r: Float): Boolean"
+    " byId(id: ID): Boolean byTags(tags: [String]): Boolean byFilter(filter: Filter): Boolean"
+    " search: SearchResult }"
 )
 
 
@@ -693,8 +700,7 @@ def test_graphql_constants_leave_dictionary_filled_arguments_alone():
 
 
 def test_graphql_float_scalar_rejects_overflowing_integer_constant():
-    # `float(10**400)` overflows; such an integer can never be a finite `Float` literal, so it must be
-    # filtered out rather than crash the draw with `OverflowError`.
+    # `float(10**400)` overflows, so such an integer is filtered out instead of crashing the draw.
     _, draws = substitute_constants(
         operation_node=_parse_graphql("{ byRatio(r: 1.0) }"),
         client_schema=_GRAPHQL_SCALAR_SCHEMA,
@@ -703,6 +709,68 @@ def test_graphql_float_scalar_rejects_overflowing_integer_constant():
         probability=1.0,
     )
     assert draws == []
+
+
+def _substitute_graphql_constants(query, pool):
+    operation, draws = substitute_constants(
+        operation_node=_parse_graphql(query),
+        client_schema=_GRAPHQL_SCALAR_SCHEMA,
+        pool=pool,
+        random=random.Random(0),
+        probability=1.0,
+    )
+    return graphql.print_ast(operation), draws
+
+
+def test_graphql_constants_fill_list_elements_and_input_fields():
+    assert _substitute_graphql_constants(
+        '{ ... on Query { lookup(code: "f") } __typename byTags(tags: ["a", "b"]) '
+        'byFilter(filter: {code: "c", tags: ["d"]}) search { ... on Item { code } } }',
+        _source("string", "S"),
+    ) == (
+        graphql.print_ast(
+            _parse_graphql(
+                '{ ... on Query { lookup(code: "f") } __typename byTags(tags: ["S", "S"]) '
+                'byFilter(filter: {code: "S", tags: ["S"]}) search { ... on Item { code } } }'
+            )
+        ),
+        [
+            _constant_draw("tags", "S", body_path="/byTags/tags"),
+            _constant_draw("tags", "S", body_path="/byTags/tags"),
+            _constant_draw("code", "S", body_path="/byFilter/filter/code"),
+            _constant_draw("tags", "S", body_path="/byFilter/filter/tags"),
+        ],
+    )
+
+
+def test_graphql_constants_leave_null_literals_alone():
+    query = "{ byTags(tags: null) byFilter(filter: null) }"
+    assert _substitute_graphql_constants(query, _source("string", "S")) == (
+        graphql.print_ast(_parse_graphql(query)),
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    ("query", "pool", "expected"),
+    [
+        ("{ byNumber(n: 0) }", _source("integer", 2**40, 7), "{ byNumber(n: 7) }"),
+        ("{ byRatio(r: 1.0) }", _source("integer", 10**400, 7), "{ byRatio(r: 7.0) }"),
+        ('{ byId(id: "x") }', _source("integer", 42), '{ byId(id: "42") }'),
+    ],
+    ids=["int-skips-out-of-range", "float-skips-overflowing", "id-renders-integer-as-string"],
+)
+def test_graphql_constants_render_type_compatible_values(query, pool, expected):
+    printed, _ = _substitute_graphql_constants(query, pool)
+    assert printed == graphql.print_ast(_parse_graphql(expected))
+
+
+def test_graphql_constant_without_origin_records_no_origin():
+    pool = ConstantsPool()
+    pool.add(ConstantEntry(value="S", type="string", origins=()))
+    assert _substitute_graphql_constants('{ lookup(code: "x") }', pool)[1] == [
+        ConstantDraw(location="body", parameter_name="code", value="S", origin=None, body_path="/lookup/code")
+    ]
 
 
 def test_stateful_prune_keeps_non_body_constant_draws():
@@ -783,6 +851,53 @@ def test_noop_map_and_flatmap_hooks_keep_constant_draws():
     assert flatmapped.constants_draws == (draw,)
 
 
+NO_MUTATIONS = MutationMetadata(())
+
+
+def _with_provenance(value):
+    return GeneratedValue(
+        value=value,
+        meta=NO_MUTATIONS,
+        pool_draws=(PoolDraw("query", "id", "User", "id", "POST /users", 201),),
+        semantic_draws=(SemanticDraw(("id",), "string", None, None, "id", "u1", "POST /users"),),
+        dictionary_draws=(DictionaryDraw("words", "file", None, 0, "GET /items", "query", "q", "w", True),),
+        constants_draws=(_constant_draw("code", "C"),),
+    )
+
+
+def test_hook_wrappers_keep_every_provenance_field():
+    def hook(value):
+        return {**value, "extra": 1}
+
+    generated = _with_provenance({"code": "C"})
+    expected = _with_provenance({"code": "C", "extra": 1})
+    assert [
+        wrap_map_hook_for_generated_value(hook)(generated),
+        wrap_map_hook_for_generated_value(hook, prune_constants=False)(generated),
+        find_first(
+            wrap_flatmap_hook_for_generated_value(lambda value: st.just(hook(value)))(generated),
+            lambda value: True,
+            max_examples=1,
+        ),
+        wrap_filter_hook_for_generated_value(lambda value: value == {"code": "C"})(generated),
+    ] == [expected, expected, expected, True]
+
+
+def test_hook_wrappers_pass_plain_values_through():
+    def hook(value):
+        return {**value, "extra": 1}
+
+    assert [
+        wrap_map_hook_for_generated_value(hook)({"code": "C"}),
+        find_first(
+            wrap_flatmap_hook_for_generated_value(lambda value: st.just(hook(value)))({"code": "C"}),
+            lambda value: True,
+            max_examples=1,
+        ),
+        wrap_filter_hook_for_generated_value(lambda value: value == {"code": "C"})({"code": "C"}),
+    ] == [{"code": "C", "extra": 1}, {"code": "C", "extra": 1}, True]
+
+
 def _draw(data, source, *, schema_properties, container_schema=None):
     strategy = build_constants_overlay_strategy(
         st.just({"blob": "placeholder"}),
@@ -850,8 +965,7 @@ def test_undersized_binary_constant_is_not_substituted(data):
 @given(data=st.data())
 @settings(max_examples=5)
 def test_typeless_object_property_is_not_scalar_substituted(data, schema):
-    # A property that is object-shaped (has `properties`) but omits an explicit `type` must not be
-    # replaced by a scalar constant -- that would corrupt the body structure.
+    # An object-shaped property without `type` must not get a scalar constant, which would corrupt the body.
     source = _source("string", "SCALAR_CONST")
     blob = _draw(data, source, schema_properties={"blob": schema})
     assert blob == "placeholder"
@@ -866,10 +980,7 @@ def test_float_constant_is_substituted_into_number_property(data):
 @given(data=st.data())
 @settings(max_examples=5)
 def test_format_constrained_string_constant_is_not_substituted(data):
-    # A string leaf with a semantic `format` is generated by a dedicated format-aware strategy.
-    # `format` is annotation-only for formats the validator does not recognize (here `phone`), so the
-    # leaf validator accepts a type-valid literal that violates the format; injecting it produces
-    # positive data the SUT rejects (the real django-modern-rest `phone` failure). Skip it.
+    # The validator ignores unknown formats like `phone`, so a substituted literal may break the format the SUT checks.
     source = _source("string", "utf8")
     schema = {"type": "string", "format": "phone"}
     assert _draw(data, source, schema_properties={"blob": schema}) == "placeholder"
@@ -878,8 +989,7 @@ def test_format_constrained_string_constant_is_not_substituted(data):
 @given(data=st.data())
 @settings(max_examples=5)
 def test_validator_enforced_format_string_constant_is_substituted(data):
-    # `email` is enforced by the leaf validator (`validate_formats=True`), so a valid harvested
-    # email is a safe substitution -- the validator filters any format-invalid literal itself.
+    # The validator enforces `email` and filters out format-invalid literals, so substitution is safe.
     source = _source("string", "user@example.com")
     schema = {"type": "string", "format": "email"}
     assert _draw(data, source, schema_properties={"blob": schema}) == "user@example.com"
@@ -888,8 +998,7 @@ def test_validator_enforced_format_string_constant_is_substituted(data):
 @given(data=st.data())
 @settings(max_examples=5)
 def test_unvalidated_numeric_format_constant_is_not_substituted(data):
-    # `int32` is annotation-only: `jsonschema_rs` does not enforce it, so an out-of-range integer
-    # slips past leaf validation and clobbers the format-aware value with data the SUT rejects.
+    # The validator does not enforce `int32`, so an out-of-range constant would reach the SUT and get rejected.
     source = _source("integer", 5_000_000_000)
     schema = {"type": "integer", "format": "int32"}
     assert _draw(data, source, schema_properties={"blob": schema}) == "placeholder"
@@ -956,8 +1065,7 @@ def test_nested_non_body_parameter_is_not_substituted():
 
 
 def test_binary_constant_not_substituted_into_non_body_parameter():
-    # `bytes`/`binary` values belong only in a request body; a query/header/path location must never
-    # receive a `Binary` object, whose serialization path expects a scalar.
+    # Binary values belong only in a body; query, header and path serialization expects a scalar.
     schema_properties = {"blob": {"type": "string", "format": "binary"}}
     strategy = build_constants_overlay_strategy(
         st.just({"blob": "ORIGINAL"}),
@@ -981,8 +1089,7 @@ def test_binary_constant_not_substituted_into_non_body_parameter():
     ids=["header-safe", "non-latin1"],
 )
 def test_header_string_constant_filtered_by_header_validity(value, expected):
-    # A header/cookie value that `is_valid_header` rejects would make the location filter discard the
-    # whole generated case; screen such string constants out at substitution time instead.
+    # An invalid header value would make the location filter discard the whole case, so substitution screens it out.
     schema_properties = {"X-Token": {"type": "string"}}
     strategy = build_constants_overlay_strategy(
         st.just({"X-Token": "ORIGINAL"}),
@@ -1139,8 +1246,7 @@ def test_constant_substituted_into_bundled_ref_property(data):
 @given(data=st.data())
 @settings(max_examples=5)
 def test_substitution_reverted_when_it_breaks_container_validation(data):
-    # `TOOLONG` is valid against the leaf schema (no length limit) but violates the container's
-    # `maxLength`, so the substitution must be reverted rather than emitted.
+    # `TOOLONG` passes the leaf schema but breaks the container's `maxLength`, so the substitution is reverted.
     container = {"type": "object", "properties": {"blob": {"type": "string", "maxLength": 3}}}
     blob = _draw(
         data,
@@ -1480,8 +1586,7 @@ def test_stateful_body_merge_prunes_overwritten_constant_provenance():
         merged_case_seen = False
         stale_provenance_seen = False
 
-        # The link's merge is driven by the recorded response, not checks; skip checks so an
-        # unrelated response never aborts the run.
+        # The recorded response drives the link's merge; skip checks so an unrelated response never aborts the run.
         def validate_response(self, *args, **kwargs):
             pass
 

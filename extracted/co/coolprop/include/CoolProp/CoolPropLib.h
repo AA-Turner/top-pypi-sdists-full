@@ -9,7 +9,9 @@
  * EXPORT_CODE void CONVENTION AFunction(double, double);
  * will be exported to the DLL
  *
- * The exact symbol that will be exported depends on the values of the preprocessor macros COOLPROP_LIB, EXPORT_CODE, CONVENTION, etc.
+ * The exact symbol that will be exported depends on the values of the
+ * preprocessor macros COOLPROP_SHARED_LIBRARY_BUILD,
+ * COOLPROP_SHARED_LIBRARY_USE, EXPORT_CODE, CONVENTION, etc.
  *
  * In order to have 100% control over the export macros, you can specify EXPORT_CODE and CONVENTION directly. Check out
  * CMakeLists.txt in the repo root to see some examples.
@@ -35,42 +37,45 @@
 #    pragma error
 #endif
 
-#if defined(COOLPROP_LIB)
-#    ifndef EXPORT_CODE
-#        if defined(__ISWINDOWS__)
-#            define EXPORT_CODE extern "C" __declspec(dllexport)
-#        else
-#            define EXPORT_CODE extern "C"
-#        endif
-#    endif
-#    ifndef CONVENTION
-#        if defined(__ISWINDOWS__)
-#            define CONVENTION __stdcall
-#        else
-#            define CONVENTION
-#        endif
-#    endif
+// Backwards compatibility: COOLPROP_LIB historically selected producer-side
+// DLL exports. New CMake consumers receive the unambiguous BUILD/USE macros.
+#if defined(COOLPROP_LIB) && !defined(COOLPROP_SHARED_LIBRARY_BUILD) && !defined(COOLPROP_SHARED_LIBRARY_USE)
+#    define COOLPROP_SHARED_LIBRARY_BUILD
+#endif
+
+#if defined(__cplusplus) \
+  && (defined(COOLPROP_SHARED_LIBRARY_BUILD) || defined(COOLPROP_SHARED_LIBRARY_USE) || defined(EXTERNC) || defined(__powerpc__))
+#    define COOLPROP_EXTERN_C extern "C"
 #else
-#    ifndef EXPORT_CODE
-#        define EXPORT_CODE
+#    define COOLPROP_EXTERN_C
+#endif
+
+#ifndef COOLPROP_SYMBOL_VISIBILITY
+#    if defined(__ISWINDOWS__) && defined(COOLPROP_SHARED_LIBRARY_USE)
+#        define COOLPROP_SYMBOL_VISIBILITY __declspec(dllimport)
+#    elif defined(__ISWINDOWS__) && defined(COOLPROP_SHARED_LIBRARY_BUILD)
+#        define COOLPROP_SYMBOL_VISIBILITY __declspec(dllexport)
+#    else
+#        define COOLPROP_SYMBOL_VISIBILITY
 #    endif
-#    ifndef CONVENTION
+#endif
+
+#ifndef EXPORT_CODE
+#    define EXPORT_CODE COOLPROP_EXTERN_C COOLPROP_SYMBOL_VISIBILITY
+#endif
+
+#ifndef CONVENTION
+#    if defined(__ISWINDOWS__) && (defined(COOLPROP_SHARED_LIBRARY_BUILD) || defined(COOLPROP_SHARED_LIBRARY_USE))
+#        define CONVENTION __stdcall
+#    else
 #        define CONVENTION
 #    endif
 #endif
 
 #ifndef __cplusplus
-#    if defined(__STDC_VERSION__)
-#        if (__STDC_VERSION__ >= 199901L)
-#            include <stdbool.h>
-#        endif
+#    if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || (defined(_MSC_VER) && (_MSC_VER >= 1800))
+#        include <stdbool.h>
 #    endif
-#endif
-
-// Hack for PowerPC compilation to only use extern "C"
-#if defined(__powerpc__) || defined(EXTERNC)
-#    undef EXPORT_CODE
-#    define EXPORT_CODE extern "C"
 #endif
 
 #if defined(__powerpc__)
@@ -151,6 +156,8 @@ EXPORT_CODE long CONVENTION get_global_param_string(const char* param, char* Out
 /**
      * \overload
      * \sa CoolProp::get_parameter_information_string
+     * \note Output is an in/out buffer of n bytes: on entry it holds the NUL-terminated info key ("IO", "short", "long" or "units"),
+     *       which is read only within its first n bytes; on return it holds the requested string.
      * \note This function returns the output string in pre-allocated char buffer.  If buffer is not large enough, no copy is made
      *
      * @returns error_code 1 = Ok 0 = error
@@ -201,6 +208,22 @@ EXPORT_CODE void CONVENTION set_config_bool(const char* key, const bool val);
      */
 EXPORT_CODE void CONVENTION set_departure_functions(const char* string_data, long* errcode, char* message_buffer, const long buffer_length);
 /**
+     * @brief Apply a simple mixing rule for a binary pair in the mixture binary pair library
+     * @param identifier1 The CAS number (or name) of the first component of the binary pair
+     * @param identifier2 The CAS number (or name) of the second component of the binary pair
+     * @param rule The simple mixing rule to apply; one of "linear" or "Lorentz-Berthelot"
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error message
+     * @param buffer_length The length of the buffer for the error message
+     *
+     * @note By default, if this binary pair already has an entry in the library, this is an
+     *       error, unless the configuration variable OVERWRITE_BINARY_INTERACTION is set to true
+     *
+     * \sa \ref CoolProp::apply_simple_mixing_rule
+     */
+EXPORT_CODE void CONVENTION apply_simple_mixing_rule(const char* identifier1, const char* identifier2, const char* rule, long* errcode,
+                                                     char* message_buffer, const long buffer_length);
+/**
      * \overload
      * \sa \ref CoolProp::set_reference_stateS
      * @returns error_code 1 = Ok 0 = error
@@ -245,7 +268,7 @@ EXPORT_CODE long CONVENTION redirect_stdout(const char* file);
 
 /// Get the debug level
 /// @returns level The level of the verbosity for the debugging output (0-10) 0: no debgging output
-EXPORT_CODE int CONVENTION get_debug_level();
+EXPORT_CODE int CONVENTION get_debug_level(void);  // NOLINT(modernize-redundant-void-arg) -- (void) is the C prototype; () is not
 /// Set the debug level
 /// @param level The level of the verbosity for the debugging output (0-10) 0: no debgging output
 EXPORT_CODE void CONVENTION set_debug_level(int level);
@@ -327,13 +350,25 @@ EXPORT_CODE long CONVENTION AbstractState_factory(const char* backend, const cha
 /**
      * @brief Get the fluid names for the AbstractState
      * @param handle The integer handle for the state class stored in memory
-     * @param fluids LIST_STRING_DELIMETER (',') delimited list of fluids
+     * @param fluids LIST_STRING_DELIMETER (',') delimited list of fluids (WARNING: this buffer must be at least buffer_length characters long, because there is no way to check its real length at runtime; use AbstractState_fluid_names_checkedMemory to pass its length)
      * @param errcode The errorcode that is returned (0 = no error, !0 = error)
      * @param message_buffer A buffer for the error code
      * @param buffer_length The length of the buffer for the error code
      * @return
      */
 EXPORT_CODE void CONVENTION AbstractState_fluid_names(const long handle, char* fluids, long* errcode, char* message_buffer, const long buffer_length);
+/**
+     * @brief Get the fluid names for the AbstractState
+     * @param handle The integer handle for the state class stored in memory
+     * @param fluids LIST_STRING_DELIMETER (',') delimited list of fluids
+     * @param fluids_length The length of the buffer for the list of fluids
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_fluid_names_checkedMemory(const long handle, char* fluids, const long fluids_length, long* errcode,
+                                                                    char* message_buffer, const long buffer_length);
 /**
      * @brief Release a state class generated by the low-level interface wrapper
      * @param handle The integer handle for the state class stored in memory
@@ -355,6 +390,39 @@ EXPORT_CODE void CONVENTION AbstractState_free(const long handle, long* errcode,
      */
 EXPORT_CODE void CONVENTION AbstractState_set_fractions(const long handle, const double* fractions, const long N, long* errcode, char* message_buffer,
                                                         const long buffer_length);
+/**
+     * @brief Set the MOLE fractions for the AbstractState explicitly, regardless of which
+     * basis (mole/mass/volume) the backend uses natively -- unlike AbstractState_set_fractions(),
+     * which silently reinterprets `fractions` as whichever basis the backend's
+     * using_mole_fractions()/using_mass_fractions()/using_volu_fractions() flags report, this
+     * always calls the backend's own set_mole_fractions(), which several backends (HEOS,
+     * REFPROP, Cubics, PCSAFT, Incompressible) implement as a real conversion even when mole
+     * fractions aren't their native basis -- removing the ambiguity of what `fractions` means
+     * when a backend accepts more than one.
+     * @param handle The integer handle for the state class stored in memory
+     * @param fractions The array of mole fractions
+     * @param N The length of the fractions array
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_set_mole_fractions(const long handle, const double* fractions, const long N, long* errcode,
+                                                             char* message_buffer, const long buffer_length);
+/**
+     * @brief Set the MASS fractions for the AbstractState explicitly -- see
+     * AbstractState_set_mole_fractions()'s docstring for why this and its mole-fraction
+     * counterpart exist as separate, explicit calls rather than one auto-detecting one.
+     * @param handle The integer handle for the state class stored in memory
+     * @param fractions The array of mass fractions
+     * @param N The length of the fractions array
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_set_mass_fractions(const long handle, const double* fractions, const long N, long* errcode,
+                                                             char* message_buffer, const long buffer_length);
 /**
      * @brief Get the molar fractions for the AbstractState
      * @param handle The integer handle for the state class stored in memory
@@ -405,6 +473,56 @@ EXPORT_CODE double CONVENTION AbstractState_get_fugacity(const long handle, cons
      */
 EXPORT_CODE double CONVENTION AbstractState_get_fugacity_coefficient(const long handle, const long i, long* errcode, char* message_buffer,
                                                                      const long buffer_length);
+/**
+     * @brief Return the chemical potential (in J/mol) of the i-th component of the mixture.
+     * @param handle The integer handle for the state class stored in memory
+     * @param i i-th component of the mixture
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE double CONVENTION AbstractState_get_chemical_potential(const long handle, const long i, long* errcode, char* message_buffer,
+                                                                   const long buffer_length);
+/**
+     * @brief Return the fugacities (in Pa) of all components of the mixture in one call.
+     * @param handle The integer handle for the state class stored in memory
+     * @param values The array into which the per-component fugacities are written
+     * @param maxN The length of the buffer for the values
+     * @param N The number of components actually written
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_get_fugacities(const long handle, double* values, const long maxN, long* N, long* errcode,
+                                                         char* message_buffer, const long buffer_length);
+/**
+     * @brief Return the fugacity coefficients (dimensionless) of all components of the mixture in one call.
+     * @param handle The integer handle for the state class stored in memory
+     * @param values The array into which the per-component fugacity coefficients are written
+     * @param maxN The length of the buffer for the values
+     * @param N The number of components actually written
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_get_fugacity_coefficients(const long handle, double* values, const long maxN, long* N, long* errcode,
+                                                                    char* message_buffer, const long buffer_length);
+/**
+     * @brief Return the chemical potentials (in J/mol) of all components of the mixture in one call.
+     * @param handle The integer handle for the state class stored in memory
+     * @param values The array into which the per-component chemical potentials are written
+     * @param maxN The length of the buffer for the values
+     * @param N The number of components actually written
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_get_chemical_potentials(const long handle, double* values, const long maxN, long* N, long* errcode,
+                                                                  char* message_buffer, const long buffer_length);
 /**
      * @brief Update the state of the AbstractState
      * @param handle The integer handle for the state class stored in memory
@@ -778,7 +896,7 @@ EXPORT_CODE double CONVENTION AbstractState_keyed_output_satState(const long han
 /**
      * @brief Return the name of the backend used in the AbstractState
      * @param handle The integer handle for the state class stored in memory
-     * @param backend The char pointer the name is written to
+     * @param backend The char pointer the name is written to (WARNING: this buffer must be at least buffer_length characters long, because there is no way to check its real length at runtime; use AbstractState_backend_name_checkedMemory to pass its length)
      * @param errcode The errorcode that is returned (0 = no error, !0 = error)
      * @param message_buffer A buffer for the error code
      * @param buffer_length The length of the buffer for the error code
@@ -786,6 +904,18 @@ EXPORT_CODE double CONVENTION AbstractState_keyed_output_satState(const long han
      */
 EXPORT_CODE void CONVENTION AbstractState_backend_name(const long handle, char* backend, long* errcode, char* message_buffer,
                                                        const long buffer_length);
+/**
+     * @brief Return the name of the backend used in the AbstractState
+     * @param handle The integer handle for the state class stored in memory
+     * @param backend The char pointer the name is written to
+     * @param backend_length The length of the buffer for the name of the backend
+     * @param errcode The errorcode that is returned (0 = no error, !0 = error)
+     * @param message_buffer A buffer for the error code
+     * @param buffer_length The length of the buffer for the error code
+     * @return
+     */
+EXPORT_CODE void CONVENTION AbstractState_backend_name_checkedMemory(const long handle, char* backend, const long backend_length, long* errcode,
+                                                                     char* message_buffer, const long buffer_length);
 
 /**
  * 

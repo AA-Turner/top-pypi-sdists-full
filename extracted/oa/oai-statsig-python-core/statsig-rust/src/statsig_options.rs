@@ -55,8 +55,9 @@ pub struct StatsigOptions {
     /// Maximum simultaneous private ID-list index builds during eager initialization.
     /// Accepts 1 through 32. Unset and out-of-range values use one (sequential).
     pub id_list_init_build_concurrency: Option<i32>,
-    /// Selects Elias–Fano for this instance’s private ID lists and shared ID-list files.
-    /// Unset or false selects the hash format for both.
+    /// Private ID lists and shared ID-list files use Elias–Fano by default.
+    /// Unset builds from raw downloads. Explicit true also requests prebuilt snapshots
+    /// from a compatible `download_id_list_file_api`. False selects hash storage and raw downloads.
     /// Selecting a format does not enable ID-list downloads.
     pub enable_id_list_elias_fano: Option<bool>,
     /// Opt in to ID-list telemetry when the remote metrics gate is enabled.
@@ -93,10 +94,8 @@ pub struct StatsigOptions {
     pub id_lists_adapter: Option<Arc<dyn IdListsAdapter>>,
     pub id_lists_sync_interval_ms: Option<u32>,
     pub id_lists_url: Option<String>,
-    /// Opt into local shared ID-list snapshots and one elected HTTP downloader.
+    /// Eager and lazy workers share immutable bases here. Each fetches its own manifest and deltas.
     /// Unset keeps process-private ID lists. A custom `id_lists_adapter` takes precedence.
-    /// Add `shared_initial_id_list_base` to `experimental_flags` to share the
-    /// initial hash or Elias–Fano index and fetch updates per worker, including in lazy mode.
     pub shared_id_lists_dir: Option<String>,
     /// Preferred base URL for individual ID-list files; preserves the manifest's path and query.
     /// Set `fallback_to_statsig_api` to true to allow retryable failures to use the original URL

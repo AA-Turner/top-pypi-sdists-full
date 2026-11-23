@@ -1,7 +1,7 @@
 use super::*;
 use crate::StatsigUser;
 
-const PILOT_LISTS: &str = r#"{"qa":"userID","remote":"userID","follower_only":"userID"}"#;
+const PILOT_LISTS: &str = r#"{"qa":"userID","remote":"userID","extra":"userID"}"#;
 
 fn rerun_with_pilot_env(name: &str) -> bool {
     rerun_with_allowlist(name, PILOT_LISTS)
@@ -191,7 +191,7 @@ async fn get_layer_shares_its_membership_wait_across_shared_control_experiments(
                 "passPercentage": 100, "idType": "userID", "sharedControlExperiments": []}]
         }}
     });
-    for name in ["qa", "remote", "follower_only"] {
+    for name in ["qa", "remote", "extra"] {
         specs["condition_map"][name] = json!({
             "type": "unit_id", "operator": "not_in_segment_list", "targetValue": name, "idType": "userID"
         });
@@ -367,10 +367,58 @@ async fn synchronous_membership_lookup_uses_the_sdk_runtime() {
 }
 
 #[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
+async fn mock_membership_list(proxy: &wiremock::MockServer) -> serde_json::Value {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let manifest = serde_json::json!({"qa":{
+        "fileID":"qa", "name":"qa", "size":10, "creationTime":1, "url":format!("{}/qa", proxy.uri())
+    }});
+    Mock::given(method("POST"))
+        .and(path("/v1/get_id_lists"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&manifest))
+        .mount(proxy)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/qa"))
+        .respond_with(
+            ResponseTemplate::new(206)
+                .insert_header("content-range", "bytes 0-9/10")
+                .set_body_string("+aaaaaaaa\n"),
+        )
+        .mount(proxy)
+        .await;
+    manifest
+}
+
+#[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
+async fn poll_lists(sdk: &Statsig) -> Result<(), crate::StatsigErr> {
+    sdk.id_lists_adapter
+        .adapter()
+        .unwrap()
+        .start(&sdk.statsig_runtime, sdk.spec_store.clone())
+        .await
+}
+
+#[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
+async fn fail_next_manifest(proxy: &wiremock::MockServer, status: u16) {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, ResponseTemplate};
+
+    Mock::given(method("POST"))
+        .and(path("/v1/get_id_lists"))
+        .respond_with(ResponseTemplate::new(status))
+        .with_priority(1)
+        .up_to_n_times(1)
+        .mount(proxy)
+        .await;
+}
+
+#[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
 #[tokio::test]
-async fn shared_follower_reuses_membership_across_manifest_routes() {
+async fn shared_base_worker_reuses_membership_across_manifest_routes() {
     if rerun_with_pilot_env(rusty_fork::rusty_fork_test_name!(
-        shared_follower_reuses_membership_across_manifest_routes
+        shared_base_worker_reuses_membership_across_manifest_routes
     )) {
         return;
     }
@@ -386,63 +434,15 @@ async fn shared_follower_reuses_membership_across_manifest_routes() {
         state_read_primary_attempts: Some(1),
         ..options_with_id_lists()
     };
-    // Model a writer in a deployment that omits the follower's list.
-    let writer_resolver = test_resolver();
-    let writer_adapter = Arc::new(crate::id_lists_adapter::StatsigSharedIdListsAdapter::new(
-        "secret-shared",
-        &options,
-    ));
-    writer_adapter
-        .membership_resolver
-        .set(Arc::downgrade(&writer_resolver))
-        .unwrap();
-    let leader = Statsig::new(
-        "secret-shared",
-        Some(Arc::new(StatsigOptions {
-            id_lists_adapter: Some(writer_adapter),
-            ..options.clone()
-        })),
-    );
-    let follower = Statsig::new("secret-shared", Some(Arc::new(options)));
-    let resolver = follower.remote_id_list_resolver.as_ref().unwrap();
-    let row = |name: &str| {
-        serde_json::json!({
-            "fileID":name, "name":name, "size":10, "creationTime":1, "url":format!("{}/qa", proxy.uri())
-        })
-    };
-    let manifest = serde_json::json!({"qa":row("qa"), "follower_only":row("follower_only")});
-    Mock::given(method("POST"))
-        .and(path("/v1/get_id_lists"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&manifest))
-        .mount(&proxy)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/qa"))
-        .respond_with(
-            ResponseTemplate::new(206)
-                .insert_header("content-range", "bytes 0-9/10")
-                .set_body_string("+aaaaaaaa\n"),
-        )
-        .mount(&proxy)
-        .await;
-    async fn sync(sdk: &Statsig) -> Result<(), crate::StatsigErr> {
-        sdk.id_lists_adapter
-            .adapter()
-            .unwrap()
-            .start(&sdk.statsig_runtime, sdk.spec_store.clone())
-            .await
-    }
-    crate::id_lists_adapter::TEST_CDN_MANIFEST_URL
-        .scope(format!("{}/cdn", proxy.uri()), sync(&leader))
-        .await
-        .unwrap();
-    sync(&follower).await.unwrap();
+    let sdk = crate::id_lists_adapter::TEST_CDN_MANIFEST_URL
+        .sync_scope(format!("{}/cdn", proxy.uri()), || {
+            Statsig::new("secret-shared", Some(Arc::new(options)))
+        });
+    let resolver = sdk.remote_id_list_resolver.as_ref().unwrap();
+    let manifest = mock_membership_list(&proxy).await;
+    poll_lists(&sdk).await.unwrap();
     let cache = RemoteIdListCache::new(resolver);
-    finish_matching(
-        &pending_entry(resolver, &cache, "follower_only", "id"),
-        resolver,
-        true,
-    );
+    finish_matching(&pending_entry(resolver, &cache, "qa", "id"), resolver, true);
 
     // The CDN first advertises the same list, then removes it. A failed poll
     // between those observations keeps the last successful revision.
@@ -457,24 +457,71 @@ async fn shared_follower_reuses_membership_across_manifest_routes() {
                 .mount(&proxy)
                 .await;
         }
-        Mock::given(method("POST"))
-            .and(path("/v1/get_id_lists"))
-            .respond_with(ResponseTemplate::new(status))
-            .with_priority(1)
-            .up_to_n_times(1)
-            .mount(&proxy)
-            .await;
-        assert_eq!(sync(&leader).await.is_ok(), status == 503);
-        assert_eq!(
-            writer_resolver.revisions.get("qa").is_some(),
-            cdn_manifest.get("qa").is_some()
-        );
-        sync(&follower).await.unwrap();
-        let lookup = cache.entry_for(resolver, "follower_only", "userID", "id");
+        fail_next_manifest(&proxy, status).await;
+        assert_eq!(poll_lists(&sdk).await.is_ok(), status == 503);
+        let lookup = cache.entry_for(resolver, "qa", "userID", "id");
         assert_eq!(
             matches!(lookup, CachedLookup::Ready(Some(true))),
-            cdn_manifest.get("follower_only").is_some()
+            cdn_manifest.get("qa").is_some()
         );
+    }
+}
+
+#[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
+#[tokio::test]
+async fn only_shared_eager_workers_expire_membership_after_failed_manifest_polls() {
+    if rerun_with_pilot_env(rusty_fork::rusty_fork_test_name!(
+        only_shared_eager_workers_expire_membership_after_failed_manifest_polls
+    )) {
+        return;
+    }
+    async fn advance(seconds: u64) {
+        tokio::time::pause();
+        tokio::time::advance(Duration::from_secs(seconds)).await;
+        tokio::time::resume();
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let proxy = wiremock::MockServer::start().await;
+    mock_membership_list(&proxy).await;
+    for (shared, lazy, interval_ms, window, expires) in [
+        (true, false, 1_000, 180, true),
+        (true, false, 90_000, 270, true),
+        (false, false, 1_000, 180, false),
+        (true, true, 1_000, 180, false),
+    ] {
+        let options = StatsigOptions {
+            shared_id_lists_dir: shared.then(|| directory.path().to_str().unwrap().to_owned()),
+            lazy_load_id_lists: Some(lazy),
+            id_lists_sync_interval_ms: Some(interval_ms),
+            id_lists_url: Some(format!("{}/v1/get_id_lists", proxy.uri())),
+            ..options_with_id_lists()
+        };
+        let sdk = Statsig::new("secret-test", Some(Arc::new(options)));
+        let resolver = sdk.remote_id_list_resolver.as_ref().unwrap();
+        let cache = RemoteIdListCache::new(resolver);
+        let cached = || cache.entry_for(resolver, "qa", "userID", "id");
+        let next_request = || pending_entry(resolver, &cache, "qa", "id");
+        poll_lists(&sdk).await.unwrap();
+        finish_matching(&next_request(), resolver, true);
+
+        advance(window - 10).await;
+        poll_lists(&sdk).await.unwrap(); // The same manifest renews the window.
+        advance(window - 10).await;
+        fail_next_manifest(&proxy, 401).await;
+        assert!(poll_lists(&sdk).await.is_err());
+        assert!(matches!(cached(), CachedLookup::Ready(Some(true))));
+
+        advance(20).await;
+        fail_next_manifest(&proxy, 401).await;
+        assert!(poll_lists(&sdk).await.is_err());
+        if expires {
+            next_request();
+            poll_lists(&sdk).await.unwrap();
+            finish_matching(&next_request(), resolver, false);
+            assert!(matches!(cached(), CachedLookup::Ready(Some(false))));
+        } else {
+            assert!(matches!(cached(), CachedLookup::Ready(Some(true))));
+        }
     }
 }
 

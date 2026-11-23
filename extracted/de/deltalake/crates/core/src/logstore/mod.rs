@@ -17,7 +17,7 @@
 //! Two main abstractions govern the file operations [`LogStore`] and [`ObjectStore`].
 //!
 //! [`LogStore`]s are scoped to individual tables and are responsible for maintaining proper
-//! behaviours and ensuring consistency during the metadata phase. The correctness is predicated
+//! behaviors and ensuring consistency during the metadata phase. The correctness is predicated
 //! on the atomicity and durability guarantees of the implementation of this interface.
 //!
 //! - Atomic visibility: Partial writes must not be visible to readers.
@@ -56,7 +56,7 @@ use bytes::Bytes;
 use datafusion::datasource::object_store::ObjectStoreUrl;
 use delta_kernel::log_segment::LogSegment;
 use delta_kernel::path::{LogPathFileType, ParsedLogPath};
-use delta_kernel::{AsAny, Engine};
+use delta_kernel::{AsAny, Engine, LogPath};
 use delta_kernel_default_engine::DefaultEngineBuilder;
 use delta_kernel_default_engine::executor::tokio::{
     TokioBackgroundExecutor, TokioMultiThreadExecutor,
@@ -72,18 +72,22 @@ use serde_json::Deserializer;
 use tokio::runtime::RuntimeFlavor;
 use tracing::*;
 use url::Url;
-use uuid::Uuid;
 
 use crate::kernel::transaction::TransactionError;
 use crate::kernel::{Action, CommitInfo, Version, spawn_blocking_with_span};
 use crate::table::normalize_table_url;
 use crate::{DeltaResult, DeltaTableError};
 
+pub use self::committer::{
+    CommitResponse, CommitStrategy, Committer, FileSystemCommitter, PayloadKind,
+};
 pub use self::config::StorageConfig;
 pub use self::factories::{
     LogStoreFactory, LogStoreFactoryRegistry, ObjectStoreFactory, ObjectStoreFactoryRegistry,
     logstore_factories, object_store_factories, store_for,
 };
+pub(crate) use self::scope::with_operation;
+pub use self::scope::{OperationContext, OperationScope, OperationTransaction, ScopeClosed};
 pub use self::storage::utils::commit_uri_from_version;
 pub use self::storage::{
     DefaultObjectStoreRegistry, DeltaIOStorageBackend, IORuntime, ObjectStoreRef,
@@ -92,9 +96,11 @@ pub use self::storage::{
 /// Convenience re-export of the object store crate
 pub use ::object_store;
 
+pub mod committer;
 pub mod config;
 pub(crate) mod default_logstore;
 pub(crate) mod factories;
+pub mod scope;
 pub(crate) mod storage;
 
 /// Parquet reader for object storage
@@ -205,9 +211,14 @@ pub fn logstore_for(location: &Url, storage_config: StorageConfig) -> DeltaResul
     let scheme = Url::parse(&format!("{}://", location.scheme()))
         .map_err(|_| DeltaTableError::InvalidTableLocation(location.clone().into()))?;
 
-    if let Some(entry) = object_store_factories().get(&scheme) {
+    // Clone the factory and release the registry entry before the call. A factory that registers
+    // handlers needs write lock that might cause a deadlock.
+    let factory = object_store_factories()
+        .get(&scheme)
+        .map(|entry| entry.value().clone());
+    if let Some(factory) = factory {
         debug!("Found a storage provider for {scheme} ({location})");
-        let (root_store, _prefix) = entry.value().parse_url_opts(location, &storage_config)?;
+        let (root_store, _prefix) = factory.parse_url_opts(location, &storage_config)?;
         return logstore_with(root_store, location, storage_config);
     }
 
@@ -309,11 +320,21 @@ pub fn logstore_with(
 
 /// Holder whether it's tmp_commit path or commit bytes
 #[derive(Clone)]
+#[non_exhaustive]
 pub enum CommitOrBytes {
     /// Path of the tmp commit, to be used by logstores which use CopyIfNotExists
     TmpCommit(Path),
     /// Bytes of the log, to be used by logstoers which use Conditional Put
     LogBytes(Bytes),
+}
+
+/// The logtail for a catalog managed table
+#[derive(Clone)]
+pub struct CatalogLogTail {
+    /// The tail log paths
+    pub log_tail: Vec<LogPath>,
+    /// The table's latest version
+    pub max_version: Version,
 }
 
 /// Configuration parameters for a log store
@@ -364,11 +385,19 @@ impl LogStoreConfig {
 /// The correctness is predicated on the atomicity and durability guarantees of
 /// the implementation of this interface. Specifically,
 ///
-/// - Atomic visibility: Any commit created via `write_commit_entry` must become visible atomically.
+/// - Atomic visibility: Any commit created via the [`Committer`] must become visible atomically.
 /// - Mutual exclusion: Only one writer must be able to create a commit for a specific version.
 /// - Consistent listing: Once a commit entry for version `v` has been written, any future call to
 ///   `get_latest_version` must return a version >= `v`, i.e. the underlying file system entry must
 ///   become visible immediately.
+///
+/// Two seams let backends customise how an operation writes:
+///
+/// - [`LogStore::committer`] returns the commit authority. Filesystem-backed stores return a
+///   [`FileSystemCommitter`].
+/// - [`LogStore::begin_operation`] returns an [`OperationContext`] when every write of one
+///   operation must be isolated (for example on a LakeFS transaction branch). Core wraps the
+///   context and routes writes to it; the backend never sees an operation id.
 #[async_trait::async_trait]
 pub trait LogStore: Send + Sync + AsAny {
     /// Return the name of this LogStore implementation
@@ -382,39 +411,57 @@ pub trait LogStore: Send + Sync + AsAny {
     /// Read data for commit entry with the given version.
     async fn read_commit_entry(&self, version: Version) -> DeltaResult<Option<Bytes>>;
 
-    /// Write list of actions as delta commit entry for given version.
-    ///
-    /// This operation can be retried with a higher version in case the write
-    /// fails with [`TransactionError::VersionAlreadyExists`].
-    async fn write_commit_entry(
-        &self,
-        version: Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError>;
-
-    /// Abort the commit entry for the given version.
-    async fn abort_commit_entry(
-        &self,
-        version: Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError>;
-
     /// Find latest version currently stored in the delta log.
     async fn get_latest_version(&self, start_version: Version) -> DeltaResult<Version>;
 
-    /// Get object store, can pass operation_id for object stores linked to an operation
-    fn object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn ObjectStore>;
+    /// Return catalog-provided commits for a catalog-managed table, or `None` for
+    /// filesystem-managed tables (the default).
+    async fn catalog_log_tail(&self) -> DeltaResult<Option<CatalogLogTail>> {
+        Ok(None)
+    }
 
-    /// Get the object store rooted at the table root (not the delta log), optionally scoped to
-    /// an operation.
-    fn root_object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn ObjectStore>;
+    /// Whether commits to this table are ratified by a catalog.
+    fn is_catalog_managed(&self) -> bool {
+        false
+    }
+
+    /// Publish catalog-ratified commits up to `up_to` to the delta log.
+    async fn publish_logs(&self, up_to: Version) -> DeltaResult<()> {
+        let _ = up_to;
+        Ok(())
+    }
+
+    /// Get the object store rooted at the table root (`_delta_log/` is a child).
+    fn object_store(&self) -> Arc<dyn ObjectStore>;
+
+    /// Get the object store rooted at the root of the storage system (not the table root).
+    fn root_object_store(&self) -> Arc<dyn ObjectStore>;
 
     /// Get a kernel [`Engine`] backed by this log store's root object store.
-    fn engine(&self, operation_id: Option<Uuid>) -> Arc<dyn Engine> {
-        let store = self.root_object_store(operation_id);
-        get_engine(store)
+    fn engine(&self) -> Arc<dyn Engine> {
+        get_engine(self.root_object_store())
+    }
+
+    /// The commit authority for this store.
+    ///
+    /// The default moves a temporary commit file into place with rename-if-not-exists through
+    /// [`LogStore::object_store`]. Stores with an atomic put-if-absent return a
+    /// [`FileSystemCommitter`] with [`CommitStrategy::ConditionalPut`].
+    fn committer(&self) -> Arc<dyn Committer> {
+        Arc::new(FileSystemCommitter::new(
+            self.object_store(),
+            CommitStrategy::TmpCommit,
+        ))
+    }
+
+    /// Begin an isolated write scope for one operation.
+    ///
+    /// `None` means this store needs no per-operation isolation and the operation writes through
+    /// the store directly. Backends that isolate writes return an [`OperationContext`]; core
+    /// wraps it, routes all writes of the operation to it, and ends it through
+    /// [`OperationTransaction::finish`] or [`OperationTransaction::abort`].
+    async fn begin_operation(&self) -> DeltaResult<Option<OperationContext>> {
+        Ok(None)
     }
 
     /// [Path] to Delta log
@@ -428,22 +475,22 @@ pub trait LogStore: Send + Sync + AsAny {
         &self.config().location
     }
 
+    /// Table root URL on the write target.
+    ///
+    /// Equals [`LogStore::root_url`] unless the store is operation-scoped, in which case it is the
+    /// table root inside the isolated write target. Kernel checkpoint and compaction writers use it.
+    fn write_root_url(&self) -> Url {
+        self.root_url().clone()
+    }
+
     /// [Path] to Delta log
     fn log_path(&self) -> &Path {
         &DELTA_LOG_PATH
     }
 
-    /// Generate the appropriate [Url] to use for executing an operation.
-    ///
-    ///  This can be useful for branching LogStore implementations such as LakeFS which may return
-    ///  something other than the base URL.
-    fn transaction_url(&self, _operation_id: Option<Uuid>) -> DeltaResult<Url> {
-        Ok(self.config().location().clone())
-    }
-
     /// Check if the location is a delta table location
     async fn is_delta_table_location(&self) -> DeltaResult<bool> {
-        let object_store = self.object_store(None);
+        let object_store = self.object_store();
         let dummy_url = Url::parse("http://example.com").unwrap();
         let log_path = Path::from("_delta_log");
 
@@ -524,38 +571,40 @@ impl<T: LogStore + ?Sized> LogStore for Arc<T> {
         T::read_commit_entry(self, version).await
     }
 
-    async fn write_commit_entry(
-        &self,
-        version: Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError> {
-        T::write_commit_entry(self, version, commit_or_bytes, operation_id).await
-    }
-
-    async fn abort_commit_entry(
-        &self,
-        version: Version,
-        commit_or_bytes: CommitOrBytes,
-        operation_id: Uuid,
-    ) -> Result<(), TransactionError> {
-        T::abort_commit_entry(self, version, commit_or_bytes, operation_id).await
-    }
-
     async fn get_latest_version(&self, start_version: Version) -> DeltaResult<Version> {
         T::get_latest_version(self, start_version).await
     }
 
-    fn object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn ObjectStore> {
-        T::object_store(self, operation_id)
+    async fn catalog_log_tail(&self) -> DeltaResult<Option<CatalogLogTail>> {
+        T::catalog_log_tail(self).await
     }
 
-    fn root_object_store(&self, operation_id: Option<Uuid>) -> Arc<dyn ObjectStore> {
-        T::root_object_store(self, operation_id)
+    fn is_catalog_managed(&self) -> bool {
+        T::is_catalog_managed(self)
     }
 
-    fn engine(&self, operation_id: Option<Uuid>) -> Arc<dyn Engine> {
-        T::engine(self, operation_id)
+    async fn publish_logs(&self, up_to: Version) -> DeltaResult<()> {
+        T::publish_logs(self, up_to).await
+    }
+
+    fn object_store(&self) -> Arc<dyn ObjectStore> {
+        T::object_store(self)
+    }
+
+    fn root_object_store(&self) -> Arc<dyn ObjectStore> {
+        T::root_object_store(self)
+    }
+
+    fn engine(&self) -> Arc<dyn Engine> {
+        T::engine(self)
+    }
+
+    fn committer(&self) -> Arc<dyn Committer> {
+        T::committer(self)
+    }
+
+    async fn begin_operation(&self) -> DeltaResult<Option<OperationContext>> {
+        T::begin_operation(self).await
     }
 
     fn to_uri(&self, location: &Path) -> String {
@@ -564,6 +613,10 @@ impl<T: LogStore + ?Sized> LogStore for Arc<T> {
 
     fn root_url(&self) -> &Url {
         T::root_url(self)
+    }
+
+    fn write_root_url(&self) -> Url {
+        T::write_root_url(self)
     }
 
     fn log_path(&self) -> &Path {
@@ -636,21 +689,11 @@ pub(crate) fn object_store_path(table_root: &Url) -> DeltaResult<Path> {
 pub fn to_uri(root: &Url, location: &Path) -> String {
     match root.scheme() {
         "file" => {
+            let root = root.to_file_path().expect("Invalid local table URL");
+            let root = root.to_string_lossy();
             #[cfg(windows)]
-            let uri = format!(
-                "{}/{}",
-                root.as_ref().trim_end_matches('/'),
-                location.as_ref()
-            )
-            .replace("file:///", "");
-            #[cfg(unix)]
-            let uri = format!(
-                "{}/{}",
-                root.as_ref().trim_end_matches('/'),
-                location.as_ref()
-            )
-            .replace("file://", "");
-            uri
+            let root = root.replace('\\', "/");
+            format!("{}/{}", root.trim_end_matches('/'), location.as_ref())
         }
         #[cfg(target_os = "windows")]
         DELTA_UNC_SCHEME => {
@@ -779,7 +822,7 @@ pub async fn get_latest_version(
     log_store: &dyn LogStore,
     current_version: Version,
 ) -> DeltaResult<Version> {
-    let storage = log_store.engine(None).storage_handler();
+    let storage = log_store.engine().storage_handler();
     let log_root = log_store.log_root_url();
 
     let segment = spawn_blocking_with_span(move || {
@@ -787,14 +830,11 @@ pub async fn get_latest_version(
     })
     .await
     .map_err(|e| DeltaTableError::Generic(e.to_string()))?
-    .map_err(|e| {
-        if e.to_string()
-            .contains(&format!("to have version {current_version}"))
-        {
+    .map_err(|e| match e {
+        delta_kernel::KernelError::EmptyLog | delta_kernel::KernelError::MissingVersion(_) => {
             DeltaTableError::InvalidVersion(current_version)
-        } else {
-            DeltaTableError::Generic(e.to_string())
         }
+        other => DeltaTableError::Generic(other.to_string()),
     })?;
 
     Ok(segment.end_version)
@@ -819,7 +859,7 @@ pub async fn get_all_versions_from(
 
     let mut versions = Vec::<u64>::new();
     let mut commit_files = Vec::<CommitInfo>::new();
-    let object_store = log_store.object_store(None);
+    let object_store = log_store.object_store();
 
     // Iterate through each version from start to latest
     for version in start_version..=latest_version as u64 {
@@ -926,6 +966,41 @@ pub(crate) mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[test]
+    fn to_uri_local_paths() {
+        let (url_prefix, path_prefix) = if cfg!(windows) {
+            ("file:///C:/", "C:/")
+        } else {
+            ("file:///", "/")
+        };
+        for (encoded, decoded, relative) in [
+            ("table", "table", "part.parquet"),
+            ("with%20space", "with space", "part.parquet"),
+            ("%E4%B8%AD%E6%96%87", "中文", "part.parquet"),
+            ("literal%2520", "literal%20", "part.parquet"),
+            ("hash%23tag", "hash#tag", "part.parquet"),
+            ("with%20space", "with space", ""),
+            ("with%20space", "with space", "p=a%2Fb/part%20file.parquet"),
+        ] {
+            let root = Url::parse(&format!("{url_prefix}{encoded}/")).unwrap();
+            let location = Path::parse(relative).unwrap();
+            assert_eq!(
+                to_uri(&root, &location),
+                format!("{path_prefix}{decoded}/{relative}")
+            );
+        }
+    }
+
+    #[test]
+    fn to_uri_remote_paths_remain_encoded() {
+        let root = Url::parse("s3://bucket/with%20space/").unwrap();
+        let location = Path::parse("p=a%2Fb/part.parquet").unwrap();
+        assert_eq!(
+            to_uri(&root, &location),
+            "s3://bucket/with%20space/p=a%2Fb/part.parquet"
+        );
+    }
 
     #[test]
     fn test_logstore_config_ctor() {
@@ -1057,7 +1132,7 @@ pub(crate) mod tests {
         // delta table (it shouldn't be).
         let payload = PutPayload::from_static(b"test-drivin");
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/_commit_failed.tmp"),
                 payload,
@@ -1090,7 +1165,7 @@ pub(crate) mod tests {
         // Save a commit to the transaction log
         let payload = PutPayload::from_static(b"test");
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/00000000000000000000.json"),
                 payload,
@@ -1124,7 +1199,7 @@ pub(crate) mod tests {
         // Save a "checkpoint" file to the transaction log directory
         let payload = PutPayload::from_static(b"test");
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/00000000000000000000.checkpoint.parquet"),
                 payload,
@@ -1159,7 +1234,7 @@ pub(crate) mod tests {
         let payload = PutPayload::from_static(b"test");
 
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/.00000000000000000000.crc.crc"),
                 payload.clone(),
@@ -1169,7 +1244,7 @@ pub(crate) mod tests {
             .expect("Failed to put");
 
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/.00000000000000000000.json.crc"),
                 payload.clone(),
@@ -1179,7 +1254,7 @@ pub(crate) mod tests {
             .expect("Failed to put");
 
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/00000000000000000000.crc"),
                 payload.clone(),
@@ -1190,7 +1265,7 @@ pub(crate) mod tests {
 
         // Now add a commit
         let _put = store
-            .object_store(None)
+            .object_store()
             .put_opts(
                 &Path::from("_delta_log/00000000000000000000.json"),
                 payload.clone(),

@@ -446,15 +446,14 @@ fn eager_init_builds_use_the_configured_workers_and_publish_together() {
     use std::thread;
 
     for (limit, trigger, elias_fano, expected) in [
-        (None, RefreshTrigger::PrivateInitialize, true, 1),
-        (Some(1), RefreshTrigger::PrivateInitialize, true, 1),
-        (Some(0), RefreshTrigger::PrivateInitialize, true, 1),
-        (Some(33), RefreshTrigger::PrivateInitialize, true, 1),
-        (Some(2), RefreshTrigger::PrivateInitialize, true, 2),
-        (Some(32), RefreshTrigger::PrivateInitialize, true, 4),
+        (None, RefreshTrigger::Initialize, true, 1),
+        (Some(1), RefreshTrigger::Initialize, true, 1),
+        (Some(0), RefreshTrigger::Initialize, true, 1),
+        (Some(33), RefreshTrigger::Initialize, true, 1),
+        (Some(2), RefreshTrigger::Initialize, true, 2),
+        (Some(32), RefreshTrigger::Initialize, true, 4),
         (Some(4), RefreshTrigger::Background, true, 1),
-        (Some(4), RefreshTrigger::SharedInitialize, true, 1),
-        (Some(2), RefreshTrigger::PrivateInitialize, false, 2),
+        (Some(2), RefreshTrigger::Initialize, false, 2),
     ] {
         let (entered, builds) = mpsc::channel();
         let before_build = Arc::new(move || {
@@ -527,6 +526,7 @@ async fn eager_hash_build_yields_to_the_runtime_and_fences_force_shutdown() {
     let (_provider, adapter, store) = setup_with_options(
         &["members"],
         StatsigOptions::builder()
+            .enable_id_list_elias_fano(Some(false))
             .id_list_init_build_concurrency(Some(4))
             .build(),
         Some(Arc::new(move || {
@@ -538,7 +538,7 @@ async fn eager_hash_build_yields_to_the_runtime_and_fences_force_shutdown() {
     );
     let loading = tokio::spawn({
         let adapter = adapter.clone();
-        async move { adapter.refresh(RefreshTrigger::PrivateInitialize).await }
+        async move { adapter.refresh(RefreshTrigger::Initialize).await }
     });
     tokio::time::timeout(Duration::from_secs(3), started)
         .await

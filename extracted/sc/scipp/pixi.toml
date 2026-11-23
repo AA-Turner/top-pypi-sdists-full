@@ -51,6 +51,16 @@ backend = { name = "pixi-build-cmake", version = "0.*" }
 # `compilers = ["cxx"]` is the pixi-build-cmake default, so it is omitted here.
 # Leave IPO at its default: enabled when the C++ toolchain supports it.
 extra-args = ["-DBENCHMARK=OFF", "-DSANITIZERS=OFF"]
+# CMake installs this tree with install(DIRECTORY), so these files are not
+# compiler inputs and are otherwise invisible to the backend's build cache.
+# Track package code, typing information, and runtime assets, but not tests,
+# docs, or generated __pycache__ files. Keep in sync with package_test.py.
+extra-input-globs = [
+  "src/scipp/**/*.py",
+  "src/scipp/**/*.pyi",
+  "src/scipp/py.typed",
+  "src/scipp/visualization/templates/**/*",
+]
 
 # Note on ccache: the package build invokes ccache when it is on PATH (see
 # lib/CMakeLists.txt), but its cache is NOT persisted across CI runs. The build
@@ -155,36 +165,40 @@ gtest = { workspace = true }
 # Windows uses MSVC from vs-shell / Visual Studio.
 [feature.dev.target.linux-64.dependencies]
 cxx-compiler = "*"
+ccache = "*"
 # Exact pin matching CI history: 2.18.3 fixed cppcheck internalError crashes
 # ("failed to load ... from files.txt") in the whole-program analysis dir.
 cppcheck = "2.18.3.*"
 
 [feature.dev.target.osx-arm64.dependencies]
 cxx-compiler = "*"
+ccache = "*"
+
+[feature.dev.target.win-64.dependencies]
+ccache = "*"
+
 
 [feature.dev.tasks]
-# Directories are spelled out as build/dev, install/dev etc.: `dev` is the only
-# environment with these tasks, so templating on the environment name would
-# always expand to the same thing.
-build = { cmd = "cmake --build build/dev --config Release --target install", depends-on = ["configure"], description = "Build scipp (Release)" }
+build = { cmd = "cmake --build build/dev --config Release --target install", description = "Build scipp (Release)" }
 cpp-test = { cmd = "ctest --test-dir build/dev -C Release --output-on-failure", depends-on = ["build"], description = "Run C++ tests" }
-build-debug = { cmd = "cmake --build build-debug/dev --config Debug --target install", depends-on = ["configure-debug"], description = "Build scipp (Debug)" }
+cpp-test-debug = { cmd = "ctest --test-dir build-debug/dev -C Debug --output-on-failure", depends-on = ["build-debug"], description = "Run C++ tests in debug mode" }
+build-debug = { cmd = "cmake --build build-debug/dev --config Debug --target install", description = "Build scipp (Debug)" }
 # Debug configure is platform-agnostic (uses the `debug` preset), so it lives
 # here rather than being repeated per target. The Release `configure` below is
 # per-target because it selects a platform-specific preset.
-configure-debug = { cmd = "cmake --preset debug -B build-debug/dev -DCMAKE_INSTALL_PREFIX=install-debug/dev", description = "Configure cmake (Debug)" }
+configure-debug = { cmd = "cmake --preset debug -B build-debug/dev -DCMAKE_INSTALL_PREFIX=src", description = "Configure cmake (Debug)" }
 
 [feature.dev.target.linux-64.tasks]
-configure = { cmd = "cmake --preset ci-linux -B build/dev -DCMAKE_INSTALL_PREFIX=install/dev", description = "Configure cmake (Linux)" }
+configure = { cmd = "cmake --preset ci-linux -B build/dev -DCMAKE_INSTALL_PREFIX=src", description = "Configure cmake (Linux)" }
 
 [feature.dev.target.osx-arm64.tasks]
-configure = { cmd = "cmake --preset ci-macos -B build/dev -DCMAKE_INSTALL_PREFIX=install/dev", description = "Configure cmake (macOS)" }
+configure = { cmd = "cmake --preset ci-macos -B build/dev -DCMAKE_INSTALL_PREFIX=src", description = "Configure cmake (macOS)" }
 
 [feature.dev.target.win-64.tasks]
-configure = { cmd = "cmake --preset ci-windows -B build/dev -DCMAKE_INSTALL_PREFIX=install/dev", description = "Configure cmake (Windows)" }
+configure = { cmd = "cmake --preset ci-windows -B build/dev -DCMAKE_INSTALL_PREFIX=src", description = "Configure cmake (Windows)" }
 
 [feature.dev.activation.env]
-PYTHONPATH = "$PIXI_PROJECT_ROOT/install/dev"
+PYTHONPATH = "$PIXI_PROJECT_ROOT/src"
 
 [feature.dev.target.linux-64.activation.env]
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
@@ -217,8 +231,8 @@ ipython = "*"
 ipywidgets = "*"
 
 [feature.test.tasks]
-test = { cmd = "python -X PYTHONWARNDEFAULTENCODING -m pytest -n auto -v tests", description = "Run Python tests" }
-coverage = { cmd = "python -m pytest --cov=scipp --cov-report html:coverage_html/python tests", description = "Run tests with coverage report" }
+test = { cmd = "python -X PYTHONWARNDEFAULTENCODING -m pytest -n auto -v", description = "Run Python tests" }
+coverage = { cmd = "python -m pytest --cov=scipp --cov-report html:coverage_html/python", description = "Run tests with coverage report" }
 
 # ---------------------------------------------------------------------------
 # Docs feature
@@ -273,13 +287,7 @@ mypy = "*"
 pandas-stubs = "*"
 
 [feature.type-check.tasks]
-# Two invocations: `-p scipp` type-checks the INSTALLED package (like the old
-# tox setup, which pointed PYTHONPATH at the cmake install tree) and fails
-# loudly if the package is missing, so the check cannot silently collapse to
-# zero files. The `.` run covers repo-level python (benchmarks, tools) with
-# src/ excluded (duplicate of the installed package) and install/ excluded
-# (dev-environment cmake install tree).
-mypy = { cmd = "python -m mypy -p scipp && python -m mypy . --exclude '^src/' --exclude '^install/'", description = "Run mypy type checking" }
+mypy = { cmd = "python -m mypy . --exclude '^build.*/'", description = "Run mypy type checking" }
 
 # ---------------------------------------------------------------------------
 # Package feature (conda packaging code-path test via rattler-build)

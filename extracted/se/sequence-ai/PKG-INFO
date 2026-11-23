@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.66.1
+Version: 0.66.2
 Summary: SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs).
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/

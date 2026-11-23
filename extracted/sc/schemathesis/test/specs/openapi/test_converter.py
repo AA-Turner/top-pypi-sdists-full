@@ -176,7 +176,7 @@ def test_allof_of_contains_consts_placed_positionally(ctx, version, schema, expe
             id="if_else_only",
         ),
         pytest.param(
-            # `if` alone is a tautology — drop it.
+            # `if` alone is a tautology, so it is dropped.
             {"type": "object", "if": {"properties": {"kind": {"const": "number"}}}},
             {"type": "object"},
             id="if_alone",
@@ -242,7 +242,7 @@ def test_allof_of_contains_consts_placed_positionally(ctx, version, schema, expe
             id="if_then_with_existing_allof",
         ),
         pytest.param(
-            # Nested if/then/else inside `properties` is also rewritten via the recursive walker.
+            # Nested if/then/else inside `properties` is rewritten too.
             {
                 "type": "object",
                 "properties": {
@@ -644,19 +644,15 @@ def test_forbidden_in_allof_branch_strips_outer_required(schema, is_response_sch
 
 
 def test_pattern_translation_success():
-    # When a schema contains a PCRE pattern that can be translated to Python regex
     schema = {"type": "string", "pattern": r"\p{L}+"}
     result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
-    # Then the pattern should be translated
     assert result == {"type": "string", "pattern": r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+"}
 
 
 def test_pattern_translation_invalid_result():
-    # When a PCRE pattern translates to an invalid Python regex
-    # `\p{L}` gets translated but the `[` at the end makes the result invalid
+    # `\p{L}` translates, but the trailing `[` makes the result invalid.
     schema = {"type": "string", "pattern": r"\p{L}["}
     result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
-    # Then the pattern should be removed (translation failed validation)
     assert result == {"type": "string"}
 
 
@@ -757,6 +753,66 @@ def test_nested_object_required_array_not_duplicated():
         pytest.param(
             {
                 "oneOf": [
+                    {"$ref": "#/components/schemas/Cat"},
+                    {"$ref": "#/components/schemas/Dog"},
+                ],
+                "discriminator": {
+                    "propertyName": "petType",
+                    "mapping": {"feline": "Cat", "canine": "#/components/schemas/Dog"},
+                },
+            },
+            {
+                "oneOf": [
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Cat"},
+                            {"properties": {"petType": {"enum": ["feline"]}}},
+                        ]
+                    },
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Dog"},
+                            {"properties": {"petType": {"enum": ["canine"]}}},
+                        ]
+                    },
+                ],
+                "discriminator": {
+                    "propertyName": "petType",
+                    "mapping": {"feline": "Cat", "canine": "#/components/schemas/Dog"},
+                },
+            },
+            id="schema-name-mapping",
+        ),
+        pytest.param(
+            {
+                "oneOf": [
+                    {"$ref": "#/components/schemas/Pet.Cat"},
+                    {"$ref": "#/components/schemas/Pet.Dog"},
+                ],
+                "discriminator": {"propertyName": "petType", "mapping": {"cat": "Pet.Cat", "dog": "Pet.Dog"}},
+            },
+            {
+                "oneOf": [
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Pet.Cat"},
+                            {"properties": {"petType": {"enum": ["cat"]}}},
+                        ]
+                    },
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Pet.Dog"},
+                            {"properties": {"petType": {"enum": ["dog"]}}},
+                        ]
+                    },
+                ],
+                "discriminator": {"propertyName": "petType", "mapping": {"cat": "Pet.Cat", "dog": "Pet.Dog"}},
+            },
+            id="dotted-schema-name-mapping",
+        ),
+        pytest.param(
+            {
+                "oneOf": [
                     {"$ref": "#/components/schemas/Comparison"},
                     {"$ref": "#/components/schemas/In"},
                 ],
@@ -822,6 +878,60 @@ def test_nested_object_required_array_not_duplicated():
                 "discriminator": {"propertyName": "petType"},
             },
             id="boolean-schema-skipped",
+        ),
+        pytest.param(
+            {
+                "oneOf": [{"$ref": "#/components/schemas/OtherPet"}],
+                "discriminator": {"propertyName": "petType", "defaultMapping": "OtherPet"},
+            },
+            {
+                "oneOf": [{"$ref": "#/components/schemas/OtherPet"}],
+                "discriminator": {"propertyName": "petType", "defaultMapping": "OtherPet"},
+            },
+            id="default-mapping-only-branch",
+        ),
+        pytest.param(
+            {
+                "oneOf": [{"$ref": "#/components/schemas/OtherPet"}],
+                "discriminator": {"propertyName": "petType", "mapping": {"cat": 5}, "defaultMapping": "OtherPet"},
+            },
+            {
+                "oneOf": [{"$ref": "#/components/schemas/OtherPet"}],
+                "discriminator": {"propertyName": "petType", "mapping": {"cat": 5}, "defaultMapping": "OtherPet"},
+            },
+            id="default-mapping-with-non-string-target",
+        ),
+        pytest.param(
+            {
+                "oneOf": [{"$ref": "#/components/schemas/Pet.Cat"}, {"$ref": "#/components/schemas/Pet.Other"}],
+                "discriminator": {
+                    "propertyName": "petType",
+                    "mapping": {"cat": "Pet.Cat"},
+                    "defaultMapping": "Pet.Other",
+                },
+            },
+            {
+                "oneOf": [
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Pet.Cat"},
+                            {"properties": {"petType": {"enum": ["cat"]}}},
+                        ]
+                    },
+                    {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Pet.Other"},
+                            {"properties": {"petType": {"not": {"enum": ["Pet.Cat", "cat"]}}}},
+                        ]
+                    },
+                ],
+                "discriminator": {
+                    "propertyName": "petType",
+                    "mapping": {"cat": "Pet.Cat"},
+                    "defaultMapping": "Pet.Other",
+                },
+            },
+            id="dotted-default-mapping",
         ),
     ],
 )
@@ -1031,8 +1141,19 @@ def test_discriminator_pin_skipped_for_polymorphic_branch_target(ctx):
     assert not validator.is_valid({"type": "Item"})
 
 
-def test_discriminator_pin_uses_file_name_for_whole_file_ref(tmp_path):
-    (tmp_path / "cat.json").write_text(
+@pytest.mark.parametrize(
+    ("file_name", "discriminator", "expected"),
+    [
+        ("cat.json", {"propertyName": "kind"}, {"cat"}),
+        ("cat.json", {"propertyName": "kind", "mapping": {"kitty": "./cat.json"}}, {"kitty"}),
+        ("cat.json", {"propertyName": "kind", "mapping": {"kitty": "cat.json"}}, {"kitty"}),
+        ("Pet.Cat.json", {"propertyName": "kind"}, {"Pet.Cat"}),
+        ("Pet.Cat.json", {"propertyName": "kind", "mapping": {"kitty": "./Pet.Cat.json"}}, {"kitty"}),
+    ],
+    ids=["implicit", "mapped", "mapped-bare-file-name", "dotted-implicit", "dotted-mapped"],
+)
+def test_discriminator_pin_uses_file_name_for_whole_file_ref(tmp_path, file_name, discriminator, expected):
+    (tmp_path / file_name).write_text(
         json.dumps(
             {
                 "type": "object",
@@ -1054,8 +1175,8 @@ def test_discriminator_pin_uses_file_name_for_whole_file_ref(tmp_path):
                                 "content": {
                                     "application/json": {
                                         "schema": {
-                                            "oneOf": [{"$ref": "cat.json"}],
-                                            "discriminator": {"propertyName": "kind"},
+                                            "oneOf": [{"$ref": file_name}],
+                                            "discriminator": discriminator,
                                         }
                                     }
                                 },
@@ -1069,7 +1190,7 @@ def test_discriminator_pin_uses_file_name_for_whole_file_ref(tmp_path):
     )
     schema = schemathesis.openapi.from_path(tmp_path / "openapi.json")
     kinds = {case.body["kind"] for case in generate_many(schema["/pets"]["POST"].as_strategy(), 10)}
-    assert kinds == {"cat"}
+    assert kinds == expected
 
 
 def test_discriminator_pin_applies_to_boolean_branch_target(ctx):
@@ -1100,8 +1221,7 @@ def test_discriminator_pin_applies_to_boolean_branch_target(ctx):
 
 
 def test_discriminator_pin_validates_with_openapi_3_0_draft4(ctx):
-    # OpenAPI 3.0 uses Draft 4, which silently ignores `const`. Pin keyword must use `enum` so the
-    # discriminator branches are actually disambiguated at validation time.
+    # Open API 3.0 uses Draft 4, which ignores `const`, so the pin must use `enum` to disambiguate branches.
     schema = ctx.openapi.load_schema(
         {
             "/rules": {

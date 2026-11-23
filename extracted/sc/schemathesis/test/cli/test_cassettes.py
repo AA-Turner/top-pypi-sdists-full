@@ -6,6 +6,7 @@ import sys
 import threading
 from pathlib import Path
 from unittest.mock import ANY
+from urllib.parse import urlsplit
 
 import flask
 import harfile
@@ -20,7 +21,7 @@ from schemathesis.reporting.har import _cookie_to_har
 from schemathesis.reporting.vcr import write_double_quoted
 from test.apps.catalog.openapi import basic
 from test.apps.catalog.openapi.modifiers.stateful import SlowOperations
-from test.utils import load_json_or_fail, load_ndjson, load_yaml_or_fail
+from test.utils import crash_cache_dir, load_json_or_fail, load_ndjson, load_yaml_or_fail
 
 
 def load_cassette(path):
@@ -53,15 +54,13 @@ def test_store_cassette(ctx, cli, cassette_path, hypothesis_max_examples, args, 
     assert len(interactions) >= 2
     assert cassette["seed"] == 1
 
-    # Basic validation on all interactions
     assert all("checks" in interaction for interaction in interactions)
     for interaction in interactions:
         assert len(interaction["checks"]) >= 1
         assert float(interaction["response"]["elapsed"]) >= 0
 
-    # In positive mode, verify we have the /success response
     if mode == "positive":
-        # Find the /success interaction (operation order may vary)
+        # Operation order may vary.
         success_idx = None
         for idx in range(len(interactions)):
             body = load_response_body(cassette, idx)
@@ -81,7 +80,6 @@ def test_store_cassette(ctx, cli, cassette_path, hypothesis_max_examples, args, 
             "message": None,
         }
     else:
-        # In other modes, just verify first interaction has expected properties
         first_interaction = interactions[0]
         assert first_interaction["status"] == "SUCCESS"
         if mode == "all":
@@ -123,7 +121,6 @@ def test_store_timeout(ctx, cli, cassette_path, format):
         assert len(data["log"]["entries"]) == 3
         assert data["log"]["entries"][1]["response"]["bodySize"] == -1
     else:
-        # ndjson format (externally tagged)
         events = load_ndjson(cassette_path)
         assert "Initialize" in events[0]
         assert events[0]["Initialize"]["seed"] == 1
@@ -131,7 +128,6 @@ def test_store_timeout(ctx, cli, cassette_path, format):
 
 def test_interaction_status(ctx, cli, hypothesis_max_examples, cassette_path):
     # See GH-695
-    # When an API operation has responses with SUCCESS and FAILURE statuses
     api = ctx.openapi.apps.flaky()
     cli.run_and_assert(
         api.schema_url,
@@ -142,17 +138,14 @@ def test_interaction_status(ctx, cli, hypothesis_max_examples, cassette_path):
     )
     cassette = load_cassette(cassette_path)
     assert len(cassette["http_interactions"]) >= 1
-    # Then their statuses should be reflected in the "status" field
-    # And it should not be overridden by the overall test status
+    # Each interaction keeps its own status, not the overall test status.
     assert cassette["http_interactions"][0]["status"] == "FAILURE"
     assert "Internal Server Error" in load_response_body(cassette, 0)
 
 
 def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples):
     # See GH-708
-    # When the schema expects an input that is not ascii and represented as UTF-8
-    # And is not representable in CP1251. E.g. "àààà"
-    # And these interactions are recorded to a cassette
+    # A non-ASCII header value that CP1251 cannot encode must still reach the cassette.
     fixed_header = "àààà"
     header_name = "*lh"
     schema_path = ctx.openapi.write_schema(
@@ -184,9 +177,7 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples):
         "--checks=not_a_server_error",
         "--mode=positive",
     )
-    # And there should be no signs of encoding errors
     assert "UnicodeEncodeError" not in result.stdout
-    # And the cassette should be correctly recorded
     cassette = load_cassette(cassette_path)
     assert len(cassette["http_interactions"]) == 2
     assert cassette["http_interactions"][0]["request"]["headers"][header_name] == [fixed_header]
@@ -314,6 +305,123 @@ def test_har_cookies(ctx, cli, cassette_path):
     ] == [([{"name": "theme", "value": "dark"}], [{"name": "session", "value": "abc", "path": "/"}])]
 
 
+# HAR headers and crash files keep only the first value of a repeated header.
+@pytest.mark.snapshot(replace_reproduce_with=False)
+def test_reports_sanitize_cookies_and_api_keys_by_name(ctx, cli, tmp_path, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "sessionid", "in": "cookie", "required": True, "schema": {"type": "string"}},
+                        {"name": "lang", "in": "cookie", "required": True, "schema": {"type": "string"}},
+                    ],
+                    "security": [{"JwtCookie": [], "AccessHeader": [], "QueryKey": []}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "securitySchemes": {
+                "JwtCookie": {"type": "apiKey", "in": "cookie", "name": "jwt"},
+                "AccessHeader": {"type": "apiKey", "in": "header", "name": "X-Access"},
+                "QueryKey": {"type": "apiKey", "in": "query", "name": "k"},
+            }
+        },
+    )
+
+    @app.route("/items")
+    def items():
+        response = flask.jsonify({})
+        response.status_code = 500
+        response.headers.add("Set-Cookie", "sessionid=xyz; Path=/; HttpOnly")
+        response.headers.add("Set-Cookie", "lang=en; Path=/")
+        response.headers.add("Set-Cookie", "jwt=issued; Path=/")
+        return response
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--phases=fuzzing",
+            "--max-examples=1",
+            "--checks=not_a_server_error",
+            f"--report-har-path={tmp_path / 'report.har'}",
+            f"--report-vcr-path={tmp_path / 'report.yaml'}",
+            f"--report-ndjson-path={tmp_path / 'report.ndjson'}",
+            config={
+                "parameters": {"sessionid": "abc", "lang": "en"},
+                "auth": {
+                    "openapi": {
+                        "JwtCookie": {"api_key": "jwt-secret"},
+                        "AccessHeader": {"api_key": "header-secret"},
+                        "QueryKey": {"api_key": "query-secret"},
+                    }
+                },
+            },
+        )
+        == snapshot_cli
+    )
+    har = load_json_or_fail(tmp_path / "report.har")["log"]["entries"][0]
+    vcr = load_cassette(tmp_path / "report.yaml")["http_interactions"][0]
+    ndjson = next(
+        interaction
+        for event in load_ndjson(tmp_path / "report.ndjson")
+        if "ScenarioFinished" in event
+        for interaction in event["ScenarioFinished"]["recorder"]["interactions"].values()
+    )
+    [crash_file] = [path for path in crash_cache_dir(tmp_path).rglob("*.json") if path.name != "manifest.json"]
+    [crash] = load_json_or_fail(crash_file)["sequence"]
+    cookie = "sessionid=[Filtered]; lang=en; jwt=[Filtered]"
+    set_cookie = ["sessionid=[Filtered]; Path=/; HttpOnly", "lang=en; Path=/", "jwt=[Filtered]; Path=/"]
+    query = "k=%5BFiltered%5D"
+    assert {
+        "har": (
+            [header["value"] for header in har["request"]["headers"] if header["name"] in ("Cookie", "X-Access")],
+            har["request"]["cookies"],
+            urlsplit(har["request"]["url"]).query,
+            [header["value"] for header in har["response"]["headers"] if header["name"] == "set-cookie"],
+            har["response"]["cookies"],
+        ),
+        "vcr": (
+            vcr["request"]["headers"]["Cookie"],
+            vcr["request"]["headers"]["X-Access"],
+            urlsplit(vcr["request"]["uri"]).query,
+            vcr["response"]["headers"]["set-cookie"],
+        ),
+        "ndjson": (
+            ndjson["request"]["headers"]["Cookie"],
+            ndjson["request"]["headers"]["X-Access"],
+            urlsplit(ndjson["request"]["uri"]).query,
+            ndjson["response"]["headers"]["set-cookie"],
+        ),
+        "crash": (
+            crash["headers"]["Cookie"],
+            crash["headers"]["X-Access"],
+            urlsplit(crash["url"]).query,
+            crash["response"]["headers"]["set-cookie"],
+        ),
+    } == {
+        "har": (
+            ["[Filtered]", cookie],
+            [
+                {"name": "sessionid", "value": "[Filtered]"},
+                {"name": "lang", "value": "en"},
+                {"name": "jwt", "value": "[Filtered]"},
+            ],
+            query,
+            set_cookie[:1],
+            [
+                {"name": "sessionid", "value": "[Filtered]", "path": "/", "httpOnly": True},
+                {"name": "lang", "value": "en", "path": "/"},
+                {"name": "jwt", "value": "[Filtered]", "path": "/"},
+            ],
+        ),
+        "vcr": ([cookie], ["[Filtered]"], query, set_cookie),
+        "ndjson": ([cookie], ["[Filtered]"], query, set_cookie),
+        "crash": (cookie, "[Filtered]", query, set_cookie[0]),
+    }
+
+
 def test_har_response_mime_type_and_redirect_url(ctx, cli, cassette_path):
     app, _ = ctx.openapi.make_flask_app({"/api/items": {"post": {"responses": {"201": {"description": "Created"}}}}})
 
@@ -359,6 +467,24 @@ def test_response_body_charset_in_reports(ctx, cli, cassette_path, charset, body
     assert [entry["response"]["content"]["text"] for entry in load_json_or_fail(har_path)["log"]["entries"]] == [text]
     assert [interaction["response"]["body"] for interaction in load_cassette(cassette_path)["http_interactions"]] == [
         {"encoding": charset, "string": text}
+    ]
+
+
+def test_har_url_with_credentials_is_sanitized(ctx, cli, cassette_path):
+    api = ctx.openapi.apps.success()
+    har_path = cassette_path.with_suffix(".har")
+    host = api.base_url.removeprefix("http://")
+
+    cli.run(
+        api.schema_url,
+        f"--url=http://user:pw@{host}",
+        f"--report-har-path={har_path}",
+        "--max-examples=1",
+        "--phases=fuzzing",
+    )
+
+    assert [entry["request"]["url"] for entry in load_json_or_fail(har_path)["log"]["entries"]] == [
+        f"http://[Filtered]@{host}/api/success"
     ]
 
 
@@ -424,8 +550,6 @@ def test_output_sanitization(ctx, cli, hypothesis_max_examples, cassette_path, v
 
 
 def test_forbid_preserve_bytes_without_cassette_path(ctx, cli, snapshot_cli):
-    # When `--report-preserve-bytes` is specified without `--report-vcr-path` or `--report=vcr`
-    # Then it is an error
     api = ctx.openapi.apps.success()
     assert cli.run(api.schema_url, "--report-preserve-bytes") == snapshot_cli
 
@@ -433,7 +557,6 @@ def test_forbid_preserve_bytes_without_cassette_path(ctx, cli, snapshot_cli):
 @pytest.mark.parametrize("in_config", [True, False])
 def test_report_dir(ctx, cli, tmp_path, in_config):
     api = ctx.openapi.apps.success()
-    # When report directory is specified with a report format
     report_dir = tmp_path / "reports"
     args = [
         "--max-examples=1",
@@ -444,11 +567,9 @@ def test_report_dir(ctx, cli, tmp_path, in_config):
     else:
         args = ["--report=junit", f"--report-dir={report_dir}", *args]
     cli.run(api.schema_url, *args, **kwargs)
-    # And the report should be created in the specified directory
     assert report_dir.exists()
     assert list(report_dir.glob("*.xml"))
 
-    # When multiple report formats are specified
     args = [
         "--max-examples=1",
     ]
@@ -465,7 +586,6 @@ def test_report_dir(ctx, cli, tmp_path, in_config):
     else:
         args = [f"--report-dir={report_dir}", "--report=vcr,har,ndjson", *args]
     cli.run(api.schema_url, *args, **kwargs)
-    # Then all reports should be created in the specified directory
     assert list(report_dir.glob("*.yaml"))
     assert list(report_dir.glob("*.json"))
     assert list(report_dir.glob("*.ndjson"))

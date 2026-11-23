@@ -19,6 +19,36 @@ const FONT_SIZE_PARAGRAPH_TOLERANCE_REAL: f32 = 0.5;
 
 /// Pick the right size-equality tolerance depending on whether either
 /// side has an estimated (jitter-prone) font size.
+/// Largest font-size ratio a mid-sentence line break may span within one paragraph.
+const MID_SENTENCE_SIZE_RATIO: f32 = 1.35;
+
+/// The previous line breaks mid-sentence (no terminal punctuation) and the next starts lowercase.
+fn runs_on(prev: &ProjectedLine, cur: &ProjectedLine) -> bool {
+    let ends_open = !prev.text.trim_end().ends_with(|c: char| {
+        matches!(
+            c,
+            '.' | '!'
+                | '?'
+                | ':'
+                | ';'
+                | '\u{201d}'
+                | '"'
+                | ')'
+                | ']'
+                | '\u{3002}'
+                | '\u{300f}'
+                | '\u{300d}'
+        )
+    });
+    let starts_lower = cur
+        .text
+        .trim_start()
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_lowercase());
+    ends_open && starts_lower
+}
+
 fn font_size_paragraph_tolerance(prev: &ProjectedLine, cur: &ProjectedLine) -> f32 {
     if prev.font_size_is_estimated || cur.font_size_is_estimated {
         FONT_SIZE_PARAGRAPH_TOLERANCE
@@ -221,10 +251,21 @@ fn paragraph_flow(prev: &ProjectedLine, cur: &ProjectedLine, allow_hanging_inden
     if centered_mismatch {
         return false;
     }
-    if (prev.dominant_font_size - cur.dominant_font_size).abs()
-        > font_size_paragraph_tolerance(prev, cur)
-    {
-        return false;
+    // A sentence that clearly runs on (no terminal punctuation, next line lowercase) within one region tolerates a
+    // size jump of up to MID_SENTENCE_SIZE_RATIO: OCR text layers fit each line's font size separately, so one
+    // paragraph reads 12.4 / 9.9 / 12.4 pt and the size check alone broke it after every line. A real heading
+    // rarely ends mid-sentence with a lowercase line below it.
+    let size_jump = (prev.dominant_font_size - cur.dominant_font_size).abs()
+        > font_size_paragraph_tolerance(prev, cur);
+    if size_jump {
+        let (a, b) = (prev.dominant_font_size, cur.dominant_font_size);
+        let ratio = a.max(b) / a.min(b).max(0.1);
+        if !(prev.region_path == cur.region_path
+            && ratio <= MID_SENTENCE_SIZE_RATIO
+            && runs_on(prev, cur))
+        {
+            return false;
+        }
     }
     // Uniform-bold ↔ non-bold transition is a paragraph break. Catches
     // body-size headings that share font size with the surrounding prose but
@@ -306,6 +347,8 @@ pub(super) struct ParaAccum {
     /// Union of every line folded into this paragraph, so the emitted block
     /// reports the whole band it covers rather than its last line.
     pub(super) bbox: Option<crate::types::Rect>,
+    /// Source items of every line folded in, in reading order.
+    pub(super) item_indices: Vec<usize>,
 }
 
 /// Append `next_line` to a paragraph accumulator. Maintains both the `raw` and
@@ -324,6 +367,9 @@ pub(super) fn append_to_paragraph(accum: &mut ParaAccum, next_line: &ProjectedLi
     let next_uniform: Option<SpanStyle> = line_uniform_style(next_line).filter(|s| !s.strike);
 
     crate::types::Rect::extend(&mut accum.bbox, &next_line.bbox);
+    accum
+        .item_indices
+        .extend_from_slice(&next_line.span_item_indices);
 
     if accum.raw.is_empty() {
         accum.raw.push_str(&next_raw);

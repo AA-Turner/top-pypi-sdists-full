@@ -15,15 +15,13 @@ class TTSEBackend : public TabularBackend
         return get_backend_string(TTSE_BACKEND);
     }
     /// Instantiator; base class loads or makes tables
-    TTSEBackend(shared_ptr<CoolProp::AbstractState> AS) : TabularBackend(std::move(AS)) {
+    TTSEBackend(shared_ptr<CoolProp::AbstractState> AS) : TTSEBackend(std::move(AS), "") {}
+    /// Instantiator accepting a factory-string options JSON blob (e.g. {"grid":{"Nx":40,"Ny":40}})
+    TTSEBackend(shared_ptr<CoolProp::AbstractState> AS, const std::string& options_json) : TabularBackend(std::move(AS), options_json) {
         imposed_phase_index = iphase_not_imposed;
         // If a pure fluid or a predefined mixture, don't need to set fractions, go ahead and build
         if (!this->AS->get_mole_fractions().empty()) {
-            check_tables();
-            SinglePhaseGriddedTableData& single_phase_logph = dataset->single_phase_logph;
-            SinglePhaseGriddedTableData& single_phase_logpT = dataset->single_phase_logpT;
-            dataset->build_coeffs(single_phase_logph, dataset->coeffs_ph);
-            dataset->build_coeffs(single_phase_logpT, dataset->coeffs_pT);
+            check_tables();  // loads or builds the tables and their coefficients
             is_mixture = (this->AS->get_mole_fractions().size() > 1);
         }
     }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniplot
-Version: 0.24.0
+Version: 0.25.0
 Summary: Lightweight plotting to the terminal. 4x resolution via Unicode.
 Author-email: Olav Stetter <olav.stetter@googlemail.com>
 License: Copyright (c) 2020 Olav Stetter
@@ -50,6 +50,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: readchar>=4.2.1
+Requires-Dist: tzdata>=2024.1
 Provides-Extra: fast
 Requires-Dist: numba>=0.57.0; extra == "fast"
 Provides-Extra: rich
@@ -171,7 +172,8 @@ difference is that `plot_to_string` does not support interactive mode.
 In both cases, NaN or `None` values are ignored.
 
 Note that since v0.12.0 you can also pass a list or an NumPy array of
-timestamps, and the axis labels should be formatted correctly.
+timestamps, and the axis labels should be formatted correctly. See
+[Datetimes and timezones](#datetimes-and-timezones) for timezone handling.
 
 
 ### Options
@@ -219,6 +221,17 @@ In alphabetical order:
   set](https://en.wikipedia.org/wiki/Braille_Patterns) with 8x resolution,
   `"ascii"` to use ASCII characters only. Braille has the highest resolution,
   and a lighter look overall. Defaults to `"block"`.
+* `fill` - Fill the area between adjacent samples and a baseline. Defaults to
+  `None` (disabled). Use a number such as `0`, `"bottom"` for the current view's
+  bottom edge, or a list with one setting per series, such as `[0, None]`.
+  Fill uses the series color and connects samples independently of `lines`.
+  Missing or infinite samples leave gaps, and isolated points have no filled
+  area. Overlapping segment areas are combined, including paths that reverse
+  direction. Any positive-area pixel overlap is filled, preserving narrow peaks.
+  Explicit baselines participate in automatic y bounds; explicit view bounds
+  still take precedence. Logarithmic y axes require a positive baseline.
+  Datetime y axes accept datetime baselines or numeric Unix timestamps in
+  seconds. Boolean values are rejected.
 * `force_ascii_characters` -  List of characters to use when using the
   ASCII character set. Defaults to `["+", "x", "o", "*", "~", "."]`.
 * `legend_placement` - Arrangement of the legend labels. `"auto"` attempts to
@@ -227,7 +240,11 @@ In alphabetical order:
 * `line_length_hard_cap` - Enforce a hard limit on the number of characters per
   line of the plot area. This may override the `width` option if there is not
   enough space. Defaults to `None`.
-* `rounded_corners` - Draw bounding box with round corners. Defaults to `False.
+* `border` - Frame around the plot area. Use `"box"` for square corners
+  (the default), `"rounded"` for rounded corners, or `None` to hide the frame.
+* `rounded_corners` - Deprecated. Use `border="rounded"` instead. Removal is
+  planned no earlier than May 14, 2027. If `True`, a `"box"` border has rounded
+  corners. Defaults to `False`.
 * `x_as_log` - Plot the x axis as logarithmic scale. Defaults to `False`.
 * `x_gridlines` - A list of x values that have a vertical line for better
   orientation. Defaults to `[0]`, or to `[]` if `x_as_log` is enabled.
@@ -265,6 +282,44 @@ plot = partial(default_plot, height=25, width=80)
 
 This defines a new `plot` function that is identical to the original, except
 the default values for `width` and `height` are now different.
+
+
+## Datetimes and timezones
+
+Pass datetimes directly: uniplot uses their timezone for axis labels, with no
+extra options. This works on either axis with Python datetimes, pandas datetime
+indexes/series, and Polars datetime series.
+
+```python
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from uniplot import plot
+
+berlin = ZoneInfo("Europe/Berlin")
+times = [datetime(2026, 1, 15, hour, tzinfo=berlin) for hour in (9, 12, 15)]
+plot(xs=times, ys=[1, 4, 2])  # Local labels such as 09:00, 12:00, 15:00
+```
+
+Timezone-aware points are spaced by elapsed time, including across daylight
+saving changes. Labels use round local times. Repeated autumn times include
+their UTC offsets, such as `02:00+02:00` and `02:00+01:00`; fewer labels may fit
+near these transitions. Dates remain visible when the view crosses midnight.
+
+Datetimes **without** a timezone are displayed as supplied. Uniplot does not
+guess your computer's timezone or apply daylight saving rules to them. Two
+identical naive clock readings therefore occupy the same position.
+
+Use either all aware or all naive datetimes on each axis; mixing them raises
+an error. If aware inputs have different timezones, labels use the first
+nonempty series' first valid timezone and uniplot warns. To choose another
+timezone, convert the inputs first, for example `times.tz_convert("UTC")` for
+a pandas DatetimeIndex or `[t.astimezone(ZoneInfo("UTC")) for t in times]` for a
+Python list. Do not remove timezone information to change the labels: doing so
+can collapse distinct observations during the autumn clock change.
+
+Datetime bounds, gridlines and fill baselines must have the same awareness as
+their axis. Numeric coordinates in seconds are also accepted. Missing values
+do not affect timezone inference. Datetime resolution remains one second.
 
 
 ## Experimental features
@@ -319,6 +374,25 @@ Result:
 │▄▄▄▌▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁│▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▐▄▄▄│ 0
 └────────────────────────────────────────────────────────────┘
      -1                        0                       1
+```
+
+### Sparklines
+
+Use `sparkline` to print a one-line Braille chart with connected points.
+
+```python
+from uniplot import sparkline
+
+sparkline([1, 3, 2, 5, 4], width=10)
+```
+
+Use `sparkline_to_string(ys, width=5)` to return the chart as a string.
+Both helpers fill to the bottom of the view and accept keyword-only `color`,
+`y_min`, and `y_max`. Color uses the standard plot color formats. Set y bounds
+to compare several sparklines on the same scale; omitted bounds scale automatically.
+
+```python
+sparkline([10, 30, 20], width=20, color=["green"], y_min=0, y_max=100)
 ```
 
 ### Arrow keys and FPS-style keys

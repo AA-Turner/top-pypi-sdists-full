@@ -183,6 +183,7 @@ class BackupModelBackupModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-neon",
         "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
@@ -1594,9 +1595,10 @@ class Mcp(BaseModel):
     """Query parameters to append to the MCP connection request URL."""
 
     timeout_ms: Optional[int] = None
-    """Maximum time to wait for a connection to be established (in milliseconds).
+    """Maximum time to wait for an MCP tool call to return (in milliseconds).
 
-    Default to 120,000 ms (2 minutes).
+    Values below 60,000 are treated as 60,000, and values above 600,000 are treated
+    as 600,000. Default to 60,000 ms (1 minute).
     """
 
 
@@ -1642,6 +1644,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-neon",
         "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
@@ -1706,6 +1709,7 @@ class ModelConfigCascadingModelConfigPrimary(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-neon",
         "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
@@ -1806,6 +1810,7 @@ class ModelConfigDuplexModelConfigBackend(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-neon",
         "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
@@ -1864,6 +1869,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-neon",
         "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
@@ -3471,6 +3477,7 @@ class LlmResponse(BaseModel):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-neon",
             "gemini-4-hydrogen",
             "gemini-4-carbon",
             "gemini-4-argon",

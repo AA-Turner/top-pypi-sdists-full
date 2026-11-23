@@ -11,7 +11,7 @@ from hypothesis.core import HypothesisHandle
 
 from schemathesis.auths import AuthStorage
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.failures import FailureGroup, as_reported_failure
+from schemathesis.core.failures import reported_failures
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.filters import FilterSet, FilterValue, MatcherFunc, RegexValue
 from schemathesis.generation.feedback import FeedbackSources
@@ -23,6 +23,7 @@ from schemathesis.generation.hypothesis.given import (
     resolve_given,
 )
 from schemathesis.pytest._keys import track_schema
+from schemathesis.pytest._lifecycle import SchemaFixtureMark
 from schemathesis.pytest._subtests import make_subtests
 from schemathesis.pytest._test_builder import build_operation_test, schema_error_suffix
 from schemathesis.pytest.control_flow import fail_on_no_matches
@@ -158,7 +159,6 @@ class LazySchema:
             refresh_given_state()
 
             def wrapped_test(*args: Any, request: FixtureRequest, **kwargs: Any) -> None:
-                """The actual test, which is executed by pytest."""
                 __tracebackhide__ = True
 
                 # Load all checks eagerly, so they are accessible inside the test function
@@ -205,7 +205,7 @@ class LazySchema:
 
 def _fixtures_for(test_func: Callable, request: FixtureRequest, given_kwargs: dict[str, GivenInput]) -> dict[str, Any]:
     __tracebackhide__ = True
-    # Check if test function is a method and inject self from request.instance
+    # Methods get `self` from `request.instance`
     if "self" in signature(test_func).parameters and request.instance is not None:
         return {"self": request.instance, **get_fixtures(test_func, request, given_kwargs)}
     return get_fixtures(test_func, request, given_kwargs)
@@ -219,7 +219,7 @@ def _run_operation_tests(
 ) -> None:
     """Run each operation test as a subtest of the collected test."""
     __tracebackhide__ = True
-    # Changing the node id is required for better reporting - the method and path will appear there
+    # Rename the node so reports show the method and path
     node_id = request.node.nodeid
     if not tests:
         fail_on_no_matches(node_id)
@@ -270,6 +270,7 @@ def _as_pytest_test(
     # For methods, wrap with staticmethod to prevent pytest from passing self
     result = staticmethod(wrapped_test) if "self" in signature(test_func).parameters else wrapped_test
 
+    SchemaFixtureMark.set(wrapped_test, fixture_name)
     setattr(result, GIVEN_TARGET_ATTR, test_func)
     setattr(result, GIVEN_REFRESH_ATTR, refresh)
 
@@ -290,9 +291,8 @@ def run_subtest(
 
     with subtests.test(label=operation.label):
         try:
-            sub_test(**fixtures)
-        except FailureGroup as exc:
-            raise as_reported_failure(exc) from None
+            with reported_failures():
+                sub_test(**fixtures)
         except SkipTest as exc:
             raise pytest.skip.Exception(str(exc)).with_traceback(exc.__traceback__) from None
 
@@ -311,7 +311,7 @@ def _set_node_id(node: pytest.Function, node_id: str) -> None:
 
 
 def _schema_error(subtests: pytest.Subtests, error: InvalidSchema, node_id: str, node: pytest.Function) -> None:
-    """Run a failing test, that will show the underlying problem."""
+    """Run a failing test that shows the underlying problem."""
     sub_test = error.as_failing_test_function()
     _set_node_id(node, f"{node_id}{schema_error_suffix(error)}")
     __tracebackhide__ = True
@@ -325,15 +325,14 @@ def get_schema(*, request: FixtureRequest, name: str, filter_set: FilterSet, tes
     if not isinstance(schema, BaseSchema):
         raise ValueError(f"The given schema must be an instance of BaseSchema, got: {type(schema)}")
 
-    # Merge config-based operation filters with user-provided filters
-    # This ensures operations disabled in schemathesis.toml are respected
+    # Respect operations disabled in `schemathesis.toml` alongside the user's filters
     merged_filter_set = schema.config.operations.filter_set_with(include=filter_set)
 
     return schema.clone(filter_set=merged_filter_set, test_function=test_function)
 
 
 def get_fixtures(func: Callable, request: FixtureRequest, given_kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Load fixtures, needed for the test function."""
+    """Load the fixtures the test function needs."""
     sig = signature(func)
     return {
         name: request.getfixturevalue(name)

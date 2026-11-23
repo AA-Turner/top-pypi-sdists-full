@@ -1,5 +1,3 @@
-"""Shared CLI output utilities used by multiple commands."""
-
 from __future__ import annotations
 
 import io
@@ -16,7 +14,7 @@ import click
 
 from schemathesis.cli.constants import DISCORD_LINK, EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL, ExitCode
 from schemathesis.cli.core import get_terminal_width
-from schemathesis.core.errors import LoaderError, LoaderErrorKind
+from schemathesis.core.errors import HookExecutionError, LoaderError, LoaderErrorKind
 from schemathesis.core.failures import (
     CustomFailure,
     MessageBlock,
@@ -46,25 +44,16 @@ if TYPE_CHECKING:
     from rich.text import Text
 
     from schemathesis.cli.context import BaseExecutionContext
-    from schemathesis.config import OutputConfig, ProjectConfig
+    from schemathesis.config import OutputConfig, ProjectConfig, SanitizationConfig
     from schemathesis.core.failures import MessageBlock
     from schemathesis.engine import events
     from schemathesis.engine.statistic import GroupedFailures, Statistic
 
-IO_ENCODING = os.getenv("PYTHONIOENCODING", "utf-8")
+HEADER_SEPARATOR = "━"
 
-if IO_ENCODING != "utf-8":
-    HEADER_SEPARATOR = "-"
 
-    def style(text: str, **kwargs: Any) -> str:
-        text = text.encode(IO_ENCODING, errors="replace").decode("utf-8")
-        return click.style(text, **kwargs)
-
-else:
-    HEADER_SEPARATOR = "━"
-
-    def style(text: str, **kwargs: Any) -> str:
-        return click.style(text, **kwargs)
+def style(text: str, **kwargs: Any) -> str:
+    return click.style(text, **kwargs)
 
 
 @dataclass
@@ -115,8 +104,7 @@ def print_lines(lines: list[str | Generator[str, None, None]]) -> None:
 
 def display_seed(config: ProjectConfig) -> None:
     click.echo(style("Seed: ", bold=True), nl=False)
-    # Deterministic mode can be applied to a subset of tests, but we only care if it is enabled everywhere.
-    # If not everywhere, then the seed matters and should be displayed.
+    # The seed matters unless deterministic mode applies to every test.
     if config.seed is None or config.generation.deterministic:
         click.echo("not used in the deterministic mode")
     else:
@@ -158,8 +146,7 @@ def display_final_line(
         reason = ", ".join([*parts, "baseline not saved"]) if parts else "Baseline not saved"
         message = f"{reason} in {running_time:.2f}s"
         color = "red"
-    # Without failures or errors, a failing exit code comes from warnings configured with `fail-on`.
-    # `fail-on` may name only some of the shown warnings, so the line does not count them.
+    # Without failures or errors, a failing exit code comes from `fail-on` warnings; it may name only some, so no count.
     elif warnings and exit_code == ExitCode.FAILURES:
         message = f"Warnings fail the run in {running_time:.2f}s"
         color = "red"
@@ -184,7 +171,12 @@ def display_header(version: str) -> None:
     prefix = "v" if version != "dev" else ""
     header = f"Schemathesis {prefix}{version}"
     click.echo(style(header, bold=True))
-    click.echo(style(HEADER_SEPARATOR * len(header), bold=True))
+    try:
+        HEADER_SEPARATOR.encode(sys.stdout.encoding or "utf-8")
+        separator = HEADER_SEPARATOR
+    except UnicodeEncodeError:
+        separator = "-"
+    click.echo(style(separator * len(header), bold=True))
     click.echo()
 
 
@@ -205,7 +197,6 @@ def append_replay_command(code_sample: str | None, case_id: str | None) -> str |
 
 
 def format_duration(duration_ms: int) -> str:
-    """Format duration in milliseconds to seconds with 2 decimal places."""
     return f"{duration_ms / 1000:.2f}s"
 
 
@@ -228,10 +219,10 @@ def make_progress_bar(console: Console, *, indent: str = "", transient: bool = T
     )
 
 
-def _degrade_unencodable_glyphs(stream: object) -> None:
-    # Status glyphs have no representation in every output encoding (CP1252 is the Windows default, and
-    # redirecting to a file drops UTF-8). Substitute them instead of aborting the run mid-output.
-    if isinstance(stream, io.TextIOWrapper) and stream.errors == "strict":
+def degrade_unencodable_glyphs(stream: object) -> None:
+    # Status glyphs may not encode (CP1252 on Windows, or redirected output); replace them instead of aborting mid-run.
+    # `surrogateescape`, the default on Windows and in the C locale, rejects them like `strict` does.
+    if isinstance(stream, io.TextIOWrapper) and stream.errors in ("strict", "surrogateescape"):
         stream.reconfigure(errors="replace")
 
 
@@ -244,7 +235,6 @@ def make_console(**kwargs: Any) -> Console:
         # Snapshots assume non-terminal rendering; force it even when CI sets FORCE_COLOR=1.
         kwargs.setdefault("force_terminal", False)
         kwargs.setdefault("color_system", None)
-    _degrade_unencodable_glyphs(kwargs.get("file") or sys.stdout)
     return Console(**kwargs)
 
 
@@ -307,7 +297,6 @@ class LoadingProgressManager(SpinnerProgressManager):
         self.location = location
 
     def get_completion_message(self) -> Text:
-        """Generate completion message including duration."""
         from rich.style import Style
         from rich.text import Text
 
@@ -352,7 +341,6 @@ class LoadingProgressManager(SpinnerProgressManager):
 
 
 def display_section_name(title: str, separator: str = "=", **kwargs: object) -> None:
-    """Print section name centered with separators."""
     message = format_banner(title, width=get_terminal_width(), separator=separator)
     kwargs.setdefault("bold", True)
     click.echo(style(message, **kwargs))
@@ -370,7 +358,7 @@ def failure_formatter(block: MessageBlock, content: str) -> str:
 
 
 def replay_command(group: GroupedFailures, *, record_crashes: bool) -> str | None:
-    # Only hint `st replay` when a crash file was actually recorded for this case.
+    # Only hint `st replay` when a crash file was recorded for this case.
     if record_crashes and group.case_id and any(is_reproducible_failure(failure) for failure in group.failures):
         return f"st replay {group.case_id}"
     return None
@@ -379,7 +367,6 @@ def replay_command(group: GroupedFailures, *, record_crashes: bool) -> str | Non
 def display_failures_for_single_test(
     config: OutputConfig, label: str, checks: Iterable[GroupedFailures], *, record_crashes: bool
 ) -> None:
-    """Display failures for a single operation."""
     display_section_name(label, "_", fg="red")
     for idx, group in enumerate(checks, 1):
         replay = replay_command(group, record_crashes=record_crashes)
@@ -395,7 +382,6 @@ def display_failures_for_single_test(
 
 
 def display_failures(statistic: Statistic, config: OutputConfig, *, record_crashes: bool) -> None:
-    """Display all failures in the test run."""
     if not statistic.failures:
         return
     display_section_name("FAILURES")
@@ -500,14 +486,16 @@ def display_test_cases(test_cases: TestCasesSummary) -> None:
     click.echo(style(", ".join(parts) + "\n"))
 
 
-def display_errors(errors: Iterable[events.NonFatalError], *, base_url_is_set: bool) -> None:
+def display_errors(
+    errors: Iterable[events.NonFatalError], *, base_url_is_set: bool, sanitization: SanitizationConfig
+) -> None:
     display_section_name("ERRORS")
     sorted_errors = sorted(errors, key=lambda r: (r.phase.value if r.phase is not None else "", r.label, r.info.title))
     for label, group_errors in groupby(sorted_errors, key=lambda r: r.label):
         display_section_name(label, "_", fg="red")
         _errors = list(group_errors)
         for idx, error in enumerate(_errors, 1):
-            click.echo(error.info.format(bold=_bold, base_url_is_set=base_url_is_set))
+            click.echo(error.info.format(bold=_bold, base_url_is_set=base_url_is_set, sanitization=sanitization))
             if idx < len(_errors):
                 click.echo()
     click.echo(style(f"\nNeed more help?\n    Join our Discord server: {DISCORD_LINK}", fg="red"))
@@ -547,6 +535,15 @@ def loader_error_tip(exception: LoaderError, *, wait_for_schema: float | int | N
 
 
 DEFAULT_INTERNAL_ERROR_MESSAGE = "An internal error occurred during the test run"
+
+
+def fatal_error_title(event: events.FatalError) -> str:
+    # Matches the title the terminal prints for the same error.
+    if isinstance(event.exception, LoaderError):
+        return "Schema Loading Error"
+    if isinstance(event.exception, HookExecutionError):
+        return "Hook Error"
+    return "Test Execution Error"
 
 
 def _display_extras(extras: list[str]) -> None:
@@ -618,13 +615,10 @@ def display_fatal_error(
     *,
     wait_for_schema: float | int | None = None,
 ) -> None:
-    """Display a fatal error and raise click.Abort.
-
-    Handles both loader errors (schema loading failures) and internal execution errors.
-    """
+    """Display a fatal error, either a schema loading failure or an internal error, and raise `click.Abort`."""
     from rich.text import Text
 
-    from schemathesis.core.errors import HookExecutionError, format_exception, split_traceback
+    from schemathesis.core.errors import format_exception, split_traceback
     from schemathesis.engine.errors import EngineErrorInfo
 
     if isinstance(event.exception, LoaderError):

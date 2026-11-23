@@ -33,7 +33,6 @@ KNOWN_INCORRECT_FIELD_MAPPINGS = {
 
 
 def make_user_paths(content, include_operation_id=True, post_status: str = "201"):
-    """Build User CRUD paths with optional operationId."""
     post = {
         "responses": {post_status: {"content": content}},
     }
@@ -66,6 +65,9 @@ def response(status: str, schema=None, content_type: str = "application/json"):
     return container
 
 
+INTEGER = {"type": "integer"}
+
+
 def path_param(name: str, param_type: str = "string", required: bool = True):
     return {"name": name, "in": "path", "required": required, "schema": {"type": param_type}}
 
@@ -80,17 +82,14 @@ def operation(method: str, path: str, response_status: str, response_schema=None
 
 
 def ref(ref_path: str):
-    """Build a $ref object."""
     return {"$ref": ref_path}
 
 
 def component_ref(schema_name: str):
-    """Build a reference to a component schema."""
     return ref(f"#/components/schemas/{schema_name}")
 
 
 def json_response(status: str, schema):
-    """Shorthand for JSON response."""
     return response(status, schema, "application/json")
 
 
@@ -1622,7 +1621,6 @@ def snapshot_json(snapshot):
             },
             id="slug-suffix-field-matching",
         ),
-        # POST returns bare string identifier - like Mealie POST /api/recipes returning slug
         pytest.param(
             {
                 **operation("post", "/recipes", "201", {"type": "string"}),
@@ -1648,8 +1646,6 @@ def snapshot_json(snapshot):
             },
             id="post-returns-string-identifier",
         ),
-        # Sub-resource inside array items should be discovered
-        # Like Mealie's AllBackups.imports which is an array of BackupFile refs
         pytest.param(
             {
                 **operation(
@@ -1694,9 +1690,7 @@ def snapshot_json(snapshot):
             },
             id="subresource-in-array-items",
         ),
-        # Prefix matching: parameter "group_slug" -> inferred "Group" not found
-        # but "GroupSummary" starts with "Group" and has "slug" field
-        # Like Mealie's /api/explore/groups/{group_slug}/... endpoints
+        # `group_slug` finds no `Group`, but `GroupSummary` starts with `Group` and has a `slug` field
         pytest.param(
             {
                 **operation(
@@ -1734,13 +1728,9 @@ def snapshot_json(snapshot):
             },
             id="prefix-matching-group-slug",
         ),
-        # Foreign key field linking: producer returns object with customer_id FK field,
-        # consumer expects Customer.id in path parameter
         pytest.param(
             {
-                # Producer: returns Order with customer_id FK field
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
-                # Consumer: needs Customer.id
                 **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id")]),
             },
             {
@@ -1759,7 +1749,6 @@ def snapshot_json(snapshot):
             },
             id="foreign-key-field-linking",
         ),
-        # Multiple FK fields: booking with customer_id and event_id
         pytest.param(
             {
                 **operation("get", "/bookings/{id}", "200", component_ref("Booking"), [path_param("id")]),
@@ -1783,7 +1772,6 @@ def snapshot_json(snapshot):
             },
             id="multiple-foreign-key-fields",
         ),
-        # Array FK field: event with site_ids array
         pytest.param(
             {
                 **operation("get", "/events/{id}", "200", component_ref("Event"), [path_param("id")]),
@@ -1804,9 +1792,6 @@ def snapshot_json(snapshot):
             },
             id="array-foreign-key-field",
         ),
-        # FK field with _uuid suffix does NOT link to consumer expecting id
-        # user_uuid -> GET /users/{id} (no match because consumer expects id, not uuid)
-        # This ensures FK suffix types are respected
         pytest.param(
             {
                 **operation("get", "/sessions/{id}", "200", component_ref("Session"), [path_param("id")]),
@@ -1827,7 +1812,6 @@ def snapshot_json(snapshot):
             },
             id="foreign-key-uuid-no-match-to-id-consumer",
         ),
-        # Multi-word snake_case FK: shipping_address_id -> ShippingAddress
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -1850,8 +1834,6 @@ def snapshot_json(snapshot):
             },
             id="foreign-key-multi-word-snake-case",
         ),
-        # Embedded resource: Order contains embedded Customer object
-        # Should link GET /orders/{id} -> GET /customers/{id} via customer.id
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -1864,7 +1846,7 @@ def snapshot_json(snapshot):
                         "properties": {
                             "id": {"type": "string"},
                             "total": {"type": "number"},
-                            "customer": component_ref("Customer"),  # Embedded resource
+                            "customer": component_ref("Customer"),
                         },
                         "required": ["id"],
                     },
@@ -1873,7 +1855,6 @@ def snapshot_json(snapshot):
             },
             id="embedded-resource-linking",
         ),
-        # Nested FK field: Order.shipping.warehouse_id -> Warehouse
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -1900,7 +1881,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-field-linking",
         ),
-        # Array of embedded resources: Order.line_items[].product_id -> Product
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -1930,8 +1910,6 @@ def snapshot_json(snapshot):
             },
             id="array-nested-fk-field-linking",
         ),
-        # Request body with nested FK field: POST /orders with {shipping: {warehouse_id: "..."}}
-        # Should create link from GET /warehouses to POST /orders
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -1971,7 +1949,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-nested-fk-field",
         ),
-        # Request body with FK field in array items: POST /orders with {items: [{product_id: "..."}]}
         pytest.param(
             {
                 **operation("get", "/products", "200", {"type": "array", "items": component_ref("Product")}),
@@ -2014,7 +1991,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-array-nested-fk-field",
         ),
-        # Request body with boolean schema for a property
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -2046,7 +2022,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-property-boolean-schema",
         ),
-        # Nested object with boolean schema for a property
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -2083,7 +2058,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-nested-property-boolean-schema",
         ),
-        # Deeply nested FK field - multiple levels of non-FK objects
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -2124,7 +2098,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-deeply-nested-fk-field",
         ),
-        # Array items with boolean schema for a property
         pytest.param(
             {
                 **operation("get", "/products", "200", {"type": "array", "items": component_ref("Product")}),
@@ -2164,7 +2137,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-array-item-boolean-schema",
         ),
-        # Deeply nested structure that exceeds the recursion depth limit
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -2247,11 +2219,10 @@ def snapshot_json(snapshot):
             },
             id="requestbody-max-depth-exceeded",
         ),
-        # FK field points to non-existent resource (target_resource is None)
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
-                # No /customers endpoint - Customer resource doesn't exist
+                # No /customers endpoint
             },
             {
                 "schemas": {
@@ -2259,7 +2230,7 @@ def snapshot_json(snapshot):
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "customer_id": {"type": "string"},  # FK to non-existent Customer
+                            "customer_id": {"type": "string"},
                         },
                         "required": ["id"],
                     },
@@ -2267,11 +2238,10 @@ def snapshot_json(snapshot):
             },
             id="fk-field-to-nonexistent-resource",
         ),
-        # Nested FK field pointing to non-existent resource
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
-                # No /warehouses endpoint - Warehouse resource doesn't exist
+                # No /warehouses endpoint
             },
             {
                 "schemas": {
@@ -2282,7 +2252,7 @@ def snapshot_json(snapshot):
                             "shipping": {
                                 "type": "object",
                                 "properties": {
-                                    "warehouse_id": {"type": "string"},  # FK to non-existent Warehouse
+                                    "warehouse_id": {"type": "string"},
                                 },
                             },
                         },
@@ -2292,11 +2262,10 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-to-nonexistent-resource",
         ),
-        # Two consumers for the same resource - creates duplicate FK link names
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
-                # Two consumers for Customer, both expecting id - creates duplicate "GetCustomer" link
+                # Both consumers expect `id`, so both links are named "GetCustomer"
                 **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id")]),
                 **operation(
                     "get", "/customers/{customerId}", "200", component_ref("Customer"), [path_param("customerId")]
@@ -2317,7 +2286,6 @@ def snapshot_json(snapshot):
             },
             id="fk-duplicate-link-names",
         ),
-        # Response schema with $ref that needs resolution for nested FK extraction
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2329,7 +2297,7 @@ def snapshot_json(snapshot):
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "shipping": component_ref("ShippingDetails"),  # $ref needs resolution
+                            "shipping": component_ref("ShippingDetails"),
                         },
                         "required": ["id"],
                     },
@@ -2345,7 +2313,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-with-ref-resolution",
         ),
-        # Response with array of items containing nested FK fields - tests MANY cardinality
         pytest.param(
             {
                 **operation("get", "/orders", "200", {"type": "array", "items": component_ref("Order")}),
@@ -2371,7 +2338,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-many-cardinality",
         ),
-        # Nested FK field that is an array (site_ids inside nested object)
         pytest.param(
             {
                 **operation("get", "/events/{id}", "200", component_ref("Event"), [path_param("id")]),
@@ -2386,7 +2352,7 @@ def snapshot_json(snapshot):
                             "location": {
                                 "type": "object",
                                 "properties": {
-                                    "site_ids": {"type": "array", "items": {"type": "string"}},  # Array FK
+                                    "site_ids": {"type": "array", "items": {"type": "string"}},
                                 },
                             },
                         },
@@ -2397,7 +2363,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-array-field",
         ),
-        # Consumer expects body parameter - FK linking should skip this
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2426,7 +2391,6 @@ def snapshot_json(snapshot):
             },
             id="fk-skip-body-parameter-consumer",
         ),
-        # Multiple nested FK fields creating duplicate link names
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2447,7 +2411,7 @@ def snapshot_json(snapshot):
                             "billing": {
                                 "type": "object",
                                 "properties": {
-                                    "warehouse_id": {"type": "string"},  # Duplicate FK to same resource
+                                    "warehouse_id": {"type": "string"},
                                 },
                             },
                         },
@@ -2458,7 +2422,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-duplicate-link-names",
         ),
-        # Nested FK with mismatched target field (uuid vs id)
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2473,7 +2436,7 @@ def snapshot_json(snapshot):
                             "shipping": {
                                 "type": "object",
                                 "properties": {
-                                    "warehouse_uuid": {"type": "string"},  # uuid FK, but consumer expects id
+                                    "warehouse_uuid": {"type": "string"},
                                 },
                             },
                         },
@@ -2484,9 +2447,7 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-mismatched-target-field",
         ),
-        # Self-referencing nested FK - operation is both producer and consumer for FK target
-        # GET /users/{user_id}/posts/{id} returns Post with nested FK user_id -> User
-        # Same operation needs User via user_id path parameter (self-reference)
+        # GET /users/{user_id}/posts/{id} returns a Post whose `user_id` points back at its own path parameter
         pytest.param(
             {
                 **operation(
@@ -2509,7 +2470,7 @@ def snapshot_json(snapshot):
                             "mentioned": {
                                 "type": "object",
                                 "properties": {
-                                    "user_id": {"type": "string"},  # Nested FK to User (same as path param)
+                                    "user_id": {"type": "string"},
                                 },
                             },
                         },
@@ -2519,7 +2480,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-self-reference",
         ),
-        # Nested FK where consumer expects body parameter (should be skipped)
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2557,7 +2517,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-skip-body-consumer",
         ),
-        # Two consumers for nested FK - creates duplicate link names
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2586,7 +2545,6 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-duplicate-consumers",
         ),
-        # Response schema property with boolean value (not a dict)
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2597,8 +2555,8 @@ def snapshot_json(snapshot):
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "metadata": True,  # Boolean schema property
-                            "config": True,  # Another boolean schema property
+                            "metadata": True,
+                            "config": True,
                         },
                         "required": ["id"],
                     },
@@ -2606,7 +2564,6 @@ def snapshot_json(snapshot):
             },
             id="response-schema-boolean-properties",
         ),
-        # Multiple request body FK fields requiring nested body merge
         pytest.param(
             {
                 **operation("get", "/warehouses", "200", {"type": "array", "items": component_ref("Warehouse")}),
@@ -2647,7 +2604,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-multiple-fk-fields-merge",
         ),
-        # Request body with array items containing multiple FK fields (tests list merging)
         pytest.param(
             {
                 **operation("get", "/products", "200", {"type": "array", "items": component_ref("Product")}),
@@ -2691,7 +2647,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-array-multiple-fk-fields-merge",
         ),
-        # Deeply nested schema with $ref that triggers extract_nested_fk_fields resolution
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2725,7 +2680,6 @@ def snapshot_json(snapshot):
             },
             id="nested-refs-extract-fk-fields",
         ),
-        # Nested FK extraction with max depth exceeded in response schema
         pytest.param(
             {
                 **operation("get", "/orders/{id}", "200", component_ref("Order"), [path_param("id")]),
@@ -2776,8 +2730,7 @@ def snapshot_json(snapshot):
             },
             id="nested-fk-max-depth-response",
         ),
-        # Multiple FK fields in request body pointing to the same resource (tests _merge_nested_body)
-        # account_id and account_uuid both parse to "Account" resource
+        # `account_id` and `account_uuid` both name the `Account` resource
         pytest.param(
             {
                 **operation("get", "/accounts", "200", {"type": "array", "items": component_ref("Account")}),
@@ -2791,7 +2744,7 @@ def snapshot_json(snapshot):
                                         "type": "object",
                                         "properties": {
                                             "account_id": {"type": "string"},
-                                            "account_uuid": {"type": "string"},  # Same resource, different field
+                                            "account_uuid": {"type": "string"},
                                             "amount": {"type": "number"},
                                         },
                                         "required": ["account_id", "account_uuid"],
@@ -2810,7 +2763,7 @@ def snapshot_json(snapshot):
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "uuid": {"type": "string"},  # Both id and uuid fields
+                            "uuid": {"type": "string"},
                         },
                         "required": ["id", "uuid"],
                     },
@@ -2818,7 +2771,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-same-resource-multiple-fk-fields",
         ),
-        # Nested request body with multiple FK fields at same nested path (tests nested merge)
         pytest.param(
             {
                 **operation("get", "/accounts", "200", {"type": "array", "items": component_ref("Account")}),
@@ -2864,7 +2816,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-nested-same-resource-merge",
         ),
-        # Request body with array of FK fields pointing to same resource (tests list merge)
         pytest.param(
             {
                 **operation("get", "/products", "200", {"type": "array", "items": component_ref("Product")}),
@@ -2913,7 +2864,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-array-same-resource-list-merge",
         ),
-        # Request body schema is a $ref that gets resolved
         pytest.param(
             {
                 **operation("get", "/users", "200", component_ref("User")),
@@ -2944,7 +2894,6 @@ def snapshot_json(snapshot):
             },
             id="requestbody-schema-ref",
         ),
-        # Body is array with items $ref AND has properties with FK - triggers mixed request_body types
         pytest.param(
             {
                 **operation("get", "/products", "200", component_ref("Product")),
@@ -4137,6 +4086,43 @@ def test_key_sent_in_body_to_a_qualified_collection_feeds_the_plain_one(ctx):
 
 
 @pytest.mark.parametrize(
+    ("field", "field_schema", "expected"),
+    [
+        ("droplet_id", {"type": "integer"}, {"path.droplet_id": "$request.body#/droplet_id"}),
+        ("droplet_ids", {"type": "array", "items": {"type": "integer"}}, None),
+    ],
+    ids=["scalar", "array"],
+)
+def test_request_body_key_fills_path_parameter_only_with_a_scalar(ctx, field, field_schema, expected):
+    paths = {
+        **operation_with_body(
+            "post",
+            "/firewalls/{firewall_id}/droplets",
+            "204",
+            {"type": "object", "properties": {field: field_schema}, "required": [field]},
+            parameters=[path_param("firewall_id")],
+        ),
+        **operation("get", "/droplets/{droplet_id}", "200", parameters=[path_param("droplet_id", "integer")]),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == (
+        []
+        if expected is None
+        else [
+            [
+                "#/paths/~1firewalls~1{firewall_id}~1droplets/post",
+                "204",
+                {
+                    "operationRef": "#/paths/~1droplets~1{droplet_id}/get",
+                    "x-schemathesis": {"is_inferred": True},
+                    "parameters": expected,
+                },
+            ]
+        ]
+    )
+
+
+@pytest.mark.parametrize(
     "response_schema",
     [
         pytest.param(ref("#/info/title"), id="direct"),
@@ -4181,8 +4167,7 @@ def test_nested_fk_under_digit_named_property_links_into_object_body(ctx):
 
 
 def test_path_param_named_after_collection_links_create_to_read(ctx):
-    # `/sessions/{session}` names its path param after the singular collection (route-model-binding
-    # style); the create operation must still link into read.
+    # `/sessions/{session}` names its parameter after the collection; the create must still link into the read.
     session_response = {
         "type": "object",
         "properties": {"id": {"type": "string"}},
@@ -4211,6 +4196,31 @@ def test_path_param_named_after_collection_links_create_to_read(ctx):
             {
                 "operationRef": "#/paths/~1sessions~1{session}/get",
                 "parameters": {"path.session": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+
+
+def test_links_point_into_additional_operations(ctx):
+    file = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    paths = {
+        **operation("post", "/files", "201", file),
+        "/files/{id}": {
+            "parameters": [path_param("id")],
+            "additionalOperations": {
+                "COPY": {"responses": {"201": {"content": {"application/json": {"schema": file}}}}}
+            },
+        },
+    }
+    _, graph = analyze_dependencies(ctx, paths, version="3.2.0")
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1files/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1files~1{id}/additionalOperations/COPY",
+                "parameters": {"path.id": "$response.body#/id"},
                 "x-schemathesis": {"is_inferred": True},
             },
         ]
@@ -5012,6 +5022,324 @@ def test_parameter_binds_to_named_resource_over_prefix_named_one_with_inherited_
     ]
 
 
+KEYED_BY_ID = {"type": "object", "properties": {"id": INTEGER}}
+
+
+def served(name: str, collection: str, key: str):
+    # `name` is what `GET /{collection}/{key}` returns
+    return operation("get", f"/{collection}/{{{key}}}", "200", component_ref(name), [path_param(key, "integer")])
+
+
+def links_filling(graph, parameter: str):
+    return [
+        [source, status, link["parameters"][parameter]]
+        for source, status, link in inferred_links(graph)
+        if parameter in link["parameters"]
+    ]
+
+
+def labels_by(parameter: str):
+    return operation(
+        "get",
+        "/labels",
+        "200",
+        {"type": "object"},
+        [{"name": parameter, "in": "query", "required": True, "schema": INTEGER}],
+    )
+
+
+@pytest.mark.parametrize("group_first", [True, False], ids=["group-first", "group-last"])
+def test_parameter_takes_schema_named_like_it_over_one_served_as_another_resource(ctx, group_first):
+    group, widget = served("widget-group", "widget-groups", "group_id"), served("widget", "widgets", "widget_id")
+    paths = {**(group | widget if group_first else widget | group), **labels_by("widget_id")}
+    schemas = {"widget-group": KEYED_BY_ID, "widget": KEYED_BY_ID}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert links_filling(graph, "query.widget_id") == [
+        ["#/paths/~1widgets~1{widget_id}/get", "200", "$response.body#/id"]
+    ]
+
+
+@pytest.mark.parametrize(
+    ("schema", "fields", "collection", "expected"),
+    [
+        ("WidgetRole", {"id": INTEGER}, "roles", []),
+        (
+            "WidgetRole",
+            {"id": INTEGER, "widget_id": INTEGER},
+            "roles",
+            [["#/paths/~1roles~1{key}/get", "200", "$response.body#/widget_id"]],
+        ),
+        ("WidgetSummary", {"id": INTEGER}, "widgets", [["#/paths/~1widgets~1{key}/get", "200", "$response.body#/id"]]),
+        (
+            "WidgetSummary",
+            {"id": INTEGER},
+            "get-widgets",
+            [["#/paths/~1get-widgets~1{key}/get", "200", "$response.body#/id"]],
+        ),
+        (
+            "BlueWidget",
+            {"id": INTEGER},
+            "blue-widgets",
+            [["#/paths/~1blue-widgets~1{key}/get", "200", "$response.body#/id"]],
+        ),
+        (
+            "WidgetDownload",
+            {"id": INTEGER},
+            "widgets/downloads",
+            [["#/paths/~1widgets~1downloads~1{key}/get", "200", "$response.body#/id"]],
+        ),
+    ],
+    ids=[
+        "served-as-another",
+        "field-named-like-parameter",
+        "served-as-the-resource",
+        "collection-ends-with-it",
+        "qualified-name",
+        "collection-under-the-resource",
+    ],
+)
+def test_prefix_named_schema_keys_parameter_unless_served_as_another_resource(
+    ctx, schema, fields, collection, expected
+):
+    paths = {
+        **served(schema, collection, "key"),
+        **operation("delete", "/widgets/{widget_id}", "204", parameters=[path_param("widget_id", "integer")]),
+        **labels_by("widget_id"),
+    }
+    schemas = {schema: {"type": "object", "properties": fields}}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert [
+        link for link in links_filling(graph, "query.widget_id") if link[0] != "#/paths/~1widgets~1{widget_id}/delete"
+    ] == expected
+
+
+@pytest.mark.parametrize(
+    ("abbreviation_collection", "expected"),
+    [
+        ("runners", [["#/paths/~1runs~1{run_id}/get", "200", "$response.body#/id"]]),
+        (None, [["#/paths/~1runners~1{runner_id}/get", "200", "$response.body#/id"]]),
+    ],
+    ids=["resource-has-own-collection", "word-only-abbreviated"],
+)
+def test_parameter_skips_longer_word_served_as_another_resource(ctx, abbreviation_collection, expected):
+    # `runner` is not a run when the API keys runs; `Application` may be an app when nothing else is one
+    paths = {
+        **served("runner", "runners", "runner_id"),
+        **(
+            {"/runs/{run_id}": served("workflow-run", "runs", "run_id")["/runs/{run_id}"]}
+            if abbreviation_collection
+            else {}
+        ),
+        **labels_by("run_id"),
+    }
+    schemas = {"runner": KEYED_BY_ID, "workflow-run": KEYED_BY_ID}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert links_filling(graph, "query.run_id") == expected
+
+
+def test_item_key_takes_schema_its_own_path_returns_among_those_served_as_its_resource(ctx):
+    paths = {
+        **served("hook-delivery", "deliveries", "delivery_id"),
+        **operation(
+            "get",
+            "/orgs/{org}/hooks/{hook_id}",
+            "200",
+            component_ref("org-hook"),
+            [path_param("org"), path_param("hook_id")],
+        ),
+        **operation(
+            "get",
+            "/repos/{repo}/hooks/{hook_id}",
+            "200",
+            component_ref("hook"),
+            [path_param("repo"), path_param("hook_id")],
+        ),
+        **operation(
+            "get",
+            "/repos/{repo}/hooks/{hook_id}/config",
+            "200",
+            {"type": "object"},
+            [path_param("repo"), path_param("hook_id")],
+        ),
+    }
+    schemas = {"hook-delivery": KEYED_BY_ID, "org-hook": KEYED_BY_ID, "hook": KEYED_BY_ID}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert [
+        [source, status, link["parameters"]["path.hook_id"]]
+        for source, status, link in inferred_links(graph)
+        if link["operationRef"] == "#/paths/~1repos~1{repo}~1hooks~1{hook_id}~1config/get"
+    ] == [["#/paths/~1repos~1{repo}~1hooks~1{hook_id}/get", "200", "$response.body#/id"]]
+
+
+def test_item_key_takes_schema_listed_by_the_collection_keying_it(ctx):
+    # `/enterprises/{enterprise}/organizations` lists `OrganizationSimple`, so it is what `{org_id}` there keys
+    paths = {
+        **operation(
+            "get",
+            "/enterprises/{enterprise}/organizations",
+            "200",
+            {"type": "array", "items": component_ref("OrganizationSimple")},
+            [path_param("enterprise")],
+        ),
+        **operation(
+            "delete",
+            "/enterprises/{enterprise}/organizations/{org_id}",
+            "204",
+            parameters=[path_param("enterprise"), path_param("org_id", "integer")],
+        ),
+        **served("org", "orgs", "key"),
+    }
+    schemas = {"OrganizationSimple": KEYED_BY_ID, "org": KEYED_BY_ID}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert links_filling(graph, "path.org_id") == [
+        ["#/paths/~1enterprises~1{enterprise}~1organizations/get", "200", "$response.body#/*/id"]
+    ]
+
+
+GROUP_LINK = ["#/paths/~1widget-groups~1{group_id}/get", "200", "$response.body#/id"]
+
+
+@pytest.mark.parametrize(
+    ("item_operations", "expected"),
+    [
+        (
+            {"get": {**response("200", component_ref("Gadget")), "parameters": [path_param("widget_id")]}},
+            [GROUP_LINK],
+        ),
+        (
+            {
+                "get": {**response("200", component_ref("Gadget")), "parameters": [path_param("widget_id")]},
+                "put": {**response("200", component_ref("GadgetUpdate")), "parameters": [path_param("widget_id")]},
+            },
+            [GROUP_LINK],
+        ),
+        (
+            {
+                "get": {
+                    **response("200", {"type": "array", "items": component_ref("Gadget")}),
+                    "parameters": [path_param("widget_id")],
+                }
+            },
+            [["#/paths/~1widgets~1{key}/get", "200", "$response.body#/id"]],
+        ),
+    ],
+    ids=["returns-another-object", "returns-several-objects", "returns-a-list"],
+)
+def test_item_key_rebinds_only_to_what_its_path_returns(ctx, item_operations, expected):
+    # `Gadget` is what `/widgets/{widget_id}` returns, which no name match finds; a list there holds other items
+    paths = {
+        **served("widget-group", "widget-groups", "group_id"),
+        "/widgets/{widget_id}": item_operations,
+        **operation("get", "/widgets/{widget_id}/labels", "200", {"type": "object"}, [path_param("widget_id")]),
+        **served("widget", "widgets", "key"),
+    }
+    schemas = {"widget-group": KEYED_BY_ID, "widget": KEYED_BY_ID, "Gadget": KEYED_BY_ID, "GadgetUpdate": KEYED_BY_ID}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+    assert [
+        [source, status, link["parameters"]["path.widget_id"]]
+        for source, status, link in inferred_links(graph)
+        if link["operationRef"] == "#/paths/~1widgets~1{widget_id}~1labels/get"
+        and link["parameters"]["path.widget_id"].startswith("$response")
+    ] == expected
+
+
+def test_item_key_collection_shares_no_namespace_with_other_resources(ctx):
+    # `actions` names no item, so `runner-group` under `/actions/runner-groups` is not a runner
+    paths = {
+        **served("runner-group", "actions/runner-groups", "group_id"),
+        **served("runner", "actions/runners", "runner_id"),
+        **operation(
+            "get",
+            "/actions/runners/{runner_id}/labels",
+            "200",
+            {"type": "object"},
+            [path_param("runner_id", "integer")],
+        ),
+    }
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"runner-group": KEYED_BY_ID, "runner": KEYED_BY_ID}}
+    )
+    assert [
+        [source, status, link["parameters"]["path.runner_id"]]
+        for source, status, link in inferred_links(graph)
+        if link["operationRef"] == "#/paths/~1actions~1runners~1{runner_id}~1labels/get"
+    ] == [["#/paths/~1actions~1runners~1{runner_id}/get", "200", "$response.body#/id"]]
+
+
+def test_item_key_under_a_parent_other_scopes_also_key_keeps_its_binding(ctx):
+    # `{group_id}` keys groups of orgs and of enterprises; a runner listed in one would carry its group into the other
+    group = [path_param("group_id", "integer")]
+    runner = [path_param("enterprise"), *group, path_param("runner_id", "integer")]
+    org_runners = {"type": "object", "properties": {"runners": {"type": "array", "items": component_ref("runner")}}}
+    paths = {
+        **operation(
+            "get",
+            "/enterprises/{enterprise}/groups/{group_id}",
+            "200",
+            component_ref("runner-group"),
+            [path_param("enterprise"), *group],
+        ),
+        **operation("get", "/orgs/{org}/groups/{group_id}/runners", "200", org_runners, [path_param("org"), *group]),
+        "/enterprises/{enterprise}/groups/{group_id}/runners/{runner_id}": {
+            "put": {**response("204"), "parameters": runner},
+            "delete": {**response("204"), "parameters": runner},
+        },
+        **served("runner", "runners", "runner_id"),
+    }
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"runner-group": KEYED_BY_ID, "runner": KEYED_BY_ID}}
+    )
+    links = inferred_links(graph)
+    nested = "#/paths/~1enterprises~1{enterprise}~1groups~1{group_id}~1runners~1{runner_id}"
+    assert [
+        link["parameters"]
+        for source, _, link in links
+        if source == "#/paths/~1orgs~1{org}~1groups~1{group_id}~1runners/get"
+        and link["operationRef"] == f"{nested}/delete"
+    ] == []
+    # A bodyless `PUT` there still confirms the runner it adds
+    assert [
+        link["parameters"]
+        for source, _, link in links
+        if source == f"{nested}/put" and "runners~1{runner_id}/get" in link["operationRef"]
+    ] == [{"path.runner_id": "$request.path.runner_id"}]
+
+
+def test_bodyless_put_confirms_resource_its_key_rebinds_to(ctx):
+    paths = {
+        **operation("post", "/widget-groups", "201", component_ref("widget-group")),
+        "/widget-groups/{group_id}/widgets/{widget_id}": {
+            "put": {**response("204"), "parameters": [path_param("group_id"), path_param("widget_id")]}
+        },
+        **operation("get", "/widgets/{widget_id}", "200", component_ref("widget"), [path_param("widget_id")]),
+    }
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"widget-group": KEYED_BY_ID, "widget": KEYED_BY_ID}}
+    )
+    assert [
+        [source, status, link["operationRef"], link["parameters"]] for source, status, link in inferred_links(graph)
+    ] == [
+        [
+            "#/paths/~1widget-groups/post",
+            "201",
+            "#/paths/~1widget-groups~1{group_id}~1widgets~1{widget_id}/put",
+            {"path.group_id": "$response.body#/id"},
+        ],
+        [
+            "#/paths/~1widget-groups~1{group_id}~1widgets~1{widget_id}/put",
+            "204",
+            "#/paths/~1widgets~1{widget_id}/get",
+            {"path.widget_id": "$request.path.widget_id"},
+        ],
+        [
+            "#/paths/~1widgets~1{widget_id}/get",
+            "200",
+            "#/paths/~1widget-groups~1{group_id}~1widgets~1{widget_id}/put",
+            {"path.widget_id": "$response.body#/id"},
+        ],
+    ]
+
+
 def test_parameter_binds_to_field_named_after_it_over_prefix_named_resource_with_inherited_id(ctx):
     # A reservation transaction's id is not a reservation id; reservation details carry one
     paths = {
@@ -5138,8 +5466,7 @@ def test_update_body_field_binds_to_updated_resource_when_parent_has_it_too(ctx,
 
 
 def test_nested_fk_inference_independent_of_path_order(ctx):
-    # Inference must register a nested-body FK input slot regardless of whether the consumer
-    # appears before or after its producer in the spec's `paths` order.
+    # Inference registers a nested-body FK input slot whatever the order of consumer and producer in `paths`.
     location_response = {
         "type": "object",
         "properties": {"id": {"type": "integer"}},
@@ -5192,8 +5519,7 @@ def test_nested_fk_inference_independent_of_path_order(ctx):
 
 
 def test_nested_fk_inference_array_items_consumer_first(ctx):
-    # Consumer references the producer through an array of nested objects (`items: [{location_id}]`),
-    # not a sibling object. The replay path must land the array-branch FK regardless of declaration order.
+    # The consumer references the producer through an array of nested objects; the FK lands whatever the order.
     bulk_body = {
         "type": "object",
         "properties": {
@@ -5945,6 +6271,7 @@ CUSTOMER_COMPONENTS = {
         "CustomerIds": CUSTOMER_IDS,
         "RecursiveId": {"type": "integer", "allOf": [component_ref("RecursiveId")]},
         "CustomerIdsOrNull": {"anyOf": [component_ref("CustomerIds"), {"type": "null"}]},
+        "CustomerKey": {"type": "object", "properties": {"customer_id": {"type": "integer"}}},
         "RecursiveIdsOrNull": {"anyOf": [component_ref("RecursiveIdsOrNull"), {"type": "null"}]},
     }
 }
@@ -6018,6 +6345,12 @@ def order_to_customer(pointer):
             {"shipping": nested_object("customer_id", {"anyOf": [{"type": "integer"}, {"type": "null"}]})},
             [CREATED_CUSTOMER_TO_READ, order_to_customer("/shipping/customer_id")],
         ),
+        ({"customer_id": {"type": "object", "properties": {"name": {"type": "string"}}}}, [CREATED_CUSTOMER_TO_READ]),
+        (
+            {"customer_id": component_ref("CustomerKey")},
+            [CREATED_CUSTOMER_TO_READ, order_to_customer("/customer_id/customer_id")],
+        ),
+        ({"shipping": nested_object("customer_id", component_ref("CustomerKey"))}, [CREATED_CUSTOMER_TO_READ]),
     ],
     ids=[
         "array",
@@ -6042,9 +6375,12 @@ def order_to_customer(pointer):
         "any-of-integer-or-null",
         "one-of-array-or-integer",
         "nested-any-of-integer-or-null",
+        "object",
+        "object-ref",
+        "nested-object-ref",
     ],
 )
-def test_singular_fk_response_field_holding_an_array_does_not_fill_scalar_parameters(ctx, order, expected):
+def test_singular_fk_response_field_holding_an_array_or_object_does_not_fill_scalar_parameters(ctx, order, expected):
     paths = {
         **CREATE_CUSTOMER,
         **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id", "integer")]),
@@ -7237,8 +7573,7 @@ def test_fk_body_field_holding_an_array_takes_the_same_array_field(ctx, customer
 
 
 def test_nested_fk_inference_drops_slot_when_target_never_registered(ctx):
-    # A nested FK whose target resource is never declared anywhere stays dropped:
-    # the replay loop sees `resources.get(target) is None` and skips it.
+    # A nested FK whose target resource is never declared stays dropped.
     consumer_only = {
         "/orders": {
             "post": {
@@ -8045,7 +8380,7 @@ def test_body_name_suffix_with_matching_path_keeps_slot(ctx):
 
 
 def test_body_id_suffix_without_backing_still_creates_slot(ctx):
-    # The gate is `_name`-only — strong FK suffixes like `_id` keep current behavior.
+    # The gate covers `_name` only; strong FK suffixes like `_id` keep their behavior.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8078,8 +8413,7 @@ def test_body_id_suffix_without_backing_still_creates_slot(ctx):
 
 
 def test_body_self_fk_rebinds_to_path_parent_when_parent_has_field(ctx):
-    # `spouse_id` references another Contact, not a Spouse resource — when the path-derived
-    # parent (Contact) has the same field, the slot rebinds and the ghost Spouse is dropped.
+    # `spouse_id` references another Contact; the slot rebinds to the parent Contact and the ghost Spouse is dropped.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8262,7 +8596,7 @@ def test_path_consumer_picks_same_module_resource_variant(ctx):
 
 
 def test_body_fk_picks_same_module_resource_variant(ctx):
-    # Body FK fields prefer the same-module variant — `group_id` here picks Group1, not Group.
+    # Body FK fields prefer the same-module variant: `group_id` here picks Group1, not Group.
     paths = _module_disambiguation_paths()
     paths["/smallgroups/members"] = {
         "post": {
@@ -8308,8 +8642,7 @@ def test_body_fk_picks_same_module_resource_variant(ctx):
 
 
 def test_path_consumer_picks_same_module_suffix_match(ctx):
-    # `/bookings/resources/{id}` infers `Resource`; both `KeyDateResource` (addressbook)
-    # and `ResourceItem` (bookings) are suffix-affine, so the same-module one wins.
+    # `/bookings/resources/{id}` infers `Resource`; of `KeyDateResource` and `ResourceItem`, the same-module one wins.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8519,8 +8852,7 @@ def test_body_fk_inside_all_of_with_one_of_branches(ctx):
 
 
 def test_list_items_behind_nested_all_of_keep_their_fields(ctx):
-    # A list response whose array items are an `allOf` composition must still expose the item's
-    # fields, otherwise the resource degrades to a bare path-parameter stub.
+    # List items composed with `allOf` must expose their fields, or the resource degrades to a path-parameter stub.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8579,8 +8911,7 @@ def test_list_items_behind_nested_all_of_keep_their_fields(ctx):
 
 
 def test_externally_tagged_items_behind_one_of_keep_their_fields(ctx):
-    # A paginated list whose items tag their payload with a `oneOf` must still expose that payload's
-    # fields, otherwise the resource degrades to a fieldless stub.
+    # List items that tag their payload with `oneOf` must expose its fields, or the resource degrades to a stub.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8803,8 +9134,7 @@ def test_nested_list_wrapper_without_resource_items_is_not_descended_into(ctx):
 
 
 def test_all_of_branches_merge_same_named_object_property(ctx):
-    # When `allOf` branches each define the same object property, the merged property must union
-    # both branches' sub-fields so a FK hidden in the overriding branch is still discovered.
+    # `allOf` branches defining one object property merge its sub-fields, so an FK in the overriding branch is found.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8852,8 +9182,7 @@ def test_all_of_branches_merge_same_named_object_property(ctx):
 
 
 def test_all_of_base_branch_does_not_shadow_specialized_property(ctx):
-    # A base branch declaring a bare `{"type": "object"}` placeholder must not hide the specialized
-    # branch's fields for the same property, even when the item is reached through a list wrapper.
+    # A bare `{"type": "object"}` base branch must not hide the specialized branch's fields, even behind a list.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -8921,8 +9250,7 @@ def test_all_of_base_branch_does_not_shadow_specialized_property(ctx):
 
 
 def test_all_of_base_branch_does_not_shadow_specialized_array_items(ctx):
-    # A base branch declaring `items` as an array of bare objects must not hide the element schema
-    # the specialized branch supplies.
+    # A base branch with `items` of bare objects must not hide the element schema of the specialized branch.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -9244,8 +9572,7 @@ def test_nested_body_fk_on_update_keeps_its_target(ctx):
 
 
 def test_body_plural_id_array_field_produces_input_slot(ctx):
-    # Plural FK array fields like `site_ids` are FKs to Site.id; the analyzer used
-    # to recognize only singular `_id` body fields.
+    # Plural FK array fields like `site_ids` are FKs to Site.id.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -10769,7 +11096,6 @@ def test_stateful_bug_when_link_always_used(cli, snapshot_cli, ctx):
 
 
 def customer_post(*, operation_id="createCustomer", response_schema=None, links=None):
-    """Build /customers POST endpoint."""
     endpoint = {
         "post": {
             "operationId": operation_id,
@@ -10789,7 +11115,6 @@ def customer_post(*, operation_id="createCustomer", response_schema=None, links=
 def order_post(
     *, operation_id="createOrder", parameter_name="customer_id", parameter_in="path", use_request_body=False
 ):
-    """Build /orders POST endpoint."""
     endpoint = {
         "post": {
             "operationId": operation_id,
@@ -10816,7 +11141,6 @@ def order_post(
 
 
 def customer_get(*, operation_id="getCustomer", parameter_name="customer_id"):
-    """Build /customers/{customer_id} GET endpoint."""
     return {
         f"/customers/{{{parameter_name}}}": {
             "get": {
@@ -10834,7 +11158,6 @@ def customer_get(*, operation_id="getCustomer", parameter_name="customer_id"):
 
 
 def link(target_operation, parameters=None, request_body=None, use_ref=False):
-    """Build a link definition."""
     if use_ref:
         link_def = {"operationRef": target_operation}
     else:
@@ -10956,7 +11279,6 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                             "createOrder",
                             request_body={
                                 "customer_id": "$response.body#/id",
-                                # Additional literal field
                                 "order_type": "standard",
                             },
                         )
@@ -10975,7 +11297,6 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                             "createOrder",
                             parameters={
                                 "customer_id": "$response.body#/id",
-                                # Additional parameter
                                 "priority": "high",
                             },
                         )
@@ -10999,7 +11320,6 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                 ),
                 **order_post(parameter_name="customer_id", parameter_in="query"),
             },
-            # Would infer the same, exact match
             0,
             id="inferred-equals-explicit-parameters",
         ),
@@ -11014,7 +11334,6 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                         )
                     }
                 ),
-                # No body inferred
                 **order_post(parameter_name="customer_id", parameter_in="query"),
             },
             0,
@@ -11042,13 +11361,11 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                         "CreateOrder": link(
                             "createOrder",
                             parameters={"customer_id": "$response.body#/id"},
-                            # No request_body specified
                         )
                     }
                 ),
                 **order_post(use_request_body=True),
             },
-            # Inferred link NOT a subset (has body, existing doesn't)
             1,
             id="inferred-body-not-subset-of-empty",
         ),
@@ -11058,14 +11375,12 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
                     links={
                         "CreateOrder": link(
                             "createOrder",
-                            # Different source field
                             request_body={"customer_id": "$response.body#/name"},
                         )
                     }
                 ),
                 **order_post(use_request_body=True),
             },
-            # Inferred link NOT a subset (same key, different value)
             1,
             id="body-field-value-mismatch",
         ),
@@ -11243,8 +11558,7 @@ def test_paginated_list_links_to_detail_through_identifier(ctx):
 
 
 def test_iter_links_with_nested_refs(ctx):
-    # GH-3394: Links with nested $refs should be fully resolved
-    # Schema with link chain: Top -> Middle -> Bottom
+    # See GH-3394
     schema_dict = {
         "/foo": {
             "get": {
@@ -11289,20 +11603,17 @@ def test_iter_links_with_nested_refs(ctx):
         },
     )
 
-    # Verify that recursive $refs are fully resolved when iterating links
     for result in schema.get_all_operations():
         if isinstance(result, schemathesis.core.result.Ok):
             operation = result.ok()
             for _, response in operation.responses.items():
                 for name, link in response.iter_links():
-                    # Link should have operationId after resolving all $ref levels
                     assert "operationId" in link or "operationRef" in link, (
                         f"Link '{name}' was not fully resolved: {link}"
                     )
 
 
 def test_iter_links_with_circular_refs(ctx):
-    # Circular $refs in links should not cause infinite recursion
     schema_dict = {
         "/foo": {
             "get": {
@@ -11329,13 +11640,12 @@ def test_iter_links_with_circular_refs(ctx):
         },
     )
 
-    # Should not hang or crash - circular refs are gracefully handled
     for result in schema.get_all_operations():
         if isinstance(result, schemathesis.core.result.Ok):
             operation = result.ok()
             for _, response in operation.responses.items():
                 for _, link in response.iter_links():
-                    # Circular ref will not be fully resolved, but shouldn't crash
+                    # A circular ref stays unresolved.
                     assert "$ref" in link
 
 
@@ -11487,7 +11797,7 @@ def test_stateful_discovers_bug_with_custom_deserializer(cli, snapshot_cli, ctx)
 
         user = users[user_id]
 
-        # PATCH with empty body corrupts internal state (bug!)
+        # Planted bug: a PATCH with an empty body corrupts internal state.
         if not data.get("first_name") and not data.get("last_name"):
             user["corrupted"] = True
         else:
@@ -11604,8 +11914,7 @@ def test_merged_returning_none_with_anyof_schema(ctx):
 
 
 def test_content_wrapper_unwrapped_around_single_object(ctx):
-    # Single-property `content` wrapper around a resource object should be unwrapped so the link
-    # extractor points at `/content/id`, not the unresolvable `/id`.
+    # A single-property `content` wrapper unwraps, so the link reads `/content/id` instead of the unresolvable `/id`.
     _, graph = analyze_dependencies(
         ctx,
         {
@@ -11638,7 +11947,7 @@ def test_content_wrapper_unwrapped_around_single_object(ctx):
 
 
 def envelope(result):
-    # Qdrant-style envelope: the resource sits under `result`, next to scalar request metadata.
+    # An envelope holding the resource under `result`, next to scalar request metadata.
     return {
         "type": "object",
         "properties": {"result": result, "status": {"type": "string"}, "time": {"type": "number"}},
@@ -11792,8 +12101,7 @@ def test_resource_named_after_path_segment_is_an_envelope(ctx, tag):
 
 
 def test_fk_link_requires_field_in_producer_response(ctx):
-    # The full order has `customer_id`, but the create response only returns `id`:
-    # a link reading `customer_id` from it would always resolve to nothing.
+    # The create response returns only `id`, so a link reading `customer_id` from it would resolve to nothing.
     order = {
         "type": "object",
         "properties": {"id": {"type": "string"}, "customer_id": {"type": "string"}},
@@ -12011,8 +12319,7 @@ def test_self_referencing_component_terminates(ctx):
 
 
 def test_scalar_body_field_named_after_collection_links_to_its_producer(ctx):
-    # `country` carries no identifier suffix, but it names a collection whose 200 is the list of
-    # values the field accepts.
+    # `country` has no identifier suffix, but its collection's 200 lists the values the field accepts.
     paths = {
         "/countries": {
             "get": {
@@ -12363,9 +12670,6 @@ def test_scalar_body_field_named_after_object_collection(ctx, item, language, ex
 
 def keyed(**fields):
     return {"type": "object", "properties": {"pk": {"type": "integer", "readOnly": True}, **fields}}
-
-
-INTEGER = {"type": "integer"}
 
 
 NAMED = keyed(name={"type": "string"})

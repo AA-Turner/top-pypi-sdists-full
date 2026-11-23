@@ -55,7 +55,9 @@ from coord.milestone_order import (
     render_work_order,
     replace_work_order_section,
 )
+from coord.models import coordinator_doc_overlap
 from coord.preflight_size import detect_cross_backend_scope
+from coord.upstream_gaps import UPSTREAM_GAP_MARKER, parse_upstream_markers
 
 #: Process-wide kill switch: set to any non-empty value to disable the
 #: disposition regardless of config.
@@ -78,6 +80,32 @@ ACTION_PLAN_FAILED = "followthrough-plan-failed"
 #: Nothing was filed because an already-open PR carries a GitHub closing
 #: keyword for the parent — remediation is already in flight.
 ACTION_ALREADY_COVERED = "followthrough-already-covered"
+#: The parent's own resolution text carries a `BLOCKED_ON_UPSTREAM` marker
+#: (#4079c): no plan leg is dispatched at all — every gap named was
+#: confirmed filed/linked (idempotently — see
+#: `coord.upstream_gaps.process_upstream_gaps`) and the parent is left open
+#: as the tracker.
+ACTION_UPSTREAM_PARKED = "followthrough-upstream-parked"
+#: Minted when `run_followthrough`'s own *already_upstream_parked* argument
+#: is ``True`` (seeded by the caller, `coord.board_doctor.
+#: run_followthrough_sweep`, from :func:`upstream_parked_keys`'s durable
+#: decision-log read-back): this row's key already reports parked, so it is
+#: not re-commented or re-filed — same "already filed → reuse, don't
+#: rewrite" shape as :data:`ACTION_REFILE_ALREADY_FILED` (see its own
+#: docstring). Never recorded to the durable decision log — doing so would
+#: overwrite the :data:`ACTION_UPSTREAM_PARKED` entry
+#: :func:`upstream_parked_keys` itself reads back, making this key
+#: invisible to it on the next sweep.
+ACTION_UPSTREAM_ALREADY_PARKED = "followthrough-upstream-already-parked"
+#: At least one `BLOCKED_ON_UPSTREAM` marker in the resolution text was NOT
+#: confirmed filed/linked by `process_upstream_gaps` — a per-gap failure
+#: (`status in {"error", "unknown-repo"}`, or any status that did not come
+#: back with either a real upstream issue number or a direct park) means
+#: there is nothing durable backing a "parked behind it" claim. Alerted, not
+#: recorded as :data:`ACTION_UPSTREAM_PARKED` — leaving the row eligible for
+#: a fresh attempt on the next sweep rather than silently stuck "already
+#: parked" behind a gap that was never actually filed.
+ACTION_UPSTREAM_PARK_FAILED = "followthrough-upstream-park-failed"
 
 _ISSUE_REF_RE = re.compile(r"^#?(\d+)$")
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
@@ -467,15 +495,22 @@ def build_plan_leg_prompt(partial: PartialMerge) -> str:
         "anything. You are checked out at the base branch HEAD, after the PR "
         f"for {partial.repo_name}#{partial.issue_number} merged with "
         "ISSUE_RESOLUTION: partial.",
-        "For every deliverable in the issue that the resolution says remains, "
-        "verify against the code whether it is still missing and cite evidence. "
-        "Then propose one follow-up issue per coherent remaining slice. "
-        "`after` may name issues already in the epic's `## Work order` (as "
-        "\"#N\") or the key of an EARLIER follow-up in your list. Check whether "
-        "an existing OPEN issue or PR already covers a slice before proposing a "
-        "new follow-up for it — if one does, set that follow-up's "
-        "`already_covered_by` to its `#N` instead of writing it into the prose "
-        "`body`; the writer only reads the structured field.",
+        "For EVERY deliverable the resolution text names as remaining — "
+        "address each one, not just the ones that are easy to check — "
+        "verify against the code whether it is still missing and cite "
+        "evidence. A symbol or test name existing is not evidence: quote "
+        "the line that actually does the thing (the real keypress/call and "
+        "its assertion), not just the name of a function or test that "
+        "claims to. Then propose one follow-up issue per coherent "
+        "remaining slice. `after` may name issues already in the epic's "
+        "`## Work order` (as \"#N\") or the key of an EARLIER follow-up in "
+        "your list — NEVER the issue number of the partial itself, which "
+        "this disposition is about to close. Check whether an existing "
+        "OPEN issue or PR already covers a slice before proposing a new "
+        "follow-up for it — if one does, set that follow-up's "
+        "`already_covered_by` to its `#N` instead of writing it into the "
+        "prose `body`; the writer only reads the structured field. Never "
+        "set `already_covered_by` to the partial's own issue number.",
         "Reply with exactly one JSON object in this shape and nothing else:\n"
         + _PLAN_SCHEMA,
         f"## Issue #{partial.issue_number}: {partial.title}\n\n{partial.body}",
@@ -622,7 +657,112 @@ def _issue_ref_to_int(ref: str) -> int | None:
 
 # ── Validation ───────────────────────────────────────────────────────────────
 
+#: Dropped when matching a leftover phrase against a plan item's own text —
+#: common words that carry no topic signal, so two unrelated sentences that
+#: both happen to use "the"/"and" don't register as a false-positive match.
+_LEFTOVER_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "and", "or", "to", "is", "are", "in", "on",
+    "not", "actually", "for", "its", "it", "this", "that", "leg", "still",
+    "with", "was", "but", "via", "by", "as", "be", "has", "have", "at",
+})
 
+#: A leftover description's leading conjunction, stripped before matching —
+#: splitting on `;` leaves a later clause starting "and ...""/"also ...".
+_LEFTOVER_LEAD_RE = re.compile(r"^(?:and|also)\s+", re.IGNORECASE)
+
+#: The next machine-read marker/section after a short remainder description
+#: (mirrors `coord.upstream_gaps._STOP_PREFIXES`'s own ALL-CAPS-marker set) —
+#: an ordinary sentence never has a bare `WORD_WORD:` of its own.
+_LEFTOVER_STOP_RE = re.compile(r"\n\s*\n|\n[A-Z][A-Z_ ]*:\s")
+
+
+def extract_resolution_leftovers(text: str) -> list[str]:
+    """The distinct leftover items named in a partial's resolution text
+    (#4079b).
+
+    *text* is normally the whole worker completion summary; this pulls the
+    remainder description that follows an `ISSUE_RESOLUTION: partial —`
+    prefix (or the whole string, lacking that prefix) and splits it:
+
+    - a bulleted list (two or more `-`/`*` lines) → one leftover per bullet;
+    - otherwise → one leftover per `;`-separated clause, with a leading
+      "and"/"also" conjunction dropped.
+
+    A description with neither shape returns as a single item — coarser
+    than it might be, but never silently dropped: :func:`validate_plan`
+    only needs "named but unaddressed", not a perfect split.
+    """
+    if not text:
+        return []
+    marker = re.search(r"ISSUE_RESOLUTION:\s*partial\b\s*[-—:]*\s*", text, re.IGNORECASE)
+    body = text[marker.end():] if marker else text
+    stop = _LEFTOVER_STOP_RE.search(body)
+    if stop:
+        body = body[:stop.start()]
+    body = body.strip()
+    if not body:
+        return []
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    bullets = [ln.lstrip("-*").strip() for ln in lines if ln.lstrip().startswith(("-", "*"))]
+    if len(bullets) >= 2:
+        return [b for b in bullets if b]
+    clauses = [c.strip() for c in re.split(r";\s*", " ".join(lines))]
+    cleaned = [
+        _LEFTOVER_LEAD_RE.sub("", c).strip().rstrip(".").strip()
+        for c in clauses if c.strip()
+    ]
+    cleaned = [c for c in cleaned if c]
+    return cleaned if cleaned else [body]
+
+
+def _significant_words(text: str) -> set[str]:
+    return {
+        w for w in re.findall(r"[a-z0-9]+", text.lower())
+        if w not in _LEFTOVER_STOPWORDS and len(w) > 2
+    }
+
+
+def _leftover_addressed(leftover: str, items: Sequence["RemainingItem"]) -> bool:
+    """Whether some plan item's own text/evidence shares enough topic
+    vocabulary with *leftover* to count as addressing it (#4079b) — a
+    cheap, deterministic stand-in for "the plan leg actually looked at
+    this", not a semantic match. Requires at least 2 shared significant
+    words (1 for a leftover phrase short enough not to have 2)."""
+    leftover_words = _significant_words(leftover)
+    if not leftover_words:
+        return True
+    threshold = min(2, len(leftover_words))
+    for item in items:
+        item_words = _significant_words(f"{item.item} {item.evidence}")
+        if len(leftover_words & item_words) >= threshold:
+            return True
+    return False
+
+
+#: A single bare identifier (optionally dotted/namespaced, optionally
+#: called) — `copy_cut_paste`, `test_copy_cut_paste`, `Foo::bar()` — naming
+#: a symbol/test/scenario with NOTHING else: no path (a `/`), no line
+#: pointer (a `:` followed by a digit), no surrounding prose. This repo's
+#: own `_PLAN_SCHEMA` explicitly blesses `file:line` / `grep result` as
+#: real evidence (`coord/a.py:10`), so this must not flag those — only the
+#: narrower case the name alone, existing, is offered as if it were proof
+#: of the behaviour it's attached to.
+_BARE_SYMBOL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*(?:\(\s*\))?$")
+
+
+def looks_like_bare_symbol_evidence(evidence: str) -> bool:
+    """True when *evidence* is just a symbol/test name rather than a
+    quoted line doing the thing it claims (#4079b: "a symbol or test name
+    existing is not evidence; quote the line that does the thing").
+
+    A `file:line`/`grep result`/path reference is NOT flagged — the plan
+    schema's own `_PLAN_SCHEMA` blesses that shape explicitly; this only
+    catches a bare name with no path, no line pointer and no prose at all.
+    """
+    cleaned = evidence.strip().strip("`").strip()
+    if not cleaned:
+        return False
+    return bool(_BARE_SYMBOL_RE.match(cleaned))
 
 
 def validate_plan(
@@ -634,6 +774,7 @@ def validate_plan(
     epic_exists: Callable[[int], bool] = lambda _n: True,
     milestone_exists: Callable[[str], bool] = lambda _m: True,
     covering_issue_open: Callable[[int], bool] = lambda _n: True,
+    coordinator_owned_docs: Sequence[str] = (),
 ) -> list[str]:
     """Every reason *plan* must not be written; empty means it is valid.
 
@@ -644,10 +785,50 @@ def validate_plan(
     Defaulting to "always open" keeps every caller that does not pass a
     live check (most tests) exercising the same parse-only validation as
     before; `coord.board_doctor` wires its own `_issue_open`.
+
+    *coordinator_owned_docs* (#4079a, e.g. `coord.models.coordinator_owned_docs`'s
+    return value) names every path — `CLAUDE.md` plus any repo-specific
+    addition — an ordinary worker dispatch may never touch. A follow-up
+    whose own `files` names one of them can never actually be finished by
+    a worker leg, so writing it and closing the parent on the strength of
+    it would silently lose the remainder exactly the way a self-pointing
+    `already_covered_by` does (below) — reject instead, so the row stays
+    open for an operator to resolve by hand.
     """
     reasons: list[str] = []
     if not plan.items:
         reasons.append("plan verifies no remaining items")
+
+    # #4079b: these two run regardless of `plan.all_landed` — "every item
+    # verified landed" is exactly the shape a plan takes when a leftover
+    # was verified by name only (quadracalc#27), so gating either check on
+    # NOT all_landed would skip them for the one case they exist to catch.
+    for item in plan.items:
+        if (
+            not item.verified_still_missing and item.evidence
+            and looks_like_bare_symbol_evidence(item.evidence)
+        ):
+            reasons.append(
+                f"item {item.item!r}: evidence {item.evidence!r} is just a "
+                "symbol or test name, not a quoted line showing the "
+                "behaviour — a name existing is not evidence it runs"
+            )
+    # Only when the resolution text names 2+ DISTINCT leftovers: a single
+    # short/free-text resolution (most of them — "partial — B remains")
+    # has nothing for the plan to silently drop, and the word-overlap match
+    # below is too coarse to trust on just one, weakly-worded phrase.
+    resolution_leftovers = (
+        extract_resolution_leftovers(partial.resolution_text)
+        if partial.resolution_text else []
+    )
+    if len(resolution_leftovers) >= 2:
+        for leftover in resolution_leftovers:
+            if not _leftover_addressed(leftover, plan.items):
+                reasons.append(
+                    "resolution text names a leftover no plan item "
+                    f"addresses: {leftover!r}"
+                )
+
     if plan.all_landed:
         if plan.follow_ups:
             reasons.append(
@@ -693,7 +874,16 @@ def validate_plan(
             reasons.append(f"{label}: duplicate key")
         for target in fu.after:
             ref = _ISSUE_REF_RE.match(target)
-            if target.startswith("#") and ref:
+            if target.startswith("#") and ref and int(ref.group(1)) == partial.issue_number:
+                # #4079a: same self-pointing hazard as `already_covered_by`
+                # below — an `after` edge naming the parent would splice a
+                # dependency on the very issue this plan leg is meant to
+                # replace.
+                reasons.append(
+                    f"{label}: `after` target {target} points at the parent "
+                    f"issue #{partial.issue_number} itself"
+                )
+            elif target.startswith("#") and ref:
                 if int(ref.group(1)) not in declared:
                     reasons.append(
                         f"{label}: `after` target {target} is not declared in the "
@@ -727,11 +917,33 @@ def validate_plan(
                     f"{label}: `already_covered_by` {fu.already_covered_by!r} is "
                     "not a valid issue reference"
                 )
+            elif covering_number == partial.issue_number:
+                # #4079a (quadraui#2806): `covering_issue_open` alone can't
+                # catch this — the parent is BY DEFINITION still open at
+                # validation time, so a follow-up "already covered by" the
+                # very issue about to close would pass that check and then
+                # vanish the remainder the moment the parent closes.
+                reasons.append(
+                    f"{label}: `already_covered_by` {fu.already_covered_by!r} "
+                    f"points at the parent issue #{partial.issue_number} "
+                    "itself — closing it would lose the remainder this "
+                    "follow-up names; this needs an operator, not an "
+                    "auto-filed follow-up"
+                )
             elif not covering_issue_open(covering_number):
                 reasons.append(
                     f"{label}: `already_covered_by` {fu.already_covered_by!r} does "
                     "not reference a currently open issue"
                 )
+        touched = coordinator_doc_overlap(fu.files, coordinator_owned_docs)
+        if touched:
+            reasons.append(
+                f"{label}: names {', '.join(touched)} in `files` — a "
+                "coordinator-owned doc an ordinary worker dispatch may "
+                "never edit, so this follow-up can never actually be "
+                "finished; this needs an operator, not an auto-filed "
+                "follow-up that closes the parent"
+            )
         named = detect_cross_backend_scope(title=fu.title, body=fu.body, backends=backends)
         if named:
             reasons.append(
@@ -969,6 +1181,86 @@ def _default_record(entry: dict) -> None:
     record_board_doctor_decision(entry)
 
 
+def _default_process_upstream_gaps(
+    final_message: str, *, repo_name: str, issue_number: int,
+) -> list[Any]:
+    """Real seam for `run_followthrough`'s *process_upstream_gaps* (#4079c):
+    the SAME filer every work-like leg's own transition already uses
+    (:func:`coord.notify._capture_upstream_gaps`) — one question ("has this
+    gap been filed/linked yet"), one answer, not a second implementation
+    that could drift from it. Idempotent (see
+    :func:`coord.upstream_gaps.process_upstream_gaps`'s own docstring), so
+    calling it again here even when the transition-time capture already
+    ran is a no-op, not a duplicate filing."""
+    from coord.config import load as _load_config  # noqa: PLC0415
+    from coord.upstream_gaps import process_upstream_gaps  # noqa: PLC0415
+
+    return process_upstream_gaps(
+        final_message, config=_load_config(), repo_name=repo_name,
+        issue_number=issue_number,
+    )
+
+
+def _upstream_parked_comment(outcomes: Sequence[Any]) -> str:
+    lines = [
+        "Board-doctor follow-through: this merged-partial issue's "
+        "remainder is blocked on an upstream gap. Staying open as the "
+        "tracker for the upstream issue(s) below.",
+    ]
+    for outcome in outcomes:
+        gap = outcome.gap
+        if outcome.number is not None:
+            lines.append(f"- {gap.repo}#{outcome.number} ({outcome.status}): {gap.title}")
+        else:
+            detail = f" — {outcome.detail}" if outcome.detail else ""
+            lines.append(f"- {gap.repo}: {gap.title} ({outcome.status}{detail})")
+    return "\n".join(lines)
+
+
+def _upstream_gap_resolved(outcome: Any) -> bool:
+    """Did :func:`~coord.upstream_gaps.process_upstream_gaps` actually
+    confirm *outcome*'s gap filed/linked, rather than merely not raising
+    (#4079c)?
+
+    ``process_upstream_gaps`` catches per-gap failures internally and
+    RETURNS them rather than raising, so ``status`` can come back
+    ``"error"`` or ``"unknown-repo"`` (the gap's named repo is not in
+    `coordinator.yml`) with no exception ever thrown. A resolved outcome is
+    either a real, linked upstream issue (``"filed"``/``"already-filed"``/
+    ``"deduped"`` with ``number`` set) or a direct park that needed no
+    upstream issue at all (``"not-a-gap"`` with ``outcome.parked`` true,
+    #3930/#3977) — anything else did not actually land.
+    """
+    if outcome.status in ("filed", "already-filed", "deduped"):
+        return outcome.number is not None
+    if outcome.status == "not-a-gap":
+        return bool(outcome.parked)
+    return False
+
+
+def upstream_parked_keys(decisions: Sequence[Mapping[str, Any]]) -> set[str]:
+    """``key`` for every row whose LATEST decision-log entry recorded
+    :data:`ACTION_UPSTREAM_PARKED` (#4079c).
+
+    *decisions* is the FULL decision log (oldest first, same order
+    :func:`coord.state.board_doctor_decisions` returns), not pre-filtered
+    by action — mirrors :func:`pending_refiles`'s own "latest entry
+    overall, not latest filtered by action" rule: the only way to tell a
+    key's park is no longer current is to see that a LATER entry for the
+    same key recorded something else instead (an operator reopening it
+    with a fresh resolution, for instance).
+    """
+    latest: dict[str, Mapping[str, Any]] = {}
+    for entry in decisions:
+        key = entry.get("key")
+        if key:
+            latest[str(key)] = entry
+    return {
+        key for key, entry in latest.items()
+        if entry.get("action") == ACTION_UPSTREAM_PARKED
+    }
+
+
 def run_followthrough(
     partial: PartialMerge,
     *,
@@ -982,6 +1274,9 @@ def run_followthrough(
     epic_exists: Callable[[int], bool] = lambda _n: True,
     milestone_exists: Callable[[str], bool] = lambda _m: True,
     covering_issue_open: Callable[[int], bool] = lambda _n: True,
+    coordinator_owned_docs: Sequence[str] = (),
+    process_upstream_gaps: Callable[..., Sequence[Any]] = _default_process_upstream_gaps,
+    already_upstream_parked: bool = False,
     dry_run: bool = False,
     auto_queue: AutoQueueContext | None = None,
     coverage: FollowThroughCoverage | None = None,
@@ -1008,7 +1303,29 @@ def run_followthrough(
 
     *covering_issue_open* is forwarded to :func:`validate_plan` to confirm
     a plan's own `already_covered_by` claim names a real, currently open
-    issue before the dedupe is honoured.
+    issue before the dedupe is honoured. *coordinator_owned_docs* is
+    forwarded the same way, to reject a follow-up naming one of them in
+    its own `files`.
+
+    *process_upstream_gaps* (#4079c) is checked right after the depth
+    limit, before any plan leg runs: when `partial.resolution_text` itself
+    carries a `BLOCKED_ON_UPSTREAM` marker, this disposition never plans or
+    files a follow-up at all — it files/links the upstream gap (the same
+    way a work leg's own transition does, idempotently), comments the link
+    on the parent, and leaves the parent OPEN as the tracker
+    (:data:`ACTION_UPSTREAM_PARKED`) ONLY once every named gap comes back
+    confirmed filed/linked — `process_upstream_gaps` catches per-gap
+    failures and returns them rather than raising, so the absence of an
+    exception is not proof of success (see :data:`ACTION_UPSTREAM_PARK_
+    FAILED`). This is the safety net for the gap where the transition-time
+    capture never ran (or the parent otherwise sat merged-partial with its
+    blocker never acted on).
+
+    *already_upstream_parked* (seeded by the caller from
+    :func:`upstream_parked_keys`, the durable decision-log read-back) is
+    checked before any of that: once a key has been successfully parked,
+    a repeat sweep must not re-comment or re-file for it, forever — see
+    :data:`ACTION_UPSTREAM_ALREADY_PARKED`.
     """
     key = f"{partial.repo_name}#{partial.issue_number}"
     disposition = Disposition(
@@ -1034,6 +1351,74 @@ def run_followthrough(
                 "human needs to decide how to finish it.",
             )
         return _finish(ACTION_DEPTH_PAGED)
+
+    upstream_gaps = (
+        parse_upstream_markers(partial.resolution_text)
+        if partial.resolution_text and UPSTREAM_GAP_MARKER in partial.resolution_text
+        else []
+    )
+    if upstream_gaps:
+        if already_upstream_parked:
+            # Already resolved by a previous sweep — do not re-comment or
+            # re-record. See `ACTION_UPSTREAM_ALREADY_PARKED`'s own docstring.
+            disposition.reasons.append(
+                f"{len(upstream_gaps)} BLOCKED_ON_UPSTREAM marker(s) already "
+                "parked by a previous sweep; not re-commenting"
+            )
+            disposition.action = ACTION_UPSTREAM_ALREADY_PARKED
+            return disposition
+        if dry_run:
+            disposition.reasons.append(
+                f"{len(upstream_gaps)} BLOCKED_ON_UPSTREAM marker(s) in the "
+                "resolution text — would file/link upstream and leave open"
+            )
+            disposition.action = ACTION_UPSTREAM_PARKED
+            return disposition
+        try:
+            outcomes = process_upstream_gaps(
+                partial.resolution_text, repo_name=partial.repo_name,
+                issue_number=partial.issue_number,
+            )
+        except Exception as exc:  # noqa: BLE001 — every write failure must alert
+            disposition.reasons.append(f"upstream gap filing failed: {exc}")
+            alert(f"{key}: follow-through upstream filing failed", str(exc))
+            return _finish(ACTION_WRITE_FAILED)
+        unresolved = [o for o in outcomes if not _upstream_gap_resolved(o)]
+        if unresolved:
+            # `process_upstream_gaps` catches per-gap failures and returns
+            # them rather than raising — the absence of an exception above
+            # is not proof every gap was actually filed/linked. Alert and
+            # leave the row unrecorded as parked, so the next sweep tries
+            # again rather than silently treating a never-filed gap as done.
+            detail = "\n".join(
+                f"- {o.gap.repo}: {o.gap.title} ({o.status}"
+                + (f" — {o.detail}" if o.detail else "") + ")"
+                for o in unresolved
+            )
+            disposition.reasons.append(
+                f"{len(unresolved)} of {len(upstream_gaps)} BLOCKED_ON_UPSTREAM "
+                "marker(s) could not be confirmed filed/linked; not claiming parked"
+            )
+            alert(
+                f"{key}: follow-through upstream filing incomplete",
+                f"process_upstream_gaps did not confirm every gap filed/linked "
+                f"for {key}:\n{detail}",
+            )
+            return _finish(ACTION_UPSTREAM_PARK_FAILED)
+        try:
+            writer.comment_issue(
+                partial.github_slug, partial.issue_number,
+                body=_upstream_parked_comment(outcomes),
+            )
+        except Exception as exc:  # noqa: BLE001 — every write failure must alert
+            disposition.reasons.append(f"upstream gap comment failed: {exc}")
+            alert(f"{key}: follow-through upstream filing failed", str(exc))
+            return _finish(ACTION_WRITE_FAILED)
+        disposition.reasons.append(
+            f"{len(upstream_gaps)} BLOCKED_ON_UPSTREAM marker(s) filed/linked; "
+            "parent left open as the tracker"
+        )
+        return _finish(ACTION_UPSTREAM_PARKED)
 
     if coverage is not None and coverage.covering_pr is not None:
         disposition.reasons.append(
@@ -1063,6 +1448,7 @@ def run_followthrough(
         plan, partial=partial, cap=cap, backends=backends,
         epic_exists=epic_exists, milestone_exists=milestone_exists,
         covering_issue_open=covering_issue_open,
+        coordinator_owned_docs=coordinator_owned_docs,
     )
     if reasons:
         disposition.reasons.extend(reasons)

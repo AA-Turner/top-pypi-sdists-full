@@ -5,6 +5,9 @@ returns the groups that should receive each decomposed WHERE atom. The caller is
 responsible for mutating ``GroupAttrs.condition_atoms``.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
 
@@ -70,7 +73,6 @@ from .models import (
     GroupAttrs,
     GroupBucket,
     RootReason,
-    nulls_grouping_keys,
     pairing_keys,
 )
 from .projection import decided_at_output_grain, iter_row_lineage, literal_producible
@@ -675,23 +677,18 @@ def _uncovered_exposing_output_contributor(
     (d1) groups are skipped as contributors: they feed the WHERE side channel,
     never a mandatory output, so they cannot be the unfiltered projection that
     re-fans the universe. (They DO receive row atoms, see
-    `_nested_scope_swallows_atom`, just not as outputs.)
-
-    Skipped entirely under non-standard grouping (ROLLUP/CUBE/GROUPING SETS):
-    those groups NULL-inject rolled-up dims on subtotal rows, and a WHERE
-    re-applied above the merge would drop every subtotal."""
+    `_nested_scope_swallows_atom`, just not as outputs.)"""
     buckets = scope.buckets
     carried = scope.carried
     group_graph = scope.group_graph
     environment = scope.environment
-    if any(b.nulls_grouping_keys for b in buckets.values()):
-        return False
     row_inputs = {c.address for c in atom.row_arguments}
     mandatory_addrs = {c.address for c in scope.mandatory_list}
     accepts_absent = holds_on_absent_group(atom)
     covered: set[str] = set(chosen_groups)
     for gid in chosen_groups:
         covered |= nx.descendants(group_graph, gid)
+    covered -= _unfiltered_filter_streams(covered, chosen_groups, atom, scope)
     # Inputs FINAL can read off its own contributors, condition-phase groups
     # included: a population twin merges into FINAL keyed by its grain.
     final_exposable: set[str] = set()
@@ -787,6 +784,57 @@ def _uncovered_exposing_output_contributor(
         ):
             return True
     return False
+
+
+IN_SET_PLAN: ContextVar[bool] = ContextVar("IN_SET_PLAN", default=False)
+
+
+@contextmanager
+def planning_a_set() -> Iterator[None]:
+    """A set planned under the WHERE re-applies no gate on its own rows
+    (`_unfiltered_filter_streams`)."""
+    token = IN_SET_PLAN.set(True)
+    try:
+        yield
+    finally:
+        IN_SET_PLAN.reset(token)
+
+
+def _unfiltered_filter_streams(
+    covered: set[str],
+    chosen: tuple[str, ...],
+    atom: BoolExpr,
+    scope: "_PlacementScope",
+) -> set[str]:
+    """Filter groups shown beside a host that read their rows beside it (a
+    set's filter shows none): the host filters their condition's rows
+    (`count(tree_id) by city` of `height ? ...`), but the rows they show
+    never passed the atom
+    (`Filters.gate_on_a_condition_filters_no_row`). FINAL re-applies the atom
+    on their rows, so their grain must determine its aggregates' keys."""
+    if IN_SET_PLAN.get():
+        return set()
+    memo: dict[str, bool] = {}
+    shown = {c.address for c in scope.mandatory_list}
+    # FINAL re-applies the atom on the filter's rows: they hold its keys
+    keys = {
+        k
+        for c in atom.row_arguments
+        if c.is_aggregate
+        for k in pairing_keys(c.grain.components)
+    }
+    return {
+        gid
+        for gid in covered
+        if gid not in chosen
+        and (b := scope.buckets.get(gid)) is not None
+        and b.derivation == Derivation.FILTER
+        and b.depth_label not in NESTED_DEPTHS
+        and shown & set(b.primary_members)
+        and any(scope.group_graph.has_edge(host, gid) for host in chosen)
+        and build_fd_determines_all(scope.environment, b.grain_components, keys)
+        and not _rows_filtered_by(gid, chosen, scope, memo)
+    }
 
 
 def _final_reads_at_host_grain(
@@ -2262,9 +2310,7 @@ def accumulated_atoms_above(
         if anc == FINAL_NODE_ID:
             continue
         anc_attrs = attrs[anc]
-        collapsing = anc_attrs.derivation in GROUPING_DERIVATIONS and not (
-            nulls_grouping_keys(anc_attrs.grouping_mode)
-        )
+        collapsing = anc_attrs.derivation in GROUPING_DERIVATIONS
         columns = set(anc_attrs.members) | set(anc_attrs.grain_components)
         for atom in anc_attrs.condition_atoms:
             if collapsing and not ({c.address for c in atom.row_arguments} <= columns):

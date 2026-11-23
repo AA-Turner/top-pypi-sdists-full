@@ -1,12 +1,35 @@
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from wagtail.models import Locale, Page
+from wagtail import VERSION as WAGTAIL_VERSION
+from wagtail.models import Locale
 from wagtail.test.utils import WagtailTestUtils
 
-from tests.testapp.models import TestHomePage, TestPage
+from tests.utils import get_page_ptr_accessor_name
 from wagtail_localize.models import LocaleSynchronization
 from wagtail_localize.synctree import PageIndex
+
+
+if WAGTAIL_VERSION >= (8, 0):
+    import swapper
+
+    Page = swapper.load_model("wagtailcore", "Page")
+else:
+    from wagtail.models import Page
+
+if settings.USE_CUSTOM_PAGE_MODEL:
+    from tests.testapp.testpages_custombasepage.models import (
+        TestHomePage,
+        TestPage,
+    )
+else:
+    from tests.testapp.testpages_default.models import (
+        TestHomePage,
+        TestPage,
+    )
 
 
 class TestPageIndex(TestCase):
@@ -92,6 +115,45 @@ class TestPageIndex(TestCase):
         self.assertEqual(canadaonlypage_entry.locales, [self.fr_ca_locale.id])
         self.assertEqual(canadaonlypage_entry.aliased_locales, [])
 
+    def _add_pages(self, count, start=0):
+        """Pages that each have a translation and an alias, so that every entry
+        the index builds has both `locales` and `aliased_locales` to fill."""
+        for index in range(start, start + count):
+            page = self.en_homepage.add_child(
+                instance=TestPage(title=f"Page {index}", slug=f"page-{index}")
+            )
+            translation = page.copy_for_translation(self.fr_locale)
+            translation.copy_for_translation(self.fr_ca_locale, alias=True)
+
+    def _count_index_queries(self):
+        with CaptureQueriesContext(connection) as captured:
+            PageIndex.from_database()
+        return len(captured)
+
+    def test_from_database_query_count_does_not_grow_with_the_tree(self):
+        """from_database() reads the whole tree in a fixed number of queries.
+
+        It used to issue five per page: the parent lookup, the content type, the
+        locale, and the two lookups behind `locales` and `aliased_locales`.
+        What this protects is the property rather than the number: the count
+        must not depend on how large the tree is.
+        """
+        fr_homepage = self.en_homepage.copy_for_translation(self.fr_locale)
+        fr_homepage.copy_for_translation(self.fr_ca_locale)
+
+        self._add_pages(2)
+        small = self._count_index_queries()
+
+        self._add_pages(20, start=2)
+        large = self._count_index_queries()
+
+        self.assertEqual(
+            small,
+            large,
+            "from_database() issued more queries for the larger tree, so its "
+            "cost grew with the number of pages again.",
+        )
+
 
 class TestSignalsAndHooks(TestCase, WagtailTestUtils):
     def setUp(self):
@@ -161,7 +223,7 @@ class TestSignalsAndHooks(TestCase, WagtailTestUtils):
         response = self.client.post(
             reverse(
                 "wagtailadmin_pages:add",
-                args=["wagtail_localize_test", "testpage", self.en_homepage.id],
+                args=["testpages", "testpage", self.en_homepage.id],
             ),
             post_data,
         )
@@ -214,7 +276,9 @@ class TestSignalsAndHooks(TestCase, WagtailTestUtils):
         es_new_page = TestPage.objects.get(
             translation_key=new_page.translation_key, locale=self.es_locale
         )
-        self.assertEqual(es_new_page.alias_of, new_page.page_ptr)
+        self.assertEqual(
+            es_new_page.alias_of, getattr(new_page, get_page_ptr_accessor_name())
+        )
 
     def test_create_homepage_in_sync_source_locale(self):
         # Test's for a crash that happened when a homepage was created for a locale
@@ -249,7 +313,7 @@ class TestSignalsAndHooks(TestCase, WagtailTestUtils):
         response = self.client.post(
             reverse(
                 "wagtailadmin_pages:add",
-                args=["wagtail_localize_test", "testpage", root.id],
+                args=["testpages", "testpage", root.id],
             ),
             post_data,
         )

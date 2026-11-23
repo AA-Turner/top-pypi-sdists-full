@@ -19,7 +19,14 @@ from ._bindings import (
 )
 from ._cli import TOOL_VERSION, make_cli_main
 from ._directives import _IgnoreDirective, _parse_directives, parse_ignore_directive
-from ._discovery import EXCLUDE_DIRS, discover
+from ._discovery import (
+    EXCLUDE_DIRS,
+    discover,
+    discover_contract_repo,
+    discover_root_file,
+    discover_tree,
+    discover_with_tests,
+)
 from ._exc_info import has_exc_info_traceback
 from ._findings import make_finding
 from ._imports import (
@@ -40,6 +47,7 @@ from ._pytest_collection import (
     is_test_function,
 )
 from ._repo_modules import repo_module_file
+from ._scan_path import make_scan_path, read_source, relative_uri
 from ._scope import SDK_PACKAGE_PREFIX, detect_scope, is_sdk_package_name
 from ._sdk_app import (
     SDK_APP_BASE_NAMES,
@@ -47,6 +55,14 @@ from ._sdk_app import (
     non_sdk_import_bindings,
     non_sdk_import_roots,
     sdk_app_base_bindings,
+    sdk_app_import_aliases,
+)
+from ._sdr import is_sdr_app
+from ._source_cache import (
+    SourceFile,
+    load_source,
+    parse_module,
+    source_cache,
 )
 from ._toml_suppress import (
     SuppressionsMap,
@@ -54,6 +70,7 @@ from ._toml_suppress import (
     make_toml_finding,
     parse_toml_suppressions,
 )
+from ._values import iter_strings
 from ._yaml import strip_yaml_comment, yaml_comment_start
 
 __all__ = [
@@ -89,6 +106,10 @@ __all__ = [
     "detect_scope",
     "has_exc_info_traceback",
     "discover",
+    "discover_contract_repo",
+    "discover_root_file",
+    "discover_tree",
+    "discover_with_tests",
     "is_collectable_test_file",
     "is_sdk_package_name",
     "is_test_class",
@@ -105,4 +126,14 @@ __all__ = [
     "non_sdk_import_bindings",
     "non_sdk_import_roots",
     "sdk_app_base_bindings",
+    "sdk_app_import_aliases",
+    "is_sdr_app",
+    "iter_strings",
+    "make_scan_path",
+    "read_source",
+    "relative_uri",
+    "SourceFile",
+    "load_source",
+    "parse_module",
+    "source_cache",
 ]

@@ -1,6 +1,11 @@
 import pytest
 
-from schemathesis.core.transforms import UNRESOLVABLE, jsonify_python_specific_types, resolve_pointer_all
+from schemathesis.core.transforms import (
+    UNRESOLVABLE,
+    get_template_fields,
+    jsonify_python_specific_types,
+    resolve_pointer_all,
+)
 
 DOC = {
     "data": [
@@ -64,7 +69,6 @@ def test_resolve_pointer_all_returns_matches(doc, pointer, expected):
         # UNRESOLVABLE only when the pointer fails BEFORE any wildcard.
         ({"meta": {"page": 1}}, "/missing/*/id"),
         (DOC, "data/0"),
-        # Mid-walk target is a scalar (neither dict nor list); fall-through path.
         ({"data": "string"}, "/data/sub"),
     ],
     ids=[
@@ -102,3 +106,34 @@ def test_jsonify_python_specific_types_leaves_input_alone():
     value = {"foo": True, "bar": [None]}
     assert jsonify_python_specific_types(value) == {"foo": "true", "bar": ["null"]}
     assert value == {"foo": True, "bar": [None]}
+
+
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        ("/users/{userId}/posts/{postId}", ("userId", "postId")),
+        ("/p/{a}/{a}", ("a",)),
+        ("/p/{.format}", (".format",)),
+        ("/p/{c.d}", ("c.d",)),
+        ("/p/{a:b}", ("a:b",)),
+        ("/p/{a!b}", ("a!b",)),
+        ("/p/{a[0]}", ("a[0]",)),
+        ("/foo}/", ()),
+        ("/p/{a}/{b", ()),
+        ("/p/{}", ()),
+    ],
+    ids=[
+        "plain",
+        "repeated",
+        "leading-dot",
+        "dot",
+        "colon",
+        "exclamation",
+        "brackets",
+        "stray-close",
+        "unclosed",
+        "empty",
+    ],
+)
+def test_get_template_fields(template, expected):
+    assert get_template_fields(template) == expected

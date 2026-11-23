@@ -110,6 +110,11 @@ pub struct TextItem {
     /// represented by a real space glyph in the PDF content stream.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub trailing_space_generated: bool,
+    /// A space (a glyph, or one PDFium synthesized from the glyph gap) followed
+    /// the last glyph of this left-to-right item. Projection keeps it when it
+    /// rejoins the item with an abutting neighbour.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub followed_by_space: bool,
     /// OCR confidence score (0.0–1.0). None for native PDF text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub confidence: Option<f32>,
@@ -237,7 +242,7 @@ pub struct WordBox {
 /// put a process or activity boundary between any two stages. The public JSON
 /// output does not use this shape (see `output/json.rs`).
 #[doc(hidden)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Page {
     pub page_number: usize,
     /// Tilt (degrees) the OCR merge removed from this page's OCR items: on a skewed scan the
@@ -509,6 +514,18 @@ pub struct ParsedPage {
     /// text, which is the overwhelming majority.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub projected_item_frames: Vec<(Rect, Rect)>,
+    /// Tables decoded by the learned table model (`table_model`) when it is enabled; the
+    /// markdown classifier emits them and drops the lines they cover. Not serialized.
+    #[serde(skip)]
+    pub model_tables: Vec<crate::table_model::ModelTable>,
+    /// Block class per unit from a joint layout model (`table_model`), for markdown heading
+    /// decisions; empty without one.
+    #[serde(skip)]
+    pub model_classes: Vec<crate::table_model::UnitClass>,
+    /// Layout blocks from the table model's block head; they replace the heuristic text
+    /// blocks in `blocks`. Empty otherwise.
+    #[serde(skip)]
+    pub model_blocks: Vec<crate::table_model::ModelBlock>,
     /// Structure-tree nodes for this page (tagged PDFs only). Pre-flattened in
     /// pre-order. Consumed by the markdown classifier for highest-priority
     /// heading / figure / table detection.
@@ -756,6 +773,11 @@ pub struct ProjectedLine {
     pub all_mono: bool,
     pub all_strike: bool,
     pub spans: Vec<TextItem>,
+    /// Index of each span's source item in the page's `text_items`, aligned
+    /// with `spans`. Anything that reorders or extends `spans` must do the
+    /// same here.
+    #[serde(default)]
+    pub span_item_indices: Vec<usize>,
     /// True when the line's base direction is right-to-left (strong RTL
     /// characters outnumber strong LTR ones). `spans` is always in x-ascending
     /// order; consumers that rebuild the line's *text* must walk it in reverse

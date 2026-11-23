@@ -17,9 +17,14 @@ from typing import Literal, NoReturn, TypeAlias, cast
 
 from urllib3.exceptions import LocationParseError
 from urllib3.util import parse_url
-from xdg.BaseDirectory import load_first_config
+from xdg.BaseDirectory import load_config_paths
 
-from .const import API_URL
+from .const import API_URL, DEFAULT_TASK_TIMEOUT
+from .request_options import (
+    REQUEST_OPTION_ERRORS,
+    validate_request_options,
+    validate_task_timeout,
+)
 
 __all__ = ["NoOptionError", "WLCConfigurationError", "WeblateConfig"]
 
@@ -40,7 +45,17 @@ class WLCConfigurationError(Exception):
     """Configuration could not be loaded or combines unsafe option sources."""
 
 
-class WeblateConfig(RawConfigParser):
+class _ConfigParser(RawConfigParser):
+    """Parse case-insensitive setting names and case-sensitive URL options."""
+
+    def optionxform(self, optionstr: str) -> str:
+        """Preserve URL spelling while folding ordinary option names."""
+        if "://" in optionstr:
+            return optionstr
+        return super().optionxform(optionstr)
+
+
+class WeblateConfig(_ConfigParser):
     """
     Configuration parser wrapper with defaults.
 
@@ -72,6 +87,7 @@ class WeblateConfig(RawConfigParser):
         self.set(self.section, "url", API_URL)
         self.set(self.section, "retries", "0")
         self.set(self.section, "timeout", "300")
+        self.set(self.section, "task_timeout", str(DEFAULT_TASK_TIMEOUT))
         self.set(self.section, "status_forcelist", None)
         self.set(self.section, "allowed_methods", "HEAD\nDELETE\nOPTIONS\nPUT\nGET")
         self.set(self.section, "backoff_factor", "0")
@@ -87,11 +103,20 @@ class WeblateConfig(RawConfigParser):
                     return win_path
 
         # Generic XDG paths
+        skipped_directory = None
         for filename in ("weblate", "weblate.ini"):
-            if config := load_first_config(filename):
-                return Path(config)
+            for config in load_config_paths(filename):
+                candidate = Path(config)
+                if filename == "weblate" and candidate.is_dir():
+                    alternate = candidate.with_name("weblate.ini")
+                    if alternate.is_file():
+                        return alternate
+                    if skipped_directory is None:
+                        skipped_directory = candidate
+                    continue
+                return candidate
 
-        return None
+        return skipped_directory
 
     @staticmethod
     def _project_stat(path: Path) -> os.stat_result | None:
@@ -235,7 +260,7 @@ class WeblateConfig(RawConfigParser):
 
     def _read_config(self, path: Path | str, url_source: URLSource) -> list[str]:
         """Read configuration and remember whether it supplied the API URL."""
-        parser = RawConfigParser(delimiters=("=",))
+        parser = _ConfigParser(delimiters=("=",))
         try:
             loaded = parser.read(path)
         except ConfigParserError as error:
@@ -285,14 +310,18 @@ class WeblateConfig(RawConfigParser):
         if path is not None and project_path is not None:
             msg = "Cannot combine explicit configuration and project configuration."
             raise WLCConfigurationError(msg)
-        if path:
+        if path is not None:
             loaded = self._read_config(path, "explicit")
             if not loaded:
                 msg = f"Could not read configuration file: {Path(path).absolute()}"
                 raise WLCConfigurationError(msg)
         else:
-            if config := self.find_config():
-                self._read_config(config, "user")
+            config = self.find_config()
+            if config is not None and (
+                not config.is_file() or not self._read_config(config, "user")
+            ):
+                msg = f"Could not read configuration file: {config.absolute()}"
+                raise WLCConfigurationError(msg)
             config = (
                 Path(project_path)
                 if project_path is not None
@@ -344,18 +373,18 @@ class WeblateConfig(RawConfigParser):
         )
         return expected_scheme, url.host.strip("[]").lower(), port
 
-    def _normalize_key_url(self, value: str) -> str:
+    @staticmethod
+    def _normalize_key_url(value: str) -> str:
         """
         Return the form of a URL used to match it against [keys] entries.
 
         This uses the HTTP transport's URL parser and removes the default port
         of the scheme. Values it can not parse are only matched literally.
         """
-        option = self.optionxform(value)
         try:
-            url = parse_url(option)
+            url = parse_url(value)
         except LocationParseError:
-            return option
+            return value
         if (url.scheme, url.port) in DEFAULT_SCHEME_PORTS:
             url = url._replace(port=None)
         return url.url
@@ -371,7 +400,7 @@ class WeblateConfig(RawConfigParser):
         keys = self._direct_section_items("keys")
         equivalent = {self._normalize_key_url(k): v for k, v in keys.items()}
         fallback = equivalent.get(self._normalize_key_url(url))
-        return keys.get(self.optionxform(url), fallback) or ""
+        return keys.get(url, fallback) or ""
 
     @classmethod
     def _parse_boolean(cls, section: str, option: str, value: str | None) -> bool:
@@ -408,8 +437,13 @@ class WeblateConfig(RawConfigParser):
 
     def _validate_insecure_section(self, section: str, scheme: str) -> None:
         """Validate all entries in an origin-scoped insecure section."""
+        origins: set[Origin] = set()
         for option, value in self._direct_section_items(section).items():
-            self._normalize_origin(option, scheme)
+            origin = self._normalize_origin(option, scheme)
+            if origin in origins:
+                msg = f"Duplicate origin in [{section}]."
+                raise WLCConfigurationError(msg)
+            origins.add(origin)
             self._parse_boolean(section, option, value)
 
     def _validate_insecure_configuration(self) -> None:
@@ -496,19 +530,52 @@ class WeblateConfig(RawConfigParser):
         url, _url_source, key, _key_source = self._get_url_key_sources()
         return url, key
 
+    def _get_request_int(self, option: str) -> int:
+        """Parse a request option without including its value in diagnostics."""
+        try:
+            return int(self.get(self.section, option))
+        except (TypeError, ValueError):
+            msg = f"{option} must be an integer."
+            raise WLCConfigurationError(msg) from None
+
+    def get_task_timeout(self) -> int:
+        """Return the configured task wait in seconds."""
+        try:
+            return validate_task_timeout(self._get_request_int("task_timeout"))
+        except ValueError as error:
+            raise WLCConfigurationError(str(error)) from None
+
     def get_request_options(self) -> RequestOptions:
-        """Get request retry and timeout options."""
-        retries = int(self.get(self.section, "retries"))
-        timeout = int(self.get(self.section, "timeout"))
+        """Get validated request retry and timeout options."""
+        retries = self._get_request_int("retries")
+        timeout = self._get_request_int("timeout")
         status_forcelist = self.get(self.section, "status_forcelist")
         if status_forcelist is not None:
-            status_forcelist = [int(option) for option in status_forcelist.split(",")]
+            try:
+                status_forcelist = (
+                    [int(code) for code in status_forcelist.split(",")]
+                    if status_forcelist.strip()
+                    else []
+                )
+            except ValueError:
+                raise WLCConfigurationError(
+                    REQUEST_OPTION_ERRORS["status_forcelist"]
+                ) from None
+        try:
+            backoff_factor = float(self.get(self.section, "backoff_factor"))
+        except (TypeError, ValueError):
+            raise WLCConfigurationError(
+                REQUEST_OPTION_ERRORS["backoff_factor"]
+            ) from None
+        try:
+            validate_request_options(retries, status_forcelist, backoff_factor, timeout)
+        except ValueError as error:
+            raise WLCConfigurationError(str(error)) from None
         allowed_methods = [
             method
             for chunk in self.get(self.section, "allowed_methods").split(",")
             for method in chunk.split()
         ]
-        backoff_factor = float(self.get(self.section, "backoff_factor"))
         return retries, status_forcelist, allowed_methods, backoff_factor, timeout
 
     def get_allow_insecure_http(self) -> bool:

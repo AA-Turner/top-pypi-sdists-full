@@ -139,16 +139,19 @@ impl MockScrapi {
                         .parse::<u64>()
                         .unwrap();
 
-                    let local_logged_events_ptr = logged_events.clone();
                     assert_valid_event_batch(&req.body);
-
-                    tokio::task::spawn(async move {
-                        tokio::time::sleep(Duration::from_millis(stub.delay_ms)).await;
-
-                        if stub.status >= 200 && stub.status < 300 {
-                            local_logged_events_ptr.fetch_add(count, Ordering::SeqCst);
+                    if (200..300).contains(&stub.status) {
+                        // An immediate response must not race a detached counter update.
+                        if stub.delay_ms == 0 {
+                            logged_events.fetch_add(count, Ordering::SeqCst);
+                        } else {
+                            let logged_events = logged_events.clone();
+                            tokio::task::spawn(async move {
+                                tokio::time::sleep(Duration::from_millis(stub.delay_ms)).await;
+                                logged_events.fetch_add(count, Ordering::SeqCst);
+                            });
                         }
-                    });
+                    }
                 }
 
                 response_template

@@ -4,9 +4,9 @@ on:
   workflow_call:
 
 env:
-  ○_○: &interpreters "3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11"
+  __interpreters: &interpreters "3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11"
   #
-  (^_^): &is_pull_request ${{ github.event_name == 'pull_request' }}
+  __is_pull_request: &is_pull_request ${{ github.event_name == 'pull_request' }}
 
 jobs:
   linux:
@@ -21,54 +21,52 @@ jobs:
         platform:
           - {
             # AMD64
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: x86_64-unknown-linux-gnu,
             interpreter: *interpreters,
-            maturin-build-args: "--features mimalloc",
-            use-pgo: true,
+            maturin-build-args: "--features mimalloc --pgo",
           }
           - {
             # x86 (32-bit)
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: i686-unknown-linux-gnu,
             interpreter: *interpreters,
-            maturin-build-args: "--features mimalloc",
+            maturin-build-args: "--features mimalloc --zig",
           }
           - {
             # ARM64
             runner: ubuntu-26.04-arm,
             target: aarch64-unknown-linux-gnu,
             interpreter: *interpreters,
-            maturin-build-args: "--features mimalloc",
-            use-pgo: true,
+            maturin-build-args: "--features mimalloc --pgo",
           }
           - {
             # ARMv7 (32-bit)
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: armv7-unknown-linux-gnueabihf,
             interpreter: *interpreters,
           }
           - {
             # IBM System z (s390x)
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: s390x-unknown-linux-gnu,
             interpreter: *interpreters,
           }
           - {
             # PowerPC64 Little Endian
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: powerpc64le-unknown-linux-gnu,
             interpreter: *interpreters,
           }
           - {
             # PowerPC64 Big Endian
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: powerpc64-unknown-linux-gnu,
             interpreter: *interpreters,
           }
           - {
             # RISC-V 64-bit
-            runner: ubuntu-latest,
+            runner: ubuntu-26.04,
             target: riscv64gc-unknown-linux-gnu,
             interpreter: *interpreters,
             maturin-build-args: "--features mimalloc",
@@ -80,17 +78,43 @@ jobs:
           persist-credentials: false
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: *is_pull_request
 
+      - uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
+        if: *is_pull_request
+        with:
+          pr-comment: false
+          github-cache: true
+          cache-executables: true
+          cache-dir: ${{ github.workspace }}/.kache-store
+          cache-key-prefix: kache-${{ matrix.platform.target }}
+
+      - name: "Configure Docker options"
+        env:
+          IS_PULL_REQUEST: *is_pull_request
+        run: |
+          options=(-e CI)
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            options+=(
+              -e RUSTC_WRAPPER=/kache-bin/kache
+              -e "KACHE_CACHE_DIR=$GITHUB_WORKSPACE/.kache-store"
+              -e "KACHE_RUNTIME_DIR=/kache-run"
+              -e KACHE_CACHE_EXECUTABLES
+              -e KACHE_LOG
+              -v "$(dirname "$(command -v kache)"):/kache-bin:ro"
+              -v "$KACHE_RUNTIME_DIR:/kache-run"
+            )
+          fi
+          printf 'DOCKER_OPTIONS=%s\n' "${options[*]}" >> "$GITHUB_ENV"
+
       - name: "Build wheels"
-        if: matrix.platform.use-pgo != true
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.platform.target }}
-          sccache: *is_pull_request
           manylinux: auto
+          docker-options: ${{ env.DOCKER_OPTIONS }}
           args: >-
             --release
             --out dist
@@ -98,15 +122,19 @@ jobs:
             ${{ matrix.platform.maturin-build-args || '' }}
             --compatibility pypi
 
-      - name: "Build PGO wheel"
-        if: matrix.platform.use-pgo == true
-        uses: lava-sh/build-pgo-wheel@main # zizmor: ignore[unpinned-uses]
-        with:
-          target: ${{ matrix.platform.target }}
-          rust-toolchain: stable
-          maturin-build-args: ${{ matrix.platform.maturin-build-args || '' }}
-          python-interpreter: ${{ matrix.platform.interpreter }}
-          pgo-training-command: "{python} benchmark/pgo.py"
+      - name: "Fix store ownership"
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          owner="$(id -u):$(id -g)"
+          for dir in "$GITHUB_WORKSPACE/.kache-store" "$KACHE_RUNTIME_DIR"; do
+            if [ -d "$dir" ]; then
+              sudo chown -R "$owner" "$dir"
+            fi
+          done
+
+      - name: "kache stats"
+        if: always() && github.event_name == 'pull_request'
+        run: kache stats --full || true
 
       - name: "Upload wheels"
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

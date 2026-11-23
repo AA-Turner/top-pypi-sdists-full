@@ -9,12 +9,11 @@ use chrono::{TimeZone, Utc};
 use delta_kernel::snapshot::Snapshot;
 use futures::{StreamExt, TryStreamExt};
 use regex::Regex;
-use tracing::{debug, error};
-use uuid::Uuid;
+use tracing::{debug, error, warn};
 
 use crate::kernel::{Version, spawn_blocking_with_span};
-use crate::logstore::{DELTA_LOG_REGEX, LogStore};
-use crate::table::config::TablePropertiesExt as _;
+use crate::logstore::{DELTA_LOG_REGEX, LogStore, with_operation};
+use crate::table::config::{TablePropertiesExt as _, TableProperty};
 use crate::{DeltaResult, DeltaTableError};
 use crate::{DeltaTable, open_table_with_version};
 
@@ -22,50 +21,72 @@ static CHECKPOINT_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"_delta_log/(\d{20})\.(checkpoint).*$").unwrap());
 
 /// Creates checkpoint for a given table version, table state and object store
+///
+/// The checkpoint is written to `log_store.write_root_url()` through the store's engine. Inside
+/// an operation scope that is the isolated write target of the operation.
 #[tracing::instrument(skip(log_store), fields(operation = "checkpoint", version = version, table_uri = %log_store.root_url()))]
 pub(crate) async fn create_checkpoint_for(
     version: Version,
     log_store: &dyn LogStore,
-    operation_id: Option<Uuid>,
 ) -> DeltaResult<()> {
-    let table_root = log_store.transaction_url(operation_id)?;
-    let engine = log_store.engine(operation_id);
+    log_store.publish_logs(version).await?;
 
+    let table_root = log_store.write_root_url();
+    let engine = log_store.engine();
+
+    let catalog_log_tail = log_store.catalog_log_tail().await?;
     let task_engine = engine.clone();
     let snapshot = spawn_blocking_with_span(move || {
-        Snapshot::builder_for(table_root)
-            .at_version(version)
-            .build(task_engine.as_ref())
+        let mut builder = Snapshot::builder_for(table_root).at_version(version);
+        if let Some(tail) = catalog_log_tail {
+            builder = builder
+                .with_log_tail(tail.log_tail)
+                .with_max_catalog_version(tail.max_version);
+        }
+        builder.build(task_engine.as_ref())
     })
     .await
     .map_err(|e| DeltaTableError::Generic(e.to_string()))??;
+
+    #[allow(deprecated)]
+    let rle_key = TableProperty::CheckpointUseRunLengthEncoding.as_ref();
+    if snapshot
+        .table_configuration()
+        .metadata()
+        .configuration()
+        .contains_key(rle_key)
+    {
+        warn!("{rle_key} is deprecated and ignored: checkpoint encoding is not configurable");
+    }
 
     snapshot.checkpoint(engine.as_ref(), None)?;
     Ok(())
 }
 
 /// Creates checkpoint at current table version
-pub async fn create_checkpoint(table: &DeltaTable, operation_id: Option<Uuid>) -> DeltaResult<()> {
-    let snapshot = table.snapshot()?;
-    create_checkpoint_for(snapshot.version(), table.log_store.as_ref(), operation_id).await?;
-    Ok(())
+///
+/// The checkpoint is written inside its own operation scope, so on an isolating backend such as
+/// LakeFS it lands on a transaction branch that is merged when the checkpoint is complete.
+pub async fn create_checkpoint(table: &DeltaTable) -> DeltaResult<()> {
+    let version = table.snapshot()?.version();
+    with_operation(&table.log_store(), |log_store| async move {
+        create_checkpoint_for(version, log_store.as_ref()).await
+    })
+    .await
 }
 
 /// Delete expires log files before given version from table. The table log retention is based on
 /// the `logRetentionDuration` property of the Delta Table, 30 days by default.
-pub async fn cleanup_metadata(
-    table: &DeltaTable,
-    operation_id: Option<Uuid>,
-) -> DeltaResult<usize> {
+///
+/// The cleanup runs inside its own operation scope, see [`create_checkpoint`].
+pub async fn cleanup_metadata(table: &DeltaTable) -> DeltaResult<usize> {
     let snapshot = table.snapshot()?;
+    let version = snapshot.version();
     let log_retention_timestamp = Utc::now().timestamp_millis()
         - snapshot.table_config().log_retention_duration().as_millis() as i64;
-    cleanup_expired_logs_for(
-        snapshot.version(),
-        table.log_store.as_ref(),
-        log_retention_timestamp,
-        operation_id,
-    )
+    with_operation(&table.log_store(), |log_store| async move {
+        cleanup_expired_logs_for(version, log_store.as_ref(), log_retention_timestamp).await
+    })
     .await
 }
 
@@ -76,21 +97,39 @@ pub async fn create_checkpoint_from_table_url_and_cleanup(
     table_url: Url,
     version: Version,
     cleanup: Option<bool>,
-    operation_id: Option<Uuid>,
 ) -> DeltaResult<()> {
     let table = open_table_with_version(table_url, version).await?;
     let snapshot = table.snapshot()?;
-    create_checkpoint_for(version, table.log_store.as_ref(), operation_id).await?;
 
+    let catalog_managed = table.log_store().is_catalog_managed();
+    if catalog_managed && cleanup == Some(true) {
+        return Err(catalog_managed_maintenance_error("metadata cleanup"));
+    }
     let enable_expired_log_cleanup =
         cleanup.unwrap_or_else(|| snapshot.table_config().enable_expired_log_cleanup());
+    let cleanup_logs = snapshot.version() > 0 && enable_expired_log_cleanup && !catalog_managed;
+    let log_retention_timestamp = Utc::now().timestamp_millis()
+        - snapshot.table_config().log_retention_duration().as_millis() as i64;
 
-    if snapshot.version() > 0 && enable_expired_log_cleanup {
-        let deleted_log_num = cleanup_metadata(&table, operation_id).await?;
-        debug!("Deleted {deleted_log_num:?} log files.");
-    }
+    with_operation(&table.log_store(), |log_store| async move {
+        create_checkpoint_for(version, log_store.as_ref()).await?;
+        if cleanup_logs {
+            let deleted_log_num =
+                cleanup_expired_logs_for(version, log_store.as_ref(), log_retention_timestamp)
+                    .await?;
+            debug!("Deleted {deleted_log_num:?} log files.");
+        }
+        Ok(())
+    })
+    .await
+}
 
-    Ok(())
+pub(crate) fn catalog_managed_maintenance_error(operation: &str) -> DeltaTableError {
+    DeltaTableError::Generic(format!(
+        "{operation} is not allowed on a catalog-managed table: the Delta protocol prohibits \
+         maintenance operations unless the managing catalog explicitly permits the client to \
+         run them"
+    ))
 }
 
 /// Delete expired Delta log files up to a safe checkpoint boundary.
@@ -111,14 +150,19 @@ pub async fn create_checkpoint_from_table_url_and_cleanup(
 ///
 /// See also: https://github.com/delta-io/delta-rs/issues/3692 for background on
 /// why cleanup must align to an existing checkpoint.
+///
+/// Deletes go through `log_store.object_store()`. Callers on a backend that isolates writes
+/// should use [`cleanup_metadata`], which runs the cleanup inside an operation scope.
 pub async fn cleanup_expired_logs_for(
     mut keep_version: Version,
     log_store: &dyn LogStore,
     cutoff_timestamp: i64,
-    operation_id: Option<Uuid>,
 ) -> DeltaResult<usize> {
+    if log_store.is_catalog_managed() {
+        return Err(catalog_managed_maintenance_error("metadata cleanup"));
+    }
     debug!("called cleanup_expired_logs_for");
-    let object_store = log_store.object_store(operation_id);
+    let object_store = log_store.object_store();
     let log_path = log_store.log_path();
 
     // List all log entries under _delta_log
@@ -179,7 +223,7 @@ pub async fn cleanup_expired_logs_for(
     debug!("safe_checkpoint_version: {}", safe_checkpoint_version);
 
     // Step 4: Delete DELTA_LOG files where log_ver < safe_checkpoint_version && ts <= cutoff_timestamp
-    let locations = futures::stream::iter(log_entries.into_iter())
+    let locations = futures::stream::iter(log_entries)
         .filter_map(move |meta: Result<crate::ObjectMeta, _>| async move {
             let meta = match meta {
                 Ok(m) => m,
@@ -297,17 +341,56 @@ mod tests {
             .unwrap();
         assert_eq!(table.version(), Some(0));
         assert_eq!(table.snapshot().unwrap().schema().as_ref(), &table_schema);
-        let res = create_checkpoint_for(0, table.log_store.as_ref(), None).await;
+        let res = create_checkpoint_for(0, table.log_store.as_ref()).await;
         assert!(res.is_ok());
 
         // Look at the "files" and verify that the _last_checkpoint has the right version
         let log_path = Path::from("_delta_log");
-        let store = table.log_store().object_store(None);
+        let store = table.log_store().object_store();
         let last_checkpoint = read_last_checkpoint(store.as_ref(), &log_path)
             .await
             .expect("Failed to get the _last_checkpoint")
             .expect("Expected checkpoint hint");
         assert_eq!(last_checkpoint.version, 0);
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_create_checkpoint_warns_on_run_length_encoding_property() {
+        #[derive(Clone, Default)]
+        struct Logs(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+        impl std::io::Write for Logs {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let logs = Logs::default();
+        let writer = logs.clone();
+        let _guard = tracing::subscriber::set_default(
+            tracing_subscriber::fmt()
+                .with_writer(move || writer.clone())
+                .finish(),
+        );
+
+        let table = DeltaTable::new_in_memory()
+            .create()
+            .with_columns(get_delta_schema().fields().cloned())
+            .with_configuration_property(
+                TableProperty::CheckpointUseRunLengthEncoding,
+                Some("false"),
+            )
+            .await
+            .unwrap();
+        create_checkpoint_for(0, table.log_store.as_ref())
+            .await
+            .unwrap();
+
+        let logs = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        assert!(logs.contains("delta-rs.checkpoint.useRunLengthEncoding is deprecated"));
     }
 
     #[tokio::test]
@@ -322,7 +405,7 @@ mod tests {
             .unwrap();
         assert_eq!(table.version(), Some(0));
         assert_eq!(table.snapshot().unwrap().schema().as_ref(), &table_schema);
-        match create_checkpoint_for(1, table.log_store.as_ref(), None).await {
+        match create_checkpoint_for(1, table.log_store.as_ref()).await {
             Ok(_) => {
                 /*
                  * If a checkpoint is allowed to be created here, it will use the passed in
@@ -447,17 +530,14 @@ mod tests {
                 "The loaded version of the table is not up to date"
             );
 
-            let res = create_checkpoint_for(
-                table.version().unwrap() as u64,
-                table.log_store.as_ref(),
-                None,
-            )
-            .await;
+            let res =
+                create_checkpoint_for(table.version().unwrap() as u64, table.log_store.as_ref())
+                    .await;
             assert!(res.is_ok());
 
             // Look at the "files" and verify that the _last_checkpoint has the right version
             let log_path = Path::from("_delta_log");
-            let store = table.log_store().object_store(None);
+            let store = table.log_store().object_store();
             let last_checkpoint = read_last_checkpoint(store.as_ref(), &log_path)
                 .await
                 .expect("Failed to get the _last_checkpoint")
@@ -490,7 +570,6 @@ mod tests {
                 table.version().unwrap(),
                 table.log_store().as_ref(),
                 log_retention_timestamp,
-                None,
             )
             .await
             .unwrap();
@@ -498,14 +577,14 @@ mod tests {
             println!("{count:?}");
 
             let path = Path::from("_delta_log/00000000000000000000.json");
-            let res = table.log_store().object_store(None).get(&path).await;
+            let res = table.log_store().object_store().get(&path).await;
             assert!(res.is_ok());
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn test_cleanup_with_checkpoints() {
             let table = setup_table().await;
-            create_checkpoint(&table, None).await.unwrap();
+            create_checkpoint(&table).await.unwrap();
 
             let log_retention_timestamp = (Utc::now().timestamp_millis()
                 + Duration::days(32).num_milliseconds())
@@ -519,7 +598,6 @@ mod tests {
                 table.version().unwrap(),
                 table.log_store().as_ref(),
                 log_retention_timestamp,
-                None,
             )
             .await
             .unwrap();
@@ -531,21 +609,21 @@ mod tests {
                 .log_path()
                 .clone()
                 .join("00000000000000000000.json");
-            let res = table.log_store().object_store(None).get(&path).await;
+            let res = table.log_store().object_store().get(&path).await;
             assert!(res.is_err());
 
             let path = log_store
                 .log_path()
                 .clone()
                 .join("00000000000000000001.checkpoint.parquet");
-            let res = table.log_store().object_store(None).get(&path).await;
+            let res = table.log_store().object_store().get(&path).await;
             assert!(res.is_ok());
 
             let path = log_store
                 .log_path()
                 .clone()
                 .join("00000000000000000001.json");
-            let res = table.log_store().object_store(None).get(&path).await;
+            let res = table.log_store().object_store().get(&path).await;
             assert!(res.is_ok());
         }
 
@@ -586,7 +664,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            create_checkpoint(&table, None).await.unwrap();
+            create_checkpoint(&table).await.unwrap();
         }
 
         #[ignore = "This test is only useful if the batch size has been made small"]
@@ -640,7 +718,7 @@ mod tests {
                 .await?;
 
             let before = table.version();
-            let res = create_checkpoint(&table, None).await;
+            let res = create_checkpoint(&table).await;
             assert!(res.is_ok(), "Failed to create the checkpoint! {res:#?}");
 
             let table = crate::open_table(
@@ -697,7 +775,7 @@ mod tests {
             table.load().await?;
             assert_eq!(table.version(), Some(0));
 
-            create_checkpoint(&table, None).await?;
+            create_checkpoint(&table).await?;
 
             let batch = RecordBatch::try_new(
                 Arc::clone(&get_arrow_schema(&None)),
@@ -866,7 +944,6 @@ mod tests {
 
             // setup
             let url = Url::parse("memory:///").unwrap();
-            let operation_id = None;
 
             // Create some objects with dummy data
             let base_store: ObjectStoreRef = Arc::new(InMemory::new());
@@ -979,7 +1056,7 @@ mod tests {
 
             // keep_version 4 is capped by min_retention_version 3 (oldest log with mtime >= cutoff 103).
             // Safe checkpoint is v2, so commits before that checkpoint with mtime <= cutoff are removed.
-            let result = cleanup_expired_logs_for(4, &log_store, 103, operation_id).await?;
+            let result = cleanup_expired_logs_for(4, &log_store, 103).await?;
 
             // validate that files were deleted
             assert_eq!(result, 2);
@@ -1014,7 +1091,6 @@ mod tests {
 
             // setup
             let url = Url::parse("memory:///").unwrap();
-            let operation_id = None;
 
             // Create some objects with dummy data
             let base_store: ObjectStoreRef = Arc::new(InMemory::new());
@@ -1127,7 +1203,7 @@ mod tests {
 
             // No log has mtime >= cutoff 106, so keep_version stays 5. Safe checkpoint is v5;
             // everything strictly before version 5 with mtime <= cutoff is eligible for deletion.
-            let result = cleanup_expired_logs_for(5, &log_store, 106, operation_id).await?;
+            let result = cleanup_expired_logs_for(5, &log_store, 106).await?;
 
             // validate that files were deleted
             assert_eq!(result, 5);
@@ -1152,5 +1228,93 @@ mod tests {
 
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod table_rule_tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::test_utils::catalog_managed::{metadata_action, open, write_commits};
+
+    fn commit_info() -> serde_json::Value {
+        json!({"commitInfo": {"timestamp": 0, "operation": "WRITE"}})
+    }
+
+    fn write_table(dir: &std::path::Path) {
+        let protocol = json!({"protocol": {"minReaderVersion": 1, "minWriterVersion": 2}});
+        write_commits(
+            dir,
+            &[
+                vec![commit_info(), protocol, metadata_action(json!({}))],
+                vec![commit_info()],
+            ],
+        );
+    }
+
+    #[tokio::test]
+    async fn metadata_cleanup_is_refused_on_catalog_managed_tables() {
+        let dir = tempfile::tempdir().unwrap();
+        write_table(dir.path());
+        let (table, _) = open(dir.path(), true).await;
+        let err = cleanup_metadata(&table).await.unwrap_err();
+        assert!(err.to_string().contains("catalog-managed"), "{err}");
+        assert!(
+            dir.path()
+                .join("_delta_log/00000000000000000000.json")
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn checkpoint_publishes_through_the_requested_version_first() {
+        use std::sync::atomic::Ordering;
+
+        let dir = tempfile::tempdir().unwrap();
+        write_table(dir.path());
+        let (table, store) = open(dir.path(), true).await;
+        let store = store.unwrap();
+        assert_eq!(store.published_up_to.load(Ordering::SeqCst), -1);
+
+        create_checkpoint(&table).await.unwrap();
+        assert_eq!(store.published_up_to.load(Ordering::SeqCst), 1);
+    }
+
+    #[cfg(feature = "datafusion")]
+    #[tokio::test]
+    async fn vacuum_and_optimize_are_refused_on_catalog_managed_tables() {
+        use crate::operations::vacuum::VacuumMode;
+
+        let dir = tempfile::tempdir().unwrap();
+        write_table(dir.path());
+        std::fs::write(dir.path().join("stray.parquet"), b"x").unwrap();
+        let (table, _) = open(dir.path(), true).await;
+
+        let (_, metrics) = table
+            .clone()
+            .vacuum()
+            .with_mode(VacuumMode::Full)
+            .with_retention_period(chrono::Duration::zero())
+            .with_enforce_retention_duration(false)
+            .with_dry_run(true)
+            .await
+            .unwrap();
+        assert_eq!(metrics.files_deleted.len(), 1);
+
+        let err = table
+            .clone()
+            .vacuum()
+            .with_mode(VacuumMode::Full)
+            .with_retention_period(chrono::Duration::zero())
+            .with_enforce_retention_duration(false)
+            .with_dry_run(false)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("VACUUM"), "{err}");
+        assert!(dir.path().join("stray.parquet").exists());
+
+        let err = table.optimize().await.unwrap_err();
+        assert!(err.to_string().contains("OPTIMIZE"), "{err}");
     }
 }

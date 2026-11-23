@@ -2,7 +2,7 @@ import re
 
 import pytest
 from testfixtures import ShouldRaise, compare
-from testfixtures.comparison import compare_text, compare_dict
+from testfixtures.comparers import compare_text, compare_dict
 
 from sybil import Lexeme
 from sybil.parsers.abstract.lexers import BlockLexer, LexingException

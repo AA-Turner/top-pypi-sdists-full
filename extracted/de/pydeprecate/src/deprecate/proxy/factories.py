@@ -19,6 +19,7 @@ from deprecate._types import DeprecationProxy, TargetMode, get_deprecation_confi
 from deprecate.docstring.inject import _update_docstring_with_deprecation
 from deprecate.messaging import _resolve_message_template_alias, deprecation_warning
 from deprecate.proxy.core import _DeprecatedProxy, _proxy_type_for, _ProxySpec, _register_class_instance_reducer
+from deprecate.proxy.resolve import _get_static_attr_owner
 
 __all__ = ["deprecated_class", "deprecated_instance"]
 
@@ -164,10 +165,12 @@ def deprecated_class(
             - ``%(source_name)s`` — the deprecated class name (taken from ``cls.__name__``)
             - ``%(deprecated_in)s`` — value of the ``deprecated_in`` argument
             - ``%(remove_in)s`` — value of the ``remove_in`` argument
-            - ``%(target_name)s`` — target class name (only when *target* is callable)
-            - ``%(target_path)s`` — fully-qualified target path (only when *target* is callable)
+            - ``%(target_name)s`` — replacement callable, renamed keyword, or replacement attribute name,
+              depending on the warning kind
+            - ``%(target_path)s`` — fully-qualified replacement callable or replacement attribute path
             - ``%(argument_map)s`` — formatted ``\`old\` -> \`new\``` string, or ``\`old\` (kept)`` for an argument
-              mapped to ``""`` (only for per-argument warnings emitted by ``args_mapping``)
+              mapped to ``""``. Available in per-argument warnings from ``ARGS_REMAP`` and dataclass field aliases
+              that automatically map constructor keywords on the wrapped class.
 
             Example: ``"v%(deprecated_in)s: ``%(source_name)s`` -> ``%(target_name)s``"``.
         args_mapping: Optional dict remapping keyword argument names when the decorated class is called.  Keys are
@@ -210,10 +213,11 @@ def deprecated_class(
 
             **Validation limitation**: attribute existence is checked using :func:`inspect.getattr_static`,
             which detects class-level attributes and ``__slots__`` entries but not instance-only attributes
-            set in ``__init__`` via ``self.x = ...``.  For dataclass targets without defaults, the field
-            name appears in ``__dataclass_fields__`` but the attribute itself is instance-only —
-            decoration-time validation will raise :class:`ValueError` even though access would succeed at
-            runtime.  As a workaround, add a class-level default or use a ``None`` (warn-only) entry.
+            set in ``__init__`` via ``self.x = ...``.  Such an instance-only attribute makes decoration-time
+            validation raise :class:`ValueError` even though access would succeed at runtime.  Dataclass fields
+            are recognised through ``__dataclass_fields__``, so they validate even without a default.  As a
+            workaround for other instance-only attributes, add a class-level default or use a ``None``
+            (warn-only) entry.
 
             The mode can also be set explicitly as ``target=TargetMode.ATTRS_REMAP`` — both forms are equivalent;
             the explicit form is self-documenting and enables validation at decoration time. Passing
@@ -313,14 +317,7 @@ def deprecated_class(
 
     """
     message_template = _resolve_message_template_alias(message_template, template_mgs)
-    # ``TargetMode.AUTO`` is the ``@deprecated`` front-door default only — the strict form requires an
-    # explicit choice (or the omitted default) so the decoration site documents its own intent.
-    if target is TargetMode.AUTO:
-        raise TypeError(
-            "`TargetMode.AUTO` is only valid on the `@deprecated` front door, which infers the mode from "
-            "the configuration. With `deprecated_class` omit `target` (a mapping auto-resolves the mode), "
-            "or pass an explicit mode / replacement class."
-        )
+    _reject_auto_target(target, "deprecated_class", "class")
 
     def decorator(cls: _ClassOrProxy) -> "_DeprecatedProxy":
         # When cls is a _DeprecatedProxy (stacking case), cls.__name__ triggers __getattr__
@@ -332,14 +329,9 @@ def deprecated_class(
             cls_name = cls_config.name
         else:
             cls_name = cls.__name__
+        # nudge the author when the notice would be shown (a stream is set) yet nothing names the deprecation version
         if stream is not None and not deprecated_in and not message_template:
-            warnings.warn(
-                f"`@deprecated_class` on `{cls_name}` has no `deprecated_in` set."
-                " Deprecation notices and generated documentation will omit the `deprecated_in` version."
-                " Pass `deprecated_in` for a meaningful deprecation notice.",
-                UserWarning,
-                stacklevel=_caller_stacklevel(),
-            )
+            _warn_missing_deprecated_in(f"`@deprecated_class` on `{cls_name}`")
         proxy = _DeprecatedProxy(
             obj=cls,
             spec=_ProxySpec(
@@ -383,6 +375,9 @@ def deprecated_instance(
     obj: Any,  # noqa: ANN401
     *,
     name: str = "",
+    target: Any = None,  # noqa: ANN401
+    args_mapping: Optional[dict[str, Optional[str]]] = None,
+    attrs_mapping: Optional[dict[str, Optional[str]]] = None,
     deprecated_in: str = "",
     remove_in: str = "",
     num_warns: int = 1,
@@ -405,6 +400,26 @@ def deprecated_instance(
         obj: The object to deprecate (dict, list, custom object, …).
         name: Display name for *obj* used in the warning message. When omitted, the type name of *obj* is used
             (e.g. ``"dict"``).
+        target: Optional replacement object.  When set, attribute, item, operator and call access is served by
+            *target* instead of *obj*, and the old name still warns — callers keep the old name working while
+            already reading the new values.  ``isinstance``, hashing and the supported protocols follow *target*
+            too, so pass an object of the same type as *obj* (or a subclass) unless the change of type is intended;
+            writes through the proxy also land on *target*.  A callable *target* is named in the warning; any other
+            object keeps the no-target text, so pass a ``message_template`` that names the replacement.  A
+            :class:`~deprecate._types.TargetMode` member selects a mode instead, as for
+            :func:`deprecated_class`.  ``TargetMode.AUTO``, ``True``/``False`` and a module raise
+            :class:`TypeError` (redirect a module with :func:`~deprecate.module.deprecated_module`).
+        args_mapping: Optional dict remapping keyword argument names when the proxy is called — for a callable
+            *obj* or *target*.  Keys are old argument names; values are new names, or ``None`` to drop the argument.
+            Without a *target* the mode auto-resolves to :attr:`~deprecate._types.TargetMode.ARGS_REMAP`: the call
+            warns only when an old argument name is used.  On an object that is not callable the mapping can never
+            apply, so it emits a :class:`UserWarning` (:class:`TypeError` in ``v1.0``).
+        attrs_mapping: Optional dict mapping deprecated attribute names to the names callers should use (or
+            ``None`` to warn without renaming).  Only the listed names warn; every other attribute is forwarded
+            silently.  Redirect values must exist on *target* when it is given, otherwise on *obj*; a missing name
+            raises :class:`ValueError` at creation.  The mapping covers attributes, not the keys of a mapping
+            object.  Without a *target* the mode auto-resolves to :attr:`~deprecate._types.TargetMode.ATTRS_REMAP`.
+            See :func:`deprecated_class` for redirect chains and cycles.
         deprecated_in: Version string when *obj* was deprecated.
         remove_in: Version string when *obj* will be removed.
         num_warns: Maximum number of warnings to emit. ``1`` (default) warns once; ``-1`` warns on every access.
@@ -425,10 +440,10 @@ def deprecated_instance(
             than once per proxy operation; a callable that returns a non-``bool`` raises :class:`TypeError` at
             access time.  For picklable proxies, use a module-level callable or a plain ``bool`` (same constraint
             as *stream*).
-        read_only: If ``True``, raise :class:`AttributeError` on any write attempt through the proxy.
-            Only the following standard collection mutator names are intercepted: ``append``, ``clear``,
-            ``discard``, ``extend``, ``insert``, ``pop``, ``remove``, ``setdefault``, ``update``, ``add``.
-            Custom method names (e.g. ``register()``, ``reload()``, ``set_value()``) are not blocked.
+        read_only: If ``True``, block attribute and item writes, in-place operators, and calls to methods named
+            ``append``, ``clear``, ``discard``, ``extend``, ``insert``, ``pop``, ``remove``, ``setdefault``, ``update``,
+            ``add``, ``sort``, ``reverse``, ``popitem``, ``difference_update``, ``intersection_update``, or
+            ``symmetric_difference_update``. A custom method with a guarded name also raises :class:`AttributeError`.
         args_extra: Optional dict of extra keyword arguments merged into the forwarded call when the proxy is invoked.
             ``args_extra`` values win over any caller-supplied value with the same key.
         template_mgs: Deprecated alias for ``message_template`` (renamed in ``v0.12``; the old spelling was a
@@ -446,6 +461,13 @@ def deprecated_instance(
         :class:`~deprecate._types.DeprecationProxy` Protocol.  Its ``__wrapped__`` attribute is *obj* itself, and
         ``__signature__`` is *obj*'s signature — or ``None`` when *obj* has none to introspect (a plain ``dict``,
         any C-level type). Reading either emits no warning.
+
+    Raises:
+        TypeError: If *target* is ``TargetMode.AUTO``, a ``bool`` or a module, or if both ``template_mgs`` and
+            ``message_template`` are supplied.
+        ValueError: If ``message_template`` names an unknown placeholder or uses a malformed conversion specifier, or
+            if ``attrs_mapping`` contains a redirect cycle, a redirect value missing from the active object, or a
+            warn-only (``None``) key found on neither *target* nor *obj*.
 
     Note:
         **Operator warnings**: arithmetic operators (``+``, ``-``, ``*``, ``**``, ``//``, ``%``, ``<<``,
@@ -470,19 +492,18 @@ def deprecated_instance(
 
     """
     message_template = _resolve_message_template_alias(message_template, template_mgs)
+    _reject_instance_target(target)
     resolved_name = name or type(obj).__name__
+    # nudge the author when the notice would be shown (a stream is set) yet nothing names the deprecation version
     if stream is not None and not deprecated_in and not message_template:
-        warnings.warn(
-            f"`deprecated_instance()` on `{resolved_name}` has no `deprecated_in` set."
-            " Deprecation notices and generated documentation will omit the `deprecated_in` version."
-            " Pass `deprecated_in` for a meaningful deprecation notice.",
-            UserWarning,
-            stacklevel=_caller_stacklevel(),
-        )
+        _warn_missing_deprecated_in(f"`deprecated_instance()` on `{resolved_name}`")
     return _proxy_type_for(obj)(
         obj=obj,
         spec=_ProxySpec(
             name=resolved_name,
+            target=target,
+            args_mapping=args_mapping,
+            attrs_mapping=attrs_mapping,
             deprecated_in=deprecated_in,
             remove_in=remove_in,
             num_warns=num_warns,
@@ -492,8 +513,93 @@ def deprecated_instance(
             as_exception=as_exception,
             read_only=read_only,
             args_extra=args_extra,
+            factory="deprecated_instance",
         ),
     )
+
+
+def _warn_missing_deprecated_in(label: str) -> None:
+    """Warn that a factory's deprecation notice lacks a version.
+
+    Examples:
+        >>> import warnings
+        >>> with warnings.catch_warnings(record=True) as caught:
+        ...     warnings.simplefilter("always")
+        ...     _warn_missing_deprecated_in("example")
+        >>> str(caught[0].message).startswith("example has no `deprecated_in` set.")
+        True
+
+    """
+    warnings.warn(
+        f"{label} has no `deprecated_in` set."
+        " Deprecation notices and generated documentation will omit the `deprecated_in` version."
+        " Pass `deprecated_in` for a meaningful deprecation notice.",
+        UserWarning,
+        stacklevel=_caller_stacklevel(),
+    )
+
+
+def _reject_auto_target(target: Any, factory: str, noun: str) -> None:  # noqa: ANN401
+    """Raise ``TypeError`` when a proxy factory receives ``TargetMode.AUTO``.
+
+    ``TargetMode.AUTO`` is the ``@deprecated`` front-door default only — the strict proxy factories require an explicit
+    choice (or the omitted default) so the decoration site documents its own intent. The strict callable factory keeps
+    its own message, whose guidance is specific to callables.
+
+    Args:
+        target: The ``target`` the factory received.
+        factory: Name of the factory the message cites (``"deprecated_class"`` or ``"deprecated_instance"``).
+        noun: What a replacement is for that factory (``"class"`` or ``"object"``).
+
+    Examples:
+        >>> _reject_auto_target(None, "deprecated_class", "class") is None
+        True
+        >>> _reject_auto_target(TargetMode.AUTO, "deprecated_instance", "object")
+        Traceback (most recent call last):
+            ...
+        TypeError: `TargetMode.AUTO` is only valid on the `@deprecated` front door, ...
+
+    """
+    if target is TargetMode.AUTO:
+        raise TypeError(
+            "`TargetMode.AUTO` is only valid on the `@deprecated` front door, which infers the mode from "
+            f"the configuration. With `{factory}` omit `target` (a mapping auto-resolves the mode), "
+            f"or pass an explicit mode / replacement {noun}."
+        )
+
+
+def _reject_instance_target(target: Any) -> None:  # noqa: ANN401
+    """Raise ``TypeError`` for a ``deprecated_instance`` *target* that cannot name a replacement object.
+
+    ``TargetMode.AUTO`` is the ``@deprecated`` front-door default only. ``True`` and ``False`` are the legacy
+    ``deprecated_class`` sentinels; on a parameter that never accepted them, reading a ``bool`` as a sentinel would
+    silently drop a ``bool`` replacement, so it is rejected instead. A module replacement belongs to
+    :func:`~deprecate.module.deprecated_module`: a proxy forwarding to a module reports itself as one, which hides it
+    from the audit scans.
+
+    Examples:
+        >>> _reject_instance_target({"retries": 3}) is None
+        True
+        >>> _reject_instance_target(True)
+        Traceback (most recent call last):
+            ...
+        TypeError: `deprecated_instance(target=True)` is not supported: ...
+
+    """
+    _reject_auto_target(target, "deprecated_instance", "object")
+    # Validation follows configured replacements without evaluating their runtime skip conditions.
+    owner = _get_static_attr_owner(_DeprecatedProxy, target)
+    if isinstance(owner, bool):
+        raise TypeError(
+            f"`deprecated_instance(target={target})` is not supported: a `bool` is neither a replacement object nor a"
+            " `TargetMode`. Omit `target` to keep serving the wrapped object, or to replace a `bool` constant wrap"
+            " the new value itself: `deprecated_instance(NEW_VALUE, name='OLD_NAME', ...)`."
+        )
+    if isinstance(owner, types.ModuleType):
+        raise TypeError(
+            f"`deprecated_instance(target=<module {target.__name__!r}>)` is not supported: redirect a module with"
+            " `deprecated_module(target=...)` instead."
+        )
 
 
 # Preserve the original public identity for introspection and pickling by reference.

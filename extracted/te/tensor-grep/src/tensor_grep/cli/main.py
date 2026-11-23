@@ -36,10 +36,14 @@ from tensor_grep.cli import doctor_payload as _doctor_payload
 from tensor_grep.cli import doctor_report as _doctor_report
 from tensor_grep.cli import managed_runtime_upgrade as _managed_runtime_upgrade
 from tensor_grep.cli import native_frontdoor as _native_frontdoor
+from tensor_grep.cli import search_follow_options as _search_follow_options
 from tensor_grep.cli import terminal_output as _terminal_output
 from tensor_grep.cli import windows_launcher as _windows_launcher
 from tensor_grep.cli._index_lock import atomic_write_bytes_anchored as atomic_write_bytes_anchored
 from tensor_grep.cli.completeness_output import _output_limit_note, coverage_gap_banner
+from tensor_grep.cli.detail_tier import apply_detail_tier as _apply_detail_tier
+from tensor_grep.cli.detail_tier import detail_option as _detail_option
+from tensor_grep.cli.detail_tier import dump_detail_json as _dump_detail_json
 from tensor_grep.cli.formatters.base import OutputFormatter
 from tensor_grep.cli.prepare_service import (
     _build_prepare_payload,
@@ -237,7 +241,7 @@ _doctor_shadow_launchers = _doctor_report._doctor_shadow_launchers
 _doctor_shell_escaping_guidance = _doctor_report._doctor_shell_escaping_guidance
 _doctor_skipped_native_tg_binaries = _doctor_report._doctor_skipped_native_tg_binaries
 _doctor_tg_candidate_version = _doctor_report._doctor_tg_candidate_version
-_doctor_tg_foreign_remediation = _doctor_report._doctor_tg_foreign_remediation
+_doctor_tg_foreign_remediation = _doctor_payload._doctor_tg_foreign_remediation
 _doctor_tg_foreign_warning = _doctor_report._doctor_tg_foreign_warning
 _doctor_tg_launcher_kind = _doctor_report._doctor_tg_launcher_kind
 _doctor_tg_version_looks_like_tensor_grep = _doctor_report._doctor_tg_version_looks_like_tensor_grep
@@ -2108,16 +2112,15 @@ def _should_refuse_unbounded_workspace_root_scan(
 _UNBOUNDED_VENDORED_ROOT_DIR_NAMES = UNBOUNDED_VENDORED_ROOT_DIR_NAMES
 
 
-def _root_top_level_vendored_dir_names(paths: list[str]) -> list[str]:
-    """O(top-level-entries) probe: never walks -- only `Path.iterdir()` one level deep.
-
-    AGT-06 (Task 08): shares its directory-iteration policy with cli/bootstrap.py's
-    `_search_paths_include_vendored_root` via `io/root_probe.iter_top_level_vendored_dirs` so
-    the two can never drift out of sync.
-    """
+def _root_top_level_vendored_dir_names(
+    paths: list[str], follow_symlinks: bool = False
+) -> list[str]:
+    """One-level vendored-dir probe shared with bootstrap; follows only when search will."""
     from tensor_grep.io.root_probe import iter_top_level_vendored_dirs
 
-    found = set(iter_top_level_vendored_dirs(paths, _UNBOUNDED_VENDORED_ROOT_DIR_NAMES))
+    found = set(
+        iter_top_level_vendored_dirs(paths, _UNBOUNDED_VENDORED_ROOT_DIR_NAMES, follow_symlinks)
+    )
     return sorted(found, key=lambda item: item.lower())
 
 
@@ -2130,7 +2133,7 @@ def _should_refuse_unbounded_vendored_root_scan(
 ) -> tuple[bool, list[str]]:
     if allow_broad_generated_scan or _has_walk_scope_bound(config, paths_defaulted=paths_defaulted):
         return False, []
-    vendored_dirs = _root_top_level_vendored_dir_names(paths)
+    vendored_dirs = _root_top_level_vendored_dir_names(paths, config.effective_rg_follow)
     return bool(vendored_dirs), vendored_dirs
 
 
@@ -2789,10 +2792,7 @@ def search_command(
     no_binary: bool = typer.Option(
         False, "--no-binary", help="Do not search binary files unless --text is set."
     ),
-    follow: bool = typer.Option(False, "-L", "--follow", help="Follow symbolic links."),
-    no_follow: bool = typer.Option(
-        False, "--no-follow", help="Do not follow symbolic links; useful for config overrides."
-    ),
+    follow: bool | None = _search_follow_options.follow_option(),
     glob: list[str] | None = typer.Option(
         None, "-g", "--glob", help="Include/exclude files matching glob."
     ),
@@ -3275,6 +3275,8 @@ def search_command(
         line_number = sys.stdout.isatty()
 
     from tensor_grep.core.config import SearchConfig
+
+    follow, no_follow = _search_follow_options.resolve_flags(follow)
 
     parsed_gpu_device_ids = _parse_gpu_device_ids_cli(gpu_device_ids)
     _warn_unavailable_gpu_device_ids(parsed_gpu_device_ids)
@@ -4368,7 +4370,6 @@ def search_command(
             AST_ENRICH_FILE_LIMIT,
             enrich_match_with_container,
         )
-        from tensor_grep.core.result import MatchLine
 
         unique_files = list(dict.fromkeys(m.file for m in all_results.matches))
         selected_files = set(unique_files[:AST_ENRICH_FILE_LIMIT])
@@ -4380,17 +4381,7 @@ def search_command(
             if m.file in selected_files:
                 container = enrich_match_with_container(m.file, m.line_number, symbols_cache)
                 if container:
-                    m = MatchLine(
-                        line_number=m.line_number,
-                        text=m.text,
-                        file=m.file,
-                        start_byte=m.start_byte,
-                        end_byte=m.end_byte,
-                        range=m.range,
-                        meta_variables=m.meta_variables,
-                        submatches=m.submatches,
-                        container=container,
-                    )
+                    m = dataclasses.replace(m, container=container)
             enriched_matches.append(m)
         all_results.matches = enriched_matches
 
@@ -5702,6 +5693,35 @@ def _agent_trustworthy_deadline_partial_note(payload: dict[str, Any]) -> str | N
     )
 
 
+def _emit_agent_text(payload: dict[str, Any], gpu_device_ids: str | None) -> None:
+    _emit_scan_incompleteness_banner(payload)
+    primary = payload.get("primary_target", {})
+    primary_file = primary.get("file") or "<none>"
+    primary_line = primary.get("line") or 1
+    primary_symbol = primary.get("symbol") or "<unknown>"
+    validation_commands = payload.get("validation_commands", [])
+    confidence = payload.get("confidence", {}).get("overall", 0)
+    gpu_acceleration = payload.get("gpu_acceleration", {})
+    ambiguity = payload.get("ambiguity", {})
+    ask_user_before_editing = payload.get("ask_user_before_editing", {})
+    context_consistency = payload.get("context_consistency", {})
+    alternatives = payload.get("alternative_targets", [])
+    typer.echo(f"Agent capsule for {payload['path']}")
+    typer.echo(f"query={payload['query']}")
+    typer.echo(f"primary={primary_file}#L{primary_line} {primary_symbol}")
+    typer.echo(f"validation={len(validation_commands)} commands")
+    typer.echo(f"confidence={confidence}")
+    typer.echo(f"ask_required={bool(ask_user_before_editing.get('required'))}")
+    typer.echo(f"ambiguity={ambiguity.get('status', 'unknown')}")
+    typer.echo(
+        "alternatives="
+        f"{len(alternatives)}"
+        f" omitted={context_consistency.get('alternative_targets_omitted_count', 0)}"
+    )
+    if gpu_device_ids:
+        typer.echo(f"gpu_acceleration={gpu_acceleration.get('status', 'unknown')}")
+
+
 @app.command(name="agent")
 def agent(
     path: str = typer.Argument(".", help="File or directory to inventory"),
@@ -5776,6 +5796,7 @@ def agent(
     rerank: str = typer.Option(
         "off", "--rerank", help="Native advisory snippet reranking: off, auto, cross-encoder."
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     citations: bool = typer.Option(False, "--citations", help="Emit citation ranges."),
 ) -> None:
@@ -5834,35 +5855,10 @@ def agent(
             else:
                 daemon_payload.pop("dependency_grounding", None)
             if json_output:
-                typer.echo(json.dumps(daemon_payload, ensure_ascii=False, indent=2))
+                typer.echo(_dump_detail_json(daemon_payload, detail, ensure_ascii=False))
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
-                payload = daemon_payload
-                primary = payload.get("primary_target", {})
-                primary_file = primary.get("file") or "<none>"
-                primary_line = primary.get("line") or 1
-                primary_symbol = primary.get("symbol") or "<unknown>"
-                validation_commands = payload.get("validation_commands", [])
-                confidence = payload.get("confidence", {}).get("overall", 0)
-                gpu_acceleration = payload.get("gpu_acceleration", {})
-                ambiguity = payload.get("ambiguity", {})
-                ask_user_before_editing = payload.get("ask_user_before_editing", {})
-                context_consistency = payload.get("context_consistency", {})
-                alternatives = payload.get("alternative_targets", [])
-                typer.echo(f"Agent capsule for {payload['path']}")
-                typer.echo(f"query={payload['query']}")
-                typer.echo(f"primary={primary_file}#L{primary_line} {primary_symbol}")
-                typer.echo(f"validation={len(validation_commands)} commands")
-                typer.echo(f"confidence={confidence}")
-                typer.echo(f"ask_required={bool(ask_user_before_editing.get('required'))}")
-                typer.echo(f"ambiguity={ambiguity.get('status', 'unknown')}")
-                typer.echo(
-                    "alternatives="
-                    f"{len(alternatives)}"
-                    f" omitted={context_consistency.get('alternative_targets_omitted_count', 0)}"
-                )
-                if gpu_device_ids:
-                    typer.echo(f"gpu_acceleration={gpu_acceleration.get('status', 'unknown')}")
+                _emit_agent_text(daemon_payload, gpu_device_ids)
             if _scan_incomplete(daemon_payload):
                 deadline_partial_note = _agent_trustworthy_deadline_partial_note(daemon_payload)
                 if deadline_partial_note is not None:
@@ -5897,40 +5893,18 @@ def agent(
     except (FileNotFoundError, ValueError, ConfigurationError, BackendExecutionError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
-
     # Emit the full capsule before applying the scan-truncation exit contract.
     if citations:
-        _citations.emit_payload_citations(payload, resolved_path, json_output=json_output)
+        _citations.emit_payload_citations(
+            _apply_detail_tier(payload, detail) if json_output else payload,
+            resolved_path,
+            json_output=json_output,
+        )
     elif json_output:
-        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        typer.echo(_dump_detail_json(payload, detail, ensure_ascii=False))
     else:
         _emit_scan_incompleteness_banner(payload)
-        primary = payload.get("primary_target", {})
-        primary_file = primary.get("file") or "<none>"
-        primary_line = primary.get("line") or 1
-        primary_symbol = primary.get("symbol") or "<unknown>"
-        validation_commands = payload.get("validation_commands", [])
-        confidence = payload.get("confidence", {}).get("overall", 0)
-        gpu_acceleration = payload.get("gpu_acceleration", {})
-        ambiguity = payload.get("ambiguity", {})
-        ask_user_before_editing = payload.get("ask_user_before_editing", {})
-        context_consistency = payload.get("context_consistency", {})
-        alternatives = payload.get("alternative_targets", [])
-        typer.echo(f"Agent capsule for {payload['path']}")
-        typer.echo(f"query={payload['query']}")
-        typer.echo(f"primary={primary_file}#L{primary_line} {primary_symbol}")
-        typer.echo(f"validation={len(validation_commands)} commands")
-        typer.echo(f"confidence={confidence}")
-        typer.echo(f"ask_required={bool(ask_user_before_editing.get('required'))}")
-        typer.echo(f"ambiguity={ambiguity.get('status', 'unknown')}")
-        typer.echo(
-            "alternatives="
-            f"{len(alternatives)}"
-            f" omitted={context_consistency.get('alternative_targets_omitted_count', 0)}"
-        )
-        if gpu_device_ids:
-            typer.echo(f"gpu_acceleration={gpu_acceleration.get('status', 'unknown')}")
-
+        _emit_agent_text(payload, gpu_device_ids)
     if _scan_incomplete(payload):
         deadline_partial_note = _agent_trustworthy_deadline_partial_note(payload)
         if deadline_partial_note is not None:
@@ -7063,6 +7037,7 @@ def _emit_symbol_command_result(
     json_output: bool,
     emit_text: Callable[[dict[str, Any]], None],
     keep_candidate_symbols: bool = False,
+    detail: str = "standard",
 ) -> None:
     """Emit a symbol-command payload and honor the no-match exit convention (L1).
 
@@ -7112,7 +7087,7 @@ def _emit_symbol_command_result(
         )
         is_truncation = True
     if json_output:
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_dump_detail_json(payload, detail))
     else:
         leading, trailing = _completeness_caveat_lines(caveat, is_truncation=is_truncation)
         if leading is not None:
@@ -7318,6 +7293,7 @@ def defs(
     deadline: float | None = _deadline_option(
         "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return exact definition locations for a symbol."""
@@ -7388,6 +7364,7 @@ def defs(
         result_key="definitions",
         json_output=json_output,
         emit_text=_emit_text,
+        detail=detail,
     )
 
 
@@ -7489,6 +7466,7 @@ def impact(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return likely impacted files and tests for a symbol change."""
@@ -7648,6 +7626,7 @@ def impact(
         result_key="files",
         json_output=json_output,
         emit_text=_emit_text,
+        detail=detail,
     )
 
 
@@ -7688,6 +7667,7 @@ def refs(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return Python-first symbol references across the inventory root."""
@@ -7749,6 +7729,7 @@ def refs(
         result_key="references",
         json_output=json_output,
         emit_text=_emit_text,
+        detail=detail,
     )
 
 
@@ -7789,6 +7770,7 @@ def callers(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return Python-first call sites and likely impacted tests for a symbol."""
@@ -7853,6 +7835,7 @@ def callers(
         result_key="callers",
         json_output=json_output,
         emit_text=_emit_text,
+        detail=detail,
     )
 
 
@@ -8183,6 +8166,7 @@ def blast_radius(
     deadline: float | None = _deadline_option(
         "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
+    detail: str = _detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     mermaid_output: bool = typer.Option(
         False,
@@ -8289,11 +8273,11 @@ def blast_radius(
         # Embed, don't refuse: fold the rendered mermaid text into the JSON payload so one call
         # returns both the machine graph and the diagram.
         payload["mermaid"] = _render_blast_radius_mermaid(payload)
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_dump_detail_json(payload, detail))
     elif mermaid_output:
         typer.echo(_render_blast_radius_mermaid(payload))
     elif json_output:
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_dump_detail_json(payload, detail))
     else:
         # Same leading-banner-vs-trailing-note split as _emit_symbol_command_result: a truncation
         # warning has to be read BEFORE the counts it qualifies (an agent reading
@@ -10001,17 +9985,20 @@ def scan(
     from tensor_grep.backends.ast_backend import normalize_ast_language
     from tensor_grep.cli.scan_guardrails import BroadScanRefusedError
 
+    def _scan_err(error: str, detail: str, code: int = 1) -> None:
+        _exit_search_error(error, detail, json_mode=bool(json_output), exit_code=code)
+
     inline_source_count = sum(item is not None for item in (ruleset, inline_rules, rule_file))
     if inline_source_count > 1:
-        typer.echo("Error: --rule, --inline-rules, and --ruleset are mutually exclusive.", err=True)
-        sys.exit(1)
+        _scan_err(
+            "invalid_argument",
+            "--rule, --inline-rules, and --ruleset are mutually exclusive.",
+        )
     if rule_file is not None and filter_regex is not None:
-        typer.echo("Error: --filter is incompatible with --rule.", err=True)
-        sys.exit(1)
+        _scan_err("invalid_argument", "--filter is incompatible with --rule.")
     scan_paths = list(paths or [])
     if scan_paths and path != ".":
-        typer.echo("Error: positional PATHS are incompatible with --path.", err=True)
-        sys.exit(1)
+        _scan_err("invalid_argument", "positional PATHS are incompatible with --path.")
     effective_scan_paths = scan_paths or [path]
 
     # FAIL CLOSED on a scan root that does not exist. Rationale, and the `tg search` precedent
@@ -10044,11 +10031,9 @@ def scan(
                 filter_regex=filter_regex,
             )
         except BroadScanRefusedError as exc:
-            typer.echo(str(exc), err=True)
-            sys.exit(2)
+            _scan_err("broad_scan_refused", str(exc), 2)
         except ValueError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("invalid_ruleset", str(exc))
         scan_banner = f"Scanning project using built-in ruleset {project_cfg['name']} ({project_cfg['public_language']})"
         routing_reason = "builtin-ruleset-scan"
     elif rule_file is not None:
@@ -10059,14 +10044,11 @@ def scan(
                 default_language=language,
             )
         except OSError as exc:
-            typer.echo(f"Error: failed to read rule file {rule_path}: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("rule_file_error", f"failed to read rule file {rule_path}: {exc}")
         except ValueError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("invalid_rule", str(exc))
         if not rules:
-            typer.echo(f"Error: No valid rule was found in {rule_path}.", err=True)
-            sys.exit(1)
+            _scan_err("invalid_rule", f"No valid rule was found in {rule_path}.")
         inferred_language = (
             normalize_ast_language(language) if language else str(rules[0]["language"])
         )
@@ -10083,19 +10065,16 @@ def scan(
         try:
             rules = _load_inline_rule_specs(inline_rules, default_language=language)
         except ValueError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("invalid_rule", str(exc))
         try:
             # Same uniform --filter application as --ruleset above (audit #22): previously silently
             # ignored here, so a --inline-rules run always scanned every parsed rule regardless of
             # --filter.
             rules = _filter_ast_rule_specs(rules, filter_regex)
         except ValueError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("invalid_filter", str(exc))
         if not rules:
-            typer.echo("Error: No valid inline rules were found.", err=True)
-            sys.exit(1)
+            _scan_err("invalid_rule", "No valid inline rules were found.")
         inferred_language = (
             normalize_ast_language(language) if language else str(rules[0]["language"])
         )
@@ -10113,21 +10092,18 @@ def scan(
 
         try:
             project_cfg, rules, candidate_files, _test_data, _hints = _load_ast_project_data(config)
-        except (FileNotFoundError, ValueError) as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            _scan_err("scan_config_error", str(exc))
         try:
             rules = _filter_ast_rule_specs(rules, filter_regex)
         except ValueError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
+            _scan_err("invalid_filter", str(exc))
 
         if not rules:
-            typer.echo(
-                "Error: No valid rules found after applying configuration and filters.",
-                err=True,
+            _scan_err(
+                "invalid_rule",
+                "No valid rules found after applying configuration and filters.",
             )
-            sys.exit(1)
         scan_banner = "Scanning project using adaptive AST routing"
         routing_reason = "ast-project-scan"
         project_scan_fast_path = True
@@ -10160,11 +10136,9 @@ def scan(
             max_evidence_snippet_chars=max_evidence_snippet_chars,
         )
     except BroadScanRefusedError as exc:
-        typer.echo(str(exc), err=True)
-        sys.exit(2)
+        _scan_err("broad_scan_refused", str(exc), 2)
     except (ValueError, RuntimeError) as exc:
-        typer.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+        _scan_err("scan_error", str(exc))
     if sarif:
         # #310. Rendered from the SAME payload `--json` emits, deliberately: a second extraction
         # path would be a second place for the completeness fields to be forgotten, which is the
@@ -10599,21 +10573,19 @@ def doctor(
     with_lsp: bool = typer.Option(
         True,
         "--with-lsp/--no-lsp",
-        help=(
-            "Include external LSP provider diagnostics. Provider availability is "
-            "not navigation proof; inspect health_status and health_check."
-        ),
+        help="Include external LSP provider diagnostics; inspect health_status and health_check.",
+    ),
+    fast: bool = typer.Option(
+        False, "--fast", help="Skip slow external LSP and PyPI freshness probes."
     ),
 ) -> None:
-    """Print system, GPU, cache, AST, daemon, shell-escaping, and provider-proof diagnostics.
-
-    Reports Windows shell guidance for PowerShell literal patterns and cmd.exe metacharacters.
-    """
-    payload = _self._build_doctor_payload(path, config=config, with_lsp=with_lsp)
-    if json_output:
-        typer.echo(json.dumps(payload, indent=2))
-        return
-    typer.echo(_render_doctor_payload(payload))
+    """Print system, GPU, cache, AST, daemon, shell-escaping (PowerShell/cmd.exe literal patterns), and provider-proof diagnostics. Provider availability is not navigation proof."""
+    payload = (
+        _self._build_doctor_payload(path, config=config, with_lsp=False, fast=True)
+        if fast
+        else _self._build_doctor_payload(path, config=config, with_lsp=with_lsp)
+    )
+    typer.echo(json.dumps(payload, indent=2) if json_output else _render_doctor_payload(payload))
 
 
 def _is_uv_tool_managed_python(executable: str) -> bool:

@@ -112,6 +112,7 @@ pub(crate) type FeatureGatePartsPy = (
     Option<u64>,          // lcut
     Option<u64>,          // received_at
     Option<u32>,          // version
+    Option<u32>,          // served_version
 );
 
 pub(crate) fn raw_gate_to_py_dict(py: Python, raw: &FeatureGateRaw) -> PyResult<Py<PyDict>> {
@@ -148,6 +149,7 @@ pub(crate) fn raw_gate_to_py_parts(py: Python, raw: &FeatureGateRaw) -> FeatureG
         raw.details.lcut,
         raw.details.received_at,
         raw.details.version,
+        raw.details.served_version,
     )
 }
 
@@ -425,6 +427,9 @@ fn evaluation_details_to_py_dict(py: Python, details: &EvaluationDetails) -> PyR
     raw.set_item(pyo3::intern!(py, "lcut"), details.lcut)?;
     raw.set_item(pyo3::intern!(py, "received_at"), details.received_at)?;
     raw.set_item(pyo3::intern!(py, "version"), details.version)?;
+    if let Some(version) = details.served_version {
+        raw.set_item(pyo3::intern!(py, "served_version"), version)?;
+    }
 
     Ok(raw.unbind())
 }

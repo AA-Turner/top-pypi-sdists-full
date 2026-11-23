@@ -1,6 +1,10 @@
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence
 from teddy_executor.core.domain.models import ProjectContext
+from teddy_executor.core.domain.models.config_schema import (
+    resolve_agent_llm_overrides,
+    resolve_effective_model,
+)
 from teddy_executor.core.ports.inbound.planning_use_case import IPlanningUseCase
 from teddy_executor.core.utils.interruptible_call import run_interruptible
 
@@ -60,10 +64,21 @@ class PlanningService(IPlanningUseCase):
 
         system_prompt = self._prompt_manager.fetch_system_prompt(agent_name, turn_path)
 
-        # Compute system prompt token count BEFORE context construction so the
-        # ProjectContext DTO is born with correct data (no post-hoc patching needed).
-        model = str(
-            meta.get("model") or self._config_service.get_setting("llm.model") or ""
+        # One resolution feeds both the effective model and the completion
+        # overlay, so the two can never disagree. An absent persona block yields
+        # an empty overlay, leaving the global ``llm`` path unchanged.
+        llm_overrides = resolve_agent_llm_overrides(
+            self._config_service.get_setting("agents", {}), agent_name
+        )
+
+        # The explicit ``--model`` flag (carried as ``model_override``) wins,
+        # then the persona entry, then the global default. The carried ``model``
+        # key is display data only and never a resolution input, so a persona
+        # switched on resume re-resolves every turn.
+        model = resolve_effective_model(
+            meta.get("model_override"),
+            llm_overrides.get("model"),
+            self._config_service.get_setting("llm.model"),
         )
         try:
             system_token_count = self._llm_client.get_text_token_count(
@@ -72,12 +87,15 @@ class PlanningService(IPlanningUseCase):
         except Exception:
             system_token_count = 0
 
+        session_root = str(Path(turn_dir).parent)
         context = self._context_service.get_context(
             context_files=resolved_context_files,
             agent_name=agent_name,
             current_turn=Path(turn_dir).name,
             system_prompt_tokens=system_token_count,
-            cache_dir=str(Path(turn_dir).parent),
+            cache_dir=session_root,
+            session_root=session_root,
+            model=model,
         )
 
         # Context is purely project state (including initial_request.md via session.context).
@@ -95,7 +113,7 @@ class PlanningService(IPlanningUseCase):
         )
 
         response, token_count, plan_content, turn_cost = run_interruptible(
-            lambda: self._run_planning_phase(messages, model, meta)
+            lambda: self._run_planning_phase(messages, model, meta, llm_overrides)
         )
 
         # Persist the explicit recorded-cost signal (Option B): a real price was
@@ -124,6 +142,7 @@ class PlanningService(IPlanningUseCase):
         messages: list[Dict[str, str]],
         model: str,
         meta: Dict[str, Any],
+        llm_overrides: Optional[Dict[str, Any]] = None,
     ) -> tuple[Any, int, str, float]:
         """Perform every blocking planning call on the interruptible worker.
 
@@ -138,17 +157,20 @@ class PlanningService(IPlanningUseCase):
             self._llm_client.get_context_window(model=model)
 
         token_count = int(
-            self._safe_float(self._llm_client.get_token_count(messages=messages))
+            self._safe_float(
+                self._llm_client.get_token_count(messages=messages, model=model)
+            )
         )
 
         if self._user_interactor:
-            self._display_telemetry(meta, token_count)
+            self._display_telemetry(meta, token_count, model)
 
         self._check_context_budget(token_count, model)
 
         response, plan_content, turn_cost = self._perform_generation_with_retry(
             messages,
             model=model,
+            llm_overrides=llm_overrides,
         )
         return response, token_count, plan_content, turn_cost
 
@@ -156,6 +178,7 @@ class PlanningService(IPlanningUseCase):
         self,
         messages: list[Dict[str, str]],
         model: str,
+        llm_overrides: Optional[Dict[str, Any]] = None,
     ) -> tuple[Any, str, float]:
         """Implements retry loop for empty LLM content."""
         max_retries_val = self._config_service.get_setting("llm.max_retries")
@@ -165,7 +188,13 @@ class PlanningService(IPlanningUseCase):
         turn_cost = 0.0
 
         for attempt in range(max_retries):
-            response = self._llm_client.get_completion(messages=messages, model=model)
+            # The overlay key is added only when the persona configures one, so a
+            # project without an ``agents`` block issues the same call shape as
+            # before this feature existed.
+            completion_kwargs: Dict[str, Any] = {"messages": messages, "model": model}
+            if llm_overrides:
+                completion_kwargs["llm_overrides"] = llm_overrides
+            response = self._llm_client.get_completion(**completion_kwargs)
             plan_content = self._extract_plan_content(response)
             attempt_cost = self._llm_client.get_completion_cost(
                 response, model_override=model
@@ -182,17 +211,14 @@ class PlanningService(IPlanningUseCase):
 
         return response, plan_content, turn_cost
 
-    # Class-level cache to ensure remote preflight is performed exactly once per process.
-    # This eliminates the 10s timeout lag on subsequent turns in a session.
-    _PREFLIGHT_DONE = False
-
-    @classmethod
-    def reset_preflight(cls) -> None:
-        """Resets the preflight cache (used primarily for testing)."""
-        cls._PREFLIGHT_DONE = False
-
     def _run_preflight_check(self) -> None:
-        """Ensures system is configured before attempting generation."""
+        """Ensures system is configured before attempting generation.
+
+        Validation runs on every turn, so a persona switched mid-session is
+        always checked against the active configuration. There is deliberately
+        no process-wide preflight cache: a cache keyed on nothing would only
+        suppress re-validating a different persona, and the local check is cheap.
+        """
         from teddy_executor.core.domain.models.exceptions import ConfigurationError
 
         # Perform local validation only. Remote connectivity is checked lazily
@@ -200,12 +226,9 @@ class PlanningService(IPlanningUseCase):
         # and eliminates redundant remote lag for sessions.
         errors = self._llm_client.validate_config(include_remote=False)
 
-        if not errors:
-            PlanningService._PREFLIGHT_DONE = True
-            return
-
-        error_msg = f"Configuration Error: {', '.join(errors)}"
-        raise ConfigurationError(error_msg)
+        if errors:
+            error_msg = f"Configuration Error: {', '.join(errors)}"
+            raise ConfigurationError(error_msg)
 
     def _extract_plan_content(self, response: Any) -> str:
         """Robustly extracts content from the LLM response object."""
@@ -213,11 +236,23 @@ class PlanningService(IPlanningUseCase):
             return getattr(response.choices[0].message, "content", "") or ""
         return ""
 
-    def _display_telemetry(self, meta: Dict[str, Any], token_count: int) -> None:
-        """Displays real-time telemetry about the upcoming LLM call."""
+    def _display_telemetry(
+        self,
+        meta: Dict[str, Any],
+        token_count: int,
+        effective_model: Optional[str] = None,
+    ) -> None:
+        """Displays real-time telemetry about the upcoming LLM call.
+
+        The served ``actual_model`` wins for an already-answered turn, then the
+        carried ``model`` (display data), then the freshly resolved effective
+        model. The ordering keeps a fresh turn's banner on the effective model
+        without disturbing an existing display value.
+        """
         model = str(
             meta.get("actual_model")
             or meta.get("model")
+            or effective_model
             or self._config_service.get_setting("llm.model")
             or "unknown"
         )

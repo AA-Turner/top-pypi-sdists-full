@@ -209,7 +209,7 @@ html_favicon = "_static/favicon.ico"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 html_css_files = []
-html_js_files = ["anaconda-icon.js"]
+html_js_files = [("anaconda-icon.js", {"defer": "defer"})]
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -282,4 +282,5 @@ linkcheck_ignore = [
     # Websites deny access to linkcheck.
     r'https?://content\.iospress\.com/articles/journal-of-neutron-research/jnr190131',
     r'https?://en\.cppreference\.com',
+    r'https?://stackoverflow\.com',
 ]

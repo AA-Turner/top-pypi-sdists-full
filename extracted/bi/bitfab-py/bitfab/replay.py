@@ -1222,11 +1222,10 @@ def replay(
         sandbox_store: The name of a sandbox store to replay against (see
             :class:`~bitfab.sandbox_stores.SandboxStoresClient`). Each trace
             has its own state in the store: a sandbox starts from the replayed
-            trace's state for it (what its last replay wrote), else from the
-            store's seed, else from the original trace as usual, and its end
-            state is written back for that trace when the item finishes, so
-            the next replay of the same trace sees it. Replay traces are
-            linked to the store. ``None`` (default) keeps each sandbox's state
+            trace's state for it, else from the store's seed, else from the
+            original trace as usual, and its state is saved to the new replay
+            trace after each write and when the item finishes, so two replays
+            of one trace never share state. Replay traces are linked to the store. ``None`` (default) keeps each sandbox's state
             to its item.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
@@ -3052,7 +3051,9 @@ def _sandbox_session(
     original_trace_id: str | None,
     trace_started_at: str | None,
     attempt: int,
-    load_recorded_spans: Callable[[str | None], list[RecordedSpan]],
+    load_recorded_spans: Callable[
+        [str | Callable[[str], bool] | None], list[RecordedSpan]
+    ],
     store: SandboxStoreBinding | None = None,
 ) -> SandboxSession:
     def make_start_ctx(sandbox: Sandbox) -> SandboxStartCtx:
@@ -3078,17 +3079,20 @@ SANDBOX_STORE_LINK_BATCH = 500
 
 
 def _sandbox_store_binding(
-    client: Any, sandbox_store: str | None, trace_id: str | None
+    client: Any,
+    sandbox_store: str | None,
+    start_from: str | None,
+    save_to: str,
 ) -> SandboxStoreBinding | None:
-    if sandbox_store is None or client is None or trace_id is None:
+    if sandbox_store is None or client is None or start_from is None:
         return None
 
     def read() -> dict[str, dict[str, Any]]:
-        found = client.sandbox_stores.get(sandbox_store, trace_id=trace_id)
+        found = client.sandbox_stores.get(sandbox_store, trace_id=start_from)
         return {entry["sandbox"]: entry for entry in (found or {}).get("entries", [])}
 
     def write(states: dict[str, Any]) -> Any:
-        return write_sandbox_store(client.http_client, sandbox_store, trace_id, states)
+        return write_sandbox_store(client.http_client, sandbox_store, save_to, states)
 
     return SandboxStoreBinding(name=sandbox_store, read=read, write=write)
 
@@ -3142,7 +3146,7 @@ def _recorded_span(client: Bitfab, node: dict[str, Any]) -> RecordedSpan | None:
 
 def _recorded_span_loader(
     client: Bitfab, original_span_id: str | None, tree_root: dict[str, Any] | None
-) -> Callable[[str | None], list[RecordedSpan]]:
+) -> Callable[[str | Callable[[str], bool] | None], list[RecordedSpan]]:
     lock = threading.Lock()
     tree: list[list[dict[str, Any]]] = []
     fetched: dict[str, RecordedSpan | None] = {}
@@ -3160,12 +3164,17 @@ def _recorded_span_loader(
             tree.append(_tree_nodes(root or {}))
         return tree[0]
 
-    def load(name: str | None) -> list[RecordedSpan]:
+    def load(name: str | Callable[[str], bool] | None) -> list[RecordedSpan]:
         with lock:
             wanted = [
                 node
                 for node in nodes()
-                if name is None or _node_span_name(node) == name
+                if name is None
+                or (
+                    name(_node_span_name(node))
+                    if callable(name)
+                    else _node_span_name(node) == name
+                )
             ]
             spans: list[RecordedSpan] = []
             for node in wanted:
@@ -3210,7 +3219,10 @@ async def _execute_item_async(
     sandboxes: list[Sandbox] | None = None,
     sandbox_store: str | None = None,
     trace_started_at: str | None = None,
-    load_recorded_spans: Callable[[str | None], list[RecordedSpan]] | None = None,
+    load_recorded_spans: Callable[
+        [str | Callable[[str], bool] | None], list[RecordedSpan]
+    ]
+    | None = None,
     client: Any = None,
 ) -> tuple[ReplayItem, bool]:
     """Execute a single replay item: deserialize inputs, call fn with replay context.
@@ -3297,7 +3309,9 @@ async def _execute_item_async(
             trace_started_at,
             attempt,
             load_recorded_spans or (lambda _name: []),
-            _sandbox_store_binding(client, sandbox_store, source_bitfab_trace_id),
+            _sandbox_store_binding(
+                client, sandbox_store, source_bitfab_trace_id, replayed_trace_id
+            ),
         )
     token = _replay_context.set(replay_ctx)
     running = contextlib.ExitStack()

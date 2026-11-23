@@ -309,6 +309,13 @@ impl<'a> SpecView<'a> {
         }
     }
 
+    pub(crate) fn served_version(self) -> Option<u32> {
+        match self {
+            Self::Owned(spec) => spec.served_version,
+            Self::Archived(spec) => spec.served_version.as_ref().map(|value| value.to_native()),
+        }
+    }
+
     pub(crate) fn forward_all_exposures(self) -> Option<bool> {
         match self {
             Self::Owned(spec) => spec.forward_all_exposures,

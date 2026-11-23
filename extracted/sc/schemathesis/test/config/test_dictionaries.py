@@ -1,9 +1,16 @@
 import os
+import re
 
 import pytest
 
 from schemathesis.config import ConfigError, GenerationConfig, SchemathesisConfig
-from schemathesis.config._dictionaries import coerce_entries_for_type, parse_body_path
+from schemathesis.config._dictionaries import (
+    OperationSource,
+    ParameterDictionaryBinding,
+    coerce_entries_for_type,
+    pair_groups,
+    parse_body_path,
+)
 
 
 def test_from_file_loaded_with_relative_path_and_escapes(tmp_path):
@@ -232,3 +239,153 @@ def test_type_wide_binding_accepts_dictionary_with_some_eligible_entries(values,
     assert repr(config.projects.default.generation.dictionaries) == (
         f"{{'{ty}': DictionaryBinding(dictionary='x', probability=0.5)}}"
     )
+
+
+PARENTS = {"from-operation": "GET /api/parents", "pointer": "/data/*/id", "parameters": {"query.limit": 100}}
+
+
+def test_from_operation_dictionary_is_parsed():
+    definition = SchemathesisConfig.from_dict({"dictionaries": {"parents": PARENTS}}).dictionaries["parents"]
+    assert (definition.entries, definition.source_kind, definition.source) == (
+        (),
+        "from-operation",
+        OperationSource(operation="GET /api/parents", pointer="/data/*/id", parameters={"query.limit": 100}),
+    )
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"from-operation": "GET /api/parents"},
+            "`from-operation` needs `pointer` - a JSON Pointer to the values in the response body, e.g. `/data/*/id`.",
+        ),
+        (
+            {"values": ["a"], "pointer": "/id"},
+            "`pointer`, `parameters` and `query` apply only to `from-operation` dictionaries.",
+        ),
+        (
+            {"values": ["a"], "query": "{ books { id } }"},
+            "`pointer`, `parameters` and `query` apply only to `from-operation` dictionaries.",
+        ),
+        (
+            {"values": ["a"], "from-operation": "GET /x", "pointer": "/id"},
+            "`values`, `from-file` and `from-operation` are mutually exclusive - pick one.",
+        ),
+        (
+            {"values": ["a"], "from-operation": "GET /x"},
+            "`values`, `from-file` and `from-operation` are mutually exclusive - pick one.",
+        ),
+        (
+            {"from-file": "words.dict", "from-operation": "GET /x"},
+            "`values`, `from-file` and `from-operation` are mutually exclusive - pick one.",
+        ),
+        (
+            {"from-operation": "GET /x", "pointer": "/id", "parameters": {"limit": 1}},
+            "Dictionary `bad` parameter `limit` must start with `path.`, `query.`, `header.` or `cookie.`",
+        ),
+        (
+            {"from-operation": "GET /x", "pointer": "/id", "parameters": {"body.id": 1}},
+            "Dictionary `bad` parameter `body.id` must start with `path.`, `query.`, `header.` or `cookie.`",
+        ),
+        (
+            {"from-operation": "Query.x", "pointer": "/id", "query": "{ x }", "parameters": {"$limit": 1}},
+            "Dictionary `bad` parameter `$limit` must be a GraphQL variable name, e.g. `limit` for `$limit`",
+        ),
+    ],
+    ids=[
+        "no-pointer",
+        "pointer-without-source",
+        "query-without-source",
+        "two-sources",
+        "values-and-operation-without-pointer",
+        "file-and-operation-without-pointer",
+        "no-location",
+        "body-location",
+        "not-a-variable",
+    ],
+)
+def test_invalid_from_operation_dictionary(payload, message):
+    with pytest.raises(ConfigError, match=re.escape(message)):
+        SchemathesisConfig.from_dict({"dictionaries": {"bad": payload}})
+
+
+def test_graphql_source_parameters_are_query_variables():
+    query = "query($parentId: ID!) { children(parentId: $parentId) { id } }"
+    payload = {
+        "from-operation": "Query.children",
+        "query": query,
+        "pointer": "/data/children/*/id",
+        "parameters": {"parentId": {"dictionary": "parents"}},
+    }
+    config = SchemathesisConfig.from_dict({"dictionaries": {"parents": PARENTS, "children": payload}})
+    assert config.dictionaries["children"].source == OperationSource(
+        operation="Query.children",
+        pointer="/data/children/*/id",
+        parameters={"parentId": ParameterDictionaryBinding(dictionary="parents", probability=1.0)},
+        query=query,
+    )
+
+
+# The dictionary has no entries until setup fetches them.
+def test_type_wide_binding_accepts_from_operation_dictionary():
+    config = SchemathesisConfig.from_dict(
+        {
+            "dictionaries": {"parents": PARENTS},
+            "generation": {"dictionaries": {"string": {"dictionary": "parents", "probability": 0.1}}},
+        }
+    )
+    assert repr(config.projects.default.generation.dictionaries) == (
+        "{'string': DictionaryBinding(dictionary='parents', probability=0.1)}"
+    )
+
+
+CHILDREN = {
+    "from-operation": "GET /api/parents/{parentId}/children",
+    "pointer": "/data/*/id",
+    "parameters": {"path.parentId": {"dictionary": "parents"}},
+}
+TOYS = {
+    "from-operation": "GET /api/parents/{parentId}/children/{childId}/toys",
+    "pointer": "/data/*/id",
+    "parameters": {"path.parentId": {"dictionary": "parents"}, "path.childId": {"dictionary": "children"}},
+}
+
+
+def _nested_dictionaries(**extra):
+    return SchemathesisConfig.from_dict(
+        {"dictionaries": {"parents": PARENTS, "children": CHILDREN, "toys": TOYS, **extra}}
+    ).dictionaries
+
+
+def test_source_parameters_set_dictionary_origin():
+    assert {name: definition.origin for name, definition in _nested_dictionaries().items()} == {
+        "parents": frozenset(),
+        "children": frozenset({"parents"}),
+        "toys": frozenset({"parents", "children"}),
+    }
+
+
+def test_pair_groups_lead_with_the_deepest_dictionary():
+    dictionaries = _nested_dictionaries(colors={"values": ["red"]})
+    groups = pair_groups([dictionaries[name] for name in ("parents", "colors", "toys", "children")])
+    assert [(leader.name, [follower.name for follower in followers]) for leader, followers in groups] == [
+        ("toys", ["parents", "children"]),
+        ("colors", []),
+    ]
+
+
+def test_source_parameter_cycle_is_rejected():
+    def bound_to(name):
+        return {"from-operation": "GET /x/{id}", "pointer": "/id", "parameters": {"path.id": {"dictionary": name}}}
+
+    with pytest.raises(ConfigError, match="Dictionary source parameters form a cycle: `[ab]` -> `[ab]` -> `[ab]`"):
+        SchemathesisConfig.from_dict({"dictionaries": {"a": bound_to("b"), "b": bound_to("a")}})
+
+
+def test_source_parameter_references_unknown_dictionary():
+    children = {**CHILDREN, "parameters": {"path.parentId": {"dictionary": "nope"}}}
+    with pytest.raises(
+        ConfigError, match="Dictionary `children` parameter `path.parentId` references unknown dictionary `nope`"
+    ):
+        SchemathesisConfig.from_dict({"dictionaries": {"children": children}})

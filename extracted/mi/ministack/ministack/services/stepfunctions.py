@@ -843,7 +843,7 @@ def _update_state_machine(data):
     # (matches AWS optimistic-concurrency semantics).
     sm["revisionId"] = new_uuid()
     ts = now_iso()
-    response = {"updateDate": ts}
+    response = {"updateDate": ts, "revisionId": sm["revisionId"]}
     # UpdateStateMachine also supports publish=True, which atomically
     # publishes a new version with the post-update state; response
     # carries the new stateMachineVersionArn. Mirrors AWS.
@@ -867,7 +867,6 @@ def _update_state_machine(data):
                if sm.get("tracingConfiguration") else {}),
         }
         response["stateMachineVersionArn"] = version_arn
-        response["revisionId"] = sm["revisionId"]
     return json_response(response)
 
 
@@ -965,6 +964,13 @@ def _start_execution(data):
     sm_arn = base_arn
 
     sm = _state_machines[sm_arn]
+    # An execution started on a version or an alias runs that version (StartExecution) and reports its ARN, and the
+    # alias ARN when started on an alias.
+    version_arn = _execution_version_arn(requested_arn)
+    started_on = {
+        **({"stateMachineVersionArn": version_arn} if version_arn else {}),
+        **({"stateMachineAliasArn": requested_arn} if requested_arn in _state_machine_aliases else {}),
+    }
     name = data.get("name") or new_uuid()
     exec_arn = (f"arn:aws:states:{get_region()}:{get_account_id()}"
                 f":execution:{sm['name']}:{name}")
@@ -996,12 +1002,13 @@ def _start_execution(data):
         # the execution started with: the version's when a version or an alias
         # was named.
         "encryptionConfiguration": copy.deepcopy(
-            (_state_machine_versions.get(_execution_version_arn(requested_arn)) or sm)
+            (_state_machine_versions.get(version_arn) or sm)
             .get("encryptionConfiguration") or _default_encryption()),
+        **started_on,
         "events": [
             {"id": 1, "type": "ExecutionStarted", "timestamp": start_date,
              "executionStartedEventDetails": {
-                 "input": input_str, "roleArn": sm["roleArn"]}},
+                 "input": input_str, "roleArn": sm["roleArn"], **started_on}},
         ],
     }
 
@@ -1082,6 +1089,9 @@ def _describe_execution(data):
         result["mapRunArn"] = execution["mapRunArn"]
     if execution.get("traceHeader"):
         result["traceHeader"] = execution["traceHeader"]
+    for key in ("stateMachineVersionArn", "stateMachineAliasArn"):
+        if execution.get(key):
+            result[key] = execution[key]
     return json_response(result)
 
 
@@ -1339,10 +1349,11 @@ def _describe_state_machine_for_execution(data):
             "StateMachineDoesNotExist",
             f"State machine {sm_arn} not found", 400)
 
+    ran = _state_machine_versions.get(execution.get("stateMachineVersionArn")) or sm
     return json_response({
         "stateMachineArn": sm["stateMachineArn"],
         "name": sm["name"],
-        "definition": sm["definition"],
+        "definition": ran["definition"],
         "roleArn": sm["roleArn"],
         "updateDate": sm.get("creationDate", now_iso()),
         "encryptionConfiguration": copy.deepcopy(
@@ -1899,7 +1910,8 @@ def _run_execution(exec_arn):
         return
 
     try:
-        definition = json.loads(sm["definition"])
+        definition = json.loads(
+            (_state_machine_versions.get(execution.get("stateMachineVersionArn")) or sm)["definition"])
     except json.JSONDecodeError:
         _fail_execution(execution, "InvalidDefinition",
                         "Could not parse state machine definition")
@@ -4212,6 +4224,11 @@ def _invoke_sqs_send_message(resource, input_data):
             payload["MessageBody"] = json.dumps(body)
         result = sqs._act_send_message(payload, url)
         return result
+    except sqs._KmsErr as e:
+        raise _ExecutionError(
+            f"SQS.{e.code}Exception",
+            f"{e.message} (Service: AmazonSQS; Status Code: 400; Error Code: "
+            f"{sqs._QUERY_COMPAT_CODES.get(e.code, e.code)}; Request ID: {new_uuid()}; Proxy: null)")
     except sqs._Err as e:
         raise _ExecutionError(f"SQS.{e.code}", e.message)
 
@@ -4671,6 +4688,12 @@ _EC2_QUERY_LIST_NAMES = {
     "OwnerIds": "Owner",
     "Resources": "ResourceId",
     "RestorableByUserIds": "RestorableBy",
+    "AddTransitGatewayCidrBlocks": "AddTransitGatewayCidrBlocks",
+    "RemoveTransitGatewayCidrBlocks": "RemoveTransitGatewayCidrBlocks",
+    "TransitGatewayAttachmentIds": "TransitGatewayAttachmentIds",
+    "TransitGatewayCidrBlocks": "TransitGatewayCidrBlocks",
+    "TransitGatewayIds": "TransitGatewayIds",
+    "TransitGatewayRouteTableIds": "TransitGatewayRouteTableIds",
     "TunnelOptions": "TunnelOptions",
     "UserIdGroupPairs": "Groups",
     "Versions": "LaunchTemplateVersion",
@@ -4689,6 +4712,11 @@ _EC2_QUERY_LIST_NAMES_BY_PARENT = {
 _EC2_QUERY_LIST_NAMES_BY_ACTION = {
     ("CreateNetworkInterface", "Ipv6Addresses"): "Ipv6Addresses",
     ("CreateNetworkInterface", "PrivateIpAddresses"): "PrivateIpAddresses",
+    ("CreateTransitGatewayRouteTable", "TagSpecifications"): "TagSpecifications",
+    ("CreateTransitGatewayVpcAttachment", "SubnetIds"): "SubnetIds",
+    ("CreateTransitGatewayVpcAttachment", "TagSpecifications"): "TagSpecifications",
+    ("ModifyTransitGatewayVpcAttachment", "AddSubnetIds"): "AddSubnetIds",
+    ("ModifyTransitGatewayVpcAttachment", "RemoveSubnetIds"): "RemoveSubnetIds",
     ("DescribeVpcClassicLinkDnsSupport", "VpcIds"): "VpcIds",
     ("ModifySnapshotAttribute", "GroupNames"): "UserGroup",
 }
@@ -5422,7 +5450,7 @@ def _dispatch_aws_sdk_lambda_rest(service_info, service_name, action, input_data
     if status >= 400:
         try:
             err_data = json.loads(decoded)
-            code = err_data.get("__type") or err_data.get("code") or "ServiceException"
+            code = (err_data.get("__type") or err_data.get("code") or "ServiceException").rsplit("#", 1)[-1]
             msg = err_data.get("message") or err_data.get("Message") or decoded
             raise _ExecutionError(_prefix_sdk_error(service_name, code), msg)
         except _ExecutionError:
@@ -6096,8 +6124,8 @@ def _publish_state_machine_version(data):
     if requested_revision and requested_revision != sm.get("revisionId"):
         return error_response_json(
             "ConflictException",
-            "Request cannot be applied because the state machine's "
-            "revisionId has changed since the supplied revisionId was read.",
+            f"Failed to publish the State Machine version for revision {requested_revision}. "
+            f"The current State Machine revision is {sm.get('revisionId')}.",
             400,
         )
 

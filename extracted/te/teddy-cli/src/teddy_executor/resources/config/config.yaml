@@ -32,6 +32,9 @@ checks:
   templates: true                   # Warn when local docs/templates/ differ from bundled defaults.
   update: true                      # Warn when a newer TeDDy release is available on PyPI.
 
+# update:
+#   index_url: ""                   # Override the PyPI JSON endpoint for the update check (a fork's index or a static version.json); empty uses official PyPI.
+
 yolo_default: false                 # When true, skips the plan review by default; overridden per-command by -n / --no-yolo.
 
 guardrails:                         # Limits for yolo runs (--yolo) and pipeline runs. Counters reset on 'teddy resume' and on message turns if message_reset: true.
@@ -63,9 +66,6 @@ llm:
     X-OpenRouter-Title: "TeDDy"
     X-OpenRouter-Categories: "cli-agent"
 
-# llm.model must start with the provider prefix, e.g. "openai/qwen3-coder-30b".
-# A bare model name fails preflight, because litellm cannot infer the provider.
-
 # Local models (Ollama, LM Studio):
 #   model: "ollama/qwen3-coder:30b"
 #   model: "lm_studio/qwen3-coder-30b"
@@ -74,3 +74,18 @@ llm:
 #   model: "openai/qwen3-coder-30b"
 #   api_base: "http://localhost:8080/v1"
 #   api_key: "dummy-key-custom-endpoints"
+
+# Per-persona LLM overrides (optional).
+agents:
+  architect:
+#     model: "provider/model-name"
+  assistant:
+#     model: "provider/model-name"
+  debugger:
+#     model: "provider/model-name"
+  developer:
+#     model: "provider/model-name"
+  pathfinder:
+#     model: "provider/model-name"
+  prototyper:
+#     model: "provider/model-name"

@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       os:
-        description: 'Operating system: ubuntu-24.04, macos-15, or windows-2022'
+        description: 'Operating system: ubuntu-24.04, macos-15, windows-2022, or windows-11-arm'
         required: true
         type: string
       build:
@@ -27,7 +27,7 @@ jobs:
         submodules: true
         fetch-depth: 0  # history required so cmake can determine version
 
-    - uses: pypa/cibuildwheel@v4.2.0
+    - uses: pypa/cibuildwheel@v4.3.5
       if: ${{ inputs.nightly == false }}
       env:
         CIBW_BUILD: ${{ inputs.build }}-*
@@ -36,7 +36,7 @@ jobs:
     # For nightly tests with downstream packages we package scipp
     # with 100.0.0.dev0 as the version number. A stable 100.0.0.dev0
     # version will fetch the latest nightly build for downstream tests.
-    - uses: pypa/cibuildwheel@v4.2.0
+    - uses: pypa/cibuildwheel@v4.3.5
       if: ${{ inputs.nightly }}
       env:
         CIBW_BUILD: ${{ inputs.build }}-*

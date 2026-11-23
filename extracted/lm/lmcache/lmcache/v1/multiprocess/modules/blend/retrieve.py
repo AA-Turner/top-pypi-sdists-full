@@ -24,13 +24,14 @@ import torch
 # First Party
 from lmcache import device_ops, torch_dev
 from lmcache.logging import init_logger
-from lmcache.v1.distributed.api import ObjectKey
-from lmcache.v1.memory_allocators.lazy_memory_allocator import LazyMemoryAllocator
-from lmcache.v1.mp_observability.event import Event, EventType
-from lmcache.v1.multiprocess.custom_types import (
+from lmcache.v1.common.custom_types import (
     CBMatchResult,
     IPCCacheServerKey,
 )
+from lmcache.v1.distributed.api import ObjectKey
+from lmcache.v1.memory_allocators.lazy_memory_allocator import LazyMemoryAllocator
+from lmcache.v1.mp_observability.event import Event, EventType
+from lmcache.v1.multiprocess.engine_context import finish_lookup_read
 from lmcache.v1.multiprocess.modules.blend.read_set import (
     _BlendReadGroups,
     _cb_chunk_major_object_keys,
@@ -540,12 +541,13 @@ class RetrieveMixin:
             The number of object keys whose release was enqueued.
         """
         applied_ids = {id(r) for r in applied}
-        release_keys = [
-            all_obj_keys[i * n_read + g]
-            for i, r in enumerate(cb_match_result)
-            if id(r) in applied_ids
-            for g in range(n_read)
-        ]
+        # Repeated chunks share keys: release a key once, when every match
+        # reading it was applied.
+        done: dict[ObjectKey, bool] = {}
+        for i, r in enumerate(cb_match_result):
+            for k in all_obj_keys[i * n_read : (i + 1) * n_read]:
+                done[k] = done.get(k, True) and id(r) in applied_ids
+        release_keys = [k for k, ok in done.items() if ok]
         if release_keys:
             if l1_owners is None:
                 submit_callback_to_stream(
@@ -758,7 +760,6 @@ class RetrieveMixin:
             else None
         )
         cached = _stash["per_hash"] if _stash else None
-        stash_read_locks = _stash["read_locks"] if _stash else 1
         l1_owners = (
             _stash.get("l1_owners")
             if _stash
@@ -766,23 +767,16 @@ class RetrieveMixin:
             if session
             else None
         )
-        if cached is not None and all(r.hash in cached for r in cb_match_result):
-            # The lookup cached all-ranks obj keys (group-major, rank-minor);
-            # select THIS rank's key per read group or TP>1 mispairs ranks.
-            if key.worker_id is not None and key.world_size > 1:
-                ws = key.world_size
-                all_obj_keys = [
-                    cached[r.hash][g * ws + key.worker_id]
-                    for r in cb_match_result
-                    for g in range(n_read)
-                ]
-            else:
-                all_obj_keys = [k for r in cb_match_result for k in cached[r.hash]]
-        else:
-            # One key per (hash, read group), chunk-major like the cached path.
-            all_obj_keys = _cb_chunk_major_object_keys(
-                key, [r.hash for r in cb_match_result], read_groups.blend_gids
-            )
+        # One key per (hash, read group), chunk-major; the stash holds every
+        # rank's keys only so the unretrieved ones can be released below.
+        all_obj_keys = _cb_chunk_major_object_keys(
+            key,
+            [r.hash for r in cb_match_result],
+            read_groups.blend_gids,
+            self._ctx.layout_desc_registry.find_shard_replication_desc(
+                key.model_name, key.world_size
+            ),
+        )
 
         # The connector may have dropped matches after the lookup read-locked
         # the full found set; release those orphan locks now (disjoint from
@@ -794,10 +788,8 @@ class RetrieveMixin:
             ]
             if orphan_keys:
                 # Nothing will read these keys: release every lock the lookup
-                # took (N per key).
-                self._ctx.storage_manager.finish_read_prefetched(
-                    orphan_keys, read_locks=stash_read_locks, l1_owners=l1_owners
-                )
+                # took.
+                finish_lookup_read(self._ctx, key, orphan_keys, l1_owners)
                 logger.debug(
                     "CB released %d prefetched-but-unretrieved keys (req=%s)",
                     len(orphan_keys),
@@ -904,8 +896,10 @@ class RetrieveMixin:
             # cb.scatter opens mid-try; track it so a failure closes the span.
             scatter_open = False
             try:
+                # Repeated chunks share keys: read each once, expand per match.
+                unique_keys = list(dict.fromkeys(all_obj_keys))
                 with self._ctx.storage_manager.read_prefetched_results(
-                    all_obj_keys, l1_owners=l1_owners
+                    unique_keys, l1_owners=l1_owners
                 ) as memory_objs:
                     _stage_ms["fetch"] = (time.perf_counter() - _stage_t) * 1000
                     if memory_objs is None:
@@ -937,6 +931,8 @@ class RetrieveMixin:
                             False,
                         )
 
+                    obj_of = dict(zip(unique_keys, memory_objs, strict=True))
+                    memory_objs = [obj_of[k] for k in all_obj_keys]
                     # Per-token scatter handles any cur_st. Each match owns n_read
                     # consecutive memory objects (chunk-major).
                     if len(memory_objs) != len(cb_match_result) * n_read:

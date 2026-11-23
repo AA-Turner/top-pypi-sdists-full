@@ -11,13 +11,18 @@ from pathlib import Path
 import pytest
 
 from coord.config import PreflightGuardConfig, PreflightGuardRepoConfig, load
+from coord.milestone_order import parse_sub_issues
 from coord.models import SplitChunk, SplitProposal
+from coord.overlap_predict import parse_declared_files
 from coord.preflight_size import (
     DEFAULT_THRESHOLDS,
+    NO_BACKEND_SPLIT_MARKER,
     SizeThresholds,
     build_cross_backend_split_proposal,
+    build_slice_child_body,
     detect_cross_backend_scope,
     score_issue_size,
+    substitute_slice_tokens,
     verify_split_proposal,
 )
 
@@ -833,13 +838,14 @@ preflight_guard:
 
 
 _QUADRAUI_MULTI_BACKEND_BODY = """\
-This touches every backend's render path.
+This fixes independent render-pipeline bugs on gtk, cocoa, and windows —
+each backend's own file, no shared widget between them.
 
 ## Files
 
 - src/gtk/render.rs
-- src/cocoa/render.m
-- src/windows/render.cpp
+- src/cocoa/compositor.m
+- src/windows/draw_surface.cpp
 - src/shared/render_contract.rs
 
 ## Acceptance
@@ -861,14 +867,6 @@ class TestDetectCrossBackendScope:
             backends=["gtk", "cocoa", "windows"],
         )
         assert set(named) == {"gtk", "cocoa", "windows"}
-
-    def test_every_backend_phrase_names_the_full_configured_list(self) -> None:
-        named = detect_cross_backend_scope(
-            title="Fix render path in every backend",
-            body="no file list here, just prose",
-            backends=["gtk", "cocoa", "windows"],
-        )
-        assert named == ("gtk", "cocoa", "windows")
 
     def test_single_backend_issue_passes_untouched(self) -> None:
         named = detect_cross_backend_scope(
@@ -896,6 +894,22 @@ class TestDetectCrossBackendScope:
         )
         assert named == ()
 
+    def test_every_backend_phrase_names_the_full_configured_list(self) -> None:
+        """An "every backend"/"all backends" phrase picks every configured
+        backend, in `backends`' own order — even one this particular text
+        never names by word — via `_ALL_BACKENDS_RE`. Still exercised here
+        (independent of the mechanical split itself, which now skips a
+        body matching this exact phrase, #4081) because
+        `coord.board_doctor_followthrough`'s auto-filed-follow-up validator
+        is the OTHER caller of this function and still needs this branch
+        to answer "every backend", full stop."""
+        named = detect_cross_backend_scope(
+            title="Port the ListView widget to every backend",
+            body="## Files\n- src/shared/list_view_contract.rs\n",
+            backends=["gtk", "cocoa", "windows"],
+        )
+        assert named == ("gtk", "cocoa", "windows")
+
     def test_repo_with_fewer_than_two_backends_never_fires(self) -> None:
         named = detect_cross_backend_scope(
             title="touches gtk and cocoa",
@@ -907,6 +921,71 @@ class TestDetectCrossBackendScope:
             title="touches gtk and cocoa", body="whatever", backends=[]
         )
         assert named == ()
+
+
+class TestBuildCrossBackendSplitProposalSkipsCrossBackendByDesignWork:
+    """#4081 acceptance: `build_cross_backend_split_proposal` refuses to
+    build a split (returns ``None``, same "nothing to act on" contract as
+    "no declared files") for an issue that is cross-backend ON PURPOSE —
+    `detect_cross_backend_scope` still flags these (that function answers
+    a different, unrelated question — see its own docstring), but this is
+    the function that actually decides whether to FILE a split, and it
+    must never fabricate one for this shape.
+    """
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Pilot 1: ListView end to end",
+            "Port the ListView widget to every backend",
+            "Widget Contract port: ListView",
+            "Fix render path in every backend",
+        ],
+    )
+    def test_cross_backend_by_design_phrases_build_nothing(self, title: str) -> None:
+        proposal = build_cross_backend_split_proposal(
+            repo_name="acme/quadraui",
+            issue_number=2823,
+            issue_title=title,
+            issue_body=(
+                "Ship ListView identically on gtk, cocoa, and windows.\n\n"
+                "## Files\n- src/gtk/list_view.rs\n- src/cocoa/list_view.m\n"
+                "- src/windows/list_view.cpp\n"
+            ),
+            named_backends=("gtk", "cocoa", "windows"),
+        )
+        assert proposal is None
+
+    def test_delete_phrase_across_backends_builds_nothing(self) -> None:
+        """A parent whose body says it deletes the per-backend files for
+        one widget across every named backend is never rule-split —
+        splitting it would let the seam and each backend child half-own
+        the same deletion.
+        """
+        proposal = build_cross_backend_split_proposal(
+            repo_name="acme/quadraui",
+            issue_number=2823,
+            issue_title="Remove the legacy ListView shim",
+            issue_body=(
+                "Delete the legacy ListView shim and its per-backend "
+                "`Backend` methods.\n\n## Files\n"
+                "- src/gtk/list_view.rs\n"
+                "- src/cocoa/list_view.m\n"
+                "- src/windows/list_view.cpp\n"
+            ),
+            named_backends=("gtk", "cocoa", "windows"),
+        )
+        assert proposal is None
+
+    def test_opt_out_marker_builds_nothing(self) -> None:
+        proposal = build_cross_backend_split_proposal(
+            repo_name="acme/quadraui",
+            issue_number=321,
+            issue_title="Fix render path",
+            issue_body=f"{NO_BACKEND_SPLIT_MARKER}\n{_QUADRAUI_MULTI_BACKEND_BODY}",
+            named_backends=("gtk", "cocoa", "windows"),
+        )
+        assert proposal is None
 
 
 class TestBuildCrossBackendSplitProposal:
@@ -933,17 +1012,45 @@ class TestBuildCrossBackendSplitProposal:
         ]
         assert by_title["Fix render path (gtk)"].files_likely == ["src/gtk/render.rs"]
         assert by_title["Fix render path (cocoa)"].files_likely == [
-            "src/cocoa/render.m"
+            "src/cocoa/compositor.m"
         ]
         assert by_title["Fix render path (windows)"].files_likely == [
-            "src/windows/render.cpp"
+            "src/windows/draw_surface.cpp"
         ]
         # No cross-contamination: a backend-pinned child never carries
         # another backend's file.
-        assert "src/cocoa/render.m" not in by_title["Fix render path (gtk)"].files_likely
+        assert (
+            "src/cocoa/compositor.m"
+            not in by_title["Fix render path (gtk)"].files_likely
+        )
 
         verification = verify_split_proposal(proposal)
         assert verification.ok is True
+
+        # #4081: every backend child is chained after the seam — chunk 1
+        # is always the seam (the loop above appends it first), so every
+        # other chunk declares `after=(1,)`.
+        seam_position = next(
+            i for i, c in enumerate(proposal.chunks, start=1)
+            if c.title.endswith("(seam)")
+        )
+        assert seam_position == 1
+        for i, chunk in enumerate(proposal.chunks, start=1):
+            if i != seam_position:
+                assert chunk.after == (1,), (chunk.title, chunk.after)
+
+        # And that ordering actually round-trips through the real
+        # create-epic grammar, not just the proposal's own `after` field.
+        assert verification.work_order is not None
+        seam_node = verification.work_order.node(1)
+        assert seam_node is not None
+        for node in verification.work_order.nodes:
+            if node.issue_number != 1:
+                assert 1 in node.after
+        parsed = parse_sub_issues(verification.epic_body)
+        for node in parsed.nodes:
+            if node.issue_number != 1:
+                assert 1 in node.after
 
     def test_no_declared_files_builds_nothing(self) -> None:
         proposal = build_cross_backend_split_proposal(
@@ -991,3 +1098,240 @@ class TestBuildCrossBackendSplitProposal:
         }
         verification = verify_split_proposal(proposal)
         assert verification.ok is True
+
+
+_PARENT_FIXTURE_BODY = """\
+Approved design: ListView becomes a seam-backed widget with one concrete
+implementation per backend.
+
+## Deletion list
+
+- src/tui/list_view.rs
+- src/gtk/list_view.rs
+- src/macos/list_view.rs
+
+## Breaking-change policy
+
+Callers must migrate before the next release; no shim is provided.
+
+## Port recipe
+
+1. Implement the seam trait.
+2. Port each backend's renderer.
+
+## Acceptance
+
+- [ ] every backend renders identically
+"""
+
+
+class TestBuildSliceChildBody:
+    """#4081 acceptance: every child of a split carries the parent's FULL
+    body, verbatim, plus a header naming this slice's own scope and every
+    sibling's — never a one-line summary (the quadraui#2823 incident)."""
+
+    def _chunks(self) -> list[SplitChunk]:
+        return [
+            SplitChunk(
+                title="Pilot 1: ListView end to end (seam)",
+                scope="seam scope",
+                files_likely=["src/shared/list_view_contract.rs"],
+            ),
+            SplitChunk(
+                title="Pilot 1: ListView end to end (tui)",
+                scope="tui scope",
+                files_likely=["src/tui/list_view.rs"],
+                after=(1,),
+            ),
+            SplitChunk(
+                title="Pilot 1: ListView end to end (gtk)",
+                scope="gtk scope",
+                files_likely=["src/gtk/list_view.rs"],
+                after=(1,),
+            ),
+        ]
+
+    def test_every_child_body_contains_the_parents_full_body_verbatim(self) -> None:
+        chunks = self._chunks()
+        for position in range(1, len(chunks) + 1):
+            body = build_slice_child_body(
+                parent_issue_number=2823,
+                parent_body=_PARENT_FIXTURE_BODY,
+                position=position,
+                chunks=chunks,
+            )
+            assert _PARENT_FIXTURE_BODY in body, (position, body)
+
+    def test_header_names_this_slices_and_siblings_scope(self) -> None:
+        chunks = self._chunks()
+        seam_body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=1,
+            chunks=chunks,
+        )
+        assert "This slice owns: seam" in seam_body
+        assert "tui" in seam_body
+        assert "gtk" in seam_body
+
+        tui_body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=2,
+            chunks=chunks,
+        )
+        assert "This slice owns: tui" in tui_body
+        assert "seam" in tui_body
+        assert "gtk" in tui_body
+
+    def test_child_carries_the_no_backend_split_marker(self) -> None:
+        """A filed child is already pinned to one backend (or the seam) —
+        it must never be mistaken for a fresh multi-backend issue and
+        re-split, even though it quotes the parent's full body (which, by
+        construction, is the reason it got split in the first place).
+
+        `detect_cross_backend_scope` may still flag the child's title/body
+        as naming more than one backend (that function answers an
+        unrelated question for a different caller — see its own
+        docstring) — the actual guarantee against a re-split cascade is
+        that `build_cross_backend_split_proposal`, the function that
+        decides whether to FILE one, refuses once it sees the marker.
+        """
+        chunks = self._chunks()
+        body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=2,  # the "tui" backend child — no "seam" word in its
+            # own title to coincidentally short-circuit detect_cross_
+            # backend_scope first.
+            chunks=chunks,
+        )
+        assert NO_BACKEND_SPLIT_MARKER in body
+        proposal = build_cross_backend_split_proposal(
+            repo_name="acme/quadraui",
+            issue_number=2938,
+            issue_title="Pilot 1: ListView end to end (tui)",
+            issue_body=body,
+            named_backends=("tui", "gtk", "macos", "win"),
+        )
+        assert proposal is None
+
+    def test_substitute_slice_tokens_resolves_sibling_placeholders(self) -> None:
+        chunks = self._chunks()
+        body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=2,
+            chunks=chunks,
+        )
+        assert "{{child:" in body
+        resolved = substitute_slice_tokens(body, {1: 2937, 2: 2938, 3: 2939})
+        assert "{{child:" not in resolved
+        assert "#2937" in resolved
+        assert "#2939" in resolved
+
+    def test_unresolved_token_is_left_untouched(self) -> None:
+        """A position absent from the mapping (e.g. a sibling that failed
+        to file) is left as the literal placeholder rather than raising —
+        fail-open, same posture as the rest of this module."""
+        chunks = self._chunks()
+        body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=2,
+            chunks=chunks,
+        )
+        resolved = substitute_slice_tokens(body, {1: 2937})
+        assert "{{child:3}}" in resolved
+        assert "#2937" in resolved
+
+    def test_header_includes_this_chunks_own_scope_text(self) -> None:
+        """#4081 review: `chunk.scope` is the ONLY per-child spec the paid
+        size-triage / `coord.brain` split paths ever produce — dropping it
+        from the header would leave a child from either of THOSE paths
+        naming only its own title, with no scope of its own at all."""
+        chunks = self._chunks()
+        seam_body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=1,
+            chunks=chunks,
+        )
+        assert "seam scope" in seam_body
+        tui_body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY,
+            position=2,
+            chunks=chunks,
+        )
+        assert "tui scope" in tui_body
+
+
+_PARENT_FIXTURE_BODY_WITH_FILES = """\
+Approved design: ListView becomes a seam-backed widget with one concrete
+implementation per backend.
+
+## Files
+
+- src/tui/list_view.rs
+- src/gtk/list_view.rs
+- src/macos/list_view.rs
+
+## Acceptance
+
+- [ ] every backend renders identically
+"""
+
+
+class TestBuildSliceChildBodyDoesNotDuplicateAParentFilesBlock:
+    """#4081 review (blocking): a rule-split parent ALWAYS has a `## Files`
+    section (`build_cross_backend_split_proposal` returns ``None``
+    otherwise), so quoting it verbatim is the common case this needs to
+    hold for, not an edge case. `parse_declared_files` does not stop at
+    the first files block — it keeps scanning and folds every subsequent
+    one into the same list — so without defusing the parent's own `##
+    Files` heading, a filed child's DECLARED scope (as any consumer that
+    reads the issue body, e.g. `coord.commands.drive_queue`, would see it)
+    would be this chunk's own files UNION every backend's files from the
+    parent, destroying the one-backend-per-child partition the split
+    exists to produce."""
+
+    def _chunks(self) -> list[SplitChunk]:
+        return [
+            SplitChunk(
+                title="Pilot 1: ListView end to end (seam)",
+                scope="seam scope",
+                files_likely=["src/shared/list_view_contract.rs"],
+            ),
+            SplitChunk(
+                title="Pilot 1: ListView end to end (tui)",
+                scope="tui scope",
+                files_likely=["src/tui/list_view.rs"],
+                after=(1,),
+            ),
+        ]
+
+    def test_declared_files_on_the_child_body_are_only_this_chunks_own(self) -> None:
+        chunks = self._chunks()
+        body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY_WITH_FILES,
+            position=2,  # the "tui" child
+            chunks=chunks,
+        )
+        assert parse_declared_files(body) == ["src/tui/list_view.rs"]
+
+    def test_full_parent_body_text_is_still_present_verbatim(self) -> None:
+        """The defusing only alters the `## Files` heading line itself —
+        every other line of the parent's quoted body, including the
+        files it lists, is untouched."""
+        chunks = self._chunks()
+        body = build_slice_child_body(
+            parent_issue_number=2823,
+            parent_body=_PARENT_FIXTURE_BODY_WITH_FILES,
+            position=2,
+            chunks=chunks,
+        )
+        assert "src/gtk/list_view.rs" in body
+        assert "src/macos/list_view.rs" in body
+        assert "every backend renders identically" in body

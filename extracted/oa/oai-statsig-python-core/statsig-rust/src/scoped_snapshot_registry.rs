@@ -678,8 +678,8 @@ impl EvaluationClient {
 
     /// Initializes a config-only instance with its own authorized ID-list adapter.
     ///
-    /// Only `options.enable_id_list_elias_fano` is read, at creation. `Some(true)` opts
-    /// this scope into private Elias–Fano. `Some(false)` and `None` use private hash sets.
+    /// Only `options.enable_id_list_elias_fano` is read, at creation. Private lists
+    /// use Elias–Fano by default. `Some(false)` selects private hash sets.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_instance_with_id_list_options(
         &self,

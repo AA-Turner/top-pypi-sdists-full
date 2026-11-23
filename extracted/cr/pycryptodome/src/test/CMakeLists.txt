@@ -276,6 +276,22 @@ if (VALGRIND AND HAVE_VALGRIND_MEMCHECK_H)
         add_test(NAME test_${CURVE}_ct COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_${CURVE}_ct>)
     endforeach()
 
+    # AEGIS without AES instructions (aegis_portable.c is included by the test)
+    add_executable(test_aegis_ct test_aegis_ct.c)
+    set_target_properties(test_aegis_ct PROPERTIES
+        COMPILE_OPTIONS "-O2;-g;-Wall;-Werror"
+        LINK_OPTIONS ""
+        LINK_LIBRARIES "")
+    add_test(NAME test_aegis_ct COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_aegis_ct>)
+    if (SSE)
+        add_executable(test_aegis_ct_sse2 test_aegis_ct.c)
+        set_target_properties(test_aegis_ct_sse2 PROPERTIES
+            COMPILE_OPTIONS "-O2;-g;-Wall;-Werror;-msse2;-DUSE_SSE2"
+            LINK_OPTIONS ""
+            LINK_LIBRARIES "")
+        add_test(NAME test_aegis_ct_sse2 COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_aegis_ct_sse2>)
+    endif()
+
     # DES and Triple DES (DES.c is included by the test)
     foreach(CIPHER des des3)
         add_executable(test_${CIPHER}_ct test_des_ct.c)
@@ -499,6 +515,33 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64" AND CMAKE_SIZEOF_VOID_P 
     add_test(NAME test_chacha20_avx2 COMMAND test_chacha20_avx2)
 endif()
 
+# SLH-DSA, for each build of slhdsa.c
+add_executable(test_slhdsa test_slhdsa.c ../slhdsa.c)
+add_test(NAME test_slhdsa COMMAND test_slhdsa)
+
+# The build with the SHA extensions (gcc and clang only). The test does nothing on a CPU without them.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64|i386|i686|X86|x86" AND NOT MSVC)
+    add_executable(test_slhdsa_shani test_slhdsa.c ../slhdsa_shani.c)
+    target_compile_definitions(test_slhdsa_shani PRIVATE TEST_SLHDSA_SHA_NI)
+    target_compile_options(test_slhdsa_shani PRIVATE -msha -msse4.1)
+    add_test(NAME test_slhdsa_shani COMMAND test_slhdsa_shani)
+endif()
+
+# The AVX2 build (gcc and clang only). The test does nothing on a CPU without AVX2, BMI1 and BMI2.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT MSVC)
+    add_executable(test_slhdsa_avx2 test_slhdsa.c ../slhdsa_avx2_bmi2.c)
+    target_compile_definitions(test_slhdsa_avx2 PRIVATE TEST_SLHDSA_AVX2)
+    target_compile_options(test_slhdsa_avx2 PRIVATE -mavx2 -mbmi -mbmi2)
+    add_test(NAME test_slhdsa_avx2 COMMAND test_slhdsa_avx2)
+endif()
+
+# The 8-way SHA-256 of the AVX2 build (gcc and clang only). The test does nothing on a CPU without AVX2.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT MSVC)
+    add_executable(test_sha256_x8_avx2 test_sha256_x8_avx2.c)
+    target_compile_options(test_sha256_x8_avx2 PRIVATE -mavx2)
+    add_test(NAME test_sha256_x8_avx2 COMMAND test_sha256_x8_avx2)
+endif()
+
 # curve25519
 add_library(mod25519 OBJECT ../mod25519.c)
 add_library(curve25519 OBJECT ../curve25519.c)
@@ -536,6 +579,47 @@ add_test(NAME test_ed25519_no_tables COMMAND test_ed25519_no_tables)
 if (AESNI)
   add_executable(test_aesni test_aesni.c ../AESNI.c)
   add_test(NAME test_aesni COMMAND test_aesni)
+endif()
+
+# AEGIS (the test includes the implementation): portable, and with AES-NI or ARMv8 AES
+add_executable(test_aegis test_aegis.c)
+add_test(NAME test_aegis COMMAND test_aegis)
+if (SSE)
+  add_executable(test_aegis_sse2 test_aegis.c)
+  target_compile_definitions(test_aegis_sse2 PRIVATE USE_SSE2)
+  add_test(NAME test_aegis_sse2 COMMAND test_aegis_sse2)
+  if (NAT_32BIT_TESTS)
+    # A real 32-bit x86 build
+    add_executable(test_aegis_32_sse2 test_aegis.c)
+    set_target_properties(test_aegis_32_sse2 PROPERTIES
+        COMPILE_OPTIONS "-m32;-msse2;-DUSE_SSE2;-O2;-g;-Wall;-Werror;-fsanitize=undefined;-fsanitize=address;-UHAVE_UINT128;-USYS_BITS;-DSYS_BITS=32"
+        LINK_OPTIONS "-m32;-fsanitize=undefined;-fsanitize=address"
+        LINK_LIBRARIES "")
+    add_test(NAME test_aegis_32_sse2 COMMAND test_aegis_32_sse2)
+  endif()
+endif()
+if (AESNI)
+  add_executable(test_aegis_aesni test_aegis.c)
+  target_compile_definitions(test_aegis_aesni PRIVATE TEST_AEGIS_AESNI)
+  add_test(NAME test_aegis_aesni COMMAND test_aegis_aesni)
+endif()
+if (ARMV8_CRYPTO)
+  add_executable(test_aegis_armv8 test_aegis.c)
+  target_compile_definitions(test_aegis_armv8 PRIVATE TEST_AEGIS_ARMV8)
+  if (NOT MSVC)
+    target_compile_options(test_aegis_armv8 PRIVATE "-march=armv8-a+crypto")
+  endif()
+  add_test(NAME test_aegis_armv8 COMMAND test_aegis_armv8)
+endif()
+
+# SLH-DSA with the ARMv8 SHA-256 instructions. The test does nothing on a CPU without them.
+if (ARMV8_CRYPTO)
+  add_executable(test_slhdsa_armv8 test_slhdsa.c ../slhdsa_armv8.c)
+  target_compile_definitions(test_slhdsa_armv8 PRIVATE TEST_SLHDSA_ARMV8)
+  if (NOT MSVC)
+    set_source_files_properties(../slhdsa_armv8.c PROPERTIES COMPILE_OPTIONS "-march=armv8-a+crypto")
+  endif()
+  add_test(NAME test_slhdsa_armv8 COMMAND test_slhdsa_armv8)
 endif()
 
 # AES with the ARMv8 Cryptography Extensions, against the portable AES

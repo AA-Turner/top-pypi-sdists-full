@@ -17,9 +17,9 @@ class CreateCheckpointRequest:
     """Checkpoint creation request.
 
     Attributes:
-        kind (CreateCheckpointRequestKind | Unset): live (also accepted: full) stores the disk, guest memory, and
-            running processes, so restore keeps CPU and memory fixed. cold stores only the disk of a shut-down runtime, so
-            restore can rechoose CPU and memory. Default: CreateCheckpointRequestKind.FULL.
+        kind (CreateCheckpointRequestKind | Unset): full stores disk state, guest memory, and running processes. live is
+            an accepted alias. Restore keeps CPU and memory fixed. cold stores only disk state from a shut-down runtime.
+            Restore keeps CPU and memory requests and limits fixed. Default: CreateCheckpointRequestKind.FULL.
         name (None | str | Unset): Human-readable checkpoint name.
     """
 

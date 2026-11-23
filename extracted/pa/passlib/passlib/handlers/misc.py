@@ -1,83 +1,17 @@
-"""passlib.handlers.misc - misc generic handlers
-"""
-#=============================================================================
-# imports
-#=============================================================================
-# core
 import sys
-import logging; log = logging.getLogger(__name__)
-from warnings import warn
-# site
-# pkg
-from passlib.utils import to_native_str, str_consteq
-from passlib.utils.compat import unicode, u, unicode_or_bytes_types
+
 import passlib.utils.handlers as uh
-# local
+from passlib.utils import consteq, to_native_str
+from passlib.utils.compat import unicode_or_bytes
+
 __all__ = [
     "unix_disabled",
-    "unix_fallback",
     "plaintext",
 ]
 
-#=============================================================================
-# handler
-#=============================================================================
-class unix_fallback(uh.ifc.DisabledHash, uh.StaticHandler):
-    """This class provides the fallback behavior for unix shadow files, and follows the :ref:`password-hash-api`.
-
-    This class does not implement a hash, but instead provides fallback
-    behavior as found in /etc/shadow on most unix variants.
-    If used, should be the last scheme in the context.
-
-    * this class will positively identify all hash strings.
-    * for security, passwords will always hash to ``!``.
-    * it rejects all passwords if the hash is NOT an empty string (``!`` or ``*`` are frequently used).
-    * by default it rejects all passwords if the hash is an empty string,
-      but if ``enable_wildcard=True`` is passed to verify(),
-      all passwords will be allowed through if the hash is an empty string.
-
-    .. deprecated:: 1.6
-        This has been deprecated due to its "wildcard" feature,
-        and will be removed in Passlib 1.8. Use :class:`unix_disabled` instead.
-    """
-    name = "unix_fallback"
-    context_kwds = ("enable_wildcard",)
-
-    @classmethod
-    def identify(cls, hash):
-        if isinstance(hash, unicode_or_bytes_types):
-            return True
-        else:
-            raise uh.exc.ExpectedStringError(hash, "hash")
-
-    def __init__(self, enable_wildcard=False, **kwds):
-        warn("'unix_fallback' is deprecated, "
-             "and will be removed in Passlib 1.8; "
-             "please use 'unix_disabled' instead.",
-             DeprecationWarning)
-        super(unix_fallback, self).__init__(**kwds)
-        self.enable_wildcard = enable_wildcard
-
-    def _calc_checksum(self, secret):
-        if self.checksum:
-            # NOTE: hash will generally be "!", but we want to preserve
-            # it in case it's something else, like "*".
-            return self.checksum
-        else:
-            return u("!")
-
-    @classmethod
-    def verify(cls, secret, hash, enable_wildcard=False):
-        uh.validate_secret(secret)
-        if not isinstance(hash, unicode_or_bytes_types):
-            raise uh.exc.ExpectedStringError(hash, "hash")
-        elif hash:
-            return False
-        else:
-            return enable_wildcard
-
-_MARKER_CHARS = u("*!")
+_MARKER_CHARS = "*!"
 _MARKER_BYTES = b"*!"
+
 
 class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
     """This class provides disabled password behavior for unix shadow files,
@@ -99,9 +33,10 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
         (:attr:`!unix_disabled.default_marker` will contain the default value)
 
     .. versionadded:: 1.6
-        This class was added as a replacement for the now-deprecated
-        :class:`unix_fallback` class, which had some undesirable features.
+        This class was added as a replacement for the now-removed
+        :class:`!unix_fallback` class.
     """
+
     name = "unix_disabled"
     setting_kwds = ("marker",)
     context_kwds = ()
@@ -109,20 +44,20 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
     _disable_prefixes = tuple(str(_MARKER_CHARS))
 
     # TODO: rename attr to 'marker'...
-    if 'bsd' in sys.platform: # pragma: no cover -- runtime detection
-        default_marker = u("*")
+    if "bsd" in sys.platform:  # pragma: no cover -- runtime detection
+        default_marker = "*"
     else:
         # use the linux default for other systems
         # (glibc also supports adding old hash after the marker
         # so it can be restored later).
-        default_marker = u("!")
+        default_marker = "!"
 
     @classmethod
     def using(cls, marker=None, **kwds):
-        subcls = super(unix_disabled, cls).using(**kwds)
+        subcls = super().using(**kwds)
         if marker is not None:
             if not cls.identify(marker):
-                raise ValueError("invalid marker: %r" % marker)
+                raise ValueError(f"invalid marker: {marker!r}")
             subcls.default_marker = marker
         return subcls
 
@@ -142,7 +77,7 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
         #       * linux may use "!" + hash to disable but preserve original hash
         #       * linux counts empty string as "any password";
         #         this code recognizes it, but treats it the same as "!"
-        if isinstance(hash, unicode):
+        if isinstance(hash, str):
             start = _MARKER_CHARS
         elif isinstance(hash, bytes):
             start = _MARKER_BYTES
@@ -153,7 +88,7 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
     @classmethod
     def verify(cls, secret, hash):
         uh.validate_secret(secret)
-        if not cls.identify(hash): # handles typecheck
+        if not cls.identify(hash):  # handles typecheck
             raise uh.exc.InvalidHashError(cls)
         return False
 
@@ -164,7 +99,8 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
             return cls.using(**kwds).hash(secret)
         uh.validate_secret(secret)
         marker = cls.default_marker
-        assert marker and cls.identify(marker)
+        assert marker
+        assert cls.identify(marker)
         return to_native_str(marker, param="marker")
 
     @uh.deprecated_method(deprecated="1.7", removed="2.0")
@@ -172,14 +108,14 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
     def genhash(cls, secret, config, marker=None):
         if not cls.identify(config):
             raise uh.exc.InvalidHashError(cls)
-        elif config:
+
+        if config:
             # preserve the existing str,since it might contain a disabled password hash ("!" + hash)
             uh.validate_secret(secret)
             return to_native_str(config, param="config")
-        else:
-            if marker is not None:
-                cls = cls.using(marker=marker)
-            return cls.hash(secret)
+        if marker is not None:
+            cls = cls.using(marker=marker)  # noqa: PLW0642
+        return cls.hash(secret)
 
     @classmethod
     def disable(cls, hash=None):
@@ -198,12 +134,12 @@ class unix_disabled(uh.ifc.DisabledHash, uh.MinimalHandler):
         hash = to_native_str(hash, param="hash")
         for prefix in cls._disable_prefixes:
             if hash.startswith(prefix):
-                orig = hash[len(prefix):]
+                orig = hash[len(prefix) :]
                 if orig:
                     return orig
-                else:
-                    raise ValueError("cannot restore original hash")
+                raise ValueError("cannot restore original hash")
         raise uh.exc.InvalidHashError(cls)
+
 
 class plaintext(uh.MinimalHandler):
     """This class stores passwords in plaintext, and follows the :ref:`password-hash-api`.
@@ -215,12 +151,13 @@ class plaintext(uh.MinimalHandler):
     :param encoding:
         This controls the character encoding to use (defaults to ``utf-8``).
 
-        This encoding will be used to encode :class:`!unicode` passwords
+        This encoding will be used to encode :class:`!str` passwords
         under Python 2, and decode :class:`!bytes` hashes under Python 3.
 
     .. versionchanged:: 1.6
         The ``encoding`` keyword was added.
     """
+
     # NOTE: this is subclassed by ldap_plaintext
 
     name = "plaintext"
@@ -230,10 +167,9 @@ class plaintext(uh.MinimalHandler):
 
     @classmethod
     def identify(cls, hash):
-        if isinstance(hash, unicode_or_bytes_types):
+        if isinstance(hash, unicode_or_bytes):
             return True
-        else:
-            raise uh.exc.ExpectedStringError(hash, "hash")
+        raise uh.exc.ExpectedStringError(hash, "hash")
 
     @classmethod
     def hash(cls, secret, encoding=None):
@@ -249,7 +185,7 @@ class plaintext(uh.MinimalHandler):
         hash = to_native_str(hash, encoding, "hash")
         if not cls.identify(hash):
             raise uh.exc.InvalidHashError(cls)
-        return str_consteq(cls.hash(secret, encoding), hash)
+        return consteq(cls.hash(secret, encoding), hash)
 
     @uh.deprecated_method(deprecated="1.7", removed="2.0")
     @classmethod
@@ -263,7 +199,3 @@ class plaintext(uh.MinimalHandler):
         if not cls.identify(config):
             raise uh.exc.InvalidHashError(cls)
         return cls.hash(secret, encoding=encoding)
-
-#=============================================================================
-# eof
-#=============================================================================

@@ -45,6 +45,12 @@ const KERNELS_VERSION_BASELINE: Version<3> = Version::new([0, 14, 0]);
 /// First `kernels` version that can resolve kernel dependencies.
 const KERNELS_VERSION_KERNEL_DEPENDS: Version<3> = Version::new([0, 17, 0]);
 
+/// First `kernels` version that can import ZIP builds.
+pub(crate) const KERNELS_VERSION_ZIP_LAYOUT: Version<3> = Version::new([0, 19, 0]);
+
+/// First CUDA version that ships `tileiras`, the cuTile compiler.
+const MIN_TILEIRAS_VERSION: Version<2> = Version::new([13, 2]);
+
 pub struct Build {
     pub general: General,
     pub kernels: HashMap<String, Kernel>,
@@ -58,7 +64,10 @@ impl Build {
     }
 
     pub fn is_noarch(&self) -> bool {
-        matches!(self.framework, Framework::TorchNoarch(_))
+        matches!(
+            self.framework,
+            Framework::TorchNoarch(_) | Framework::MlxNoarch(_)
+        )
     }
 
     pub fn branch(&self) -> Option<&str> {
@@ -89,12 +98,20 @@ impl Build {
 }
 
 pub enum Framework {
+    MlxNoarch(MlxNoarch),
     Torch(Torch),
     TorchNoarch(TorchNoarch),
     TvmFfi(TvmFfi),
 }
 
 impl Framework {
+    pub fn mlx_noarch(&self) -> Option<&MlxNoarch> {
+        match self {
+            Framework::MlxNoarch(mlx_noarch) => Some(mlx_noarch),
+            _ => None,
+        }
+    }
+
     pub fn torch(&self) -> Option<&Torch> {
         match self {
             Framework::Torch(torch) => Some(torch),
@@ -128,6 +145,14 @@ impl Framework {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BuildLayout {
+    #[default]
+    Files,
+    Zip,
+}
+
 pub struct General {
     pub name: KernelName,
 
@@ -144,6 +169,7 @@ pub struct General {
     pub source: Option<GitUrl>,
 
     pub backends: Vec<Backend>,
+    pub build_layout: BuildLayout,
     pub hub: Option<Hub>,
     pub kernel_depends: Option<Vec<KernelDependency>>,
     pub python_depends: Option<Vec<String>>,
@@ -315,6 +341,16 @@ impl Torch {
     }
 }
 
+pub struct MlxNoarch {
+    pub pyext: Option<Vec<String>>,
+}
+
+impl MlxNoarch {
+    pub fn data_extensions(&self) -> Option<Vec<String>> {
+        data_extensions(self.pyext.as_deref())
+    }
+}
+
 pub struct TorchNoarch {
     pub pyext: Option<Vec<String>>,
     /// CUDA capabilities to write into metadata.
@@ -353,8 +389,22 @@ pub enum Kernel {
     RustCpu {
         /// Path of the crate's `Cargo.toml`, relative to the kernel directory.
         cargo_manifest: String,
-        depends: Vec<Dependency>,
         src: Vec<String>,
+    },
+    RustCudaOxide {
+        /// Path of the host crate's `Cargo.toml`, relative to the kernel directory.
+        /// cuda-oxide device crates are read from its `[package.metadata.cuda-oxide]`.
+        cargo_manifest: String,
+        cuda_capabilities: Option<Vec<String>>,
+        src: Vec<String>,
+    },
+    RustCutile {
+        /// Path of the crate's `Cargo.toml`, relative to the kernel directory.
+        cargo_manifest: String,
+        src: Vec<String>,
+        /// Minimum `tileiras` version, determined by the Tile IR features
+        /// that the kernel uses.
+        tileiras_minver: Version<2>,
     },
     CppCuda {
         cuda_capabilities: Option<Vec<String>>,
@@ -396,7 +446,9 @@ impl Kernel {
             | Kernel::CppMetal { cxx_flags, .. }
             | Kernel::CppRocm { cxx_flags, .. }
             | Kernel::CppXpu { cxx_flags, .. } => cxx_flags.as_deref(),
-            Kernel::RustCpu { .. } => None,
+            Kernel::RustCpu { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. } => {
+                None
+            }
         }
     }
 
@@ -407,7 +459,9 @@ impl Kernel {
             | Kernel::CppMetal { include, .. }
             | Kernel::CppRocm { include, .. }
             | Kernel::CppXpu { include, .. } => include.as_deref(),
-            Kernel::RustCpu { .. } => None,
+            Kernel::RustCpu { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. } => {
+                None
+            }
         }
     }
 
@@ -421,7 +475,9 @@ impl Kernel {
     pub fn backend(&self) -> Backend {
         match self {
             Kernel::CppCpu { .. } | Kernel::RustCpu { .. } => Backend::Cpu,
-            Kernel::CppCuda { .. } => Backend::Cuda,
+            Kernel::CppCuda { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. } => {
+                Backend::Cuda
+            }
             Kernel::CppMetal { .. } => Backend::Metal,
             Kernel::CppRocm { .. } => Backend::Rocm,
             Kernel::CppXpu { .. } => Backend::Xpu,
@@ -435,18 +491,23 @@ impl Kernel {
             | Kernel::CppMetal { .. }
             | Kernel::CppRocm { .. }
             | Kernel::CppXpu { .. } => Language::Cpp,
-            Kernel::RustCpu { .. } => Language::Rust,
+            Kernel::RustCpu { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. } => {
+                Language::Rust
+            }
         }
     }
 
     pub fn depends(&self) -> &[Dependency] {
         match self {
             Kernel::CppCpu { depends, .. }
-            | Kernel::RustCpu { depends, .. }
             | Kernel::CppCuda { depends, .. }
             | Kernel::CppMetal { depends, .. }
             | Kernel::CppRocm { depends, .. }
             | Kernel::CppXpu { depends, .. } => depends,
+            // All dependencies are C++ dependencies, which Rust kernels cannot use.
+            Kernel::RustCpu { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. } => {
+                &[]
+            }
         }
     }
 
@@ -454,6 +515,8 @@ impl Kernel {
         match self {
             Kernel::CppCpu { src, .. }
             | Kernel::RustCpu { src, .. }
+            | Kernel::RustCudaOxide { src, .. }
+            | Kernel::RustCutile { src, .. }
             | Kernel::CppCuda { src, .. }
             | Kernel::CppMetal { src, .. }
             | Kernel::CppRocm { src, .. }
@@ -550,6 +613,8 @@ pub enum ConfigError {
     Migration { reason: String },
     #[error("Kernel `{name}`: {reason}")]
     InvalidKernel { name: String, reason: String },
+    #[error("Invalid framework configuration: {reason}")]
+    InvalidFramework { reason: String },
 }
 
 #[cfg(test)]
@@ -564,6 +629,7 @@ mod tests {
             upstream: None,
             source: None,
             backends: vec![Backend::Tpu],
+            build_layout: BuildLayout::Files,
             hub: None,
             kernel_depends: None,
             python_depends: None,
@@ -710,6 +776,72 @@ mod tests {
     }
 
     #[test]
+    fn v6_mlx_noarch_round_trip() {
+        let config = r#"
+            [general]
+            name = "mlx-kernel"
+            version = 1
+            edition = 6
+            license = "Apache-2.0"
+            backends = ["metal"]
+
+            [mlx-noarch]
+            pyext = ["py", "json"]
+        "#;
+
+        let parsed: v6::Build = toml::from_str(config).unwrap();
+        let serialized = toml::to_string(&parsed).unwrap();
+        assert!(serialized.contains("[mlx-noarch]"), "{serialized}");
+        let build = Build::try_from(toml::from_str::<v6::Build>(&serialized).unwrap()).unwrap();
+
+        assert!(build.is_noarch());
+        let mlx_noarch = build.framework.mlx_noarch().unwrap();
+        assert_eq!(mlx_noarch.data_extensions(), Some(vec!["json".to_string()]));
+    }
+
+    #[test]
+    fn v6_mlx_noarch_rejects_invalid_config() {
+        let cases = [
+            (
+                r#"backends = ["metal", "cuda"]"#,
+                "[mlx-noarch]",
+                "only supports the `metal` backend, got `cuda`",
+            ),
+            (
+                r#"backends = ["cpu"]"#,
+                "[mlx-noarch]",
+                "only supports the `metal` backend, got `cpu`",
+            ),
+            (
+                r#"backends = ["metal"]"#,
+                "[mlx-noarch]\ncuda-capabilities = [\"9.0\"]",
+                "unknown field `cuda-capabilities`",
+            ),
+        ];
+
+        for (backends, framework, expected) in cases {
+            let config = format!(
+                r#"
+                [general]
+                name = "mlx-kernel"
+                version = 1
+                edition = 6
+                license = "Apache-2.0"
+                {backends}
+
+                {framework}
+                "#
+            );
+
+            let err = match toml::from_str::<v6::Build>(&config) {
+                Ok(build) => Build::try_from(build).err().unwrap().to_string(),
+                Err(err) => err.to_string(),
+            };
+            assert!(err.contains(expected), "{err}");
+        }
+    }
+
+    #[test]
     fn v6_rust_cpu_round_trip() {
         let config = r#"
             [general]
@@ -724,7 +856,6 @@ mod tests {
             [kernel.cpu_kernel]
             language = "rust-cpu"
             cargo-manifest = "cpu/Cargo.toml"
-            depends = []
             src = ["cpu/src/lib.rs"]
         "#;
 
@@ -736,8 +867,127 @@ mod tests {
     }
 
     #[test]
+    fn v6_rust_cutile_round_trip() {
+        let config = r#"
+            [general]
+            name = "rust-cutile"
+            version = 1
+            edition = 6
+            license = "Apache-2.0"
+            backends = ["cuda"]
+
+            [tvm-ffi]
+
+            [kernel.cutile_kernel]
+            language = "rust-cutile"
+            cargo-manifest = "Cargo.toml"
+            src = ["Cargo.toml", "src/lib.rs"]
+            tileiras-minver = "13.3"
+        "#;
+
+        let parsed: v6::Build = toml::from_str(config).unwrap();
+        let serialized = toml::to_string(&parsed).unwrap();
+        assert!(
+            serialized.contains("language = \"rust-cutile\""),
+            "{serialized}"
+        );
+        let build = Build::try_from(toml::from_str::<v6::Build>(&serialized).unwrap()).unwrap();
+
+        assert!(
+            serialized.contains("tileiras-minver = \"13.3\""),
+            "{serialized}"
+        );
+
+        let kernel = &build.kernels["cutile_kernel"];
+        assert!(matches!(
+            kernel,
+            Kernel::RustCutile { tileiras_minver, .. } if *tileiras_minver == Version::new([13, 3])
+        ));
+        assert_eq!(kernel.backend(), Backend::Cuda);
+        assert_eq!(kernel.language(), Language::Rust);
+        assert!(kernel.depends().is_empty());
+        assert_eq!(kernel.src(), ["Cargo.toml", "src/lib.rs"]);
+    }
+
+    #[test]
+    fn v6_rust_cutile_rejects_invalid_config() {
+        let cases = [
+            (
+                "[torch]\nsrc = []",
+                r#"tileiras-minver = "13.2""#,
+                "require a `[tvm-ffi]` framework",
+            ),
+            (
+                "[tvm-ffi]",
+                r#"tileiras-minver = "13.2"
+                cuda-capabilities = ["9.0"]"#,
+                "unknown field `cuda-capabilities`",
+            ),
+            (
+                "[tvm-ffi]",
+                r#"tileiras-minver = "13.2"
+                cxx-flags = ["-O3"]"#,
+                "unknown field `cxx-flags`",
+            ),
+            (
+                "[tvm-ffi]",
+                r#"tileiras-minver = "13.2"
+                depends = []"#,
+                "unknown field `depends`",
+            ),
+            ("[tvm-ffi]", "", "missing field `tileiras-minver`"),
+            (
+                "[tvm-ffi]",
+                r#"tileiras-minver = "13.1""#,
+                "`tileiras-minver` must be at least 13.2",
+            ),
+            (
+                "[tvm-ffi]",
+                r#"tileiras-minver = "13""#,
+                "Version has 1 components, expected 2",
+            ),
+        ];
+
+        for (framework, extra, expected) in cases {
+            let config = format!(
+                r#"
+                [general]
+                name = "rust-cutile"
+                version = 1
+                edition = 6
+                license = "Apache-2.0"
+                backends = ["cuda"]
+
+                {framework}
+
+                [kernel.cutile_kernel]
+                language = "rust-cutile"
+                cargo-manifest = "Cargo.toml"
+                src = []
+                {extra}
+            "#
+            );
+
+            let err = match toml::from_str::<v6::Build>(&config) {
+                Ok(build) => Build::try_from(build)
+                    .err()
+                    .expect("conversion should fail")
+                    .to_string(),
+                Err(err) => err.to_string(),
+            };
+            assert!(err.contains(expected), "{err}");
+        }
+    }
+
+    #[test]
     fn v6_rust_kernel_rejects_invalid_config() {
         let cases = [
+            (
+                "[torch]\nsrc = []",
+                "rust-cuda-oxide",
+                "",
+                "require a `[tvm-ffi]` framework",
+            ),
             (
                 "[tvm-ffi]",
                 "rust-cpu",
@@ -749,6 +999,18 @@ mod tests {
                 "rust-cpu",
                 r#"include = ["."]"#,
                 "unknown field `include`",
+            ),
+            (
+                "[tvm-ffi]",
+                "rust-cpu",
+                "depends = []",
+                "unknown field `depends`",
+            ),
+            (
+                "[tvm-ffi]",
+                "rust-cuda-oxide",
+                "depends = []",
+                "unknown field `depends`",
             ),
             (
                 "[torch]\nsrc = []",
@@ -773,7 +1035,6 @@ mod tests {
                 [kernel.cpu_kernel]
                 language = "{language}"
                 cargo-manifest = "Cargo.toml"
-                depends = []
                 src = []
                 {extra}
             "#

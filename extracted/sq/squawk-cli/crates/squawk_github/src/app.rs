@@ -11,7 +11,7 @@ use serde_json::Value;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub(crate) const SQUAWK_USER_AGENT: &str = "squawk/2.71.0";
+pub(crate) const SQUAWK_USER_AGENT: &str = "squawk/2.74.0";
 
 #[derive(Debug, Serialize)]
 struct CommentBody {
@@ -147,7 +147,7 @@ fn generate_jwt(
         .expect("problem getting current time");
     let claim = Claim {
         iat: now_unix_time.as_secs(),
-        exp: (now_unix_time + Duration::from_secs(10 * 60)).as_secs(),
+        exp: (now_unix_time + Duration::from_mins(10)).as_secs(),
         iss: app_identifier.to_string(),
     };
 
@@ -180,7 +180,7 @@ pub(crate) fn list_comments(
             issue_number = pr.issue
         ))
         .query(&[("per_page", 100)])
-        .header(AUTHORIZATION, format!("Bearer {secret}",))
+        .header(AUTHORIZATION, format!("Bearer {secret}"))
         .header(USER_AGENT, SQUAWK_USER_AGENT)
         .send()?
         .error_for_status()?

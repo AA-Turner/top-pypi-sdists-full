@@ -201,6 +201,7 @@ fn spec(value: &Value, kind: pb::SpecsEnvelopeKind) -> Result<pb::Spec> {
         use_new_layer_eval: optional(value, "useNewLayerEval")?,
         session_update_mode: optional(value, "sessionUpdateMode")?,
         remote_config_metadata: remote_metadata(value, kind)?,
+        ..Default::default()
     })
 }
 

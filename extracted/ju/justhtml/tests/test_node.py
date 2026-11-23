@@ -503,6 +503,89 @@ class TestNode(unittest.TestCase):
 
         assert doc.to_markdown() == "x\n\n```\n<img src=x onerror=alert(1)>\n```"
 
+    def test_to_markdown_nested_inline_fragments(self):
+        cases = (
+            ("<em><strong><i><b>x</b></i></strong></em>", "******x******"),
+            ("a<em><strong></strong></em>b", "ab"),
+            ("a<em><strong> </strong></em>b", "a b"),
+            ("a<em><strong> x </strong></em>b", "a ***x*** b"),
+            ("<em><strong>x<br>y</strong></em>", "x\ny"),
+            ("<em>x<br><code>a</code></em><code>b</code>", "x\n`a` `b`"),
+            ("<em><code>x</code><span></span></em><code>y</code>", "*`x`*`y`"),
+            ('<em><a href="https://e.com"><strong> x </strong></a></em>y', "*[**x**](https://e.com)* y"),
+        )
+        for source, expected in cases:
+            for sanitize in (True, False):
+                with self.subTest(source=source, sanitize=sanitize):
+                    assert JustHTML(source, sanitize=sanitize).to_markdown() == expected
+
+    def test_to_markdown_nested_inline_multiline_list_indentation(self):
+        cases = (
+            ("<ul><li><em>x<br><strong>y<br>z</strong></em></li></ul>", "- x\n\n  y\n  z"),
+            (
+                "<ol><li><em>x<ul><li><strong>a<br>b</strong></li></ul>tail</em></li></ol>",
+                "1. x\n\n   - a\n     b\n\n   tail",
+            ),
+            (
+                "<ul><li><em><pre>a \n \t\n\nb\t \n c</pre></em></li></ul>",
+                "- ```\n  a\n  \n\n  b\n   c\n  ```",
+            ),
+            (
+                "<ul><li><em><ul><li><b><pre>a\n \n\nb</pre></b></li></ul></em></li></ul>",
+                "- - ```\n    a\n  \n\n    b\n    ```",
+            ),
+        )
+        for source, expected in cases:
+            for sanitize in (True, False):
+                with self.subTest(source=source, sanitize=sanitize):
+                    assert JustHTML(source, sanitize=sanitize).to_markdown() == expected
+
+    def test_to_markdown_deep_inline_fragments_without_recursion(self):
+        depth = 4000
+        for tag, marker in (("em", "*"), ("i", "*"), ("strong", "**"), ("b", "**")):
+            with self.subTest(tag=tag):
+                assert JustHTML(f"<{tag}>" * depth + "x").to_markdown() == marker * depth + "x" + marker * depth
+        assert JustHTML("<em>" * depth + "x<br>y").to_markdown() == "x\ny"
+
+    def test_to_markdown_nested_emphasis_scales_linearly(self):
+        for tag in ("em", "strong"):
+            with self.subTest(tag=tag):
+                assert_scales_linearly(
+                    lambda size, tag=tag: JustHTML(f"<{tag}>" * size + "x"),
+                    lambda doc: doc.to_markdown(),
+                    label=f"nested {tag} elements",
+                    small_size=16_000,
+                    large_size=128_000,
+                )
+
+    def test_to_markdown_bounds_composed_inline_list_indentation(self):
+        for depth in (63, 64, 65, 200):
+            source = "<ul><li><em>x<br>" * depth + "tail" + "</em></li></ul>" * depth
+            output = JustHTML(source).to_markdown()
+            lines = output.splitlines()
+            assert sum(line.lstrip(" ") == "- x" for line in lines) == depth
+            assert lines[-1] == " " * min(2 * depth, 128) + "tail"
+            assert max(len(line) - len(line.lstrip(" ")) for line in lines) <= 128
+            assert len(output) < 135 * (2 * depth + 1)
+
+    def test_to_markdown_composed_inline_list_indentation_scales_linearly(self):
+        assert_scales_linearly(
+            lambda size: JustHTML("<ul><li><em>x<br>" * size + "tail" + "</em></li></ul>" * size),
+            lambda doc: doc.to_markdown(),
+            label="inline-wrapped list indentation",
+            small_size=500,
+            large_size=4_000,
+        )
+
+    def test_to_markdown_multiline_inline_fragments_scale_linearly(self):
+        assert_scales_linearly(
+            lambda size: JustHTML("<em>x<br>" * size),
+            lambda doc: doc.to_markdown(),
+            label="multiline emphasis",
+            small_size=8_000,
+            large_size=64_000,
+        )
+
     def test_to_markdown_blockquote_and_br(self):
         doc = JustHTML("<blockquote><p>Q<br>R</p></blockquote>")
         assert doc.to_markdown() == "> Q\n> R"
@@ -727,6 +810,68 @@ class TestNode(unittest.TestCase):
         root.append_child(script)
         assert root.to_markdown() == ""
 
+    def test_to_markdown_drops_nested_script_style_and_textarea(self):
+        parsed = JustHTML(
+            "<table><tr><td>cell<script>discarded-script</script></td></tr></table>",
+            fragment=True,
+            sanitize=False,
+        ).to_markdown()
+        assert parsed == "<table><tbody><tr><td>cell</td></tr></tbody></table>"
+
+        pre = Node("pre")
+        pre.append_child(Text("keep"))
+        for name, payload in (
+            ("script", "discarded-script"),
+            ("SCRIPT", "discarded-uppercase-script"),
+            ("style", "a{color:red}"),
+            ("textarea", "secret"),
+        ):
+            raw = Node(name)
+            raw.append_child(Text(payload))
+            pre.append_child(raw)
+        assert pre.to_markdown() == "```\nkeep\n```"
+        assert pre.to_text(separator="").endswith("secret")
+        assert pre.children[-1].name == "textarea"
+        assert pre.children[-1].parent is pre
+
+        code = Node("code")
+        code.append_child(Text("keep"))
+        nested = Node("script")
+        nested.append_child(Text("discarded-script"))
+        code.append_child(nested)
+        assert code.to_markdown() == "`keep`"
+
+        table = Node("table")
+        cell = Node("td")
+        cell.append_child(Text("cell"))
+        script = Node("script")
+        script.append_child(Text("discarded-script"))
+        cell.append_child(script)
+        row = Node("tr")
+        row.append_child(cell)
+        table.append_child(row)
+        assert table.to_markdown() == "<table><tr><td>cell</td></tr></table>"
+        assert "<script>discarded-script</script>" in table.to_markdown(html_passthrough=True)
+        assert "<script>discarded-script</script>" in table.to_html(pretty=False)
+
+        html_template = Template("template", namespace="html")
+        assert html_template.template_content is not None
+        hidden = Node("script")
+        hidden.append_child(Text("discarded-template-script"))
+        html_template.template_content.append_child(hidden)
+        html_template.template_content.append_child(Text("shown"))
+        svg_template = Template("template", namespace="svg")
+        template_cell = Node("td")
+        template_cell.append_child(html_template)
+        template_cell.append_child(svg_template)
+        template_row = Node("tr")
+        template_row.append_child(template_cell)
+        template_table = Node("table")
+        template_table.append_child(template_row)
+        template_markdown = template_table.to_markdown()
+        assert "discarded-template-script" not in template_markdown
+        assert "shown" in template_markdown
+
     def test_to_markdown_textnode_method(self):
         t = Text("a*b")
         assert t.to_markdown() == "a\\*b"
@@ -893,6 +1038,52 @@ class TestNode(unittest.TestCase):
         assert _markdown_escape_line_start("===") == (r"\=", 1)
         assert _markdown_escape_line_start("=x") is None
         assert _markdown_escape_line_start("plain text") is None
+        assert _markdown_escape_line_start("## heading") == (r"\#", 1)
+        assert _markdown_escape_line_start("###### heading") == (r"\#", 1)
+        assert _markdown_escape_line_start("####### heading") is None
+        assert _markdown_escape_line_start("##heading") is None
+        assert _markdown_escape_line_start("##") == (r"\#", 1)
+        assert _markdown_escape_line_start("#\nheading") == (r"\#", 1)
+        assert _markdown_escape_line_start("-") == (r"\-", 1)
+        assert _markdown_escape_line_start("-\n") == (r"\-", 1)
+        assert _markdown_escape_line_start("-\nitem") == (r"\-", 1)
+        assert _markdown_escape_line_start("-\n\nitem") == (r"\-", 1)
+        assert _markdown_escape_line_start("+") == (r"\+", 1)
+        assert _markdown_escape_line_start("+\n") == (r"\+", 1)
+        assert _markdown_escape_line_start("+\nitem") == (r"\+", 1)
+        assert _markdown_escape_line_start("1x") is None
+        assert _markdown_escape_line_start("1.") == (r"1\.", 2)
+        assert _markdown_escape_line_start("1)") == (r"1\)", 2)
+        assert _markdown_escape_line_start("1.\n") == (r"1\.", 2)
+        assert _markdown_escape_line_start("1.\nfoo") == (r"1\.", 2)
+        assert _markdown_escape_line_start("12.\nmulti") == (r"12\.", 3)
+        assert _markdown_escape_line_start("---\n") == (r"\-", 1)
+        assert _markdown_escape_line_start("===\n") == (r"\=", 1)
+        assert _markdown_escape_line_start("=\nx") is None
+        assert _markdown_thematic_or_setext_line("---\n", "-", minimum_markers=3) is True
+        assert _markdown_thematic_or_setext_line("---\nfoo", "-", minimum_markers=3) is False
+        assert _markdown_thematic_or_setext_line("--\n-", "-", minimum_markers=3) is True
+
+    def test_to_markdown_escapes_markers_after_html_whitespace_collapses(self):
+        assert JustHTML("<p>## heading</p>", fragment=True).to_markdown() == r"\## heading"
+        assert JustHTML("<p>#\nheading</p>", fragment=True).to_markdown() == r"\# heading"
+        assert JustHTML("<p>-\nitem</p>", fragment=True).to_markdown() == r"\- item"
+        assert JustHTML("<p>+\nitem</p>", fragment=True).to_markdown() == r"\+ item"
+        assert JustHTML("<p>1.\nfoo</p>", fragment=True).to_markdown() == r"1\. foo"
+        assert JustHTML("<p>---\n</p>", fragment=True).to_markdown() == r"\---"
+        assert JustHTML("<p>##</p>", fragment=True).to_markdown() == r"\##"
+        assert JustHTML("<p>-</p>", fragment=True).to_markdown() == r"\-"
+        assert JustHTML("<p>+</p>", fragment=True).to_markdown() == r"\+"
+        assert JustHTML("<p>1.</p>", fragment=True).to_markdown() == r"1\."
+        assert JustHTML("<p>1)</p>", fragment=True).to_markdown() == r"1\)"
+        assert JustHTML("<p>####### heading</p>", fragment=True).to_markdown() == "####### heading"
+        assert JustHTML("<p>Title<br>---\n</p>", fragment=True).to_markdown() == "Title\n\\---"
+        assert JustHTML("<p>=\nx</p>", fragment=True).to_markdown() == "= x"
+
+    def test_to_markdown_encodes_backslash_in_link_destination(self):
+        assert _markdown_link_destination("https://example.com/a\\") == "<https://example.com/a%5C>"
+        doc = JustHTML('<a href="https://example.com/a\\">x</a>', fragment=True)
+        assert doc.to_markdown() == "[x](<https://example.com/a%5C>)"
 
     def test_markdown_thematic_or_setext_line_helper_edge_cases(self):
         assert _markdown_thematic_or_setext_line("   ", "-", minimum_markers=3) is False
@@ -1483,6 +1674,35 @@ class TestNode(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "ancestor"):
             template.template_content.replace_child(template, placeholder)
+
+    def test_moving_template_content_keeps_owner_and_rejects_cycle(self):
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+        template.template_content.append_child(Node("span"))
+
+        template.append_child(template.template_content)
+
+        assert template.template_content.parent is template
+        assert [child.name for child in template.children] == ["span"]
+        assert template.template_content.children == []
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            template.template_content.append_child(template)
+        assert template.to_html() == "<template></template>"
+        assert template.to_text() == ""
+        assert template.to_markdown() == ""
+
+    def test_moving_template_content_into_another_element_keeps_owner(self):
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+        template.template_content.append_child(Node("span"))
+        other = Node("div")
+
+        other.append_child(template.template_content)
+
+        assert [child.name for child in other.children] == ["span"]
+        assert other.children[0].parent is other
+        assert template.template_content.parent is template
+        assert template.template_content.children == []
 
     def test_append_child_rejects_self(self):
         parent = Node("div")

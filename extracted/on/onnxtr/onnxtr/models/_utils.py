@@ -4,16 +4,99 @@
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
 
 import heapq
-from math import floor
+import os
+from collections.abc import Callable, Iterable, Sequence
+from math import ceil, floor, isnan
 from statistics import median_low
+from typing import Any, Literal, TypeAlias, TypeVar
 
 import cv2
 import numpy as np
-from langdetect import LangDetectException, detect_langs
+from langdetect import DetectorFactory, LangDetectException, detect_langs
+from scipy.special import expit
 
 from onnxtr.utils.geometry import rotate_image
+from onnxtr.utils.multithreading import multithread_exec, prefetch_chunks
 
-__all__ = ["estimate_orientation", "get_language", "mask_boxes"]
+__all__ = ["ConfidenceAggregation", "aggregate_confidence", "estimate_orientation", "get_language", "mask_boxes"]
+
+ConfidenceAggregation: TypeAlias = (
+    Literal["mean", "min", "max", "median", "geometric_mean", "harmonic_mean"] | Callable[[np.ndarray], float]
+)
+
+
+def _geometric_mean(scores: np.ndarray) -> float:
+    # numerically stable form of prod(scores) ** (1 / N), a zero score yields 0
+    with np.errstate(divide="ignore"):
+        return float(np.exp(np.mean(np.log(scores, dtype=np.float64))))
+
+
+def _harmonic_mean(scores: np.ndarray) -> float:
+    # a zero score yields 0
+    with np.errstate(divide="ignore"):
+        return float(scores.size / np.sum(1.0 / scores.astype(np.float64)))
+
+
+_CONFIDENCE_AGGREGATIONS: dict[str, Callable[[np.ndarray], Any]] = {
+    "mean": np.mean,
+    "min": np.min,
+    "max": np.max,
+    "median": np.median,
+    "geometric_mean": _geometric_mean,
+    "harmonic_mean": _harmonic_mean,
+}
+
+
+def _resolve_confidence_aggregation(method: ConfidenceAggregation) -> Callable[[np.ndarray], Any]:
+    """Return the function of a confidence aggregation method, raise a `ValueError` if it is unknown"""
+    if callable(method):
+        return method
+    # the type check comes first: an unhashable value (e.g. a list) can not be looked up
+    if not isinstance(method, str) or method not in _CONFIDENCE_AGGREGATIONS:
+        raise ValueError(
+            f"Unknown confidence aggregation {method!r}, expected a callable or one of {list(_CONFIDENCE_AGGREGATIONS)}"
+        )
+    return _CONFIDENCE_AGGREGATIONS[method]
+
+
+def _confidence_aggregation_repr(method: ConfidenceAggregation) -> str:
+    """Return the name of a confidence aggregation method to display it in a `repr`"""
+    return repr(method) if isinstance(method, str) else getattr(method, "__name__", type(method).__name__)
+
+
+def aggregate_confidence(
+    scores: np.ndarray | Sequence[float],
+    method: ConfidenceAggregation = "mean",
+) -> float:
+    """Aggregate several scores (e.g. the character probabilities of a word) into a single confidence score
+
+    >>> from onnxtr.models._utils import aggregate_confidence
+    >>> aggregate_confidence([0.99, 0.98, 0.12, 0.99], "min")
+    0.12
+
+    Available methods:
+        - "mean": arithmetic mean, a single low score can be hidden by many high ones
+        - "min": the lowest score, a single low score is enough to lower the confidence
+        - "max": the highest score
+        - "median": the median score, robust to outliers
+        - "geometric_mean": `exp(mean(log(scores)))`, i.e. the exponential of the average log-probability
+        - "harmonic_mean": strongly penalizes low scores
+        - a Python callable taking the 1D array of scores and returning a float
+
+    Args:
+        scores: the scores to aggregate, expected in [0, 1]
+        method: the aggregation method
+
+    Returns:
+        the aggregated confidence clipped to [0, 1], 0 if there is no score or if the aggregation is NaN (e.g. a
+        callable averaging an empty selection)
+    """
+    aggregate = _resolve_confidence_aggregation(method)
+    scores = np.asarray(scores).ravel()
+    if scores.size == 0:
+        return 0.0
+    value = float(np.asarray(aggregate(scores)).squeeze())
+    return 0.0 if isnan(value) else min(max(value, 0.0), 1.0)
 
 
 def get_max_width_length_ratio(contour: np.ndarray) -> float:
@@ -43,7 +126,7 @@ def estimate_orientation(
      lines of the document and the assumption that they should be horizontal.
 
     Args:
-        img: the img or bitmap to analyze (H, W, C)
+        img: the img (in np.uint8, or as floats in [0, 1]) or bitmap to analyze (H, W, C)
         general_page_orientation: the general orientation of the page (angle [0, 90, 180, 270 (-90)], confidence)
             estimated by a model
         n_ct: the number of contours used for the orientation estimation
@@ -58,6 +141,9 @@ def estimate_orientation(
 
     # Convert image to grayscale if necessary
     if img.shape[-1] == 3:
+        if np.issubdtype(img.dtype, np.floating):
+            # Otsu thresholding needs 8-bit values: a float image holds values in [0, 1]
+            img = (img * 255).round().clip(0, 255).astype(np.uint8)
         gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         gray_img = cv2.medianBlur(gray_img, 5)
         thresh = cv2.threshold(gray_img, thresh=0, maxval=255, type=cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
@@ -191,6 +277,29 @@ def rectify_loc_preds(
     )
 
 
+def _expit(x: np.ndarray) -> np.ndarray:
+    """Sigmoid of a (B, H, W, C) map, computed by chunks of rows on several threads for large maps
+
+    Args:
+        x: the logits
+
+    Returns:
+        the probabilities, identical to `scipy.special.expit(x)`
+    """
+    threads = min(8, os.cpu_count() or 1)
+    if x.ndim != 4 or x.size < 1 << 19 or threads < 2 or x.shape[1] < threads:
+        return expit(x)
+    out = np.empty(x.shape, dtype=x.dtype)
+    bounds = np.linspace(0, x.shape[1], threads + 1).astype(int)
+
+    def _rows(idx: int) -> None:
+        rows = slice(bounds[idx], bounds[idx + 1])
+        expit(x[:, rows], out=out[:, rows])
+
+    list(multithread_exec(_rows, range(threads), threads))
+    return out
+
+
 def get_language(text: str) -> tuple[str, float]:
     """Get languages of a text using langdetect model.
     Get the language with the highest probability or no language if only a few words or a low probability
@@ -201,10 +310,15 @@ def get_language(text: str) -> tuple[str, float]:
     Returns:
         The detected language in ISO 639 code and confidence score
     """
+    # langdetect samples at random: a fixed seed makes the result reproducible, the seed of the caller is restored
+    seed = DetectorFactory.seed
+    DetectorFactory.seed = 0
     try:
         lang = detect_langs(text.lower())[0]
     except LangDetectException:
         return "unknown", 0.0
+    finally:
+        DetectorFactory.seed = seed
     if len(text) <= 1 or (len(text) <= 5 and lang.prob <= 0.2):
         return "unknown", 0.0
     return lang.lang, lang.prob
@@ -248,3 +362,63 @@ def mask_boxes(img: np.ndarray, boxes: np.ndarray, fill_value: int = 255) -> np.
     color = (int(fill_value),) * (img.shape[2] if img.ndim == 3 else 1)
     cv2.fillPoly(img, list(polys), color=color)
     return img
+
+
+_Output = TypeVar("_Output")
+
+
+def merge_items(outputs: list[list[Any]]) -> list[Any]:
+    """Concatenate the outputs of several chunks, for predictors returning one item per input"""
+    return [item for output in outputs for item in output]
+
+
+def merge_columns(outputs: list[Any]) -> Any:
+    """Concatenate the outputs of several chunks column by column, for predictors returning several aligned lists
+    (e.g. `[class_idxs, classes, probs]`, or `(preds, seg_maps)`): the container type is kept"""
+    columns = [merge_items([output[col] for output in outputs]) for col in range(len(outputs[0]))]
+    return tuple(columns) if isinstance(outputs[0], tuple) else columns
+
+
+def predict_by_chunks(
+    predict: Callable[[list[np.ndarray]], _Output],
+    inputs: Sequence[np.ndarray] | Iterable[np.ndarray],
+    chunk_size: int,
+    batch_size: int = 1,
+    merge: Callable[[list[_Output]], _Output] = merge_items,  # type: ignore[assignment]
+) -> _Output:
+    """Run a predictor on inputs of any length: a lazy page source (cf. `DocumentFile.from_pdf(..., lazy=True)`), a
+    list, a tuple or any iterable of images
+
+    Lists and tuples of at most `chunk_size` images, as well as arrays (a batch already in memory), are processed at
+    once, exactly as before. Anything else is processed chunk by chunk, the next chunk of a lazy source being decoded
+    in a background thread, so that the memory footprint does not grow with the number of inputs.
+
+    The chunk size is rounded up to a multiple of `batch_size`: the model then processes the same batches as in a
+    single pass, so that chunking does not change the predictions (a predictor transforming its inputs before batching,
+    e.g. the recognition predictor splitting wide crops, does so within each chunk).
+
+    Args:
+        predict: the prediction function, taking a list of images
+        inputs: the images
+        chunk_size: the maximum number of images decoded and processed at once
+        batch_size: the batch size of the model
+        merge: the function concatenating the outputs of the chunks
+
+    Returns:
+        the output of `predict` on the whole input
+    """
+    if isinstance(inputs, np.ndarray):
+        return predict(inputs)  # type: ignore[arg-type]
+    if isinstance(inputs, (list, tuple)) and len(inputs) <= chunk_size:
+        return predict(list(inputs))
+    size = ceil(chunk_size / batch_size) * batch_size
+    outputs = []
+    chunks = prefetch_chunks(inputs, size)
+    try:
+        for chunk in chunks:
+            outputs.append(predict(chunk))
+    finally:
+        # Stop decoding ahead on error
+        chunks.close()
+    # An empty input yields no chunk: let the predictor return its empty output
+    return merge(outputs) if outputs else predict([])

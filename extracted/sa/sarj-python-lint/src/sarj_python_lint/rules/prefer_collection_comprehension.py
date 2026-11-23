@@ -45,6 +45,7 @@ _PROHIBITED_EXPRESSION_NODES = (
     ast.YieldFrom,
 )
 _MAX_REPLACEMENT_WIDTH = 120
+_MIN_ORDERED_FILTERS = 2
 
 
 class _CollectionKind(StrEnum):
@@ -104,7 +105,7 @@ class PreferCollectionComprehension(Rule):
         limitations=(
             "Safe fixes apply only error-level candidates in undecorated module functions with no parameters and exactly initialization, one loop over literal primitive elements or correctly unpacked literal pairs, and return. List/set elements and dictionary keys/values must be primitive literals, bound loop names, or tuples composed of them. Unknown iterators, callbacks, properties, overloads, reachable errors, extra statements and advisory candidates remain review-only; the initialized binding and annotation are retained.",
             "Supported list/set builders and dictionary builders with stable loop-local-name or literal keys block as errors. Dictionary attribute/descriptor keys remain advisory because assignment evaluates value before key while a comprehension evaluates key before value.",
-            "Only function-local, adjacent empty initializers and one synchronous single-purpose loop are checked.",
+            "Function-local fresh collection builders are checked. Lists may have non-observing assignment preparation before a single-purpose loop, ordered continue guards, and a constructor projection. Those additional shapes are review-only; preserve guard order and never move construction or scope automatically.",
             (
                 "The rule fills gaps left by Ruff PERF401, PERF403, and FURB142: derived dict projections, "
                 "constructor-valued and filtered dict projections, destructured list projections, narrowly filtered computed list candidates, and filtered set "
@@ -128,6 +129,36 @@ class PreferCollectionComprehension(Rule):
             ),
         ),
         examples=(
+            RuleExample(
+                example_id="prepared-ordered-filters",
+                scenario="prepared-list",
+                title="Preparation and ordered continue guards still build one fresh list",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/records.py",
+                        "def records(rows):\n    result = []\n    allowed = {'ready'}\n    for row in rows:\n        if row.kind not in allowed:\n            continue\n        if row.hidden:\n            continue\n        result.append(Record(row.value))\n    return result\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/records.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="prepared-list-escapes",
+                scenario="prepared-list",
+                title="An observed list must retain its incremental construction",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/records.py",
+                        "def records(rows):\n    result = []\n    observed = register(result)\n    for row in rows:\n        if row.hidden:\n            continue\n        if row.deleted:\n            continue\n        result.append(Record(row.value))\n    return result\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/records.py"),
+                expected_count=0,
+                public=True,
+            ),
             RuleExample(
                 example_id="constructor-dict-projection-loop",
                 title="Build constructor-valued dictionaries directly",
@@ -293,7 +324,113 @@ class PreferCollectionComprehension(Rule):
                         else Severity.WARNING,
                     )
                 )
+            diagnostics.extend(_prepared_list_findings(context, owner, comments, namespace_observers, diagnostics))
         return sorted(diagnostics, key=lambda diagnostic: (diagnostic.line, diagnostic.col))
+
+
+def _prepared_list_findings(
+    context: PythonFileContext,
+    owner: _Callable,
+    comments: frozenset[int],
+    namespace_observers: frozenset[int],
+    existing: list[Diagnostic],
+) -> Iterator[Diagnostic]:
+    occupied = {finding.line for finding in existing}
+    for finding, loop in _prepared_list_candidates(owner, comments, namespace_observers):
+        if loop.lineno in occupied or context.suppressions.is_suppressed(loop.lineno, "SARJ430"):
+            continue
+        yield Diagnostic(
+            context.path,
+            loop.lineno,
+            loop.col_offset + 1,
+            "SARJ430",
+            f"Build fresh list '{finding.name}' with a comprehension; preserve ordered filters and preparation. This shape requires manual review.",
+            severity=Severity.ERROR if not context.dynamic_namespace else Severity.WARNING,
+        )
+
+
+def _prepared_list_candidates(
+    owner: _Callable, comments: frozenset[int], namespace_observers: frozenset[int]
+) -> Iterator[tuple[_Candidate, ast.For]]:
+    bindings = None
+    for block in _statement_blocks(owner.body):
+        for index, init in enumerate(block):
+            if (
+                not isinstance(init, _Init)
+                or (initialized := _initialized_collection(init)) is None
+                or initialized.kind is not _CollectionKind.LIST
+            ):
+                continue
+            loop = _prepared_loop(block, index, initialized.name)
+            if loop is None:
+                continue
+            bindings = bindings or _owner_bindings(owner, namespace_observers)
+            if bindings.observes_namespace:
+                return
+            if _prepared_list_builder(
+                initialized, init, loop, bindings, comments, prepared=block[index + 1] is not loop
+            ):
+                yield _Candidate(_CollectionKind.LIST, initialized.name), loop
+
+
+def _prepared_loop(block: list[ast.stmt], index: int, name: str) -> ast.For | None:
+    for statement in block[index + 1 :]:
+        match statement:
+            case ast.Assign() | ast.AnnAssign():
+                if any(isinstance(node, ast.Name) and node.id == name for node in walk_ast(statement)):
+                    return None
+            case ast.For(orelse=[]):
+                return statement
+            case _:
+                return None
+    return None
+
+
+def _prepared_list_builder(
+    initialized: _InitializedCollection,
+    init: _Init,
+    loop: ast.For,
+    bindings: _OwnerBindings,
+    comments: frozenset[int],
+    *,
+    prepared: bool,
+) -> bool:
+    name = initialized.name
+    names = _bound_names(loop.target)
+    if name in bindings.captured | bindings.external:
+        return False
+    if not names or name in names or _contains_starred(loop.target):
+        return False
+    if _target_binding_is_observable(bindings, names, loop) or _has_comment(init, loop, comments):
+        return False
+    if _loads_name(loop.iter, name) or _contains_prohibited_expression(loop.iter):
+        return False
+    guards = _continue_filters(loop.body)
+    if len(guards) < _MIN_ORDERED_FILTERS and not prepared:
+        return False
+    remaining = loop.body[len(guards) :]
+    expression = _single_method_argument(remaining[0], name, "append") if len(remaining) == 1 else None
+    return (
+        expression is not None
+        and _bounded_list_projection(expression, names)
+        and not any(_loads_name(node, name) for node in [expression, *guards])
+        and not any(
+            isinstance(part, ast.NamedExpr | ast.Await | ast.Yield | ast.YieldFrom | ast.Lambda)
+            for guard in guards
+            for part in walk_ast(guard)
+        )
+    )
+
+
+def _continue_filters(body: list[ast.stmt]) -> list[ast.expr]:
+    guards: list[ast.expr] = []
+    for statement in body:
+        match statement:
+            case ast.If(test=test, body=[ast.Continue()], orelse=[]):
+                guards.append(test)
+            case _:
+                break
+    return guards
 
 
 def autofix_comprehension_replacement(
@@ -744,7 +881,6 @@ def _namespace_observer_calls(context: PythonFileContext) -> frozenset[int]:
         "inspect": {"currentframe", "stack", "trace", "getouterframes", "getinnerframes", "getargvalues"},
         "sys": {"_getframe"},
     }
-    # Explicit aliases remain conservative exclusions even when another scope shadows them.
     modules: defaultdict[str, set[str]] = defaultdict(set)
     symbols = observers["builtins"].copy()
     for node in context.nodes(ast.Import):
@@ -761,7 +897,6 @@ def _namespace_observer_calls(context: PythonFileContext) -> frozenset[int]:
 def _observer_import_symbols(node: ast.ImportFrom, observers: dict[str, set[str]]) -> set[str]:
     if node.level or node.module not in observers:
         return set()
-    # These inspect observers are public wildcard exports; sys._getframe is not.
     if node.module == "inspect" and any(alias.name == "*" for alias in node.names):
         return observers["inspect"]
     return {alias.asname or alias.name for alias in node.names if alias.name in observers[node.module]}
@@ -809,11 +944,9 @@ def _comprehension_local_nodes(nodes: Iterable[ast.AST], names: frozenset[str]) 
     for node in nodes:
         if not isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
             continue
-        # Only first-generator bindings are local before every later generator expression.
         bound = _bound_names(node.generators[0].target) & names
         if not bound:
             continue
-        # The first iterable runs in the surrounding scope; targets and remaining expressions are local.
         scoped: list[ast.AST] = [node.generators[0].target, *node.generators[0].ifs, *node.generators[1:]]
         scoped.extend((node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,))
         local_nodes.update(

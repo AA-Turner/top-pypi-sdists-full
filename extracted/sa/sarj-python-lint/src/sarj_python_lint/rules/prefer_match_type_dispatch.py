@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import ast
+import builtins
 from dataclasses import dataclass
+import inspect
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, NamedTuple, final, override
 
 from sarj_python_lint.rule_base import (
     AutofixPolicy,
     Diagnostic,
+    DiagnosticSeverity,
     ExampleFile,
     ExampleOutcome,
     ProjectRule,
@@ -20,10 +23,11 @@ from sarj_python_lint.rules._annotation_semantics import bit_or_members as _flat
 from sarj_python_lint.rules._binding_inventory import binding_names
 from sarj_python_lint.rules._declared_contracts import MODEL_BASES, DeclaredClass, DeclaredContracts
 from sarj_python_lint.rules._imports import ImportIndex
+from sarj_python_lint.rules.prefer_match_exception_dispatch import PreferMatchExceptionDispatch
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Sequence
 
     from sarj_python_lint._file_context import PythonFileContext
 
@@ -52,6 +56,7 @@ _BUILTIN_TYPES = frozenset(
         "type",
     }
 )
+_BUILTIN_CLASSES = frozenset(name for name, _ in inspect.getmembers(builtins, inspect.isclass))
 _STDLIB_AST_TYPES = frozenset(name for name, value in dict[str, object](vars(ast)).items() if isinstance(value, type))
 
 
@@ -110,11 +115,14 @@ class PreferMatchTypeDispatch(ProjectRule):
         autofix=AutofixPolicy.SAFE,
         limitations=(
             "Safe fixes require a closed private nested synchronous helper with proven inert containing scopes and exact primitive literal callers. Only comment-free builtin class-check ladders on one parameter qualify; unknown subjects, callbacks, frame/closure escapes, sibling checks, grouped conditions, guards and custom classes remain review-only.",
-            "General dispatch requires two or more adjacent, unguarded `isinstance` branches over the same simple name. Repeated isinstance calls joined only by or on that same name are also checked; use an OR class pattern for shared behavior. A single isinstance call with a type union remains allowed.",
-            "Guarded dispatch over proven classes is additionally a manual warning: keep the type check first, preserve guard order and retain the fallback. Guards with calls, assignment expressions, await or yield are excluded. Imported classes without source proof remain excluded; this extension has no automatic fix.",
+            "General dispatch errors require two or more adjacent, unguarded `isinstance` branches over the same simple name. Repeated isinstance calls joined only by or on that same name are also checked; use an OR class pattern for shared behavior.",
+            "Every other statement-level isinstance check whose classes can be class patterns is a warning: an if/elif chain led by a positive check (optionally followed by `and` guards or OR-ed with `subject is None`), a negated check with a plain else, and a return or assignment of an isinstance-led `and` or of a conditional expression. Later checks of a terminating same-subject sequence join the first finding.",
+            "Asserts, comprehension and lambda filters, call arguments, nested conditional expressions, while tests, bare predicate returns, non-leading conjuncts, negated guards without else, and subjects other than names or attribute chains remain allowed because no match statement fits there cleanly. Classes must be builtins, file-local classes or non-typing imports; CONSTANT_STYLE names are presumed runtime type tuples. A keyword sub-pattern on a missing attribute falls through instead of raising AttributeError.",
+            "Guarded dispatch over proven stdlib AST classes is an error; other proven classes retain a manual warning. Keep the type check first, preserve guard order and retain the fallback. Guards with assignment expressions, await or yield are excluded. Imported classes without source proof remain excluded; this extension has no automatic fix.",
+            "Call-bearing guards, a guarded type repeated in a later arm, and a terminating prefix whose final arm falls through are warnings only for proven non-builtin classes on a function-local subject that no global or nonlocal declaration can rebind; an unguarded repeated type remains excluded as dead dispatch. A `subject is None` arm joins this dispatch as `case None` when at least two class arms remain; equality with None does not.",
             "A single ordinary-class reuse-or-construction normalization is a warning when both branches first assign the same simple target, reusing the subject or constructing the checked class. Preserve all following branch work. This branch has no automatic fix and does not change established dispatch errors.",
             "Normalization requires an undecorated, stable module-local class with proven ordinary ancestry and nonescaping class references. Dynamic or mutated classes, unknown imports, constructor argument effects, pre-assignment work and later reassignment of the subject, target or class remain excluded; constructor arguments are simple names or constants.",
-            "Source-proven Pydantic/Enum dispatch is an error even for a single positive isinstance branch. Mixed model/builtin dispatch is supported. These findings have no automatic fixes; preserve nested checks inside case bodies. Predicate expressions, assertions, negated checks and compound guards remain allowed.",
+            "Source-proven Pydantic/Enum dispatch is an error even for a single positive isinstance branch. Mixed model/builtin dispatch is supported. These findings have no automatic fixes; preserve nested checks inside case bodies.",
             "A terminating sibling prefix may precede a two-arm if/elif tail whose bodies can fall through. Preserve nested checks inside case bodies rather than moving them into case guards.",
             "The checked types must be unshadowed builtins, undecorated module-local classes without an explicit or known locally inherited custom metaclass, or proven stdlib ast classes; unresolved imports, runtime type groups, repeated type references, generated files, and non-terminating sibling checks are excluded.",
             "Local ancestry must resolve to stable undeclared-metaclass classes or proven builtin/stdlib ast bases. External bases, runtime base aliases, and parameterized base expressions remain excluded because their metaclass or __class_getitem__ effects are unproven.",
@@ -123,6 +131,36 @@ class PreferMatchTypeDispatch(ProjectRule):
             "Declared support for Python before 3.10 suppresses this recommendation when proven by the nearest project metadata or exact installed-distribution ownership. Missing or ambiguous target metadata retains advisory behavior; it does not prove a modern target.",
         ),
         examples=(
+            RuleExample(
+                example_id="guarded-ast-dispatch",
+                scenario="guarded-ast",
+                title="AST type branches retain guards inside match cases",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/nodes.py",
+                        "import ast\ndef owner(parent, current):\n    if isinstance(parent, ast.arg) and current is parent.annotation:\n        return parent\n    if isinstance(parent, ast.FunctionDef) and current is parent.returns:\n        return parent\n    return None\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/nodes.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="guarded-ast-match",
+                scenario="guarded-ast",
+                title="Case guards preserve attribute access and fallback behavior",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/nodes.py",
+                        "import ast\ndef owner(parent, current):\n    match parent:\n        case ast.arg() if current is parent.annotation:\n            return parent\n        case ast.FunctionDef() if current is parent.returns:\n            return parent\n    return None\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/nodes.py"),
+                expected_count=0,
+                public=True,
+            ),
             RuleExample(
                 example_id="single-model-type-branch",
                 scenario="single-model-type-dispatch",
@@ -162,6 +200,75 @@ class PreferMatchTypeDispatch(ProjectRule):
                 focus_path=PurePosixPath("app/authorization.py"),
                 expected_count=0,
                 public=True,
+            ),
+            RuleExample(
+                example_id="single-type-checks",
+                scenario="single-type-check",
+                title="Single isinstance checks hide class patterns",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/voices.py",
+                        "from voices import Adapter, Primary, Secondary\n"
+                        "def unavailable(session):\n"
+                        "    renderer = session.tts\n"
+                        "    return isinstance(renderer, Adapter) and renderer.index is None\n"
+                        "def current(session, settings):\n"
+                        "    if isinstance(session.tts, Adapter):\n"
+                        "        settings = session.tts.settings\n"
+                        "    return settings if isinstance(settings, (Primary, Secondary)) else None\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/voices.py"),
+                expected_count=3,
+                public=True,
+            ),
+            RuleExample(
+                example_id="single-class-patterns",
+                scenario="single-type-check",
+                title="Class patterns absorb attribute tests and name the fallback",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/voices.py",
+                        "from voices import Adapter, Primary, Secondary\n"
+                        "def unavailable(session):\n"
+                        "    match session.tts:\n"
+                        "        case Adapter(index=None):\n"
+                        "            return True\n"
+                        "        case _:\n"
+                        "            return False\n"
+                        "def current(session, settings):\n"
+                        "    match session.tts:\n"
+                        "        case Adapter():\n"
+                        "            settings = session.tts.settings\n"
+                        "    match settings:\n"
+                        "        case Primary() | Secondary():\n"
+                        "            return settings\n"
+                        "        case _:\n"
+                        "            return None\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/voices.py"),
+                expected_count=0,
+                public=True,
+            ),
+            RuleExample(
+                example_id="expression-type-checks",
+                title="Guards, assertions and expression-position checks have no statement to replace",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/texts.py",
+                        "def texts(value, values):\n"
+                        "    if not isinstance(value, str):\n"
+                        "        raise TypeError(value)\n"
+                        "    assert isinstance(value, str)\n"
+                        "    return [item for item in values if isinstance(item, str)]\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/texts.py"),
+                expected_count=0,
             ),
             RuleExample(
                 example_id="three-branch-type-dispatch",
@@ -465,11 +572,193 @@ class PreferMatchTypeDispatch(ProjectRule):
         findings.extend(_review_dispatch_findings(context, local_classes, unsafe_bindings, findings))
         findings.extend(_reuse_or_construct_findings(context, all_nodes, local_classes, findings))
         findings.extend(_guarded_dispatch_findings(context, local_classes, unsafe_bindings, findings))
+        owned = _exception_dispatch_spans(context)
+        findings.extend(
+            finding
+            for finding in _single_check_findings(context, findings)
+            if not any(start <= finding.line <= end for start, end in owned)
+        )
         if findings and context.session.python_target.has_declared_support_before(path, (3, 10)):
             return []
         findings = list({(finding.line, finding.col): finding for finding in findings}.values())
         findings.sort(key=lambda diagnostic: (diagnostic.line, diagnostic.col))
         return findings
+
+
+def _exception_dispatch_spans(context: PythonFileContext) -> list[tuple[int, int]]:
+    lines = {finding.line for finding in PreferMatchExceptionDispatch().check_context(context)}
+    return [
+        (node.lineno, _block_end(context.parents.get(node), node))
+        for node in context.nodes(ast.If)
+        if node.lineno in lines
+    ]
+
+
+def _block_end(parent: ast.AST | None, node: ast.If) -> int:
+    match parent:
+        case ast.stmt(end_lineno=int() as end):
+            return end
+        case _:
+            return node.end_lineno or node.lineno
+
+
+def _single_check_findings(context: PythonFileContext, existing: list[Diagnostic]) -> list[Diagnostic]:
+    imported = {
+        alias.asname or alias.name.partition(".")[0]: (node.module or "")
+        if isinstance(node, ast.ImportFrom)
+        else alias.name
+        for node in context.nodes(ast.Import, ast.ImportFrom)
+        for alias in node.names
+    }
+    checks = _CheckParser(context.imports, frozenset(node.name for node in context.nodes(ast.ClassDef)), imported)
+    reported = {finding.line for finding in existing}
+    subjects: dict[int, str] = {}
+    findings: list[Diagnostic] = []
+    for node in context.nodes(ast.If, ast.Return, ast.Assign, ast.AnnAssign):
+        match node:
+            case ast.If():
+                flagged = _starts_if_check(node, context.parents.get(node), checks, reported, subjects)
+            case _:
+                flagged = _value_checks_type(node.value, checks)
+        if flagged:
+            findings.append(
+                Diagnostic(
+                    context.path,
+                    node.lineno,
+                    node.col_offset + 1,
+                    "SARJ080",
+                    "Use match/case class patterns instead of this isinstance check; absorb subject attribute tests "
+                    "as keyword sub-patterns, keep other conditions as case guards and use `case _` for the fallback.",
+                    severity=Severity.WARNING,
+                )
+            )
+    return findings
+
+
+def _starts_if_check(
+    node: ast.If, parent: ast.AST | None, checks: _CheckParser, reported: set[int], subjects: dict[int, str]
+) -> bool:
+    branches = list(_chain(node))
+    if (isinstance(parent, ast.If) and parent.orelse == [node]) or any(
+        branch.lineno in reported for branch in branches
+    ):
+        return False
+    subject = next(filter(None, (checks.subject(branch.test) for branch in branches)), None)
+    if subject is None and node.orelse and not isinstance(node.orelse[0], ast.If):
+        subject = checks.subject(node.test, negated=True)
+    if subject is None:
+        return False
+    subjects[node.lineno] = subject
+    match _previous_statement(node, parent):
+        case ast.If(test=test, body=body, orelse=[], lineno=line) if body_terminates(body):
+            reported_subject = checks.subject(test) if line in reported else None
+            return subjects.get(line, reported_subject) != subject
+        case _:
+            return True
+
+
+def _value_checks_type(value: ast.expr | None, checks: _CheckParser) -> bool:
+    match value:
+        case ast.BoolOp(op=ast.And(), values=[first, *_]):
+            return checks.subject(first) is not None
+        case ast.IfExp(test=test):
+            return checks.subject(test) is not None or checks.subject(test, negated=True) is not None
+        case _:
+            return False
+
+
+@dataclass(frozen=True, slots=True)
+class _CheckParser:
+    imports: ImportIndex
+    classes: frozenset[str]
+    imported: dict[str, str]
+
+    def subject(self, test: ast.expr, *, negated: bool = False) -> str | None:
+        match test:
+            case ast.UnaryOp(op=ast.Not(), operand=operand) if negated:
+                test = operand
+            case ast.BoolOp(op=ast.And(), values=[first, *_]) if not negated:
+                test = first
+            case _ if negated:
+                return None
+            case _:
+                pass
+        match test:
+            case ast.BoolOp(op=ast.Or(), values=values):
+                pass
+            case _:
+                values = [test]
+        checks = [self._isinstance_subject(value) for value in values]
+        found = {check or _none_subject(value) for check, value in zip(checks, values, strict=True)}
+        return found.pop() if len(found) == 1 and any(checks) else None
+
+    def _isinstance_subject(self, test: ast.expr) -> str | None:
+        match test:
+            case ast.Call(func=ast.Name(id="isinstance"), args=[subject, kind], keywords=[]) if _attribute_root(
+                subject
+            ) is not None and self._pattern_types(kind):
+                return ast.unparse(subject)
+            case _:
+                return None
+
+    def _pattern_types(self, kind: ast.expr) -> bool:
+        match kind:
+            case ast.Tuple(elts=parts):
+                pass
+            case ast.BinOp(op=ast.BitOr()):
+                parts = _flatten_union(kind)
+            case _:
+                parts = [kind]
+        return bool(parts) and all(self._pattern_type(part) for part in parts)
+
+    def _pattern_type(self, part: ast.expr) -> bool:
+        match part, _attribute_root(part):
+            case ((ast.Attribute(attr=name) | ast.Name(id=name)), ast.Name(id=root)):
+                pass
+            case _:
+                return False
+        if name.isupper() and "_" in name.strip("_"):
+            return False
+        if root in self.imported:
+            return self.imported[root].partition(".")[0] not in {"typing", "typing_extensions"}
+        match part:
+            case ast.Name(id=name):
+                return name in self.classes or (name in _BUILTIN_CLASSES and self.imports.builtin_is_unshadowed(name))
+            case _:
+                return False
+
+
+def _none_subject(test: ast.expr) -> str | None:
+    match test:
+        case ast.Compare(left=subject, ops=[ast.Is()], comparators=[ast.Constant(value=None)]):
+            return ast.unparse(subject)
+        case _:
+            return None
+
+
+def _attribute_root(node: ast.expr) -> ast.Name | None:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    match node:
+        case ast.Name():
+            return node
+        case _:
+            return None
+
+
+def _chain(node: ast.If) -> Iterator[ast.If]:
+    yield node
+    while len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+        node = node.orelse[0]
+        yield node
+
+
+def _previous_statement(node: ast.stmt, parent: ast.AST | None) -> ast.stmt | None:
+    for block in _statement_blocks(parent) if parent is not None else ():
+        for index, statement in enumerate(block):
+            if statement is node:
+                return block[index - 1] if index else None
+    return None
 
 
 def _guarded_dispatch_findings(
@@ -482,10 +771,10 @@ def _guarded_dispatch_findings(
     findings: list[Diagnostic] = []
     for candidates in _review_sequences(context, used):
         branches = list(candidates)
-        if not any(isinstance(node.test, ast.BoolOp) and isinstance(node.test.op, ast.And) for node in branches):
+        if not used.isdisjoint(_chain_lines(branches)):
             continue
-        parsed = [_guarded_type_branch(node.test, context.imports, local_classes, unsafe_bindings) for node in branches]
-        if _parsed_dispatch(parsed) is None:
+        severity = _guarded_dispatch_severity(context, branches, local_classes, unsafe_bindings)
+        if severity is None:
             continue
         used.update(branch.lineno for branch in branches)
         first = branches[0]
@@ -495,12 +784,74 @@ def _guarded_dispatch_findings(
                 first.lineno,
                 first.col_offset + 1,
                 "SARJ080",
-                "Use match/case class patterns with guards for this type dispatch; preserve guard order "
-                "and fallbacks. This recommendation has no automatic rewrite.",
-                severity=Severity.WARNING,
+                "Use match/case class patterns (keeping any guards as case guards) for this type dispatch; "
+                "preserve guard order and fallbacks. This recommendation has no automatic rewrite.",
+                severity=severity,
             )
         )
     return findings
+
+
+def _chain_lines(branches: list[ast.If]) -> set[int]:
+    lines = {branch.lineno for branch in branches}
+    current = branches[-1]
+    while len(current.orelse) == 1 and isinstance(current.orelse[0], ast.If):
+        current = current.orelse[0]
+        lines.add(current.lineno)
+    return lines
+
+
+def _guarded_dispatch_severity(
+    context: PythonFileContext,
+    branches: list[ast.If],
+    local_classes: frozenset[str],
+    unsafe_bindings: frozenset[str],
+) -> DiagnosticSeverity | None:
+    parsed = [_guarded_type_branch(node.test, context.imports, local_classes, unsafe_bindings) for node in branches]
+    guarded = [branch for branch in parsed if branch is not None]
+    if len(guarded) != len(parsed) or sum("None" not in branch.dispatch.types for branch in guarded) < _MIN_BRANCHES:
+        return None
+    dispatches = [branch.dispatch for branch in guarded]
+    established = (
+        _parsed_dispatch(dispatches) is not None
+        and any(branch.guard is not None for branch in guarded)
+        and not any(branch.calls for branch in guarded)
+    )
+    if established:
+        return Severity.ERROR if _stdlib_ast_dispatch(dispatches) else Severity.WARNING
+    return Severity.WARNING if _stable_local_dispatch(context, branches[0], guarded) else None
+
+
+def _stable_local_dispatch(context: PythonFileContext, first: ast.If, branches: list[_GuardedBranch]) -> bool:
+    subjects = {branch.dispatch.subject for branch in branches}
+    if len(subjects) != 1 or context.dynamic_namespace:
+        return False
+    subject = subjects.pop()
+    if all(branch.dispatch.types <= _BUILTIN_TYPES | {"None"} for branch in branches):
+        return False
+    unguarded: set[str] = set()
+    for branch in branches:
+        if not unguarded.isdisjoint(branch.dispatch.types):
+            return False
+        if branch.guard is None:
+            unguarded.update(branch.dispatch.types)
+    inventory = context.binding_inventory
+    scope = inventory.scope(first)
+    return (
+        isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef)
+        and subject not in inventory.external_bindings
+        and subject in inventory.bindings.get(scope, {})
+    )
+
+
+def _stdlib_ast_dispatch(branches: list[_TypeBranch]) -> bool:
+    return all(all(kind.startswith("ast.") for kind in branch.types) for branch in branches)
+
+
+class _GuardedBranch(NamedTuple):
+    dispatch: _TypeBranch
+    guard: ast.expr | None
+    calls: bool
 
 
 def _guarded_type_branch(
@@ -508,19 +859,24 @@ def _guarded_type_branch(
     imports: ImportIndex,
     local_classes: frozenset[str],
     unsafe_bindings: frozenset[str],
-) -> _TypeBranch | None:
+) -> _GuardedBranch | None:
+    guard: ast.expr | None = None
     match test:
         case ast.BoolOp(op=ast.And(), values=[first, *guards]):
-            if any(
-                isinstance(part, ast.Call | ast.NamedExpr | ast.Await | ast.Yield | ast.YieldFrom)
-                for guard in guards
-                for part in ast.walk(guard)
-            ):
+            parts = [part for guard in guards for part in ast.walk(guard)]
+            if any(isinstance(part, ast.NamedExpr | ast.Await | ast.Yield | ast.YieldFrom) for part in parts):
                 return None
-            test = first
+            test, guard = first, guards[0]
         case _:
-            pass
-    return _type_branch(test, imports, local_classes, unsafe_bindings)
+            parts = []
+    match test:
+        case ast.Compare(left=ast.Name(id=subject), ops=[ast.Is()], comparators=[ast.Constant(value=None)]):
+            dispatch = _TypeBranch(subject, frozenset({"None"}))
+        case _:
+            dispatch = _type_branch(test, imports, local_classes, unsafe_bindings)
+    if dispatch is None:
+        return None
+    return _GuardedBranch(dispatch, guard, any(isinstance(part, ast.Call) for part in parts))
 
 
 def _reuse_or_construct_findings(
@@ -719,7 +1075,12 @@ def _review_dispatch_findings(
 
 
 def _review_sequences(context: PythonFileContext, used: set[int]) -> Iterator[Iterator[ast.If]]:
-    blocks = (block for owner in context.nodes(ast.AST) for block in _statement_blocks(owner))
+    blocks = (
+        block
+        for owner in context.nodes(ast.AST)
+        for block in _statement_blocks(owner)
+        if not (isinstance(owner, ast.If) and block is owner.orelse and [type(item) for item in block] == [ast.If])
+    )
     expanded: set[int] = set()
     for block in blocks:
         yield from _review_block(block, used, expanded)
@@ -1139,7 +1500,7 @@ def _dispatch(
     return _parsed_dispatch([_type_branch(branch.test, imports, local_classes, unsafe_bindings) for branch in branches])
 
 
-def _parsed_dispatch(parsed: list[_TypeBranch | None]) -> _Dispatch | None:
+def _parsed_dispatch(parsed: Sequence[_TypeBranch | None]) -> _Dispatch | None:
     if len(parsed) < _MIN_BRANCHES:
         return None
     if any(branch is None for branch in parsed):
@@ -1395,7 +1756,6 @@ def _statement_blocks(node: ast.AST) -> tuple[list[ast.stmt], ...]:
         case ast.With() | ast.AsyncWith() | ast.ExceptHandler() | ast.match_case():
             return (node.body,)
         case ast.Try() | ast.TryStar():
-            # ExceptHandler owns each handler body when ast.walk reaches it.
             return node.body, node.orelse, node.finalbody
         case _:
             return ()

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.11.2"
+version = "1.11.3"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -304,6 +304,7 @@ include = [
 
 [tool.ty.overrides.rules]
 import-not-found = "ignore"
+missing-module-member = "ignore"
 
 [tool.coverage.report]
 exclude_lines = [

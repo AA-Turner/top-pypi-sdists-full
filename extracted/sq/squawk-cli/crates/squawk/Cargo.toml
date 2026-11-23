@@ -18,7 +18,6 @@ categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 serde_json.workspace = true
-tempfile.workspace = true
 serde = { workspace = true, features = ["rc"] }
 clap.workspace = true
 console.workspace = true
@@ -27,6 +26,8 @@ simplelog.workspace = true
 log.workspace = true
 enum-iterator.workspace = true
 squawk-syntax.workspace = true
+squawk-fmt.workspace = true
+squawk-diagnostics.workspace = true
 squawk-linter.workspace = true
 squawk-lexer.workspace = true
 squawk-github.workspace = true
@@ -34,13 +35,16 @@ squawk-server.workspace = true
 squawk-thread.workspace = true
 toml.workspace = true
 glob.workspace = true
+ignore.workspace = true
 rayon.workspace = true
 anyhow.workspace = true
 annotate-snippets.workspace = true
 squawk-line-index.workspace = true
 lsp-server.workspace = true
+similar.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true
 insta.workspace = true
 snapbox.workspace = true
 

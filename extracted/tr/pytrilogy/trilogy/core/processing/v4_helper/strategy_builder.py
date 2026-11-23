@@ -62,7 +62,6 @@ from trilogy.core.models.build import (
     LooseBuildConceptList,
     generate_concept_name,
     get_concept_arguments,
-    nonstandard_grouping_lineage,
 )
 from trilogy.core.models.build_environment import BuildEnvironment, SpanScope
 from trilogy.core.models.core import arg_to_datatype, holds_unique_elements
@@ -152,6 +151,7 @@ from .extent_ownership import takes_a_value_on_padding
 from .final_cover import elect_cover, output_covers, record_twin_reuse
 from .functional_dependency import (
     build_fd_closure,
+    build_fd_determines,
     build_fd_determines_all,
     strict_fd_closure,
     strict_fd_determines,
@@ -554,17 +554,20 @@ class _CleanFeederCache:
         ]
         if not search:
             return None
-        info = search_concepts(
-            mandatory_list=search,
-            history=V4History(
-                base_environment=v4_history.base_environment,
-                build_caches=v4_history.build_caches,
-            ),
-            environment=self._environment,
-            depth=1,
-            g=self._g,
-            conditions=self._conditions if kept else [],
-        )
+        from .condition_placement import planning_a_set
+
+        with planning_a_set():
+            info = search_concepts(
+                mandatory_list=search,
+                history=V4History(
+                    base_environment=v4_history.base_environment,
+                    build_caches=v4_history.build_caches,
+                ),
+                environment=self._environment,
+                depth=1,
+                g=self._g,
+                conditions=self._conditions if kept else [],
+            )
         node = info.strategy_node
         if node is not None and kept:
             # planned under the WHERE, it carries the WHERE's columns too:
@@ -874,9 +877,7 @@ def node_nulls_grouping_keys(node: StrategyNode) -> bool:
     away), so nothing may join back to it on a non-unique key, because no
     later dedup will absorb the duplicates. Both halves must ask this one
     question or they drift apart."""
-    return any(
-        nonstandard_grouping_lineage(o) is not None for o in node.output_concepts
-    )
+    return any(node.environment.pass_of(o) is not None for o in node.output_concepts)
 
 
 def _groups_null_grouping_keys(
@@ -885,7 +886,7 @@ def _groups_null_grouping_keys(
     """`node_nulls_grouping_keys` of these groups' nodes, read off what each
     outputs at stage 2."""
     return any(
-        nonstandard_grouping_lineage(concept) is not None
+        environment.pass_of(concept) is not None
         for gid in gids
         for address in attrs[gid].output_concepts
         if (concept := _concept_at(environment, address)) is not None
@@ -898,15 +899,12 @@ def _nonstandard_grouping_key_addresses(
     """Grouping-key addresses of this group's non-standard (ROLLUP/CUBE/
     GROUPING SETS) aggregate members, across the `by` spec and every grouping
     set."""
-    out: set[str] = set()
     for addr in attrs[gid].primary_members:
         concept = _concept_at(environment, addr)
-        lineage = nonstandard_grouping_lineage(concept) if concept else None
-        if lineage is not None:
-            out |= {b.address for b in lineage.by}
-            for grouping_set in lineage.grouping_sets:
-                out |= {b.address for b in grouping_set}
-    return out
+        grouping = environment.pass_of(concept) if concept else None
+        if grouping is not None:
+            return set(grouping.keys)
+    return set()
 
 
 def _provider_feeds_other_grouping(
@@ -2265,14 +2263,11 @@ def _aggregate_scalar_inputs(
     named: frozenset[str],
     environment: BuildEnvironment,
 ) -> list[BuildConcept]:
-    """The BASIC row inputs an aggregate projects onto its merged input rows:
-    none under a nonstandard grouping unless beside a region domain."""
+    """The BASIC row inputs an aggregate projects onto its merged input rows."""
     scalar_inputs: list[BuildConcept] = []
     for concept in outputs:
         if concept.address not in primary_addrs:
             continue
-        if nonstandard_grouping_lineage(concept) is not None and not region_spans:
-            return []
         scalar_inputs.extend(
             aggregate_input
             for aggregate_input in _aggregate_row_preserving_inputs(
@@ -2639,6 +2634,48 @@ def _row_source_parents(node: StrategyNode) -> list[StrategyNode]:
     ]
 
 
+def _at_input_grain(
+    parent: StrategyNode,
+    keys: set[str],
+    environment: BuildEnvironment,
+    seen: set[int] | None = None,
+) -> bool:
+    seen = seen or set()
+    if id(parent) in seen:
+        return False
+    seen.add(id(parent))
+    if _pairs_repeated_elements(keys, parent):
+        return False
+    resolved_grain = parent.resolve().grain.components
+    unresolved = [
+        component
+        for component in resolved_grain
+        if component not in keys
+        and not strict_fd_determines(environment, keys, component)
+    ]
+    # A leftover component the stream pins to a single literal
+    # (`channel = 'STORE'` under an all-channel union) can't split any
+    # input-grain key group, so the rows are still unique at the input
+    # grain without it. An unnested element can: a list repeats a value
+    # (`[3, 3]`), so its rows are unique only on the element's ordinal.
+    if not unresolved or set(unresolved) <= (
+        _subtree_pinned_addresses(parent) - _unnested_addresses(parent)
+    ):
+        return True
+    rows = _row_source_parents(parent)
+    if isinstance(parent, SelectNode) and parent.force_group is False:
+        return len(rows) == 1 and _at_input_grain(rows[0], keys, environment, seen)
+    if isinstance(parent, MergeNode) and parent.force_group is not True:
+        grained = [
+            candidate
+            for candidate in parent.parents
+            if candidate.resolve().grain.components
+        ]
+        if len(grained) == 1:
+            return _at_input_grain(grained[0], keys, environment, seen)
+    return False
+
+
 def _parents_already_at_input_grain(
     outputs: list[BuildConcept],
     parents: list[StrategyNode],
@@ -2662,50 +2699,11 @@ def _parents_already_at_input_grain(
     its GROUP BY clause."""
     if not input_grain:
         return False
-    if any(nonstandard_grouping_lineage(c) is not None for c in outputs):
+    if any(environment.pass_of(c) is not None for c in outputs):
         return False
     keys = set(input_grain)
 
-    def at_input_grain(parent: StrategyNode, seen: set[int] | None = None) -> bool:
-        seen = seen or set()
-        if id(parent) in seen:
-            return False
-        seen.add(id(parent))
-        if _pairs_repeated_elements(keys, parent):
-            return False
-        resolved_grain = parent.resolve().grain.components
-        unresolved = [
-            component
-            for component in resolved_grain
-            if component not in keys
-            and not strict_fd_determines(environment, keys, component)
-        ]
-        # A leftover component the stream pins to a single literal
-        # (`channel = 'STORE'` under an all-channel union) can't split any
-        # input-grain key group, so the rows are still unique at the input
-        # grain without it. An unnested element can: a list repeats a value
-        # (`[3, 3]`), so its rows are unique only on the element's ordinal.
-        if not unresolved or set(unresolved) <= (
-            _subtree_pinned_addresses(parent) - _unnested_addresses(parent)
-        ):
-            return True
-        rows = _row_source_parents(parent)
-        if isinstance(parent, SelectNode) and parent.force_group is False:
-            return len(rows) == 1 and at_input_grain(rows[0], seen)
-        if isinstance(parent, MergeNode) and parent.force_group is not True:
-            grained = [
-                candidate
-                for candidate in parent.parents
-                if candidate.resolve().grain.components
-            ]
-            if len(grained) == 1:
-                return at_input_grain(grained[0], seen)
-        return False
-
-    for parent in parents:
-        if not at_input_grain(parent):
-            return False
-    return True
+    return all(_at_input_grain(parent, keys, environment) for parent in parents)
 
 
 # A declared join key is normally one hop from the scan that binds it; the cap
@@ -5209,7 +5207,7 @@ def _renders_grouping_rows(
     twin of `node_nulls_grouping_keys`."""
     return any(
         (c := environment.concepts.get(address)) is not None
-        and nonstandard_grouping_lineage(c) is not None
+        and environment.pass_of(c) is not None
         for address in rendered
     )
 
@@ -6213,13 +6211,40 @@ def _groups_past_outputs(
     node: StrategyNode, outputs: list[BuildConcept], environment: BuildEnvironment
 ) -> bool:
     """A grouping that kept a key the outputs do not determine (a derived
-    key's own grain, `species` of `fc`) holds a row per value of it."""
+    key's own grain, `species` of `fc`) holds a row per value of it. Hidden,
+    it counts when it keys a property shown without it: `tree_form as f`
+    grouped by `species` repeats a form per species
+    (`SelectGrain.hidden_key_repeats_property`). A filtered value's keys are
+    the one exception where its condition reads finer than them: `select
+    name, bulk_name` is a row per product."""
     closure = strict_fd_closure(environment, {c.address for c in outputs})
+    hidden = node.hidden_concepts or set()
+    keys_of = partial(_keys_of, outputs)
+    property_keys = keys_of(
+        lambda c: c.purpose == Purpose.PROPERTY
+        and not isinstance(c.lineage, BuildFilterItem)
+    ) - keys_of(partial(_collapsed_filter, environment=environment))
     return any(
-        o.address not in closure and not o.is_aggregate
+        o.address not in closure
+        and not o.is_aggregate
+        and (o.address not in hidden or o.address in property_keys)
         for o in node.output_concepts
-        if o.address not in (node.hidden_concepts or set())
     )
+
+
+def _collapsed_filter(concept: BuildConcept, environment: BuildEnvironment) -> bool:
+    """A filtered value whose condition reads finer than its keys: one value
+    per key where any row of it passes, so its rows are its keys'."""
+    return isinstance(concept.lineage, BuildFilterItem) and any(
+        not build_fd_determines(environment, set(concept.keys or ()), arg.address)
+        for arg in concept.lineage.where.row_arguments
+    )
+
+
+def _keys_of(
+    outputs: list[BuildConcept], which: Callable[[BuildConcept], bool]
+) -> set[str]:
+    return {key for c in outputs if which(c) for key in c.keys or ()}
 
 
 def _holds_summary_rows(node: StrategyNode, outputs: list[BuildConcept]) -> bool:
@@ -6934,6 +6959,15 @@ class _FinalCover:
     passthroughs: dict[str, list[BuildConcept]]
     rendered: dict[str, frozenset[str]] = field(default_factory=dict)
 
+    def owed(self, gid: str) -> frozenset[str]:
+        """What the election hosts on contributor `gid`."""
+        return frozenset(
+            c.address
+            for c in self.per_group.get(gid, [])
+            + self.projections.get(gid, [])
+            + self.passthroughs.get(gid, [])
+        )
+
     def holds(self, gid: str) -> frozenset[str]:
         """The columns contributor `gid` reaches the FINAL with: what it
         renders, and what the election owes on it."""
@@ -7184,6 +7218,7 @@ def _assemble_final_node(
                 attrs[side],
                 plan.identity[side] | plan.keys_for(side),
                 environment,
+                cover.owed(side) | filter_only_addrs,
             )
             if (side := origin.get(id(parent))) is not None
             else parent
@@ -7569,13 +7604,16 @@ def _at_declared_identity(
     group: GroupAttrs,
     identity: frozenset[str],
     environment: BuildEnvironment,
+    read: frozenset[str] | None = None,
 ) -> StrategyNode:
     """A row stream built off rows finer than the identity its group declares
     (a filter of an item attribute sourced off the sale lines), deduplicated
     to that identity when an independent sibling's rows are at that finer row
     key too: paired on the planned keys alone, each of the stream's rows would
     meet each of the sibling's. Its outputs are functions of the identity, so
-    nothing is lost. `identity` holds the keys the plan pairs the stream on.
+    nothing is lost. `identity` holds the keys the plan pairs the stream on;
+    `read`, what the FINAL reads off it (a column it carries for no reader,
+    `city` on a filter by `species`, is no output).
 
     Both reads are of rows, not columns: the resolved grain follows the
     datasource each scan resolved to, which stage 2 does not choose."""
@@ -7583,7 +7621,6 @@ def _at_declared_identity(
         group.derivation in GROUPING_DERIVATIONS
         or group.derivation == Derivation.ROWSET
         or group.extent_spans
-        or node_nulls_grouping_keys(node)
     ):
         return node
     keys = identity - {ALL_ROWS_ADDRESS}
@@ -7601,7 +7638,10 @@ def _at_declared_identity(
             and not _derives_from(other, node)
         )
     )
-    if not finer & sibling_rows or not set(group.output_concepts) <= closure:
+    outputs = set(group.output_concepts)
+    if read is not None:
+        outputs &= read
+    if not finer & sibling_rows or not outputs <= closure:
         return node
     kept = [o for o in node.usable_outputs if o.address in closure]
     return _forced_dedup(node, kept, environment, closure)
@@ -8266,6 +8306,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                 unfolded.attrs[succ].derivation != Derivation.AGGREGATE
                 for succ in unfolded.group_graph.successors(gid)
             ),
+            grain_keys=a.grain_components,
             complete_partials=complete_partials,
             history=history,
             g=g,
@@ -8381,6 +8422,28 @@ def _group_outputs_and_atoms(
     return outputs, atoms
 
 
+def _shown_filtered_column(
+    a: GroupAttrs, attrs: dict[str, GroupAttrs], environment: BuildEnvironment
+) -> bool:
+    """Whether `a` computes a shown filtered value that is one of the select's
+    rows: a filtered column, or a filtered aggregate keyed by what the select
+    does not show (one keyed by shown keys pairs on them)."""
+    shown = _required_final_contract(attrs).output_addresses
+    lineages = [
+        lineage
+        for m in set(a.primary_members) & shown
+        if isinstance(lineage := environment.concepts[m].lineage, BuildFilterItem)
+    ]
+    return any(
+        not (
+            isinstance(content := lineage.content, BuildConcept)
+            and content.is_aggregate
+        )
+        or not pairing_keys(content.grain.components) <= shown
+        for lineage in lineages
+    )
+
+
 def _group_needed(
     group_graph: nx.DiGraph,
     group_edges: EdgeMap,
@@ -8461,6 +8524,37 @@ def _group_needed(
         - (set() if keeps_grain else set(a.grain_components))
         - set(a.output_concepts)
     )
+    # a filtered column FINAL shows is a value of the select's rows: read off
+    # an aggregate parent alone it holds none of the shown keys beside it
+    # (`Filters.filter_over_aggregate_keeps_its_rows`). A set's filter shows
+    # nothing, and its grain is only the select it was built in; a filtered
+    # aggregate's rows are its aggregate's; a group reading the filter pairs
+    # its rows as they are.
+    if (
+        derivation == Derivation.FILTER
+        and set(group_graph.successors(gid)) == {FINAL_NODE_ID}
+        and _shown_filtered_column(a, attrs, environment)
+    ):
+        shown = _required_final_contract(attrs).output_addresses
+        grain_keys = {
+            k
+            for k in set(a.grain_components) & shown
+            if environment.concepts[k].derivation != Derivation.FILTER
+        }
+        # with the shown keys those determine, which the plan pairs it on
+        needed |= grain_keys | {
+            k
+            for k in shown - grain_keys
+            if environment.concepts[k].derivation != Derivation.FILTER
+            and build_fd_determines_all(environment, grain_keys, {k})
+        }
+    # a shown filter's rows meet FINAL's WHERE gate on the gate's grain: one
+    # key short, the gate keeps the rows it rejected on another
+    # (`SelectGrain.gate_paired_short_of_its_grain`)
+    if derivation == Derivation.FILTER and set(group_graph.successors(gid)) == {
+        FINAL_NODE_ID
+    }:
+        needed |= pairing_keys(_final_gate_keys(attrs, environment))
     # a dimension peel is read with its key, the axis its rows are paired on,
     # unless the group projects it to a coarser grain (a value by genus off a
     # species peel): then that grain is the axis

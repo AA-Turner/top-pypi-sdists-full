@@ -20,6 +20,7 @@ from .appointment import (
     AppointmentScheduledTogether,
 )
 from .assessment import Assessment
+from .attached_document import LetterDocument, PatientChartDocument, ReferralDocument
 from .authorization import Authorization, AuthorizationDiagnosisCode
 from .banner_alert import BannerAlert
 from .base import (
@@ -102,6 +103,7 @@ from .diagnostic_view import (
 from .discount import Discount
 from .django_content_type import ContentType
 from .dme import DmeOrder, DmeOrderActionEvent, DmeProduct, DmeProductCodeSystem
+from .document_annotation import DocumentAnnotation
 from .document_history_event import DocumentHistoryEvent, DocumentHistoryEventType
 from .document_reference import (
     DocumentReference,
@@ -258,6 +260,14 @@ from .payment_collection import PaymentCollection
 from .payor_specific_charge import PayorSpecificCharge
 from .plan import Plan
 from .plugin_command import PluginCommand
+from .population_health import (
+    Campaign,
+    Intervention,
+    InterventionPatient,
+    SuspectHCC,
+    SuspectHCCKind,
+    SuspectHCCStatus,
+)
 from .portal_access_grant import PortalAccessGrant, PortalAccessLevel
 from .portal_invitation import (
     PortalInvitation,
@@ -299,11 +309,19 @@ from .questionnaire import (
     Interview,
     InterviewQuestionnaireMap,
     InterviewQuestionResponse,
+    InterviewSendEvent,
     InterviewSkippedQuestion,
+    InterviewTemplate,
+    InterviewTemplateQuestionnaireMap,
+    InterviewVisualFinding,
     Question,
     QuestionEnablementCondition,
     Questionnaire,
+    QuestionnaireItemGroup,
     QuestionnaireQuestionMap,
+    QuestionnaireResult,
+    QuestionnaireStatus,
+    QuestionnaireUseCase,
     ResponseOption,
     ResponseOptionSet,
 )
@@ -479,6 +497,7 @@ __all__ = __exports__ = (
     "DmeOrderActionEvent",
     "DmeProduct",
     "DmeProductCodeSystem",
+    "DocumentAnnotation",
     "DocumentCoding",
     "DocumentReference",
     "DocumentReferenceCategory",
@@ -542,7 +561,11 @@ __all__ = __exports__ = (
     "Interview",
     "InterviewQuestionnaireMap",
     "InterviewQuestionResponse",
+    "InterviewSendEvent",
     "InterviewSkippedQuestion",
+    "InterviewTemplate",
+    "InterviewTemplateQuestionnaireMap",
+    "InterviewVisualFinding",
     "Invoice",
     "InvoiceClaim",
     "LabOrder",
@@ -570,6 +593,7 @@ __all__ = __exports__ = (
     "LabReportTemplateFieldOption",
     "LabReportTemplateQuerySet",
     "LetterActionEvent",
+    "LetterDocument",
     "LetterLanguageTemplate",
     "LetterTemplate",
     "LetterTemplateType",
@@ -615,6 +639,7 @@ __all__ = __exports__ = (
     "Patient",
     "PatientAddress",
     "PatientAdministrativeDocument",
+    "PatientChartDocument",
     "PatientContactCategory",
     "PatientContactPerson",
     "PatientContactPoint",
@@ -639,6 +664,12 @@ __all__ = __exports__ = (
     "PaymentCollection",
     "Plan",
     "PluginCommand",
+    "Campaign",
+    "Intervention",
+    "InterventionPatient",
+    "SuspectHCC",
+    "SuspectHCCKind",
+    "SuspectHCCStatus",
     "PortalAccessGrant",
     "PortalAccessLevel",
     "PortalInvitation",
@@ -667,7 +698,11 @@ __all__ = __exports__ = (
     "Question",
     "QuestionEnablementCondition",
     "Questionnaire",
+    "QuestionnaireItemGroup",
     "QuestionnaireQuestionMap",
+    "QuestionnaireResult",
+    "QuestionnaireStatus",
+    "QuestionnaireUseCase",
     "ReasonForVisit",
     "ReasonForVisitCoding",
     "ReasonForVisitSettingCoding",
@@ -675,6 +710,7 @@ __all__ = __exports__ = (
     "Reference",
     "Referral",
     "ReferralActionEvent",
+    "ReferralDocument",
     "ReferralReport",
     "ReferralReportCoding",
     "ReferralReview",

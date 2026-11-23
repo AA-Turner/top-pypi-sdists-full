@@ -3185,6 +3185,81 @@ class TestNeedsDecompositionLegDispatcher:
             mock_create.assert_not_called()
             assert len(state.list_drive_escalations()) == 1
 
+    def test_escaped_stream_json_log_still_parses_a_split(self, monkeypatch) -> None:
+        """#4083: `_fetch_raw_log_text_by_id` returns the RAW
+        ``claude -p --output-format stream-json`` log — the agent's final
+        message lives inside it JSON-encoded, so a line break in the
+        verdict is a literal two-character ``\\n`` in the raw text, not an
+        actual newline. `_SIZE_TRIAGE_CHILD_HEADING_RE` is MULTILINE and
+        never matches that, so feeding the raw log straight into
+        `consume_split_verdict` (what every OTHER test in this class does,
+        by constructing `raw_log` as already-decoded text) masked this.
+        Decoding with `coord.upstream_gaps.final_message_from_log_text`
+        first — the same way `coord.notify._capture_needs_decomposition_
+        split` already does for the worker-message path — must recover
+        the real newlines before the heading regex ever sees it."""
+        import json as _json
+
+        import coord.commands._common as common
+
+        config = self._config()
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda *a, **k: config)
+
+        final_message = (
+            "SIZE_TRIAGE_VERDICT: split\n"
+            "## Child 1: API surface\n"
+            "Do the API half.\n\n"
+            "## Files\n"
+            "- coord/api_part.py\n\n"
+            "## Child 2: CLI wiring\n"
+            "Do the CLI half.\n\n"
+            "## Files\n"
+            "- coord/cli_part.py\n\n"
+            "END_SIZE_TRIAGE\n"
+        )
+        # A genuine stream-json log: each line is a JSON event, so the
+        # final message's newlines round-trip as a literal `\n` substring
+        # in `raw_log` itself — exactly the shape #4083 describes.
+        raw_log = "\n".join(
+            _json.dumps(e)
+            for e in [
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "thinking..."}]},
+                },
+                {"type": "result", "result": final_message},
+            ]
+        )
+        assert "\\n" in raw_log  # the escaped shape this test guards against
+        self._terminal_board(raw_log=raw_log, monkeypatch=monkeypatch)
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue",
+            lambda *a, **k: {"state": "OPEN", "title": "A giant issue"},
+        )
+        monkeypatch.setattr("coord.github_ops.get_open_issues", lambda *a, **k: [])
+
+        consumed: list[str] = []
+
+        def fake_consume_split_verdict(raw_response, **kwargs):
+            consumed.append(raw_response)
+            return 900
+
+        monkeypatch.setattr(
+            "coord.decomposition_chat.consume_split_verdict",
+            fake_consume_split_verdict,
+        )
+
+        from coord.board_doctor_policy import AUTO_DISPATCHERS
+
+        result = AUTO_DISPATCHERS[queue_diagnose.CAUSE_NEEDS_DECOMPOSITION](self._row())
+
+        assert result is True
+        assert len(consumed) == 1
+        # The decoded text, not the raw stream-json log, reached the filer.
+        assert consumed[0] == final_message
+        assert "\\n" not in consumed[0]
+        assert state.list_drive_escalations() == []
+
 
 class TestParseNoProgressMinutes:
     """#3888 review: `no_progress_minutes` validates the same way its
@@ -6316,6 +6391,7 @@ class TestBuildPartialMerge:
 class _FakeFollowThroughWriter:
     def __init__(self) -> None:
         self.closed: list[int] = []
+        self.comments: list[tuple[int, str]] = []
 
     def create_issue(self, repo_name, *, title, body, milestone):
         return 999
@@ -6331,6 +6407,9 @@ class _FakeFollowThroughWriter:
 
     def close_issue(self, repo_name, number, *, comment):
         self.closed.append(number)
+
+    def comment_issue(self, repo_name, number, *, body):
+        self.comments.append((number, body))
 
 
 class TestRunFollowthroughSweep:
@@ -6469,6 +6548,93 @@ class TestRunFollowthroughSweep:
 
         assert len(dispositions) == 2
         assert {d.issue_number for d in dispositions} == {2180, 2181}
+
+    # ── #4079c review: upstream-parked rows don't loop or starve the sweep
+
+    _UPSTREAM_RESOLUTION = (
+        "ISSUE_RESOLUTION: partial — blocked on upstream (BLOCKED_ON_UPSTREAM above)\n\n"
+        "BLOCKED_ON_UPSTREAM: quadracalc: some gap\nsome detail\n"
+    )
+
+    def _stub_build_partial_merge_upstream(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.board_doctor.build_partial_merge",
+            lambda repo_name, issue_number, *, config, board: ft.PartialMerge(
+                repo_name=repo_name, issue_number=issue_number, title="T", body="B",
+                resolution_text=self._UPSTREAM_RESOLUTION,
+            ),
+        )
+
+    def test_upstream_blocked_row_does_not_consume_a_dispatch_slot(self, monkeypatch) -> None:
+        """#4079c review: `ACTION_UPSTREAM_PARKED` never resolves on its own
+        (the parent stays open as the tracker) — counting it toward
+        `max_rows` would starve every OTHER merged-partial row's follow-up
+        the same way an uncounted `ACTION_ALREADY_COVERED` would."""
+        self._stub_build_partial_merge_upstream(monkeypatch)
+        monkeypatch.setattr("coord.state.build_board", lambda: Board())
+        monkeypatch.setattr(
+            "coord.board_doctor._process_upstream_gaps_for_followthrough",
+            lambda final_message, *, config, repo_name, issue_number: [
+                SimpleNamespace(
+                    gap=SimpleNamespace(repo="quadracalc", title="some gap"),
+                    status="filed", number=9100, detail="",
+                ),
+            ],
+        )
+        writer = _FakeFollowThroughWriter()
+        rows = [self._row(2180), self._row(2181)]
+
+        dispositions = run_followthrough_sweep(
+            rows, config=self._config(),
+            plan_leg_dispatcher=lambda *a, **k: (_ for _ in ()).throw(
+                AssertionError("an upstream-blocked row must never dispatch a plan leg")
+            ),
+            writer=writer, issue_open=lambda repo, number: True,
+            max_rows=1,
+        )
+
+        assert len(dispositions) == 2
+        assert {d.issue_number for d in dispositions} == {2180, 2181}
+        assert all(d.action == ft.ACTION_UPSTREAM_PARKED for d in dispositions)
+        assert len(writer.comments) == 2
+
+    def test_upstream_blocked_row_is_not_re_commented_on_a_repeat_sweep(
+        self, monkeypatch,
+    ) -> None:
+        """Re-entry guard (#4079c review): a row already parked by an
+        earlier sweep must not be re-commented on, or re-recorded, by a
+        later sweep that re-selects the same still-open, still-eligible
+        row."""
+        self._stub_build_partial_merge_upstream(monkeypatch)
+        monkeypatch.setattr("coord.state.build_board", lambda: Board())
+        state.record_board_doctor_decision({
+            "queue": "drive-queue",
+            "key": "quadraui#2180",
+            "cause": CAUSE_MERGED_PARTIAL,
+            "action": ft.ACTION_UPSTREAM_PARKED,
+            "dry_run": False,
+            "plan_leg_assignment_id": None,
+            "follow_ups": [],
+            "follow_up_keys": {},
+            "deduped": {},
+            "queued": {},
+            "reasons": [],
+            "evidence": [],
+        })
+        writer = _FakeFollowThroughWriter()
+
+        dispositions = run_followthrough_sweep(
+            [self._row(2180)], config=self._config(),
+            plan_leg_dispatcher=lambda *a, **k: (_ for _ in ()).throw(
+                AssertionError("an already-parked row must never dispatch a plan leg")
+            ),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 1
+        assert dispositions[0].action == ft.ACTION_UPSTREAM_ALREADY_PARKED
+        assert writer.comments == []
+        assert writer.closed == []
 
     # ── #3945 review: the #3864 acceptance cases through the WIRED path,
     # exercising `run_followthrough_sweep`'s own `cap`/`backends`/

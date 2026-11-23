@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from schemathesis.core.cache import CacheWriter, Kind, request_from_case
-from schemathesis.core.transport import CallOutcome
+from schemathesis.core.transport import CallOutcome, status_label
 from schemathesis.core.warnings import SchemathesisWarning
 
 if TYPE_CHECKING:
@@ -55,12 +55,7 @@ class _OperationRecord:
 
 
 class Supervisor:
-    """Per-operation runtime supervisor consulted by the scheduler.
-
-    `observe` is called for every response and may flip an operation's
-    verdict once a rule fires. `verdict` is the read path the scheduler
-    consults before queueing each scenario.
-    """
+    """Per-operation verdicts: `observe` sees every response and may flip one; the scheduler reads them."""
 
     __slots__ = ("_records", "_lock")
 
@@ -77,7 +72,7 @@ class Supervisor:
         status_code = response.status_code
         not_served_status = None
         if schema.classify_call_outcome(case, response) is CallOutcome.NOT_SERVED:
-            not_served_status = schema.status_name_for_code(status_code) or str(status_code)
+            not_served_status = status_label(status_code, schema.status_name_for_code)
         self.record_response(
             operation_label=case.operation.label,
             status_code=status_code,
@@ -104,10 +99,9 @@ class Supervisor:
                 record = _OperationRecord()
                 self._records[operation_label] = record
             elif record.verdict.directive is not SchedulingDirective.RUN:
-                # Verdict already issued — further signal can only confirm it.
+                # A verdict is already issued; further signal can only confirm it.
                 return
-            # Documented 405s mean the spec contract anticipates them; respect that and
-            # don't treat them as evidence of an unimplemented method.
+            # A documented 405 is part of the contract, so it does not count toward the streak.
             if status_code == 405 and not is_documented_status:
                 record.counters.method_not_allowed += 1
             elif not_served_status is not None:

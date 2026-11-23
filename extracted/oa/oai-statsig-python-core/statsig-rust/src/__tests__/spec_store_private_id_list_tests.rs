@@ -39,7 +39,7 @@ fn update(name: &str, body: Option<&str>) -> (String, IdListUpdate) {
 
 #[tokio::test]
 async fn staged_append_and_deletion_survive_config_and_unchanged_list_publications() {
-    for format in [None, Some(true)] {
+    for format in [Some(false), None] {
         check_staged_append_and_deletion(store(format));
     }
 }
@@ -99,7 +99,7 @@ fn check_staged_append_and_deletion(store: SpecStore) {
 
 #[test]
 fn staged_append_cannot_replace_an_installed_snapshot_with_the_same_cursor() {
-    for format in [None, Some(true)] {
+    for format in [Some(false), None] {
         check_superseded_append(store(format));
     }
 }
@@ -256,7 +256,7 @@ fn size_gauges_follow_accepted_list_updates() {
 
 #[test]
 fn concurrent_private_callbacks_preserve_independent_appends() {
-    for format in [None, Some(true)] {
+    for format in [Some(false), None] {
         check_concurrent_appends(store(format));
     }
 }
@@ -300,7 +300,7 @@ fn check_concurrent_appends(store: SpecStore) {
 }
 
 #[tokio::test]
-async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
+async fn id_list_lock_timeout_preserves_hash_readiness_and_compact_retry() {
     std::thread::scope(|scope| {
         for flag in [None, Some(false), Some(true)] {
             let store = store(flag);
@@ -327,7 +327,7 @@ async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
                             .map(|_| true)
                     },
                 ));
-                if flag == Some(true) {
+                if flag.unwrap_or(true) {
                     assert!(matches!(result, Err(StatsigErr::LockFailure(_))));
                 } else {
                     result.unwrap();
@@ -337,12 +337,18 @@ async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
                     for event in
                         crate::id_lists_adapter::id_list_load_timing::metrics_for_test(event)
                     {
-                        if event.metric_name == "lazy_id_list_load.store_phase_ms" {
+                        if event.metric_name == id_list_load_timing::STORE_PHASE_METRIC
+                            || (event.metric_name == id_list_load_timing::LIST_PHASE_METRIC
+                                && event.tags.as_ref().unwrap()["phase"] == "total")
+                        {
                             phases.insert(event.tags.unwrap()["phase"].clone(), event.value);
                         }
                     }
                 }
-                assert!(phases["store_lock_wait"] >= LOCK_TIMEOUT.as_secs_f64() * 1000.0);
+                // The deadline includes time between measured lock waits.
+                assert!(phases["total"] >= LOCK_TIMEOUT.as_secs_f64() * 1000.0);
+                assert!(phases["store_lock_wait"] > 0.0);
+                assert!(phases["store_lock_wait"] <= phases["total"]);
                 // Both formats stage membership before the config writer lock;
                 // neither publishes when that lock times out.
                 assert!(phases.contains_key("processing"));
@@ -360,7 +366,7 @@ async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
 
 #[test]
 fn contended_hash_and_shared_writers_finish_without_publishing() {
-    let hash = store(None);
+    let hash = store(Some(false));
     let shared = store(None);
     shared.did_receive_id_list_updates(HashMap::from([update("members", Some("+AAAAAAAA\n"))]));
     let (done, result) = std::sync::mpsc::channel();

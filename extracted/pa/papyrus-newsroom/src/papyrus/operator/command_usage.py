@@ -165,8 +165,10 @@ _ENTRIES = dict([
      "[--story LINEAGE] [--body-file FILE] [--front-matter-file FILE] [--language TAG] [--json]  (--story alone: the current version against the one before it; --body-file: a draft before it is saved, against the story's current version when --story is given; a draft with no --story needs --language)", "both", "reads", "checks"),
   _e("stories next", "Print each procedure step with its state, then what is next (the checklist).", "--story LINEAGE [--json]", "both", "reads", "checks"),
   _e("stories step", "Set one checklist step's state, or add a note to it.",
-     "--story LINEAGE --step KEY [--state done|skipped|not_applicable|open] [--reason TEXT] [--note TEXT] [--evidence TEXT] [--actor-label NAME] [--agent NAME] [--dry-run]  "
-     "(skipped and not_applicable need --reason; a review step needs --note with the findings)", "both", _DRY, "checks"),
+     "--story LINEAGE --step KEY [--state done|skipped|not_applicable|open] [--reason TEXT] [--note TEXT] [--evidence TEXT] [--actor-label NAME] [--agent NAME] "
+     "[--on-instruction-of PERSON --quote TEXT] [--dry-run]  "
+     "(skipped and not_applicable need --reason; a review step needs --note with the findings; an agent closes review_people or human_review only with --on-instruction-of and --quote)",
+     "both", _DRY, "checks"),
   _e("stories note", "Add a person's note to a Story.",
      "--story LINEAGE (--body TEXT | --body-file FILE) [--summary TEXT] [--kind note|research_packet|reporting_context_packet|draft_note|editor_note] [--reference LINEAGE] [--version N] [--author-label NAME] [--dry-run]",
      "both", _DRY, ""),
@@ -193,6 +195,8 @@ _ENTRIES = dict([
      "[--dry-run] [--rate N]  (--rate is writes a second, default 5)", "both", _DRY, ""),
   _e("stories decks", "Bring every Item's and published row's deck column to the dek its front matter holds. Writes only the derived column.",
      "[--dry-run] [--rate N]  (--rate is writes a second, default 5)", "both", _DRY, ""),
+  _e("reviews index-backfill", "Write the review state key on every review request stored before the state index existed, once, after the deploy that adds it. A dry run unless --apply.",
+     "[--apply]", "operator", "apply"),
   _e("stories backfill-published-dates", "Give published Stories their first publication time and the served version's publish time, from what their versions recorded. A dry run unless --apply.",
      "[--apply] [--dry-run] [--rate N]  (a dry run unless --apply; --rate is writes a second, default 5)", "both", "apply", ""),
   _e("stories repair-image-paths", "Repair image paths in a Story's versions. Read only unless you pass --write.", "--story LINEAGE [--write] [--bucket B] [--identity-pool-id ID]", "operator", "reads", ""),
@@ -300,6 +304,8 @@ _ENTRIES = dict([
      "[--dir DIR] [--core DIR] [--root DIR] [--dry-run | --check]", "operator", "dry-run"),
   _e("agents set-rung", "Set how far one agent may go on this site (off, observe, propose, draft, prepare, publish_soft, publish_auto): writes its rung into the agent policy document as a new version with who, when and why. Admin who is a person only. A dry run that prints the policy entry before and after unless --apply. Refuses an unknown rung, a rung above what the agent's definition needs, and publish_auto while a hard floor forbids it.",
      "--id AGENT --rung RUNG --reason TEXT [--scope DIMENSION=VALUE]... [--dir DIR] [--core DIR] [--apply]", "editor", "apply", ""),
+  _e("agents set-budget", "Set the site's AI budget for paid agent work (an amount in US dollars for each day, week or month): a new version of the agent policy with who, when and why. Admin who is a person only. At the budget paid wakes wait for the next cycle and one flag a cycle is raised; --apply also puts the waiting wakes back on the queue, oldest first, and each re-checks the new budget. A dry run that prints the budget before and after and the waiting wakes unless --apply. With --agent and --per-run it sets one agent's budget for a single run instead, which never stops a run: a run over it raises one flag with the figures, as a run far above the agent's own cost history does.",
+     "--amount USD --period day|week|month --reason TEXT [--apply] | --agent RESPONSIBILITY --per-run USD --reason TEXT [--apply]", "editor", "apply", ""),
   # ---- guidelines (the operation table, src/papyrus_content/images/operations.py, is the source of the flags; a test keeps these in step) -------------
   _e("guidelines show", "Read a kind of guidelines (writing, image, video) for the site or one section: the stored document, its version, and the version id to pass to save.",
      "--kind KIND [--section KEY] [--language TAG] [--version N] [--input-file PATH]", "editor", "reads", "guidelines"),
@@ -467,7 +473,7 @@ GROUP_ORDER = {
   "stories": ["list", "show", "create", "save-version", "move", "set-slug", "retire", "schedule", "schedule-list", "schedule-suggest", "set-stars", "link-concept", "link-story", "link-reference", "suggest-links",
               "check-links", "lens-check", "measure", "next", "step", "versions", "note", "agent-note"],
   "pod": ["init", "id", "check", "build", "load"],
-  "agents": ["validate", "apply", "schedules", "listeners", "set-rung"],
+  "agents": ["validate", "apply", "schedules", "listeners", "set-rung", "set-budget"],
   "knowledge": ["concepts", "entities", "query"],
   "knowledge concepts": ["search", "related"],
   "knowledge entities": ["list", "link"],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bouncer
-Version: 4.7.0
+Version: 4.8.0
 Summary: Configure and enforce conventions for your dbt project.
 Author-email: Padraic Slattery <pgoslatara@gmail.com>
 Maintainer-email: Padraic Slattery <pgoslatara@gmail.com>
@@ -17,10 +17,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.11
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: duckdb<2,>=1.4
+Requires-Dist: duckdb<3,>=1.4
 Requires-Dist: jellyfish<2,>=1
 Requires-Dist: jinja2-simple-tags<1
 Requires-Dist: jinja2<4,>=3

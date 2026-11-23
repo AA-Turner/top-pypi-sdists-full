@@ -4,8 +4,7 @@ name: Lint
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  pull_request: {}
   schedule:
     # * is a special character in YAML so you have to quote this string
     # Run at 1:00 every day
@@ -29,13 +28,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
 
       - name: Lint
-        uses: j178/prek-action@v3.0.1
+        uses: j178/prek-action@v3.1.1
         with:
           prek-version: 0.4.11
           extra-args: >-

@@ -152,7 +152,6 @@ def groups(path: Path, source: str, *, tree: ast.Module | None = None) -> list[P
 def _extract_groups(path: Path, source: str, tree: ast.Module | None = None) -> list[ProseGroup]:
     if is_generated(path, source):
         return []
-    # Callers pass the file's shared tree; without one, parse (both fail the same way).
     if tree is None:
         tree = parse_or_none(path, source)
     if tree is None:
@@ -210,12 +209,15 @@ def _docstring_groups(tree: ast.Module) -> list[ProseGroup]:
             isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str)
         ):
             continue
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and (
-            _decorator_terminal_names(node) & PROMPT_DECORATOR_MARKERS
-        ):
-            continue
-        if isinstance(node, ast.ClassDef) and _is_schema_class(node):
-            continue
+        match node:
+            case ast.ClassDef() | ast.FunctionDef() | ast.AsyncFunctionDef() if (
+                _decorator_terminal_names(node) & PROMPT_DECORATOR_MARKERS
+            ):
+                continue
+            case ast.ClassDef() if _is_schema_class(node):
+                continue
+            case _:
+                pass
         out.append(_docstring_group(node, first, first.value.value))
     return out
 

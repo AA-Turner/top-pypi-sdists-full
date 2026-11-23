@@ -6,11 +6,12 @@ import asyncio
 from collections.abc import AsyncIterator, Sequence
 from concurrent.futures import Future
 from contextlib import asynccontextmanager, suppress
+from copy import deepcopy
 from functools import partial
 from math import isfinite
 from typing import Literal
 
-from contree_client.models import DirectoryList, GrepResult, InstanceResult, OperationEvent
+from contree_client.models import DirectoryList, GrepResult, InstanceResourcesLimits, InstanceResult, OperationEvent
 
 from contree_sdk.compat import Self
 from contree_sdk.execution import AsyncExecutor, RunRequest
@@ -24,6 +25,7 @@ from contree_sdk.session.inspection import AsyncSessionInspector
 from contree_sdk.session.lazy_state import LazyPhase, LazyState
 from contree_sdk.session.live_files import prepare_live_sources
 from contree_sdk.session.models import HistoryEntry
+from contree_sdk.session.networking import validate_network_enabled, validate_policy_references
 from contree_sdk.session.snapshot_policy import (
     AbstractSnapshotPolicy,
     CompositeSnapshotPolicy,
@@ -68,6 +70,7 @@ class AsyncLazySession(AsyncExecutor):  # noqa: PLR0904 - public lifecycle and i
         self.operation: AsyncOperationContract | None = None
         self.worker: asyncio.Task[None] | None = None
         self.last_entry: HistoryEntry | None = None
+        self._changing_configuration = False
         self._snapshot_future: Future[None] | None = None
         self._changed = asyncio.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -80,7 +83,73 @@ class AsyncLazySession(AsyncExecutor):  # noqa: PLR0904 - public lifecycle and i
     def error(self) -> BaseException | None:
         return self.state.error
 
-    def prepare_request(self, request: RunRequest) -> RunRequest:
+    @property
+    def resources_limits(self) -> InstanceResourcesLimits | None:
+        return deepcopy(self.session.resources_limits)
+
+    @property
+    def network_policy_uuids(self) -> tuple[str, ...]:
+        return self.session.network_policy_uuids
+
+    @property
+    def network_enabled(self) -> bool:
+        return self.session.network_enabled
+
+    @asynccontextmanager
+    async def _configuration_change_guard(self) -> AsyncIterator[None]:
+        async with self.condition:
+            await self.condition.wait_for(lambda: not self._changing_configuration)
+            self.state.check()
+            self._changing_configuration = True
+            try:
+                yield
+            finally:
+                self._changing_configuration = False
+                self._notify()
+
+    async def change_network_policy(self, policy: str | Sequence[str] | None) -> None:
+        """Resolve UUIDs/tag:name references, snapshot, then replace the policies.
+
+        Accepts one reference, a sequence, or None. None and an empty sequence
+        restore backend defaults. Lookup failure leaves the active VM untouched.
+        Commands wait until the change finishes. Snapshot failure leaves the
+        previous settings selected; a failed Store write retains new settings
+        in memory. Running processes end on snapshot.
+        """
+        references = validate_policy_references(policy)
+        async with self._configuration_change_guard():
+            selected_uuids = await self.session.resolve_network_policy(references)
+            await self._snapshot_locked()
+            self.state.check()
+            await self.session._set_network_policy_uuids(selected_uuids)
+
+    async def change_network_enabled(self, enabled: bool) -> None:
+        """Snapshot the active VM, then persist the setting for subsequent VMs.
+
+        Commands wait until the change finishes. Snapshot failure leaves the
+        previous settings selected; a failed Store write retains new settings
+        in memory. Running processes end on snapshot.
+        """
+        enabled = validate_network_enabled(enabled)
+        async with self._configuration_change_guard():
+            await self._snapshot_locked()
+            self.state.check()
+            await self.session.change_network_enabled(enabled)
+
+    async def change_resources_limits(self, limits: InstanceResourcesLimits | None) -> None:
+        """Snapshot the active VM, then persist replacement resource defaults.
+
+        None selects service defaults. Commands wait until the change finishes.
+        Snapshot failure preserves previous settings; a failed Store write
+        retains new settings in memory. Running processes end on snapshot.
+        """
+        limits = deepcopy(limits)
+        async with self._configuration_change_guard():
+            await self._snapshot_locked()
+            self.state.check()
+            await self.session.change_resources_limits(limits)
+
+    async def prepare_request(self, request: RunRequest) -> RunRequest:
         """Apply the wrapped session's policy and validate shared-VM semantics.
 
         Returns:
@@ -90,16 +159,18 @@ class AsyncLazySession(AsyncExecutor):  # noqa: PLR0904 - public lifecycle and i
             ValueError: The request needs a disposable VM or startup-only options.
 
         """
-        request = self.session.prepare_request(request)
+        if request.network_policy is not None or request.network_enabled is not None:
+            raise ValueError(
+                "LazySession commands cannot override networking; "
+                "use change_network_policy() or change_network_enabled()"
+            )
+        if request.resources_limits is not None:
+            raise ValueError("LazySession commands cannot override resources_limits; use change_resources_limits()")
+        request = await self.session.prepare_request(request)
         if request.disposable:
             raise ValueError("LazySession commands cannot be disposable; use a separate ContreeAsyncSession")
-        if (
-            request.preserve_env
-            or request.hostname is not None
-            or request.resources_limits is not None
-            or request.networking is not None
-        ):
-            raise ValueError("preserve_env, hostname, resources_limits and networking require VM startup configuration")
+        if request.preserve_env or request.hostname is not None:
+            raise ValueError("preserve_env and hostname require VM startup configuration")
         return request
 
     def keepalive_request(self) -> RunRequest:
@@ -184,7 +255,7 @@ class AsyncLazySession(AsyncExecutor):  # noqa: PLR0904 - public lifecycle and i
         self, request: RunRequest
     ) -> tuple[AsyncOperationContract, AsyncSubprocessContract, float | None]:
         await self.session.ensure_ready()
-        request = self.prepare_request(request)
+        request = await self.prepare_request(request)
         stdin = await self.session.file_transfer.read_stdin(request.stdin) if request.stdin is not None else None
         files = None
         if request.files:
@@ -193,6 +264,9 @@ class AsyncLazySession(AsyncExecutor):  # noqa: PLR0904 - public lifecycle and i
         async with self.condition:
             while True:
                 self.state.check()
+                if self._changing_configuration:
+                    await self.condition.wait()
+                    continue
                 starting = self.state.phase == "cold"
                 if starting:
                     try:

@@ -1,5 +1,6 @@
-use crate::{Edit, Linter, LinterSettings, Rule, Violation};
+use crate::{Linter, LinterSettings, Rule, Violation};
 use annotate_snippets::{AnnotationKind, Level, Patch, Renderer, Snippet, renderer::DecorStyle};
+use squawk_diagnostics::Edit;
 
 fn lint(sql: &str, rule: Rule) -> Vec<Violation> {
     lint_settings(sql, LinterSettings::default(), rule)
@@ -132,7 +133,7 @@ fn format_violations(sql: &str, violations: &[Violation]) -> String {
             group = group.element(patch_snippet);
         }
 
-        let rendered = renderer.render(&[group]).clone();
+        let rendered = renderer.render(&[group]);
         buf.push_str(&rendered);
         buf.push('\n');
     }

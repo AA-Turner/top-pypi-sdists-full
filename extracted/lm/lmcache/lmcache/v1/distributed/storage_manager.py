@@ -15,6 +15,7 @@ import time
 from lmcache.lmcache_native import PeriodicEventNotifier
 from lmcache.logging import init_logger
 from lmcache.utils import lmcache_deprecate
+from lmcache.v1.common.errors import LMCacheTimeoutError
 from lmcache.v1.distributed.api import (
     CapacitySnapshot,
     L1BackendType,
@@ -83,7 +84,6 @@ from lmcache.v1.memory_allocators.devdax_memory_allocator import (
     DevDaxRemoveMode,
 )
 from lmcache.v1.memory_management import MemoryObj
-from lmcache.v1.mp_observability.errors import LMCacheTimeoutError
 from lmcache.v1.mp_observability.event import Event, EventType
 from lmcache.v1.mp_observability.event_bus import get_event_bus
 from lmcache.v1.mp_observability.otel_init import register_gauge
@@ -249,7 +249,8 @@ class StorageManager:
                     manager,
                     [self._l2_adapters[d.index] for d in descriptors],
                     descriptors,
-                    create_store_policy(config.store_policy),
+                    create_store_policy(config.store_policy, self._l1_managers),
+                    eviction_config=manager.config.eviction or config.eviction_config,
                 )
                 self._store_controllers[manager.l1_manager_id] = controller
                 controller.start()
@@ -288,6 +289,7 @@ class StorageManager:
         self,
         keys: list[ObjectKey],
         layout_desc: MemoryLayoutDesc,
+        is_temporary: bool = False,
     ) -> dict[ObjectKey, MemoryObj]:
         """
         Reserve the object for writing into the storage manager.
@@ -296,6 +298,9 @@ class StorageManager:
             keys (list[ObjectKey]): List of object keys to reserve for writing.
             layout_desc (MemoryLayoutDesc): Description of the memory layout
                 for the objects to be reserved.
+            is_temporary: Store the objects as temporary: L1 deletes each one
+                when its last read lock is released, and never offloads it
+                to L2.
         Returns:
             dict[ObjectKey, MemoryObj]: A dictionary mapping object keys to their
                 reserved memory objects. Note that not all requested keys could be
@@ -312,7 +317,7 @@ class StorageManager:
             reserve_result.update(
                 self._l1_managers_by_id[owner].reserve_write(
                     keys=group,
-                    is_temporary=[False] * len(group),
+                    is_temporary=[is_temporary] * len(group),
                     layout_desc=layout_desc,
                     tag=_L1_WRITE_TAG,
                 )
@@ -383,6 +388,30 @@ class StorageManager:
         )
 
         # TODO: global key states update
+
+    def abort_write(
+        self, keys: list[ObjectKey], l1_owners: dict[ObjectKey, int]
+    ) -> None:
+        """Discard reserved objects whose store failed, once their copies drained.
+
+        Schedule it on the copies' stream so every device write into the
+        buffers has finished. A private L1 frees them before write-TTL expiry;
+        a shared Device-DAX L1 aborts its grants, which would otherwise block
+        every later writer of the keys.
+
+        Args:
+            keys: Keys reserved by :meth:`reserve_write`.
+            l1_owners: The L1 manager each key was reserved in, from
+                :func:`l1_owners_of`.
+
+        Raises:
+            ValueError: ``l1_owners`` omits a key or names an unregistered L1
+                manager.
+        """
+        for owner, group in self._group_by_owner(keys, l1_owners).items():
+            self._l1_managers_by_id[owner].finish_write_and_delete(
+                group, tag=_L1_WRITE_TAG
+            )
 
     @contextmanager
     def read_prefetched_results(

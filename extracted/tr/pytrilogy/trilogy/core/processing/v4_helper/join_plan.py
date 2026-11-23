@@ -20,7 +20,6 @@ from trilogy.core.models.build import (
     BuildConcept,
     BuildRowsetItem,
     get_concept_row_arguments,
-    get_grouped_aggregate_wrapper,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 
@@ -249,12 +248,6 @@ def lineage_pinned_grain(
         if concept.address in seen:
             continue
         seen.add(concept.address)
-        # A ROLLUP/CUBE/GROUPING SETS aggregate NULLs its grouping keys on the
-        # subtotal rows, so those keys are no row identity: pinning them drops
-        # every subtotal row from the merge (a rolled-up NULL never pairs).
-        wrapper = get_grouped_aggregate_wrapper(concept)
-        if wrapper is not None and wrapper.grouping.nulls_grouping_keys:
-            continue
         if concept.derivation in GROUPING_DERIVATIONS:
             if concept.grain:
                 grain |= set(concept.grain.components)
@@ -629,12 +622,26 @@ def _from_row_parents(
             in (Derivation.ROOT, Derivation.BASIC, Derivation.FILTER)
         )
     )
-    if not group.grain_components or not any(
-        attrs[parent].derivation in (*GROUPING_DERIVATIONS, Derivation.WINDOW)
-        for parent in parents
+    if (
+        not group.grain_components
+        or _read_only_by_final(group_graph, attrs, gid)
+        or not any(
+            attrs[parent].derivation in (*GROUPING_DERIVATIONS, Derivation.WINDOW)
+            for parent in parents
+        )
     ):
         return passed
     return passed & _determined(group.grain_components, environment)
+
+
+def _read_only_by_final(
+    group_graph: nx.DiGraph, attrs: dict[str, GroupAttrs], gid: str
+) -> bool:
+    """A filter only FINAL reads passes its row parents' rows through whole:
+    its claimed grain is the select's, not a projection of them."""
+    return attrs[gid].derivation == Derivation.FILTER and set(
+        group_graph.successors(gid)
+    ) == {FINAL_NODE_ID}
 
 
 def _held(

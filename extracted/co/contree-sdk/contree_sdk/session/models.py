@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from contree_client.models import InstanceResourcesLimits
+
 from contree_sdk.files import StagedFile
 from contree_sdk.store.tree import JSONValue
 
@@ -24,3 +26,8 @@ class HistoryEntry:
     attachments: tuple[StagedFile, ...] = ()
     applied_files: tuple[str, ...] = ()
     data: dict[str, JSONValue] = field(default_factory=dict)
+    cwd: str | None = None
+    env: dict[str, str] = field(default_factory=dict)
+    network_enabled: bool = True
+    network_policy_uuids: tuple[str, ...] = ()
+    resources_limits: InstanceResourcesLimits | None = None

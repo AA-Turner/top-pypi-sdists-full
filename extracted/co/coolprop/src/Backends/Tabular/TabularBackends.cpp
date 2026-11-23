@@ -2,7 +2,11 @@
 #if !defined(NO_TABULAR_BACKENDS)
 
 #    include "TabularBackends.h"
+#    include <exception>
 #    include "CoolProp/CoolProp.h"
+#    include "CoolProp/SchemaValidation.h"
+#    include "CoolProp/detail/json.h"
+#    include "CoolProp/schemas/TabularOptions.h"
 #    include <cmath>
 #    include <sstream>
 #    include <ctime>
@@ -348,7 +352,39 @@ void CoolProp::SinglePhaseGriddedTableData::build(shared_ptr<CoolProp::AbstractS
             d2umolardy2[i][j] = AS->second_partial_deriv(iUmolar, ykey, xkey, ykey, xkey);
         }
     }
+    // A freshly built table is used in this process as it is (load_tables() hands
+    // back the in-memory dataset, it does not go through unpack()), so the
+    // nearest-good-neighbor matrices that unpack() would make must be made here too
+    make_good_neighbors();
 }
+void CoolProp::TabularBackend::parse_options(const std::string& options_json) {
+    if (options_json.empty()) {
+        options_canonical = "{}";
+        return;
+    }
+    validate_json_against_schema(options_json, kTabularOptionsSchemaJson);
+    options_canonical = to_canonical_json_str(options_json);
+    const nlohmann::json opts = cpjson::parse(options_canonical);
+    if (opts.contains("grid")) {
+        const nlohmann::json& grid = opts.at("grid");
+        if (grid.contains("Nx")) {
+            Nx_requested = grid.at("Nx").get<std::size_t>();
+        }
+        if (grid.contains("Ny")) {
+            Ny_requested = grid.at("Ny").get<std::size_t>();
+        }
+        // The schema bounds each axis on its own; JSON Schema cannot bound their
+        // product.  The two single-phase tables hold 2 x 38 x Nx x Ny doubles
+        // (3 TB at 100000 x 100000), all allocated in the constructor, so cap the
+        // number of grid points here before any table is sized.  Written as a
+        // division so the product cannot wrap on 32-bit size_t.
+        if (Ny_requested != 0 && Nx_requested > max_grid_points / Ny_requested) {
+            throw ValueError(
+              format("Tabular grid Nx*Ny = %zux%zu exceeds the maximum of %zu grid points", Nx_requested, Ny_requested, max_grid_points));
+        }
+    }
+}
+
 std::string CoolProp::TabularBackend::path_to_tables() {
     std::vector<std::string> fluids = AS->fluid_names();
     std::vector<CoolPropDbl> fractions = AS->get_mole_fractions();
@@ -368,7 +404,7 @@ std::string CoolProp::TabularBackend::path_to_tables() {
 void CoolProp::TabularBackend::write_tables() {
     std::string path_to_tables = this->path_to_tables();
     make_dirs(path_to_tables);
-    dataset = library.get_set_of_tables(this->AS).first;
+    dataset = library.get_set_of_tables(this->AS, effective_Nx(), effective_Ny()).first;
     PackablePhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     SinglePhaseGriddedTableData& single_phase_logph = dataset->single_phase_logph;
@@ -379,7 +415,7 @@ void CoolProp::TabularBackend::write_tables() {
     write_table(phase_envelope, path_to_tables, "phase_envelope");
 }
 void CoolProp::TabularBackend::load_tables() {
-    auto [ds, loaded] = library.get_set_of_tables(this->AS);
+    auto [ds, loaded] = library.get_set_of_tables(this->AS, effective_Nx(), effective_Ny());
     dataset = ds;
     if (!loaded) {
         throw UnableToLoadError("Could not load tables");
@@ -389,7 +425,25 @@ void CoolProp::TabularBackend::load_tables() {
     }
 }
 
+/// The saturation-table lookups below are only valid once an update() on that path has
+/// returned normally: every such branch sets Q in [0, 1] and the cached saturation
+/// indices.  A Q outside [0, 1] (or NaN) means the last update threw or none was made
+/// and the indices are SIZE_MAX, so the lookup would read out of bounds.  A mixture
+/// created without fractions does not even have tables: dataset stays null until
+/// set_mole_fractions() or the first update() has loaded them.  Refuse both.  The
+/// check keys on Q rather than on _phase, which update() does not reset and so can be
+/// stale; the bound is exact, matching the strict is_in_closed_range(0, 1) in update().
+static void check_saturation_state_defined(const CoolProp::TabularDataSet* dataset, double Q) {
+    if (dataset == nullptr) {
+        throw CoolProp::ValueError("Tabular backend has no tables yet; call set_mole_fractions() and update() before requesting outputs");
+    }
+    if (!(Q >= 0 && Q <= 1)) {  // exact: update() range-checks Q strictly
+        throw CoolProp::ValueError(format("Tabular backend has no valid state (Q = %g); the last update failed or none was made", Q));
+    }
+}
+
 CoolPropDbl CoolProp::TabularBackend::calc_saturated_vapor_keyed_output(parameters key) {
+    check_saturation_state_defined(dataset, _Q);
     PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     double factor = 1.0;
@@ -401,6 +455,7 @@ CoolPropDbl CoolProp::TabularBackend::calc_saturated_vapor_keyed_output(paramete
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_saturated_liquid_keyed_output(parameters key) {
+    check_saturation_state_defined(dataset, _Q);
     PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     double factor = 1.0;
@@ -413,20 +468,18 @@ CoolPropDbl CoolProp::TabularBackend::calc_saturated_liquid_keyed_output(paramet
 };
 
 CoolPropDbl CoolProp::TabularBackend::calc_p() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
     if (using_single_phase_table) {
         return _p;
     } else {
         if (is_mixture) {
-            return phase_envelope_sat(phase_envelope, iP, iT, _T);
+            check_saturation_state_defined(dataset, _Q);
+            return phase_envelope_sat(dataset->phase_envelope, iP, iT, _T);
         } else {
             return _p;
         }
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_T() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -438,6 +491,9 @@ CoolPropDbl CoolProp::TabularBackend::calc_T() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iT, iP, _p);
         } else {
@@ -450,8 +506,6 @@ CoolPropDbl CoolProp::TabularBackend::calc_T() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_rhomolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -463,6 +517,9 @@ CoolPropDbl CoolProp::TabularBackend::calc_rhomolar() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iDmolar, iP, _p);
         } else {
@@ -471,8 +528,6 @@ CoolPropDbl CoolProp::TabularBackend::calc_rhomolar() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_hmolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -484,6 +539,9 @@ CoolPropDbl CoolProp::TabularBackend::calc_hmolar() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iHmolar, iP, _p);
         } else {
@@ -492,8 +550,6 @@ CoolPropDbl CoolProp::TabularBackend::calc_hmolar() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_smolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -505,6 +561,9 @@ CoolPropDbl CoolProp::TabularBackend::calc_smolar() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iSmolar, iP, _p);
         } else {
@@ -513,8 +572,6 @@ CoolPropDbl CoolProp::TabularBackend::calc_smolar() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_umolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -526,6 +583,9 @@ CoolPropDbl CoolProp::TabularBackend::calc_umolar() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             // h = u + pv -> u = h - pv
             CoolPropDbl hmolar = phase_envelope_sat(phase_envelope, iHmolar, iP, _p);
@@ -537,11 +597,12 @@ CoolPropDbl CoolProp::TabularBackend::calc_umolar() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_cpmolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         return calc_first_partial_deriv(iHmolar, iT, iP);
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iCpmolar, iP, _p);
         } else {
@@ -550,11 +611,12 @@ CoolPropDbl CoolProp::TabularBackend::calc_cpmolar() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_cvmolar() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         return calc_first_partial_deriv(iUmolar, iT, iDmolar);
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iCvmolar, iP, _p);
         } else {
@@ -563,9 +625,20 @@ CoolPropDbl CoolProp::TabularBackend::calc_cvmolar() {
     }
 }
 
+/// As for HEOS (#3446): transport properties are undefined for a two-phase state, so
+/// refuse 0 < Q < 1 rather than interpolate between the saturated phases.  Q = 0 and
+/// Q = 1 (to 1e-9) are the saturated phases.  Called only on the saturation path (not
+/// using a single-phase table), after check_saturation_state_defined() has established
+/// that Q is in [0, 1].
+static void check_transport_property_defined(double Q, const char* property) {
+    const double Q_tol = 1e-9;
+    if (Q > Q_tol && Q < 1 - Q_tol) {
+        throw CoolProp::ValueError(
+          format("%s is not defined for two-phase states (Q = %g); evaluate the saturated liquid (Q = 0) or vapor (Q = 1) instead", property, Q));
+    }
+}
+
 CoolPropDbl CoolProp::TabularBackend::calc_viscosity() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -577,6 +650,10 @@ CoolPropDbl CoolProp::TabularBackend::calc_viscosity() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
+        check_transport_property_defined(_Q, "Viscosity");
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iviscosity, iP, _p);
         } else {
@@ -585,8 +662,6 @@ CoolPropDbl CoolProp::TabularBackend::calc_viscosity() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_conductivity() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         switch (selected_table) {
             case SELECTED_PH_TABLE:
@@ -598,6 +673,10 @@ CoolPropDbl CoolProp::TabularBackend::calc_conductivity() {
         }
         return _HUGE;  // not needed, will never be hit, just to make compiler happy
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
+        check_transport_property_defined(_Q, "Thermal conductivity");
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, iconductivity, iP, _p);
         } else {
@@ -606,11 +685,12 @@ CoolPropDbl CoolProp::TabularBackend::calc_conductivity() {
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_speed_sound() {
-    PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
-    PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (using_single_phase_table) {
         return sqrt(1 / molar_mass() * cpmolar() / cvmolar() * first_partial_deriv(iP, iDmolar, iT));
     } else {
+        check_saturation_state_defined(dataset, _Q);
+        PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
+        PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
         if (is_mixture) {
             return phase_envelope_sat(phase_envelope, ispeed_sound, iP, _p);
         } else {
@@ -658,6 +738,7 @@ CoolPropDbl CoolProp::TabularBackend::calc_first_partial_deriv(parameters Of, pa
 };
 
 CoolPropDbl CoolProp::TabularBackend::calc_first_saturation_deriv(parameters Of1, parameters Wrt1) {
+    check_saturation_state_defined(dataset, _Q);
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (AS->get_mole_fractions().size() > 1) {
         throw ValueError("calc_first_saturation_deriv not available for mixtures");
@@ -671,6 +752,7 @@ CoolPropDbl CoolProp::TabularBackend::calc_first_saturation_deriv(parameters Of1
     }
 }
 CoolPropDbl CoolProp::TabularBackend::calc_first_two_phase_deriv(parameters Of, parameters Wrt, parameters Constant) {
+    check_saturation_state_defined(dataset, _Q);
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     if (Of == iDmolar && Wrt == iHmolar && Constant == iP) {
         CoolPropDbl rhoL = pure_saturation.evaluate(iDmolar, _p, 0, cached_saturation_iL, cached_saturation_iV);
@@ -749,6 +831,7 @@ CoolPropDbl CoolProp::TabularBackend::calc_first_two_phase_deriv_splined(paramet
     //End->update(QT_INPUTS, x_end, SatL->T());
 
     // Start with quantities needed for all calculations
+    check_saturation_state_defined(dataset, _Q);
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     CoolPropDbl hL = pure_saturation.evaluate(iHmolar, _p, 0, cached_saturation_iL, cached_saturation_iV);
     CoolPropDbl hV = pure_saturation.evaluate(iHmolar, _p, 1, cached_saturation_iL, cached_saturation_iV);
@@ -1040,14 +1123,33 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
     // Check the tables, build if necessary
     check_tables();
 
-    // Flush the cached indices (set to large number)
-    cached_single_phase_i = std::numeric_limits<std::size_t>::max();
-    cached_single_phase_j = std::numeric_limits<std::size_t>::max();
-    cached_saturation_iL = std::numeric_limits<std::size_t>::max();
-    cached_saturation_iV = std::numeric_limits<std::size_t>::max();
-
-    // To start, set quality to value that is impossible
-    _Q = -1000;
+    // Flush the cached indices (set to large number) and deselect the table, and set
+    // quality to a value that is impossible.
+    // The indices belong to the selected table, so deselect it with them: a branch below
+    // that throws before it has located a cell (e.g. the mixture phase test for inputs
+    // outside the phase envelope) must leave the state as a fresh one, not with the
+    // previous update's table and the flushed indices, which the accessors would then
+    // use to index the table out of bounds.  Each branch selects its table only once
+    // the cell has been found.
+    invalidate_state();
+    // Several branches assign _Q from the inputs before a step that can still throw
+    // (e.g. PQ/QT outside the saturation table); the saturation accessors key on _Q,
+    // so put it back to the impossible value whenever update() exits by an exception.
+    struct InvalidateQOnThrow
+    {
+        double& Q;
+        const int uncaught = std::uncaught_exceptions();
+        explicit InvalidateQOnThrow(double& q) : Q(q) {}
+        InvalidateQOnThrow(const InvalidateQOnThrow&) = delete;
+        InvalidateQOnThrow& operator=(const InvalidateQOnThrow&) = delete;
+        InvalidateQOnThrow(InvalidateQOnThrow&&) = delete;
+        InvalidateQOnThrow& operator=(InvalidateQOnThrow&&) = delete;
+        ~InvalidateQOnThrow() {
+            if (std::uncaught_exceptions() > uncaught) {
+                Q = -1000;
+            }
+        }
+    } invalidate_Q_on_throw{_Q};
 
     PureFluidSaturationTableData& pure_saturation = dataset->pure_saturation;
     PhaseEnvelopeData& phase_envelope = dataset->phase_envelope;
@@ -1094,10 +1196,10 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                         _phase = iphase_twophase;
                     }
                 } else {
-                    selected_table = SELECTED_PH_TABLE;
                     // Find and cache the indices i, j
                     find_native_nearest_good_indices(single_phase_logph, dataset->coeffs_ph, _hmolar, _p, cached_single_phase_i,
                                                      cached_single_phase_j);
+                    selected_table = SELECTED_PH_TABLE;
                     // Recalculate the phase
                     recalculate_singlephase_phase();
                 }
@@ -1134,9 +1236,17 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                     using_single_phase_table = false;
                     throw ValueError(format("P,T with TTSE cannot be two-phase for now"));
                 } else {
-                    selected_table = SELECTED_PT_TABLE;
                     // Find and cache the indices i, j
                     find_native_nearest_good_indices(single_phase_logpT, dataset->coeffs_pT, _T, _p, cached_single_phase_i, cached_single_phase_j);
+
+                    if (_p < this->AS->p_critical()) {
+                        // Below the critical pressure the saturation handling that follows treats (i, j) as the
+                        // lower-left node of a cell: it reads the nodes i + 1 and j + 1 and indexes the
+                        // (Nx-1) x (Ny-1) coefficient array coeffs_pT. TTSE's lookup returns the nearest node,
+                        // which can be the last one in either direction, so clamp to the last cell.
+                        cached_single_phase_i = std::min(cached_single_phase_i, single_phase_logpT.Nx - 2);
+                        cached_single_phase_j = std::min(cached_single_phase_j, single_phase_logpT.Ny - 2);
+                    }
 
                     if (imposed_phase_index != iphase_not_imposed) {
                         double rhoc = rhomolar_critical();
@@ -1182,7 +1292,7 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
 
                             // We want a gas solution, but we got a liquid solution
                             if (_p < this->AS->p_critical()) {
-                                while (cached_single_phase_i > 0
+                                while (cached_single_phase_i > 0 && cached_single_phase_i < single_phase_logpT.Nx - 2
                                        && single_phase_logpT.rhomolar[cached_single_phase_i][cached_single_phase_j + 1] > rhoc) {
                                     // Bump to lower temperature
                                     cached_single_phase_i++;
@@ -1214,7 +1324,8 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                                     // It's liquid, move the cell to the left
                                     cached_single_phase_i--;
                                 } else {
-                                    if (cached_single_phase_i > single_phase_logpT.Nx - 2) {
+                                    // i + 1 must still be a cell (coeffs_pT has Nx - 1 rows)
+                                    if (cached_single_phase_i + 1 > single_phase_logpT.Nx - 2) {
                                         throw ValueError(format("P,T are near saturation, but cannot move the cell to the right"));
                                     }
                                     // It's vapor, move to the right
@@ -1242,6 +1353,7 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                             }
                         }
                     }
+                    selected_table = SELECTED_PT_TABLE;
                     // Recalculate the phase
                     recalculate_singlephase_phase();
                 }
@@ -1321,12 +1433,12 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                 }
                 _phase = iphase_twophase;
             } else {
-                selected_table = SELECTED_PH_TABLE;
                 // Find and cache the indices i, j
                 find_nearest_neighbor(single_phase_logph, dataset->coeffs_ph, iP, _p, otherkey, otherval, cached_single_phase_i,
                                       cached_single_phase_j);
                 // Now find hmolar given P, X for X in Smolar, Umolar, Dmolar
                 invert_single_phase_x(single_phase_logph, dataset->coeffs_ph, otherkey, otherval, _p, cached_single_phase_i, cached_single_phase_j);
+                selected_table = SELECTED_PH_TABLE;
                 // Recalculate the phase
                 recalculate_singlephase_phase();
             }
@@ -1390,7 +1502,9 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                 if (!is_in_closed_range(0.0, 1.0, static_cast<double>(_Q))) {
                     throw ValueError(format("vapor quality is not in (0,1) for %s: %g T: %g", get_parameter_information(otherkey, "short").c_str(),
                                             otherval, static_cast<double>(_T)));
-                } else if (!is_mixture) {
+                }
+                _phase = iphase_twophase;
+                if (!is_mixture) {
                     cached_saturation_iL = iL;
                     cached_saturation_iV = iV;
                     _p = pure_saturation.evaluate(iP, _T, _Q, iL, iV);
@@ -1407,12 +1521,12 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                     _p = _Q * pV + (1 - _Q) * pL;
                 }
             } else {
-                selected_table = SELECTED_PT_TABLE;
                 // Find and cache the indices i, j
                 find_nearest_neighbor(single_phase_logpT, dataset->coeffs_pT, iT, _T, otherkey, otherval, cached_single_phase_i,
                                       cached_single_phase_j);
                 // Now find the y variable (Dmolar or Smolar in this case)
                 invert_single_phase_y(single_phase_logpT, dataset->coeffs_pT, otherkey, otherval, _T, cached_single_phase_i, cached_single_phase_j);
+                selected_table = SELECTED_PT_TABLE;
                 // Recalculate the phase
                 recalculate_singlephase_phase();
             }
@@ -1469,7 +1583,9 @@ void CoolProp::TabularBackend::update(CoolProp::input_pairs input_pair, double v
                     pL = PhaseEnvelopeRoutines::evaluate(phase_envelope, iP, iT, _T, iL);
                     pV = PhaseEnvelopeRoutines::evaluate(phase_envelope, iP, iT, _T, iV);
                 } else {
-                    (void)pure_saturation.is_inside(iT, _T, iQ, _Q, iL, iV, pL, pV);
+                    if (!pure_saturation.is_inside(iT, _T, iQ, _Q, iL, iV, pL, pV)) {
+                        throw ValueError(format("T [%g K] is not within the saturation table", _T));
+                    }
                 }
                 _p = _Q * pV + (1 - _Q) * pL;
                 cached_saturation_iL = iL;
@@ -1507,7 +1623,10 @@ void CoolProp::TabularDataSet::load_tables(const std::string& path_to_tables, sh
     }
 };
 
+std::atomic<int> CoolProp::TabularDataSet::build_count{0};
+
 void CoolProp::TabularDataSet::build_tables(shared_ptr<CoolProp::AbstractState>& AS) {
+    build_count.fetch_add(1, std::memory_order_relaxed);
     // Pure or pseudo-pure fluid
     if (AS->get_mole_fractions().size() == 1) {
         pure_saturation.build(AS);
@@ -1523,38 +1642,46 @@ void CoolProp::TabularDataSet::build_tables(shared_ptr<CoolProp::AbstractState>&
     }
     single_phase_logph.build(AS);
     single_phase_logpT.build(AS);
-    tables_loaded = true;
+    // tables_loaded is published by TabularBackend::check_tables() once the
+    // tables are also packed and written, not here.
 }
 
 /// Return the set of tabular datasets and whether tables were already loaded
-std::pair<CoolProp::TabularDataSet*, bool> CoolProp::TabularDataLibrary::get_set_of_tables(shared_ptr<AbstractState>& AS) {
+std::pair<CoolProp::TabularDataSet*, bool> CoolProp::TabularDataLibrary::get_set_of_tables(shared_ptr<AbstractState>& AS, const std::size_t Nx,
+                                                                                           const std::size_t Ny) {
     const std::string path = path_to_tables(AS);
-    const int cfg_Nx = get_config_int(TABULAR_NX);
-    const int cfg_Ny = get_config_int(TABULAR_NY);
+    // Key the in-memory cache by (path, resolution) so backend instances built
+    // at different per-instance grid resolutions coexist in one process instead
+    // of evicting each other.  The on-disk directory stays resolution-agnostic;
+    // deserialize() rejects a mis-sized file and triggers a rebuild.
+    const std::string key = path + "@" + std::to_string(Nx) + "x" + std::to_string(Ny);
+    // Concurrent first loads would otherwise race on the std::map insert and on
+    // the new entry's tables_loaded flag.  The lock also covers the disk load so
+    // a second thread never observes a half-loaded entry; load_tables() only
+    // touches this dataset and the caller's AbstractState, never the library.
+    std::scoped_lock lock(data_mutex);
     // Try to find tabular set if it is already loaded
-    auto it = data.find(path);
+    auto it = data.find(key);
     if (it != data.end()) {
-        // Verify the cached dataset's grid matches the current TABULAR_NX/TABULAR_NY
-        // config; if not, evict so we rebuild at the requested resolution rather than
-        // handing back a mis-sized table (would risk OOB reads downstream in BICUBIC/TTSE
-        // coefficient lookups).
+        // Defense-in-depth: the cached dataset's grid must match the resolution
+        // embedded in its key (set_grid pins it at insert; deserialize rejects
+        // mis-sized files; build uses the pinned sizes).  A mismatch means the
+        // invariant was broken somewhere.  Do NOT evict-and-rebuild here: live
+        // backend instances hold raw pointers into this map, so erasing would
+        // be a use-after-free for them.  Fail loud instead.
         const TabularDataSet& cached = it->second;
-        const bool grid_matches =
-          (static_cast<int>(cached.single_phase_logph.Nx) == cfg_Nx && static_cast<int>(cached.single_phase_logph.Ny) == cfg_Ny
-           && static_cast<int>(cached.single_phase_logpT.Nx) == cfg_Nx && static_cast<int>(cached.single_phase_logpT.Ny) == cfg_Ny);
-        if (grid_matches) {
-            return {&(it->second), it->second.tables_loaded};
+        const bool grid_matches = (cached.single_phase_logph.Nx == Nx && cached.single_phase_logph.Ny == Ny && cached.single_phase_logpT.Nx == Nx
+                                   && cached.single_phase_logpT.Ny == Ny);
+        if (!grid_matches) {
+            throw ValueError(format("Internal error: cached tabular dataset grid %zux%zu does not match its cache key %s",
+                                    cached.single_phase_logph.Nx, cached.single_phase_logph.Ny, key.c_str()));
         }
-        if (get_debug_level() > 0) {
-            std::cout << format("TABULAR_NX/NY changed (cached %zux%zu, config %dx%d); evicting cached dataset for %s\n",
-                                cached.single_phase_logph.Nx, cached.single_phase_logph.Ny, cfg_Nx, cfg_Ny, path.c_str());
-        }
-        data.erase(it);
+        return {&(it->second), it->second.tables_loaded};
     }
-    // Not in the map (or just evicted) -- build a fresh entry
-    TabularDataSet set;
-    data.insert(std::pair<std::string, TabularDataSet>(path, set));
-    TabularDataSet& dataset = data[path];
+    // Not in the map -- build a fresh entry at the requested resolution
+    // TabularDataSet holds a mutex, so construct it in place
+    TabularDataSet& dataset = data[key];
+    dataset.set_grid(Nx, Ny);
     bool loaded = false;
     try {
         if (!dataset.tables_loaded) {
@@ -1567,10 +1694,16 @@ std::pair<CoolProp::TabularDataSet*, bool> CoolProp::TabularDataLibrary::get_set
     return {&(dataset), loaded};
 }
 
-void CoolProp::TabularDataSet::build_coeffs(SinglePhaseGriddedTableData& table, std::vector<std::vector<CellCoeffs>>& coeffs) {
-    if (!coeffs.empty()) {
+void CoolProp::TabularDataSet::build_coeffs(SinglePhaseGriddedTableData& table, std::vector<std::vector<CellCoeffs>>& out) {
+    // Every backend sharing this dataset calls this after check_tables(); the
+    // lock makes the first caller fill coeffs and the rest wait, then skip.
+    std::scoped_lock lock(build_mutex);
+    if (!out.empty()) {
         return;
     }
+    // Fill a local and move it into `out` only once complete: a throw part-way
+    // (allocation) must leave `out` empty, or the check above would skip the retry
+    std::vector<std::vector<CellCoeffs>> coeffs;
     const bool debug = get_debug_level() > 5 || false;
     const int param_count = 6;
     parameters param_list[param_count] = {iDmolar, iT, iSmolar, iHmolar, iP, iUmolar};
@@ -1580,6 +1713,15 @@ void CoolProp::TabularDataSet::build_coeffs(SinglePhaseGriddedTableData& table, 
 
     // Resize the coefficient structures
     coeffs.resize(table.Nx - 1, std::vector<CellCoeffs>(table.Ny - 1));
+
+    // A cell is valid only if the coefficients of every tabulated parameter could be
+    // calculated: start from valid and let the loop below only clear the flag, so that
+    // a later parameter can never re-validate a cell an earlier one left without coefficients
+    for (auto& row : coeffs) {
+        for (auto& cell : row) {
+            cell.set_valid();
+        }
+    }
 
     int valid_cell_count = 0;
     for (auto param : param_list) {
@@ -1665,7 +1807,6 @@ void CoolProp::TabularDataSet::build_coeffs(SinglePhaseGriddedTableData& table, 
                     Eigen::MatrixXd alpha = Ainv.transpose() * F;  // 16x1; Watch out for the transpose!
                     std::vector<double> valpha = eigen_to_vec1D(alpha);
                     coeffs[i][j].set(param, valpha);
-                    coeffs[i][j].set_valid();
                     valid_cell_count++;
                 } else {
                     coeffs[i][j].set_invalid();
@@ -1676,41 +1817,45 @@ void CoolProp::TabularDataSet::build_coeffs(SinglePhaseGriddedTableData& table, 
         if (debug) {
             std::cout << format("Calculated bicubic coefficients for %d good cells in %g sec.\n", valid_cell_count, elapsed);
         }
-        std::size_t remap_count = 0;
-        // Now find invalid cells and give them pointers to a neighboring cell that works
-        for (std::size_t i = 0; i < table.Nx - 1; ++i)  // -1 since we have one fewer cells than nodes
+    }
+    // Now that every parameter has been processed, find invalid cells and give them
+    // pointers to a neighboring cell that works. This must run after the loop above:
+    // a neighbor that is valid for one parameter may still be invalidated by a later one.
+    std::size_t remap_count = 0;
+    for (std::size_t i = 0; i < table.Nx - 1; ++i)  // -1 since we have one fewer cells than nodes
+    {
+        for (std::size_t j = 0; j < table.Ny - 1; ++j)  // -1 since we have one fewer cells than nodes
         {
-            for (std::size_t j = 0; j < table.Ny - 1; ++j)  // -1 since we have one fewer cells than nodes
-            {
-                // Not a valid cell
-                if (!coeffs[i][j].valid()) {
-                    // Offsets that we are going to try in order (left, right, top, bottom, diagonals)
-                    int xoffsets[] = {-1, 1, 0, 0, -1, 1, 1, -1};
-                    int yoffsets[] = {0, 0, 1, -1, -1, -1, 1, 1};
-                    // Length of offset
-                    std::size_t N = sizeof(xoffsets) / sizeof(xoffsets[0]);
-                    for (std::size_t k = 0; k < N; ++k) {
-                        std::size_t iplus = i + xoffsets[k];
-                        std::size_t jplus = j + yoffsets[k];
-                        if (0 < iplus && iplus < table.Nx - 1 && 0 < jplus && jplus < table.Ny - 1 && coeffs[iplus][jplus].valid()) {
-                            coeffs[i][j].set_alternate(iplus, jplus);
-                            remap_count++;
-                            if (debug) {
-                                std::cout << format("Mapping %d,%d to %d,%d\n", i, j, iplus, jplus);
-                            }
-                            break;
+            // Not a valid cell
+            if (!coeffs[i][j].valid()) {
+                // Offsets that we are going to try in order (left, right, top, bottom, diagonals)
+                int xoffsets[] = {-1, 1, 0, 0, -1, 1, 1, -1};
+                int yoffsets[] = {0, 0, 1, -1, -1, -1, 1, 1};
+                // Length of offset
+                std::size_t N = sizeof(xoffsets) / sizeof(xoffsets[0]);
+                for (std::size_t k = 0; k < N; ++k) {
+                    std::size_t iplus = i + xoffsets[k];
+                    std::size_t jplus = j + yoffsets[k];
+                    if (0 < iplus && iplus < table.Nx - 1 && 0 < jplus && jplus < table.Ny - 1 && coeffs[iplus][jplus].valid()) {
+                        coeffs[i][j].set_alternate(iplus, jplus);
+                        remap_count++;
+                        if (debug) {
+                            std::cout << format("Mapping %d,%d to %d,%d\n", i, j, iplus, jplus);
                         }
+                        break;
                     }
                 }
             }
         }
-        if (debug) {
-            std::cout << format("Remapped %d cells\n", remap_count);
-        }
     }
+    if (debug) {
+        std::cout << format("Remapped %d cells\n", remap_count);
+    }
+    out = std::move(coeffs);
 }
 
 #    if defined(ENABLE_CATCH)
+#        include "src/Tests/ScopedTablesDirectory.h"
 #        include <catch2/catch_all.hpp>
 
 // Defined global so we only load once
@@ -1882,6 +2027,15 @@ TEST_CASE_METHOD(TabularFixture, "Tests for tabular backends with water", "[Tabu
         CHECK(std::abs((expected - dhdT_TTSE) / expected) < 1e-4);
         CHECK(std::abs((expected - dhdT_BICUBIC) / expected) < 1e-4);
     }
+    SECTION("first_partial_deriv of transport properties is rejected") {
+        setup();
+        ASTTSE->update(CoolProp::PT_INPUTS, 101325, 300);
+        CHECK_THROWS(ASTTSE->first_partial_deriv(CoolProp::iviscosity, CoolProp::iT, CoolProp::iP));
+        CHECK_THROWS(ASTTSE->first_partial_deriv(CoolProp::iconductivity, CoolProp::iT, CoolProp::iP));
+        CHECK_THROWS(ASTTSE->first_partial_deriv(CoolProp::iHmolar, CoolProp::iviscosity, CoolProp::iP));
+        ASBICUBIC->update(CoolProp::PT_INPUTS, 101325, 300);
+        CHECK_THROWS(ASBICUBIC->first_partial_deriv(CoolProp::iviscosity, CoolProp::iT, CoolProp::iP));
+    }
     SECTION("check isentropic process") {
         setup();
         double T0 = 300;
@@ -1994,6 +2148,181 @@ TEST_CASE_METHOD(TabularFixture, "Tests for tabular backends with water", "[Tabu
         CHECK(std::isnan(buf[1]));
         CHECK(buf[0] > 0);  // a sensible density value
     }
+}
+
+TEST_CASE("Tabular backends accept factory-string grid options", "[Tabular],[FactoryOptions]") {
+    using namespace CoolProp;
+    // Non-default grids: keep them out of the shared table directory (one per SECTION)
+    const testing::ScopedTablesDirectory tables_dir("grid-options");
+
+    SECTION("BICUBIC per-instance grid resolution") {
+        std::shared_ptr<AbstractState> AS(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":30,"Ny":30}})", "Water"));
+        // Canonical options round-trip
+        const std::string canonical = AS->build_options_json();
+        CHECK(canonical.find("30") != std::string::npos);
+        std::shared_ptr<AbstractState> AS2(AbstractState::factory("BICUBIC&HEOS?" + canonical, "Water"));
+        CHECK(AS2->build_options_json() == canonical);
+        // Coarse table still reproduces a solidly single-phase state
+        std::shared_ptr<AbstractState> HEOS(AbstractState::factory("HEOS", "Water"));
+        AS->update(PT_INPUTS, 10e6, 500);
+        HEOS->update(PT_INPUTS, 10e6, 500);
+        CHECK(std::abs(AS->rhomass() / HEOS->rhomass() - 1) < 1e-2);
+    }
+
+    SECTION("TTSE per-instance grid resolution") {
+        std::shared_ptr<AbstractState> AS(AbstractState::factory(R"(TTSE&HEOS?{"grid":{"Nx":30,"Ny":30}})", "Water"));
+        AS->update(PT_INPUTS, 10e6, 500);
+        CHECK(AS->rhomass() > 0);
+    }
+
+    SECTION("TTSE mixture builds its coefficients in set_mole_fractions") {
+        // The constructor defers the coefficients until the fractions are known;
+        // an imposed-phase P,T update used to index the empty coeffs_pT
+        std::shared_ptr<AbstractState> AS(AbstractState::factory(R"(TTSE&HEOS?{"grid":{"Nx":5,"Ny":5}})", "Methane&Ethane"));
+        AS->set_mole_fractions(std::vector<CoolPropDbl>{0.5, 0.5});
+        AS->specify_phase(iphase_gas);
+        AS->update(PT_INPUTS, 101325, 300);
+        CHECK(AS->rhomolar() > 0);
+    }
+
+    SECTION("no options preserves default behavior") {
+        std::shared_ptr<AbstractState> AS(AbstractState::factory("BICUBIC&HEOS", "Water"));
+        CHECK(AS->build_options_json() == "{}");
+    }
+
+    SECTION("unknown or misspelled keys throw at construction") {
+        // wrong case on Nx
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"NX":30}})", "Water")), ValueError);
+        // unknown top-level key
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(TTSE&HEOS?{"Nx":30})", "Water")), ValueError);
+        // out-of-range value
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":1,"Ny":30}})", "Water")), ValueError);
+        // each axis within range but Nx*Ny over the grid-point cap (must throw
+        // before any table is allocated: 100000x100000 would be terabytes)
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":100000,"Ny":100000}})", "Water")),
+                        ValueError);
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(TTSE&HEOS?{"grid":{"Nx":1001,"Ny":1000}})", "Water")), ValueError);
+        // one axis without the other (grid requires both so the instance never
+        // depends on the globals' later values)
+        CHECK_THROWS_AS(std::shared_ptr<AbstractState>(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":30}})", "Water")), ValueError);
+    }
+
+    SECTION("instances at different resolutions coexist in one process") {
+        std::shared_ptr<AbstractState> coarse(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":30,"Ny":30}})", "Water"));
+        std::shared_ptr<AbstractState> fine(AbstractState::factory(R"(BICUBIC&HEOS?{"grid":{"Nx":48,"Ny":48}})", "Water"));
+        coarse->update(PT_INPUTS, 10e6, 500);
+        const double rho_coarse = coarse->rhomass();
+        fine->update(PT_INPUTS, 10e6, 500);
+        const double rho_fine = fine->rhomass();
+        // Re-query the first instance: its dataset must not have been evicted/resized
+        coarse->update(PT_INPUTS, 10.1e6, 505);
+        CHECK(coarse->rhomass() > 0);
+        std::shared_ptr<AbstractState> HEOS(AbstractState::factory("HEOS", "Water"));
+        HEOS->update(PT_INPUTS, 10e6, 500);
+        CHECK(std::abs(rho_coarse / HEOS->rhomass() - 1) < 1e-2);
+        CHECK(std::abs(rho_fine / HEOS->rhomass() - 1) < 1e-2);
+    }
+
+    SECTION("grid with Ny > Nx accepts P,S / P,U / D,P inputs") {
+        // These pairs bisect a column of the x-major tables (bisect_segmented_vector_slice),
+        // whose length is Nx, not Ny
+        std::shared_ptr<AbstractState> HEOS(AbstractState::factory("HEOS", "Water"));
+        HEOS->update(PT_INPUTS, 10e6, 500);
+        for (const std::string backend : {"BICUBIC", "TTSE"}) {
+            CAPTURE(backend);
+            std::shared_ptr<AbstractState> AS(AbstractState::factory(backend + R"(&HEOS?{"grid":{"Nx":30,"Ny":60}})", "Water"));
+            AS->update(PSmass_INPUTS, HEOS->p(), HEOS->smass());
+            CHECK(std::abs(AS->T() / HEOS->T() - 1) < 1e-2);
+            AS->update(PUmass_INPUTS, HEOS->p(), HEOS->umass());
+            CHECK(std::abs(AS->T() / HEOS->T() - 1) < 1e-2);
+            AS->update(DmassP_INPUTS, HEOS->rhomass(), HEOS->p());
+            CHECK(std::abs(AS->T() / HEOS->T() - 1) < 1e-2);
+        }
+    }
+}
+
+TEST_CASE("Tabular mixtures refuse a composition change once the tables are loaded", "[Tabular]") {
+    using namespace CoolProp;
+    // set_mole_fractions() a second time kept the first composition's tables and
+    // returned that mixture's properties for the new one (COO-186).  The tables
+    // are built for one composition, so the composition is now fixed once they load.
+    const testing::ScopedTablesDirectory tables_dir("composition");
+    const std::string backend = GENERATE(as<std::string>{}, "TTSE", "BICUBIC");
+    CAPTURE(backend);
+    const double p = 101325, T = 300;
+    const std::vector<CoolPropDbl> z1{0.5, 0.5}, z2{0.2, 0.8};
+    std::shared_ptr<AbstractState> HEOS(AbstractState::factory("HEOS", "Methane&Ethane"));
+    HEOS->set_mole_fractions(z1);
+    HEOS->specify_phase(iphase_gas);
+    HEOS->update(PT_INPUTS, p, T);
+    const double h1 = HEOS->hmolar();
+
+    std::shared_ptr<AbstractState> AS(AbstractState::factory(backend + R"(&HEOS?{"grid":{"Nx":12,"Ny":12}})", "Methane&Ethane"));
+    AS->specify_phase(iphase_gas);
+    AS->set_mole_fractions(z1);
+    AS->update(PT_INPUTS, p, T);
+    const double h_tab = AS->hmolar();
+    CHECK(std::abs(h_tab - h1) < 1e-3 * std::abs(h1));
+
+    // Another composition, by mole or by mass, is refused and changes nothing
+    CHECK_THROWS_AS(AS->set_mole_fractions(z2), ValueError);
+    CHECK_THROWS_AS(AS->set_mass_fractions(z2), ValueError);
+    CHECK(AS->get_mole_fractions() == z1);
+    CHECK(AS->hmolar() == h_tab);
+    AS->update(PT_INPUTS, p, T);
+    CHECK(AS->hmolar() == h_tab);
+
+    // The same composition again is accepted, including through mass fractions
+    CHECK_NOTHROW(AS->set_mole_fractions(z1));
+    CHECK_NOTHROW(AS->set_mass_fractions(HEOS->get_mass_fractions()));
+    CHECK(AS->get_mole_fractions() == z1);
+    AS->update(PT_INPUTS, p, T);
+    CHECK(AS->hmolar() == h_tab);
+
+    // Before the tables load the composition is still free: the first call sets it
+    std::shared_ptr<AbstractState> AS2(AbstractState::factory(backend + R"(&HEOS?{"grid":{"Nx":12,"Ny":12}})", "Methane&Ethane"));
+    AS2->set_mole_fractions(z2);
+    CHECK(AS2->get_mole_fractions() == z2);
+    CHECK_THROWS_AS(AS2->set_mole_fractions(z1), ValueError);
+    // ...and its properties are those of its own composition, not the first one's
+    HEOS->set_mole_fractions(z2);
+    HEOS->update(PT_INPUTS, p, T);
+    const double h2 = HEOS->hmolar();
+    REQUIRE(std::abs(h2 - h1) > 0.05 * std::abs(h1));
+    AS2->specify_phase(iphase_gas);
+    AS2->update(PT_INPUTS, p, T);
+    CAPTURE(h1, h2, AS2->hmolar());
+    CHECK(std::abs(AS2->hmolar() - h2) < 1e-3 * std::abs(h2));
+}
+
+TEST_CASE("Freshly built single-phase tables have nearest-good-neighbor matrices", "[Tabular]") {
+    using namespace CoolProp;
+    // TTSE resolves holes (two-phase nodes, nodes outside the EOS limits) through
+    // these matrices; a table used in the process that built it never goes
+    // through unpack(), so build() must make them itself
+    std::shared_ptr<AbstractState> HEOS(AbstractState::factory("HEOS", "Water"));
+    LogPHTable table;
+    table.Nx = 10;
+    table.Ny = 10;
+    table.AS = HEOS;
+    table.set_limits();
+    table.build(HEOS);
+    REQUIRE(table.nearest_neighbor_i.size() == table.Nx);
+    REQUIRE(table.nearest_neighbor_j.size() == table.Nx);
+    bool found_hole = false;
+    for (std::size_t i = 0; i < table.Nx; ++i) {
+        REQUIRE(table.nearest_neighbor_i[i].size() == table.Ny);
+        REQUIRE(table.nearest_neighbor_j[i].size() == table.Ny);
+        for (std::size_t j = 0; j < table.Ny; ++j) {
+            std::size_t inew = 0, jnew = 0;
+            table.find_native_nearest_good_neighbor(table.xvec[i], table.yvec[j], inew, jnew);
+            CHECK(inew < table.Nx);
+            CHECK(jnew < table.Ny);
+            found_hole = found_hole || !ValidNumber(table.T[i][j]);
+        }
+    }
+    // The two-phase region guarantees that the lookup above went through the matrices
+    CHECK(found_hole);
 }
 
 TEST_CASE("fast_evaluate works with IF97 backend", "[fast_evaluate][IF97]") {

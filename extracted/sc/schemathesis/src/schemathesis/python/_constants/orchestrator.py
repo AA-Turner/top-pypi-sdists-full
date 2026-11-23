@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import inspect
 import os
 import sys
 from collections.abc import Iterable
 from types import ModuleType
 from typing import TYPE_CHECKING
 
-from schemathesis.python._constants.adapters import FrameworkAdapter, default_adapters, select_adapter
 from schemathesis.python._constants.extract import _THIRD_PARTY_ROOTS, extract_from_module, local_imports_of
 from schemathesis.python._constants.filter import is_kept
 from schemathesis.python._constants.pool import ConstantsPool, Origin
 from schemathesis.python._constants.registry import Source, SourceRegistry, default_registry
 from schemathesis.python._constants.walk import _NON_SEQUENCE_BYTES_TYPES, resolve_modules
+from schemathesis.python.application import application_code
 
 if TYPE_CHECKING:
     from schemathesis.schemas import BaseSchema
@@ -23,8 +22,7 @@ _extraction_cache: tuple[int, ConstantsPool] | None = None
 
 
 def extract_registered() -> ConstantsPool:
-    # Memoise per registry version: extraction imports the SUT and walks its modules, so repeated
-    # `as_strategy()`/state-machine builds against an unchanged registry must not redo that work.
+    # Memoised per registry version: extraction imports the app under test and walks its modules.
     global _extraction_cache
     registry = default_registry()
     version = registry.version
@@ -33,17 +31,13 @@ def extract_registered() -> ConstantsPool:
     if not registry.get_all():
         pool = ConstantsPool()
     else:
-        pool = extract_all(registry=registry, adapters=default_adapters())
+        pool = extract_all(registry=registry)
     _extraction_cache = (version, pool)
     return pool
 
 
 def build_constants_pool(schema: BaseSchema) -> ConstantsPool:
-    """Build the run-level constants pool for a loaded schema.
-
-    Combines any `@schemathesis.python.constants` sources with the application loaded via
-    `from_asgi`/`from_wsgi`. Returns an empty pool when analysis is disabled in config.
-    """
+    """Build the run-level constants pool from `@schemathesis.python.constants` sources and the loaded ASGI/WSGI app."""
     if not schema.config.analysis.constants.enabled:
         return ConstantsPool()
     app = schema.app
@@ -55,7 +49,7 @@ def build_constants_pool(schema: BaseSchema) -> ConstantsPool:
     cached = schema._constants_pool_cache
     if cached is not None and cached[0] is app and cached[1] == version:
         return cached[2]
-    pool = extract_all(registry=registry, adapters=default_adapters(), extra_sources=[_application_source(app)])
+    pool = extract_all(registry=registry, extra_sources=[_application_source(app)])
     schema._constants_pool_cache = app, version, pool
     return pool
 
@@ -72,34 +66,20 @@ def _application_source(app: object) -> Source:
     return application
 
 
-def extract_all(
-    *,
-    registry: SourceRegistry,
-    adapters: Iterable[FrameworkAdapter],
-    extra_sources: Iterable[Source] = (),
-) -> ConstantsPool:
-    """Run every registered source, walk to modules, extract + filter, build the pool."""
+def extract_all(*, registry: SourceRegistry, extra_sources: Iterable[Source] = ()) -> ConstantsPool:
+    """Run every registered source and pool the constants of the modules they resolve to."""
     pool = ConstantsPool()
-    _extract_all(registry=registry, adapters=list(adapters), pool=pool, extra_sources=extra_sources)
+    _extract_all(registry=registry, pool=pool, extra_sources=extra_sources)
     return pool
 
 
-def _extract_all(
-    *,
-    registry: SourceRegistry,
-    adapters: list[FrameworkAdapter],
-    pool: ConstantsPool,
-    extra_sources: Iterable[Source] = (),
-) -> None:
-    # Registered sources are an explicit user promise, so their silent failures are recorded; the app
-    # source is best-effort auto-extraction and stays quiet when an app simply has no reusable literals.
+def _extract_all(*, registry: SourceRegistry, pool: ConstantsPool, extra_sources: Iterable[Source] = ()) -> None:
+    # Failures of registered sources are recorded; the best-effort app source stays quiet without reusable literals.
     sources = [(source, True) for source in registry.get_all()] + [(source, False) for source in extra_sources]
     for source, registered in sources:
         # A user source may be a `functools.partial` or callable instance with no `__name__`.
         name = getattr(source, "__name__", repr(source))
-        # A source callable, or resolving its result, can raise anything - including
-        # `SystemExit` from importing user code. Swallow every failure so extraction stays
-        # optional and never aborts the engine; only a genuine interrupt propagates.
+        # Sources can raise anything, even `SystemExit` from imports; extraction is optional, so only interrupts pass.
         try:
             raw = source()
         except KeyboardInterrupt:
@@ -110,7 +90,7 @@ def _extract_all(
             continue
 
         try:
-            modules, adapter_name = _resolve_with_adapters(raw, adapters=adapters)
+            modules, adapter_name = _resolve_with_adapters(raw)
         except KeyboardInterrupt:
             raise
         except BaseException as exc:
@@ -119,9 +99,7 @@ def _extract_all(
             continue
 
         if not modules:
-            # A registered source that resolves to nothing scannable is broken or misconfigured (a
-            # typo'd module name, a wrong object). "scanned fine but no keepable literals" is not an
-            # error and stays silent, matching best-effort auto-extraction from an app.
+            # A registered source with no modules to scan is misconfigured; no keepable literals is not an error.
             if registered:
                 pool.record_failure(name, "resolved to no modules to scan")
             continue
@@ -134,19 +112,14 @@ def _extract_all(
 
 
 def _failure_reason(exc: BaseException) -> str:
-    # First line only: the reason renders as a single warning entry, and multi-line messages would
-    # break the CLI block layout.
+    # First line only: a multi-line reason would break the CLI warning block layout.
     text = str(exc).strip().splitlines()
     first = text[0].strip() if text else ""
     return f"{type(exc).__name__}: {first}" if first else type(exc).__name__
 
 
-def _resolve_with_adapters(raw: object, *, adapters: list[FrameworkAdapter]) -> tuple[set[str], str | None]:
-    """Resolve a discovery input to a (module_set, adapter_name) pair.
-
-    Strings/modules resolve directly; iterables recurse per item; other objects try the
-    adapters, falling back to the object's top-level package.
-    """
+def _resolve_with_adapters(raw: object) -> tuple[set[str], str | None]:
+    """Resolve a discovery input to (modules, adapter name); objects no adapter knows use their top-level package."""
     if isinstance(raw, (str, ModuleType)):
         return resolve_modules([raw]), None
     if raw is None:
@@ -156,26 +129,19 @@ def _resolve_with_adapters(raw: object, *, adapters: list[FrameworkAdapter]) -> 
         aggregated_modules: set[str] = set()
         aggregated_adapter: str | None = None
         for item in raw:
-            item_modules, item_adapter = _resolve_with_adapters(item, adapters=adapters)
+            item_modules, item_adapter = _resolve_with_adapters(item)
             aggregated_modules.update(item_modules)
             if aggregated_adapter is None:
                 aggregated_adapter = item_adapter
         return aggregated_modules, aggregated_adapter
 
-    adapter = select_adapter(raw, adapters=adapters)
-    if adapter is not None:
-        try:
-            handlers = list(adapter.handlers(raw))
-            declared = set(adapter.modules(raw))
-        except Exception:
-            return set(), None
-        # Both are inferred from the app, so neither is known to be user code: a library view or a
-        # library-built app would otherwise harvest its framework's internals.
-        modules = {name for name in _modules_for_handlers(handlers) | declared if _is_likely_user_package(name)}
-        return resolve_modules(_expand_with_local_imports(modules), walk=False), adapter.name
+    code = application_code(raw)
+    if code is not None:
+        # Neither is known to be user code: a library view or library-built app would harvest its framework's internals.
+        modules = {name for name in code.modules if _is_likely_user_package(name)}
+        return resolve_modules(_expand_with_local_imports(modules), walk=False), code.framework
 
-    # Unknown framework: fall back to the module defining the app, but only when its package looks
-    # like user code -- else a niche framework's instance would harvest its own internals.
+    # Unknown framework: use the module defining the app if it looks like user code, not a framework's internals.
     module_name = getattr(raw, "__module__", None)
     if isinstance(module_name, str) and module_name:
         top_level = module_name.partition(".")[0]
@@ -185,7 +151,6 @@ def _resolve_with_adapters(raw: object, *, adapters: list[FrameworkAdapter]) -> 
 
 
 def _is_likely_user_package(name: str) -> bool:
-    """True if `name` refers to a top-level package that looks like user code."""
     if name in sys.stdlib_module_names:
         return False
     if name in ("builtins", "__main__"):
@@ -202,17 +167,8 @@ def _is_likely_user_package(name: str) -> bool:
         for root in _THIRD_PARTY_ROOTS:
             if normalized.startswith(root + os.sep):
                 return False
-    # No origin (namespace package) - accept; the walker will discover its submodules.
+    # No origin (namespace package): accept; the walker discovers its submodules.
     return True
-
-
-def _modules_for_handlers(handlers: Iterable[object]) -> set[str]:
-    modules: set[str] = set()
-    for handler in handlers:
-        module = inspect.getmodule(handler)
-        if module is not None:
-            modules.add(module.__name__)
-    return modules
 
 
 def _expand_with_local_imports(module_names: set[str]) -> set[str]:

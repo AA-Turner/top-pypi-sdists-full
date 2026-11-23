@@ -318,8 +318,6 @@ _pygment_token_mapping: dict[int, _TokenType] = {
     _TEXT: Token.Text,
 }
 
-_THEME_DIR = Path(__file__).parent / "themes"
-
 #: Entry point group third-party packages advertise extra themes in. The entry
 #: point is named after the theme it provides, and its value says where the
 #: theme's JSON file lives::
@@ -509,7 +507,15 @@ class ThemeTable(Mapping[str, Theme]):
             return self._by_name[name]
         if name in _BUILTIN_THEMES:
             filename = _theme_filename(_BUILTIN_THEMES[name])
-            theme = Theme.from_file(_THEME_DIR / filename)
+            # Not `open()`: IPython may be imported from a zip file (zipapp).
+            from importlib.resources import files
+
+            data = json.loads(
+                (files("IPython.utils") / "themes" / filename).read_text(
+                    encoding="utf-8"
+                )
+            )
+            theme = Theme.from_dict(data)
         else:
             user_themes = self._get_user_themes()
             entry_points = {} if name in user_themes else self._get_entry_points()

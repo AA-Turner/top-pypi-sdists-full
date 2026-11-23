@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import types
 from pathlib import Path
@@ -19,8 +20,10 @@ from lemonaid.inbox import db, presence  # noqa: E402
 from lemonaid.inbox.tui import app as tui_app  # noqa: E402
 from lemonaid.lemon_watchers import watcher  # noqa: E402
 from lemonaid.messages import service  # noqa: E402
+from lemonaid.slack import api as slack_api  # noqa: E402
+from lemonaid.slack import session as slack_session  # noqa: E402
 from lemonaid.watch import restart, scout_start  # noqa: E402
-from tests import codex_fakes  # noqa: E402
+from tests import codex_fakes, tmux_guard  # noqa: E402
 
 # The per-test fixtures below are monkeypatches, and `monkeypatch.undo()` in a test
 # reverts them all, which once pointed a test's migration at the live database and
@@ -36,8 +39,27 @@ for _name, _path in (
     ("LEMONAID_CODEX_SKILLS_DIR", "codex/skills"),
 ):
     os.environ[_name] = str(_LAST_RESORT / _path)
+# pytest-xdist workers inherit the TMUX and PATH set below, so the first process records
+# the real TMUX and tmux.
+_DEVELOPER_TMUX = os.environ.setdefault("LEMONAID_TESTS_DEVELOPER_TMUX", os.environ.get("TMUX", ""))
+_TMUX_GUARD = tmux_guard.install(
+    _LAST_RESORT / "tmux-guard",
+    os.environ.setdefault("LEMONAID_TESTS_REAL_TMUX", shutil.which("tmux") or ""),
+    tmux_guard.guarded(_DEVELOPER_TMUX, os.environ.get("TMUX_TMPDIR", "")),
+)
+if _TMUX_GUARD:
+    os.environ["PATH"] = f"{_TMUX_GUARD.bin}{os.pathsep}{os.environ['PATH']}"
 os.environ["TMUX"] = "/nonexistent/lemonaid-tests,0,0"
 os.environ[codex_app_server.NO_APP_SERVER] = "1"  # also for lemonaid run as a subprocess
+
+
+@pytest.fixture(autouse=True)
+def _off_the_developers_tmux():
+    """Fail a test whose tmux command tests/tmux_guard.py refused."""
+    yield
+
+    if _TMUX_GUARD and (refused := tmux_guard.take(_TMUX_GUARD)):
+        pytest.fail(f"ran tmux against the developer's own server:\n{refused}")
 
 
 @pytest.fixture(autouse=True)
@@ -246,3 +268,17 @@ def _watchers_must_not_outlive_tests(_no_real_tmux, _own_database):
     if thread is not None and thread.is_alive():
         watcher.stop_unified_watcher()
         pytest.fail("test leaked the unified watcher thread")
+
+
+def _offline(*args, **kwargs):
+    raise AssertionError("a test reached the real Keychain or Slack; stub it")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_slack(monkeypatch):
+    """No test reads the user's Slack session from the Keychain, or calls Slack with it.
+
+    Tests of either stub `session._run` or `api._open` themselves (tests/slack/shared.py).
+    """
+    monkeypatch.setattr(slack_session, "_run", _offline)
+    monkeypatch.setattr(slack_api, "_open", _offline)

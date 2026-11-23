@@ -130,7 +130,7 @@ def test_graphql_schema_loaded_from_file(ctx, curl, loader):
 
 
 def test_explicit_headers(curl):
-    # When the generated case contains a header from the list of headers that are ignored by default
+    # `Accept` is ignored by default, but an explicit value still reaches the command.
     name = "Accept"
     value = "application/json"
     case = schema["/users"]["GET"].Case(headers={name: value})
@@ -140,7 +140,7 @@ def test_explicit_headers(curl):
 
 
 def test_as_curl_command_sanitizes_string_query_params(curl):
-    # Use a fresh schema to avoid state pollution from tests that disable sanitization
+    # A fresh schema avoids state left by tests that disable sanitization.
     local_schema = schemathesis.openapi.from_dict(app.openapi())
     case = local_schema["/users"]["GET"].Case(
         query={RAW_QUERY_STRING_KEY: RawQueryString("payload"), "api_key": "super-secret-token"}
@@ -197,6 +197,39 @@ def test_as_curl_command_keeps_non_sensitive_raw_query_pairs(ctx):
     )
     case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&page=2")})
     assert case.as_curl_command() == "curl -X GET 'http://localhost/q?token=%5BFiltered%5D&page=2'"
+
+
+@pytest.mark.parametrize(
+    ("case_kwargs", "headers", "sanitization", "expected"),
+    [
+        ({"cookies": {"sessionid": "abc", "lang": "en"}}, None, {}, "sessionid=[Filtered]; lang=en"),
+        ({}, {"Cookie": "sessionid=abc; lang=en"}, {}, "sessionid=[Filtered]; lang=en"),
+        ({"headers": {"Cookie": "lang=en;sessionid=abc"}}, None, {}, "lang=en;sessionid=[Filtered]"),
+        ({}, {"Cookie": "lang=en; flag"}, {}, "[Filtered]"),
+        (
+            {},
+            {"Cookie": "sessionid=abc; lang=en; theme=dark"},
+            {"keys-to-sanitize": ["lang"]},
+            "sessionid=[Filtered]; lang=[Filtered]; theme=dark",
+        ),
+        ({}, {"Cookie": "sessionid=abc; lang=en"}, {"enabled": False}, "sessionid=abc; lang=en"),
+    ],
+    ids=["cookie-parameters", "sent-header", "case-header", "unparsable", "custom-keys", "disabled"],
+)
+def test_as_curl_command_sanitizes_cookies_by_name(ctx, case_kwargs, headers, sanitization, expected):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [
+                {"name": "sessionid", "in": "cookie", "schema": {"type": "string"}},
+                {"name": "lang", "in": "cookie", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+        config=schemathesis.Config.from_dict({"output": {"sanitization": sanitization}}),
+    )
+    case = operation.Case(**case_kwargs)
+    assert case.as_curl_command(headers=headers) == f"curl -X GET -H 'Cookie: {expected}' http://localhost/items"
 
 
 def test_cli_output(ctx, cli, curl):
@@ -305,54 +338,46 @@ def test_reproduce_when_validated_response_has_no_request_url(ctx, response_fact
 
 @pytest.mark.hypothesis_nested
 def test_curl_command_validity(curl, loose_schema):
-    # When the input schema is too loose
-
     @run_given(case=loose_schema["/test/{key}"]["POST"].as_strategy(), max_examples=30)
     def test(case):
         command = case.as_curl_command()
-        # Then generated command should always be syntactically valid
         curl.assert_valid(command)
 
 
 @pytest.mark.parametrize(
     ("shell_type", "case_kwargs", "expected_command"),
     [
-        # Bash/zsh: ANSI-C quoting for headers
         pytest.param(
             ShellType.BASH,
             {"headers": {"X-Test": "value\x1f"}},
             "curl -X GET -H $'X-Test: value\\x1f' http://localhost/users",
             id="bash-header-control-char",
         ),
-        # Fish: hex escapes outside the quotes, where fish interprets them
+        # Fish interprets hex escapes only outside quotes.
         pytest.param(
             ShellType.FISH,
             {"headers": {"X-Test": "value\x1f"}},
             "curl -X GET -H 'X-Test: value'\\x1f http://localhost/users",
             id="fish-header-control-char",
         ),
-        # Bash: ANSI-C quoting for body with null byte
         pytest.param(
             ShellType.BASH,
             {"body": "test\x00data", "media_type": "text/plain"},
             "curl -X GET -H 'Content-Type: text/plain' -d $'test\\x00data' http://localhost/users",
             id="bash-body-null-byte",
         ),
-        # Bash: ANSI-C quoting for body with tab and newline
         pytest.param(
             ShellType.BASH,
             {"body": "line1\nline2\ttab", "media_type": "text/plain"},
             "curl -X GET -H 'Content-Type: text/plain' -d $'line1\\nline2\\ttab' http://localhost/users",
             id="bash-body-tab-newline",
         ),
-        # ZSH: same as bash (ANSI-C quoting)
         pytest.param(
             ShellType.ZSH,
             {"headers": {"X-Test": "value\x1f"}},
             "curl -X GET -H $'X-Test: value\\x1f' http://localhost/users",
             id="zsh-header-control-char",
         ),
-        # No monkeypatch: printable strings use standard quoting
         pytest.param(
             None,
             {"headers": {"X-Test": "normal value"}},
@@ -392,7 +417,6 @@ def test_truncated_printable_body_is_quoted(monkeypatch, shell_type):
 
 
 def test_multipart_with_array_of_bytes_body(curl):
-    # When the body contains an array with bytes values (e.g., multiple file uploads)
     multipart_schema = schemathesis.openapi.from_dict(
         {
             "openapi": "3.0.0",
@@ -444,7 +468,6 @@ def test_multipart_with_array_of_bytes_body(curl):
         media_type="multipart/form-data",
         _meta=meta,
     )
-    # Then as_curl_command should not raise an error
     command = case.as_curl_command()
     curl.assert_valid(command)
 

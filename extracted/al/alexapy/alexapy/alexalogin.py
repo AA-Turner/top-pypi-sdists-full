@@ -24,10 +24,13 @@ import secrets
 import socket
 import ssl
 import time
+import warnings
 from binascii import Error
 from collections import defaultdict
 from collections.abc import Callable
-from http.cookies import BaseCookie, Morsel, SimpleCookie
+from copy import copy
+from http.cookies import BaseCookie, CookieError, Morsel, SimpleCookie
+from io import BytesIO, StringIO
 from json import JSONDecodeError, dumps, loads
 from typing import Any
 from urllib.parse import urlencode, urlparse
@@ -38,23 +41,21 @@ import aiohttp
 import certifi
 import pyotp
 from aiofiles import os as aioos
-from aiohttp.client_exceptions import ContentTypeError
 from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
-from simplejson import JSONDecodeError as SimpleJSONDecodeError
 from yarl import URL
 
 from .const import (
     APP_NAME,
-    CALL_VERSION,
     COOKIE_SERIALIZATION_FORMAT,
     COOKIE_SERIALIZATION_VERSION,
-    EXCEPTION_TEMPLATE,
     LOCALE_KEY,
+    LOGIN_APP_VERSION,
+    LOGIN_BROWSER_USER_AGENT,
+    LOGIN_WEBVIEW_USER_AGENT,
     PARENT_DASHBOARD_DNS_RETRY_SECONDS,
     PARENT_DASHBOARD_SUBDOMAIN_DEFAULT,
     PARENT_DASHBOARD_SUBDOMAIN_EXCEPTIONS,
-    USER_AGENT,
 )
 from .errors import AlexapyPyotpInvalidKey
 from .helpers import (
@@ -62,10 +63,30 @@ from .helpers import (
     delete_cookie,
     hide_email,
     hide_serial,
-    obfuscate,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_OAUTH_REFRESH_FAILURE_RETRY_SECONDS = 15 * 60
+
+# Calling code, domestic trunk prefix, and national number length pattern.
+# For Italy, the leading zero is part of the international number.
+_PHONE_DIALING_PLANS = {
+    "amazon.com": ("1", "", r"[2-9][0-9]{9}"),
+    "amazon.ca": ("1", "", r"[2-9][0-9]{9}"),
+    "amazon.co.uk": ("44", "0", r"[1-9][0-9]{9}"),
+    "amazon.de": ("49", "0", r"[1-9][0-9]{4,13}"),
+    "amazon.fr": ("33", "0", r"[1-9][0-9]{8}"),
+    "amazon.it": ("39", "", r"[0-9]{6,11}"),
+    "amazon.es": ("34", "", r"[1-9][0-9]{8}"),
+    "amazon.com.au": ("61", "0", r"[1-9][0-9]{8}"),
+    "amazon.in": ("91", "0", r"[1-9][0-9]{9}"),
+    "amazon.com.in": ("91", "0", r"[1-9][0-9]{9}"),
+    "amazon.co.jp": ("81", "0", r"[1-9][0-9]{8,9}"),
+    "amazon.com.mx": ("52", "", r"[1-9][0-9]{9}"),
+    "amazon.mx": ("52", "", r"[1-9][0-9]{9}"),
+    "amazon.com.br": ("55", "", r"[1-9][0-9]{9,10}"),
+}
 
 
 # Ensure http.cookies.Morsel recognizes the Partitioned cookie attribute.
@@ -136,6 +157,13 @@ def _serialize_morsel(
     path = str(_morsel_attr(morsel, "path") or fallback_path or "/")
     host_only_cookies = host_only_cookies or set()
     expirations = expirations or {}
+    expiration = expirations.get(
+        (domain, path, str(name)),
+        expirations.get((domain, path.rstrip("/"), str(name))),
+    )
+    # aiohttp 3.8 uses aware datetimes where later releases use timestamps.
+    if isinstance(expiration, datetime.datetime):
+        expiration = expiration.timestamp()
     return {
         "name": str(name),
         "value": str(morsel.value),
@@ -148,7 +176,7 @@ def _serialize_morsel(
         "samesite": _morsel_attr(morsel, "samesite") or "",
         "partitioned": _safe_bool(_morsel_attr(morsel, "partitioned")),
         "host_only": (domain, str(name)) in host_only_cookies,
-        "expiration": expirations.get((domain, path, str(name))),
+        "expiration": expiration,
     }
 
 
@@ -218,7 +246,7 @@ def _serialize_cookie_jar(cookie_jar: aiohttp.CookieJar) -> dict[str, Any]:
     return serialized
 
 
-def _deserialize_cookie(
+def _deserialize_cookie(  # noqa: PLR0915
     cookie_jar: aiohttp.CookieJar,
     cookie: dict[str, Any],
     *,
@@ -237,6 +265,13 @@ def _deserialize_cookie(
     partitioned = _safe_bool(cookie.get("partitioned", False))
     host_only = _safe_bool(cookie.get("host_only", False))
 
+    expiration = cookie.get("expiration")
+    if isinstance(expiration, (int, float)):
+        if expiration <= time.time():
+            return None
+        expires = http.cookiejar.time2netscape(expiration)
+        max_age = ""
+
     if not name or value is None:
         return None
 
@@ -245,7 +280,10 @@ def _deserialize_cookie(
 
     cookie_value = _strip_wrapping_quotes(str(value))
     raw_cookie = SimpleCookie()
-    raw_cookie[name] = cookie_value
+    try:
+        raw_cookie[name] = cookie_value
+    except CookieError:
+        return None
     morsel = raw_cookie[name]
 
     clean_domain = domain.lstrip(".") or fallback_domain.lstrip(".")
@@ -295,10 +333,14 @@ def _deserialize_cookie_jar(
     if serialized.get("format") != COOKIE_SERIALIZATION_FORMAT:
         return return_cookies
 
-    with contextlib.suppress(Exception):
-        cookie_jar.clear()
+    entries = serialized.get("cookies")
+    if serialized.get("version") != COOKIE_SERIALIZATION_VERSION or not isinstance(
+        entries, list
+    ):
+        return return_cookies
 
-    for cookie in serialized.get("cookies", []):
+    cookie_jar.clear()
+    for cookie in entries:
         if not isinstance(cookie, dict):
             continue
         restored = _deserialize_cookie(
@@ -417,6 +459,35 @@ def _is_flat_cookie_dict(cookies: dict[Any, Any]) -> bool:
     )
 
 
+class _ScopedCookies(dict[str, str]):
+    """Compatibility mapping with an independent snapshot of the cookie scopes."""
+
+    def __init__(self, jar: aiohttp.CookieJar) -> None:
+        super().__init__((cookie.key, cookie.value) for cookie in jar)
+        self.serialized = _serialize_cookie_jar(jar)
+
+
+class _LegacyCookieUnpickler(pickle.Unpickler):
+    """Read the historical cookie formats without allowing arbitrary globals."""
+
+    def find_class(self, module: str, name: str) -> Any:
+        allowed = {
+            ("builtins", "dict"): dict,
+            ("collections", "defaultdict"): defaultdict,
+            ("http.cookies", "SimpleCookie"): SimpleCookie,
+            ("http.cookies", "Morsel"): Morsel,
+            ("http.cookiejar", "Cookie"): http.cookiejar.Cookie,
+            ("requests.cookies", "RequestsCookieJar"): RequestsCookieJar,
+            (
+                "http.cookiejar",
+                "DefaultCookiePolicy",
+            ): http.cookiejar.DefaultCookiePolicy,
+        }
+        if (module, name) not in allowed:
+            raise pickle.UnpicklingError("Unsupported legacy cookie type")
+        return allowed[module, name]
+
+
 class AlexaLogin:
     """Class to handle login connection to Alexa. This class will not reconnect.
 
@@ -431,7 +502,7 @@ class AlexaLogin:
 
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0915
         self,
         url: str,
         email: str,
@@ -442,8 +513,14 @@ class AlexaLogin:
         oauth: dict[Any, Any] | None = None,
         uuid: str | None = None,
         oauth_login: bool = True,
+        *,
+        experimental_api_user_agent: bool | None = None,
+        experimental_notifications: bool | None = None,
     ) -> None:
-        """Set up initial connection and log in."""
+        """Set up initial connection and log in.
+
+        The two experimental keyword arguments are deprecated and ignored.
+        """
         oauth = oauth or {}
 
         self.reported_account_domain: str | None = None
@@ -484,6 +561,13 @@ class AlexaLogin:
         self.mac_dms: str | None = oauth.get("mac_dms")
         self.expires_in: float | None = oauth.get("expires_in")
         self._oauth_lock: asyncio.Lock = asyncio.Lock()
+        self._oauth_retry_at = 0.0
+        self._oauth_refresh_task: asyncio.Task[None] | None = None
+        self._pending_cookies: dict[str, str] | None = None
+        self._defer_cookie_save = False
+        self._form_lock = asyncio.Lock()
+        self._credential_login: AlexaLogin | None = None
+        self._credential_previous_status: dict[str, str | bool] | None = None
         self._parent_dashboard_host: str | None = None
         self._parent_dashboard_checked = False
         self._parent_dashboard_retry_at = float("inf")
@@ -659,197 +743,100 @@ class AlexaLogin:
         _LOGGER.debug("Unable to generate OTP; 2FA app key not configured")
         return ""
 
-    async def load_cookie(  # noqa: PLR0915
-        self, cookies_txt: str = ""
-    ) -> dict[str, str] | None:
-        """Load persisted cookies.
-
-        The preferred format is alexapy's versioned JSON .cookies file.
-        Legacy .pickle and .txt cookie files are still accepted for migration.
-        When a legacy file is successfully loaded, it is rewritten as .cookies
-        and the legacy files are removed.
-        """
-        return_cookies: dict[str, str] = {}
-        if not self._cookiefile:
-            return return_cookies
-
+    async def load_cookie(self, cookies_txt: str = "") -> dict[str, str]:
+        """Stage imported or saved cookies for validation before adopting them."""
+        self._pending_cookies = None
         if cookies_txt:
-            legacy_txt_cookiefile = self._cookiefile[-1]
-            _LOGGER.debug(
-                "Saving passed in cookie to %s\n%s",
-                legacy_txt_cookiefile.replace(self.email, hide_email(self.email)),
-                repr(cookies_txt),
-            )
-            try:
-                async with aiofiles.open(legacy_txt_cookiefile, mode="w") as localfile:
-                    await localfile.write(cookies_txt)
-            except (OSError, EOFError, TypeError, AttributeError) as ex:
-                _LOGGER.debug(
-                    "Error saving passed in cookie to %s: %s",
-                    legacy_txt_cookiefile.replace(self.email, hide_email(self.email)),
-                    EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                )
+            cookies = self._load_cookie_data(self._parse_netscape_cookies(cookies_txt))
+            self._pending_cookies = cookies or None
+            return cookies
 
         for cookiefile in self._cookiefile:
-            _LOGGER.debug(
-                "Searching for cookies from %s",
-                cookiefile.replace(self.email, hide_email(self.email)),
-            )
-            if not await aioos.path.exists(cookiefile):
-                continue
-
-            _LOGGER.debug(
-                "Trying to load cookie from file %s",
-                cookiefile.replace(self.email, hide_email(self.email)),
-            )
-
-            cookies: (
-                dict[Any, Any]
-                | RequestsCookieJar
-                | http.cookiejar.MozillaCookieJar
-                | None
-            ) = None
             try:
-                async with aiofiles.open(cookiefile, "rb") as myfile:
-                    raw_cookie_file = await myfile.read()
-                if not raw_cookie_file:
-                    _LOGGER.debug(
-                        "Cookie file %s is empty; ignoring it",
-                        cookiefile.replace(self.email, hide_email(self.email)),
-                    )
-                    continue
-                try:
-                    cookies = loads(raw_cookie_file.decode())
-                    if self._debug:
-                        _LOGGER.debug(
-                            "JSON cookie loaded: %s %s", type(cookies), cookies
-                        )
-                except (UnicodeDecodeError, JSONDecodeError):
-                    cookies = pickle.loads(raw_cookie_file)
-                    if self._debug:
-                        _LOGGER.debug(
-                            "Pickled cookie loaded: %s %s", type(cookies), cookies
-                        )
-            except pickle.UnpicklingError:
-                try:
-                    cookies = http.cookiejar.MozillaCookieJar(cookiefile)
-                    cookies.load(ignore_discard=True, ignore_expires=True)
-                    if self._debug:
-                        _LOGGER.debug(
-                            "Mozilla cookie loaded: %s %s", type(cookies), cookies
-                        )
-                except (ValueError, http.cookiejar.LoadError) as ex:
-                    _LOGGER.debug(
-                        "Cookie %s is truncated: %s",
-                        cookiefile.replace(self.email, hide_email(self.email)),
-                        EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                    )
-                    continue
-            except (OSError, EOFError) as ex:
-                _LOGGER.debug(
-                    "Error loading cookie from %s: %s",
-                    cookiefile.replace(self.email, hide_email(self.email)),
-                    EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                )
-                continue
-
-            numcookies = 0
-            if (
-                isinstance(cookies, dict)
-                and cookies.get("format") == COOKIE_SERIALIZATION_FORMAT
-            ):
-                _LOGGER.debug("Loading serialized alexapy cookie jar")
-                cookie_jar = self._session.cookie_jar
-                return_cookies = _deserialize_cookie_jar(
-                    cookie_jar,
-                    cookies,
-                    fallback_domain=self.url,
-                )
-                numcookies = len(return_cookies)
-            elif isinstance(cookies, RequestsCookieJar):
-                _LOGGER.debug("Loading RequestsCookieJar")
-                requests_cookies = cookies.get_dict()
-                for key, value in requests_cookies.items():
-                    if self._debug:
-                        _LOGGER.debug('Key: "%s", Value: "%s"', key, value)
-                    return_cookies[str(key)] = value.strip('"')
-                numcookies = len(return_cookies)
-            elif isinstance(cookies, defaultdict):
-                _LOGGER.debug("Loading legacy aiohttp cookie mapping")
-                cookie_jar = self._session.cookie_jar
-                return_cookies = _restore_legacy_aiohttp_cookie_mapping(
-                    cookie_jar,
-                    cookies,
-                    fallback_domain=self.url,
-                )
-                numcookies = len(return_cookies)
-            elif isinstance(cookies, dict):
-                if _is_flat_cookie_dict(cookies):
-                    _LOGGER.debug("Found legacy flat dict cookie")
-                    return_cookies = {
-                        str(key): str(value).strip('"')
-                        for key, value in cookies.items()
-                    }
-                    numcookies = len(return_cookies)
+                async with aiofiles.open(cookiefile, "rb") as source:
+                    raw = await source.read()
+                if cookiefile.endswith(".txt"):
+                    cookies = self._parse_netscape_cookies(raw.decode())
                 else:
-                    _LOGGER.debug("Loading legacy aiohttp cookie dict mapping")
-                    cookie_jar = self._session.cookie_jar
-                    return_cookies = _restore_legacy_aiohttp_cookie_mapping(
-                        cookie_jar,
-                        cookies,
-                        fallback_domain=self.url,
-                    )
-                    numcookies = len(return_cookies)
-            elif isinstance(cookies, http.cookiejar.MozillaCookieJar):
-                _LOGGER.debug("Found Mozillacookiejar")
-                for cookie in cookies:
-                    if self._debug:
-                        _LOGGER.debug(
-                            "Processing cookie %s expires: %s",
-                            cookie,
-                            cookie.expires,
-                        )
-                    return_cookies[cookie.name] = cookie.value.strip('"')
-                numcookies = len(return_cookies)
-            else:
-                _LOGGER.debug("Ignoring unknown file %s", type(cookies))
-
-            if not numcookies:
+                    try:
+                        cookies = loads(raw)
+                    except (UnicodeError, JSONDecodeError):
+                        if not cookiefile.endswith(".pickle"):
+                            raise
+                        cookies = _LegacyCookieUnpickler(BytesIO(raw)).load()
+                restored = self._load_cookie_data(cookies)
+            except (
+                OSError,
+                EOFError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                pickle.UnpicklingError,
+            ):
+                _LOGGER.debug("Could not read saved Alexa cookies")
                 continue
+            if restored:
+                self._pending_cookies = restored
+                return restored
+        return {}
 
-            _LOGGER.debug("Loaded %s cookies", numcookies)
-            if cookiefile != self._cookiefile[0]:
-                _LOGGER.debug(
-                    "Migrating legacy cookiefile to %s ",
-                    self._cookiefile[0].replace(self.email, hide_email(self.email)),
+    def _take_loaded_cookies(
+        self, cookies: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        staged = self._pending_cookies
+        self._pending_cookies = None
+        return staged if cookies is None else cookies
+
+    @staticmethod
+    def _parse_netscape_cookies(content: str) -> http.cookiejar.MozillaCookieJar:
+        jar = http.cookiejar.MozillaCookieJar()
+        with warnings.catch_warnings(), contextlib.suppress(http.cookiejar.LoadError):
+            # The standard parser can include malformed cookie data in warnings.
+            warnings.simplefilter("ignore", UserWarning)
+            jar._really_load(StringIO(content), "<cookie import>", True, False)
+            return jar
+        return http.cookiejar.MozillaCookieJar()
+
+    def _load_cookie_data(self, cookies: Any) -> dict[str, str]:
+        """Decode storage formats to a candidate jar with the original scope."""
+        jar = aiohttp.CookieJar()
+        if isinstance(cookies, http.cookiejar.CookieJar):
+            for cookie in cookies:
+                _deserialize_cookie(
+                    jar,
+                    {
+                        "name": cookie.name,
+                        "value": cookie.value,
+                        "domain": cookie.domain,
+                        "path": cookie.path,
+                        "secure": cookie.secure,
+                        "expiration": cookie.expires,
+                        "host_only": not cookie.domain_specified,
+                        "httponly": cookie.has_nonstandard_attr("HTTPOnly"),
+                    },
+                    fallback_domain=self.url,
                 )
-                try:
-                    cookie_jar = self._session.cookie_jar
-                    if not list(cookie_jar):
-                        cookie_jar.update_cookies(
-                            return_cookies, URL(f"https://{self.url}")
-                        )
-                    serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
-                    async with aiofiles.open(
-                        self._cookiefile[0], mode="w"
-                    ) as localfile:
-                        await localfile.write(dumps(serialized_cookie_jar))
-                    for legacy_cookiefile in self._cookiefile[1:]:
-                        if await aioos.path.exists(legacy_cookiefile):
-                            await delete_cookie(legacy_cookiefile)
-                except (OSError, EOFError, TypeError, AttributeError) as ex:
-                    _LOGGER.debug(
-                        "Error migrating cookie from %s to %s: %s",
-                        cookiefile.replace(self.email, hide_email(self.email)),
-                        self._cookiefile[0].replace(
-                            self.email,
-                            hide_email(self.email),
-                        ),
-                        EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                    )
-            break
+        elif isinstance(cookies, dict):
+            if cookies.get("format") == COOKIE_SERIALIZATION_FORMAT:
+                _deserialize_cookie_jar(jar, cookies, fallback_domain=self.url)
+            elif _is_flat_cookie_dict(cookies):
+                self._seed_unscoped_cookies(jar, cookies)
+            else:
+                _restore_legacy_aiohttp_cookie_mapping(
+                    jar, cookies, fallback_domain=self.url
+                )
+        return _ScopedCookies(jar) if len(jar) else {}
 
-        return return_cookies
+    def _seed_unscoped_cookies(
+        self, jar: aiohttp.CookieJar, cookies: dict[str, str]
+    ) -> None:
+        """Hydrate legacy flat cookies within the configured marketplace only."""
+        for name, value in cookies.items():
+            _deserialize_cookie(
+                jar,
+                {"name": name, "value": value, "domain": self.url},
+                fallback_domain=self.url,
+            )
 
     def _parent_dashboard_cache_valid(self) -> bool:
         """Return whether the cached discovery result can still be used."""
@@ -917,14 +904,19 @@ class AlexaLogin:
     async def close(self) -> None:
         """Close connection for login."""
         self._close_requested = True
+        if task := self._oauth_refresh_task:
+            self._oauth_refresh_task = None
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        if self._credential_login:
+            await self._credential_login.close()
+            self._credential_login = None
+            self._credential_previous_status = None
         if self._session and not self._session.closed:
-            if self._session._connector_owner:
-                assert self._session._connector is not None
-                await self._session._connector.close()
-            self._session._connector = None
+            await self._session.close()
 
-    async def reset(self) -> None:
-        """Remove data related to existing login."""
+    async def reset(self, *, clear_cookies: bool = False) -> None:
+        """Reset runtime login state, optionally removing all saved cookie formats."""
         _LOGGER.debug("Resetting Login for %s - %s", hide_email(self.email), self.url)
         await self.close()
         self._session = None
@@ -934,12 +926,16 @@ class AlexaLogin:
         self._links = {}
         self._options = {}
         self._site = None
+        self.csrf_token = None
+        self.csrf_token_created_at = None
+        self._pending_cookies = None
+        self._credential_previous_status = None
+        self._oauth_retry_at = 0.0
         self._create_session()
         self._close_requested = False
 
-        for cookiefile in self._cookiefile:
-            if (cookiefile) and os.path.exists(cookiefile):
-                await delete_cookie(cookiefile)
+        if clear_cookies:
+            await self.delete_cookiefile()
 
     @classmethod
     def get_inputs(cls, soup: BeautifulSoup, searchfield=None) -> dict[str, str]:
@@ -964,108 +960,303 @@ class AlexaLogin:
         *,
         rebuild_session: bool = True,
     ) -> bool:
-        """Test whether the connection is logged in.
-
-        Attempts to retrieve the authenticated customer and compare the returned
-        email address with the expected login email.
-
-        Returns False if the response cannot be decoded, the email does not match,
-        or no usable authenticated session can be confirmed.
-        """
-        if self._debug:
-            _LOGGER.debug(
-                "Testing whether logged in to alexa.%s (rebuild_session=%s)",
-                self._url,
-                rebuild_session,
-            )
-            _LOGGER.debug("Cookies: %s", cookies)
-            _LOGGER.debug("Session Cookies:\n%s", self._print_session_cookies())
-            _LOGGER.debug("Header: %s", dumps(self._headers))
-
-        if not self._session:
-            self._create_session()
-
-        if rebuild_session:
-            await self.get_tokens()
-            await self.register_capabilities()
-            await self.exchange_token_for_cookies()
-            await self.get_csrf()
-
-        domains = [self._url]
-        if self._url.lower() != "amazon.com":
-            domains.append("amazon.com")
-
-        customer = None
-
-        for domain in domains:
-            self._headers["authority"] = f"www.{domain}"
-            path = (
-                self._prefix
-                + domain
-                + f"/api/users/me?platform=ios&version={CALL_VERSION}"
-            )
-
-            self._log_cookies_for_url(path)
-            get_resp = await self._session.get(
-                path,
-                cookies=cookies,
-                ssl=self._ssl,
-            )
-            await self._process_resp(get_resp)
-
-            try:
-                customer = await get_resp.json()
-            except (
-                JSONDecodeError,
-                SimpleJSONDecodeError,
-                ContentTypeError,
-            ) as ex:
-                _LOGGER.debug(
-                    "Not logged in to %s: %s",
-                    domain,
-                    EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
+        """Verify identity and API cookies before adopting a login session."""
+        async with self._oauth_lock:
+            cookies = self._take_loaded_cookies(cookies)
+            if (
+                cookies is None
+                and rebuild_session
+                and (
+                    self.authorization_code
+                    or (self.access_token and not self.refresh_token)
                 )
-                continue
-
-            email = customer.get("email")
-            if (email and email.lower() == self.email.lower()) or "@" not in self.email:
-                break
-
-            _LOGGER.debug(
-                "Login email from %s did not match stored email: %s",
-                domain,
-                hide_email(email),
+                and await self._try_login(register=True)
+            ):
+                return True
+            if await self._try_login(cookies=cookies):
+                return True
+            return bool(
+                rebuild_session
+                and self.refresh_token
+                and await self._try_login(refresh=True)
             )
-            customer = None
 
-        if customer is None:
-            _LOGGER.debug("Not logged in to any attempted Alexa domain")
-            await self.reset()
+    async def _try_login(  # noqa: PLR0911
+        self,
+        *,
+        cookies: dict[str, str] | None = None,
+        refresh: bool = False,
+        register: bool = False,
+    ) -> bool:
+        """Attempt authentication in a private jar under the caller's login lock."""
+        original = self._session
+        candidate = copy(self)
+        candidate._headers = {
+            name: value
+            for name, value in self._headers.items()
+            if name.lower() not in {"authorization", "cookie", "csrf", "referer"}
+        }
+        jar = aiohttp.CookieJar()
+        if isinstance(cookies, _ScopedCookies):
+            _deserialize_cookie_jar(jar, cookies.serialized, fallback_domain=self.url)
+        elif not refresh and cookies is None and original and not original.closed:
+            _deserialize_cookie_jar(
+                jar,
+                _serialize_cookie_jar(original.cookie_jar),
+                fallback_domain=self.url,
+            )
+        if cookies and not isinstance(cookies, _ScopedCookies):
+            self._seed_unscoped_cookies(jar, cookies)
+
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(
+            headers=candidate._headers,
+            cookie_jar=jar,
+            timeout=timeout,
+        ) as session:
+            candidate._session = session
+            try:
+                if refresh and not (
+                    await candidate.refresh_access_token()
+                    and await candidate.exchange_token_for_cookies()
+                ):
+                    return False
+                if register and await candidate.get_tokens():
+                    await candidate.register_capabilities()
+                    await candidate.exchange_token_for_cookies()
+
+                customer = await candidate._validate_cookie_identity()
+                if customer is None:
+                    return False
+                if not candidate._api_csrf():
+                    if not await candidate.get_csrf():
+                        return False
+                    # Discovery can also receive Set-Cookie. Verify the resulting jar.
+                    customer = await candidate._validate_cookie_identity()
+                    if customer is None:
+                        return False
+                csrf = candidate._api_csrf()
+                if not csrf or not candidate._has_api_cookies():
+                    return False
+            except (
+                aiohttp.ClientError,
+                TimeoutError,
+                ValueError,
+                KeyError,
+                TypeError,
+                AttributeError,
+                CookieError,
+            ):
+                _LOGGER.debug("Alexa authentication attempt failed")
+                return False
+
+            if self._close_requested or self._session is not original:
+                return False
+            if not original or original.closed:
+                self._create_session(force=True)
+            assert self._session
+            _deserialize_cookie_jar(
+                self._session.cookie_jar,
+                _serialize_cookie_jar(jar),
+                fallback_domain=self.url,
+            )
+            self._adopt_oauth(candidate)
+            if not (register or refresh):
+                self._oauth_retry_at = time.monotonic() + 60
+            self.customer_id = customer["id"]
+            domain = self._reported_marketplace(customer)
+            if domain:
+                self.reported_account_domain = domain
+            if domain and domain != self.url:
+                _LOGGER.warning(
+                    "Configured Alexa domain %s differs from the account domain %s",
+                    self.url,
+                    domain,
+                )
+            self._headers["csrf"] = csrf
+            self._headers["Referer"] = f"{self._prefix}{self.url}/spa/index.html"
+            if self.stats is not None and not (
+                refresh and self.status and self.status.get("login_successful")
+            ):
+                self.stats["login_timestamp"] = datetime.datetime.now()
+                self.stats["api_calls"] = 0
+            await self.finalize_login()
+            return True
+
+    def _adopt_oauth(self, candidate: "AlexaLogin") -> None:
+        self.access_token = candidate.access_token
+        self.refresh_token = candidate.refresh_token
+        self.mac_dms = candidate.mac_dms
+        self.expires_in = candidate.expires_in
+        self.authorization_code = candidate.authorization_code
+
+    async def _refresh_session_if_expired(self) -> None:
+        """Schedule one proactive refresh without delaying cookie-based requests."""
+        if (
+            self._close_requested
+            or self._oauth_lock.locked()
+            or self._form_lock.locked()
+            or self._credential_login is not None
+            or (self._oauth_refresh_task and not self._oauth_refresh_task.done())
+            or not self.refresh_token
+            or not self.expires_in
+            or self.expires_in > time.time()
+            or time.monotonic() < self._oauth_retry_at
+        ):
+            return
+        self._oauth_refresh_task = asyncio.create_task(self._run_oauth_refresh())
+
+    async def _run_oauth_refresh(self) -> None:
+        async with self._oauth_lock:
+            if (
+                self._close_requested
+                or self._form_lock.locked()
+                or not self.expires_in
+                or self.expires_in > time.time()
+                or time.monotonic() < self._oauth_retry_at
+            ):
+                return
+            try:
+                if await self._try_login(refresh=True):
+                    return
+            except Exception:
+                _LOGGER.debug("Proactive Alexa OAuth refresh failed")
+            self._oauth_retry_at = (
+                time.monotonic() + _OAUTH_REFRESH_FAILURE_RETRY_SECONDS
+            )
+
+    async def _validate_cookie_identity(self) -> dict[str, Any] | None:  # noqa: PLR0911
+        """Probe the regional Alexa endpoint and use bootstrap for compatibility."""
+        assert self._session
+        regional = f"{self._prefix}{self.url}"
+        hosts = [regional]
+        if self.url.lower() != "amazon.com":
+            hosts.append(f"{self._prefix}amazon.com")
+        regional_customer_id = None
+        for host in hosts:
+            if host != regional and not regional_customer_id:
+                # US identity alone cannot identify a separately scoped regional jar.
+                return None
+            for endpoint in (
+                f"/api/users/me?platform=ios&version={LOGIN_APP_VERSION}",
+                "/api/bootstrap",
+            ):
+                path = URL(host + endpoint)
+                if not self._session.cookie_jar.filter_cookies(path):
+                    continue
+                try:
+                    async with self._session.get(
+                        path, ssl=self._ssl, allow_redirects=False
+                    ) as response:
+                        if response.status != 200 or response.history:
+                            if response.status in (301, 302, 303, 307, 308, 401, 404):
+                                continue
+                            return None
+                        payload = await response.json()
+                except (aiohttp.ContentTypeError, ValueError):
+                    continue
+                except (aiohttp.ClientError, TimeoutError):
+                    return None
+                if not isinstance(payload, dict):
+                    continue
+                if endpoint == "/api/bootstrap":
+                    auth = payload.get("authentication")
+                    if (
+                        not isinstance(auth, dict)
+                        or auth.get("authenticated") is not True
+                    ):
+                        break
+                    payload = {
+                        **auth,
+                        "id": auth.get("customerId"),
+                        "email": auth.get("customerEmail"),
+                    }
+                customer_id = payload.get("id")
+                if not isinstance(customer_id, str) or not customer_id.strip():
+                    continue
+                if regional_customer_id and customer_id != regional_customer_id:
+                    return None
+                if self._matches_customer(payload):
+                    return payload
+                if self.customer_id and customer_id != self.customer_id:
+                    return None
+                if self._has_identity_claim(payload):
+                    return None
+                if host == regional:
+                    regional_customer_id = customer_id
+        return None
+
+    @staticmethod
+    def _reported_marketplace(customer: dict[str, Any]) -> str | None:
+        name = customer.get("marketPlaceDomainName")
+        if not isinstance(name, str):
+            return None
+        if "://" not in name:
+            name = f"https://{name}"
+        with contextlib.suppress(ValueError):
+            host = URL(name).host
+            if host:
+                return host.removeprefix("www.")
+        return None
+
+    def _matches_customer(self, customer: dict[str, Any]) -> bool:
+        customer_id = customer.get("id")
+        if not isinstance(customer_id, str) or not customer_id.strip():
             return False
-
+        if self.customer_id and customer_id != self.customer_id:
+            return False
         email = customer.get("email")
-        self.customer_id = customer.get("id")
-
         if "@" in self.email:
-            _LOGGER.debug(
-                "Logged in as %s to %s with id: %s",
-                hide_email(email),
-                self.url,
-                self.customer_id,
-            )
-        else:
-            _LOGGER.debug(
-                "Logged in as %s to mobile account %s with %s",
-                hide_email(email),
-                self.url,
-                self.customer_id,
+            return isinstance(email, str) and email.casefold() == self.email.casefold()
+        expected = self._normalize_phone(self.email)
+        returned = self._customer_phones(customer)
+        return expected is not None and (
+            expected in returned or (not returned and customer_id == self.customer_id)
+        )
+
+    def _has_identity_claim(self, customer: dict[str, Any]) -> bool:
+        if "@" in self.email:
+            return bool(customer.get("email"))
+        return bool(self._customer_phones(customer))
+
+    def _customer_phones(self, customer: dict[str, Any]) -> set[str]:
+        return {
+            normalized
+            for field in ("phoneNumber", "mobilePhoneNumber", "email")
+            if isinstance(phone := customer.get(field), str)
+            and (normalized := self._normalize_phone(phone)) is not None
+        }
+
+    def _normalize_phone(self, number: str) -> str | None:
+        digits = re.sub(r"[().\s-]", "", number)
+        if not re.fullmatch(r"\+?[0-9]{6,15}", digits):
+            return None
+        if digits.startswith(("+", "00")):
+            international = digits[1:] if digits.startswith("+") else digits[2:]
+            return (
+                international
+                if re.fullmatch(r"[1-9][0-9]{5,14}", international)
+                else None
             )
 
-        self.stats["login_timestamp"] = datetime.datetime.now()
-        self.stats["api_calls"] = 0
-        await self.check_domain()
-        await self.finalize_login()
-        return True
+        plan = _PHONE_DIALING_PLANS.get(self.url.lower())
+        if plan:
+            code, trunk, pattern = plan
+            national = digits.removeprefix(trunk)
+            if re.fullmatch(pattern, national):
+                return code + national
+        return digits
+
+    def _api_csrf(self) -> str | None:
+        cookie = self._get_cookies_from_session(f"alexa.{self.url}").get("csrf")
+        return cookie.value if cookie and cookie.value else None
+
+    def _has_api_cookies(self) -> bool:
+        assert self._session
+        api = URL(f"{self._prefix}{self.url}/api/behaviors/preview")
+        return any(
+            name != "csrf" for name in self._session.cookie_jar.filter_cookies(api)
+        )
 
     async def get_csrf_token(self) -> str | None:
         """Get an anti-CSRF token from an Amazon webpage."""
@@ -1080,7 +1271,7 @@ class AlexaLogin:
         meta_tag = bso.find("meta", attrs={"name": "csrf-token"})
         if meta_tag and "content" in meta_tag.attrs:
             token = meta_tag["content"]
-            _LOGGER.debug("CSRF token found for %s: %s", self._url, token)
+            _LOGGER.debug("CSRF token found for %s", self._url)
             self.csrf_token = token
             self.csrf_token_created_at = int(datetime.datetime.now().timestamp())
             return token
@@ -1088,30 +1279,18 @@ class AlexaLogin:
         return None
 
     def _create_session(self, force=False) -> None:
-        if not self._session or force:
-            #  define session headers
-            if self.oauth_login:
-                self._headers = {
-                    "User-Agent": USER_AGENT,
-                    # "User-Agent": (
-                    #     "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 PitanguiBridge/2.2.345247.0-[HARDWARE=iPhone10_4][SOFTWARE=13.5.1]" # noqa: E501
-                    # ),
-                    "Accept": ("*/*"),
-                    "Accept-Language": "*",
-                    "DNT": "1",
-                    "Upgrade-Insecure-Requests": "1",
-                    # "authority": "www.amazon.com",
-                }
-            else:
-                self._headers = {
-                    "User-Agent": (
-                        "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 PitanguiBridge/2.2.345247.0-[HARDWARE=iPhone10_4][SOFTWARE=13.5.1]"  # noqa: E501
-                    ),
-                    "Accept": ("*/*"),
-                    "Accept-Language": "*",
-                    "DNT": "1",
-                    "Upgrade-Insecure-Requests": "1",
-                }
+        if not self._session or self._session.closed or force:
+            self._headers = {
+                "User-Agent": (
+                    LOGIN_WEBVIEW_USER_AGENT
+                    if self.oauth_login
+                    else LOGIN_BROWSER_USER_AGENT
+                ),
+                "Accept": "*/*",
+                "Accept-Language": "*",
+                "DNT": "1",
+                "Upgrade-Insecure-Requests": "1",
+            }
             #  initiate session
             self._session = aiohttp.ClientSession(headers=self._headers)
 
@@ -1119,73 +1298,121 @@ class AlexaLogin:
         """Return cookies from aiohttp session."""
         assert self._session
         if not site:
-            site = self.url
+            site = f"alexa.{self.url}"
         cookies = {}
         cookie_jar = self._session.cookie_jar
         cookies = cookie_jar.filter_cookies(URL(f"https://{site}"))
         return cookies
 
-    def _print_session_cookies(self) -> str:
-        result: str = ""
-        if not self._session or not self._session.cookie_jar:
-            result = "Session cookie jar is empty."
-        else:
-            for cookie in self._session.cookie_jar:
-                result += f"{cookie}\n"
-        return result
-
     @_catch_all_exceptions
-    async def login(  # noqa: PLR0915
+    async def login(
         self,
         cookies: dict[str, str] | None = None,
         data: dict[str, str | None] | None = None,
     ) -> None:
         """Login to Amazon."""
-        data = data or {}
+        async with self._form_lock:
+            await self._login_with_fallback(cookies, data or {})
 
-        # Prefer the persisted OAuth device registration whenever a refresh token
-        # is available. Access tokens and website cookies are short-lived runtime
-        # credentials and can be rebuilt silently from the refresh token without
-        # device registration, capability registration, or stored credentials.
-        if self.refresh_token:
-            _LOGGER.debug("Attempting login using the stored OAuth refresh token")
-            if not self._session:
-                self._create_session()
-            recovered = (
-                await self.refresh_access_token()
-                and await self.exchange_token_for_cookies()
-                and await self.get_csrf()
-                and await self.test_loggedin(rebuild_session=False)
-            )
-            if recovered:
-                _LOGGER.info(
-                    "Logged in %s using the stored OAuth refresh token",
-                    hide_email(self.email),
+    async def _login_with_fallback(
+        self, cookies: dict[str, str] | None, data: dict[str, str | None]
+    ) -> None:
+        # An ongoing form challenge owns a separate session and its form fields.
+        if self._credential_login is None and not self._site:
+            async with self._oauth_lock:
+                cookies = self._take_loaded_cookies(cookies)
+                saved = cookies is not None or (
+                    self._session
+                    and not self._session.closed
+                    and len(self._session.cookie_jar)
                 )
-                return
-            _LOGGER.debug(
-                "OAuth refresh-token login failed; falling back to stored cookies"
+                if saved and await self._try_login(cookies=cookies):
+                    return
+                if self.refresh_token and await self._try_login(refresh=True):
+                    return
+                if saved or self.refresh_token:
+                    self._credential_login = self._new_credential_login()
+                    if self.status and self.status.get("login_successful"):
+                        self._credential_previous_status = self.status
+
+        candidate = self._credential_login
+        if candidate is None:
+            await self._login_with_credentials(data)
+            return
+
+        candidate.password = self.password
+        candidate._totp = self._totp
+        try:
+            await candidate._login_with_credentials(data)
+        except (Exception, asyncio.CancelledError):
+            await self._discard_credential_login(candidate)
+            raise
+        if self._close_requested:
+            return
+        self.status = candidate.status
+        self._links = candidate._links
+        if candidate.status and candidate.status.get("login_successful"):
+            if not self._session or self._session.closed:
+                self._create_session(force=True)
+            assert self._session and candidate._session
+            _deserialize_cookie_jar(
+                self._session.cookie_jar,
+                _serialize_cookie_jar(candidate._session.cookie_jar),
+                fallback_domain=self.url,
             )
-            await self.reset()
+            self._adopt_oauth(candidate)
+            self.customer_id = candidate.customer_id
+            self.reported_account_domain = candidate.reported_account_domain
+            self._headers = candidate._headers
+            self.stats = candidate.stats
+            self._credential_previous_status = None
+            await self._discard_credential_login(candidate)
+            await self.save_cookiefile()
+        elif candidate.status and candidate.status.get("login_failed"):
+            # Keep the failure visible: the cookie and refresh-token attempts
+            # already failed, so restoring the old login_successful status
+            # would hide a dead session from the caller.
+            self._credential_previous_status = None
+            await self._discard_credential_login(candidate)
 
-        # Retain persisted-cookie login as a compatibility fallback for accounts
-        # without a usable OAuth refresh token.
-        if cookies:
-            _LOGGER.debug("Using stored cookies to log in")
-            if await self.test_loggedin(
-                cookies,
-                rebuild_session=False,
-            ):
-                return
-            _LOGGER.debug("Stored-cookie login failed; falling back to credentials")
-            await self.reset()
+    async def _discard_credential_login(self, candidate: "AlexaLogin") -> None:
+        if self._credential_previous_status is not None:
+            self.status = self._credential_previous_status
+        self._credential_previous_status = None
+        self._credential_login = None
+        await candidate.close()
 
+    def _new_credential_login(self) -> "AlexaLogin":
+        candidate = copy(self)
+        candidate._session = None
+        candidate._oauth_lock = asyncio.Lock()
+        candidate._oauth_refresh_task = None
+        candidate._pending_cookies = None
+        candidate._defer_cookie_save = True
+        candidate.status = {}
+        candidate._links = {}
+        candidate._options = {}
+        candidate.stats = dict(self.stats) if self.stats is not None else None
+        candidate._data = None
+        candidate._lastreq = None
+        candidate.access_token = None
+        candidate.refresh_token = None
+        candidate.authorization_code = None
+        candidate.mac_dms = None
+        candidate.expires_in = None
+        candidate._create_session()
+        return candidate
+
+    @_catch_all_exceptions
+    async def _login_with_credentials(  # noqa: PLR0915
+        self, data: dict[str, str | None]
+    ) -> None:
         _LOGGER.debug("Using credentials to log in")
         if not self._site:
             site: URL = self.start_url
         else:
             site = self._site
-        if not self._session:
+        if not self._session or self._session.closed:
             self._create_session()
         #  This will process links which is used for debug only to force going
         #  to other links.  Warning, chrome will cache any link parameters
@@ -1202,14 +1429,14 @@ class AlexaLogin:
                 _LOGGER.debug("Found link selection %s in %s ", digit, datum)
                 assert self._links is not None
                 if self._links.get(digit):
-                    text, site = self._links[digit]
+                    _, site = self._links[digit]
                     data[datum] = None
-                    _LOGGER.debug("Going to link with text: %s href: %s ", text, site)
+                    _LOGGER.debug("Following selected sign-in link")
                     _LOGGER.debug("%s reset to %s ", datum, data[datum])
         if not digit and self._lastreq is not None:
             assert self._lastreq is not None
             site = str(self._lastreq.url)
-            _LOGGER.debug("Loaded last request to %s ", site)
+            _LOGGER.debug("Reusing the previous sign-in response")
             resp = self._lastreq
         else:
             resp = await self._session.get(
@@ -1239,9 +1466,7 @@ class AlexaLogin:
                         "WARNING: Detected missing params: %s",
                         [k for (k, v) in self._data.items() if v == ""],
                     )
-                _LOGGER.debug("Session Cookies:\n%s", self._print_session_cookies())
-                _LOGGER.debug("Submit Form Data: %s", dumps(obfuscate(self._data)))
-                _LOGGER.debug("Header: %s", dumps(self._headers))
+                _LOGGER.debug("Submitting Amazon sign-in form")
 
             # submit post request with username/password and other needed info
             post_resp = None
@@ -1333,77 +1558,42 @@ class AlexaLogin:
                 self._site = await self._process_page(await post_resp.text(), site)
 
     async def save_cookiefile(self) -> None:
-        """Save login session cookies to file."""
-        self._cookiefile = [
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.cookies"),
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.pickle"),
-            self._outputpath(f"{self._hass_domain}.{self.email}.pickle"),
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.txt"),
-        ]
-        for cookiefile in self._cookiefile:
-            if cookiefile == self._cookiefile[0]:
-                cookie_jar = self._session.cookie_jar
-                assert isinstance(cookie_jar, aiohttp.CookieJar)
-                if self._debug:
-                    _LOGGER.debug("Saving cookie to %s", cookiefile)
-                try:
-                    serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
-                    serialized_cookies = dumps(serialized_cookie_jar)
-                    temp_cookiefile = f"{self._cookiefile[0]}.{uuid4().hex}.tmp"
-
-                    try:
-                        async with aiofiles.open(
-                            temp_cookiefile,
-                            mode="w",
-                        ) as localfile:
-                            await localfile.write(serialized_cookies)
-                            await localfile.flush()
-                            await asyncio.to_thread(os.fsync, localfile.fileno())
-
-                        # The temporary file is created beside the destination so
-                        # os.replace() is atomic on the same filesystem. The live
-                        # cookie file therefore remains valid until the replacement
-                        # is complete, even if shutdown interrupts the write.
-                        await asyncio.to_thread(
-                            os.replace, temp_cookiefile, self._cookiefile[0]
-                        )
-                    finally:
-                        with contextlib.suppress(OSError):
-                            if os.path.exists(temp_cookiefile):
-                                await aioos.remove(temp_cookiefile)
-                except (OSError, EOFError, TypeError, AttributeError) as ex:
-                    _LOGGER.debug(
-                        "Error saving serialized cookie to %s: %s",
-                        self._cookiefile[0].replace(self.email, hide_email(self.email)),
-                        EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                    )
-            elif (cookiefile) and os.path.exists(cookiefile):
-                _LOGGER.debug(
-                    "Removing outdated cookiefile %s",
-                    cookiefile.replace(self.email, hide_email(self.email)),
-                )
-                await delete_cookie(cookiefile)
-        if self._debug:
-            _LOGGER.debug("Session Cookies:\n%s", self._print_session_cookies())
+        """Atomically persist a verified session before removing legacy files."""
+        if (
+            not self._session
+            or not self.status
+            or not self.status.get("login_successful")
+            or not self._api_csrf()
+            or not self._has_api_cookies()
+        ):
+            return
+        jar = self._session.cookie_jar
+        destination = self._cookiefile[0]
+        temporary = f"{destination}.{uuid4().hex}.tmp"
+        try:
+            serialized = dumps(_serialize_cookie_jar(jar))
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as localfile:
+                localfile.write(serialized)
+                localfile.flush()
+                await asyncio.to_thread(os.fsync, localfile.fileno())
+            # No cancellation point between the atomic replacement and its result.
+            os.replace(temporary, destination)
+        except (OSError, TypeError, ValueError):
+            _LOGGER.debug("Could not save Alexa cookies")
+            return
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(temporary)
+        for legacy in self._cookiefile[1:]:
+            if await aioos.path.exists(legacy):
+                await delete_cookie(legacy)
 
     async def delete_cookiefile(self) -> None:
-        """Delete cookiefile."""
-        self._cookiefile = [
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.cookies"),
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.pickle"),
-            self._outputpath(f"{self._hass_domain}.{self.email}.pickle"),
-            self._outputpath(f".storage/{self._hass_domain}.{self.email}.txt"),
-        ]
+        """Explicitly remove all saved cookie formats for the account."""
         for cookiefile in self._cookiefile:
-            if cookiefile == self._cookiefile[0]:
-                try:
-                    await delete_cookie(cookiefile)
-                except (OSError, EOFError, TypeError, AttributeError) as ex:
-                    _LOGGER.debug(
-                        "Error deleting cookiefile %s: %s",
-                        self._cookiefile[0].replace(self.email, hide_email(self.email)),
-                        EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                    )
+            if await aioos.path.exists(cookiefile):
+                await delete_cookie(cookiefile)
 
     async def get_tokens(self) -> bool:
         """Get access and refresh tokens after registering device using cookies.
@@ -1416,7 +1606,7 @@ class AlexaLogin:
             "device_user_dictionary": [],
             "device_registration_data": {"software_version": "1"},
             "app_identifier": {
-                "app_version": CALL_VERSION,
+                "app_version": LOGIN_APP_VERSION,
                 "bundle_id": "com.amazon.echo",
             },
         }
@@ -1428,7 +1618,7 @@ class AlexaLogin:
             urls = [self.url]
         registered = False
         for url in urls:
-            cookies = self._get_cookies_from_session(f"https://{url}")
+            cookies = self._get_cookies_from_session(url)
             cookies["frc"] = frc
             cookies["map-md"] = map_md
             headers = {
@@ -1440,7 +1630,7 @@ class AlexaLogin:
                 "cookies": {"website_cookies": cookies_list, "domain": f".{url}"},
                 "registration_data": {
                     "domain": "Device",
-                    "app_version": CALL_VERSION,
+                    "app_version": LOGIN_APP_VERSION,
                     "device_type": "A2IVLV5VM2W81",
                     "device_name": f"%FIRST_NAME%\u0027s%DUPE_STRATEGY_1ST%{APP_NAME}",
                     "os_version": "16.6",
@@ -1469,6 +1659,7 @@ class AlexaLogin:
                     "https://api." + url + "/auth/register",
                     json=data,
                     headers=headers,
+                    allow_redirects=False,
                 )
             except aiohttp.ClientConnectorError:
                 _LOGGER.debug("Fallback attempt to register with api.amazon.com")
@@ -1476,8 +1667,8 @@ class AlexaLogin:
                     "https://api.amazon.com/auth/register",
                     json=data,
                     headers=headers,
+                    allow_redirects=False,
                 )
-            _LOGGER.debug("auth response %s with \n%s", response, dumps(data))
             if response.status == 200:
                 registered = True
                 break
@@ -1490,8 +1681,6 @@ class AlexaLogin:
                 "Successfully registered %s device with Amazon",
                 response["success"]["extensions"]["device_info"]["device_name"],
             )
-            if self._debug:
-                _LOGGER.debug("Received registration data:\n%s", dumps(response))
             self.refresh_token = response["success"]["tokens"]["bearer"][
                 "refresh_token"
             ]
@@ -1766,7 +1955,7 @@ class AlexaLogin:
             ],
         }
         headers = {
-            "User-Agent": USER_AGENT,
+            "User-Agent": LOGIN_WEBVIEW_USER_AGENT,
             "Accept-Language": "en-US",
             "Accept-Charset": "utf-8",
             "Connection": "keep-alive",
@@ -1774,28 +1963,14 @@ class AlexaLogin:
             "authorization": f"Bearer {self.access_token}",
         }
 
-        response = await self._session.put(
+        async with self._session.put(
             "https://api.amazonalexa.com/v1/devices/@self/capabilities",
             json=data,
             headers=headers,
-        )
-        _LOGGER.debug(
-            "capabilities response %s with \n%s\n%s",
-            response,
-            dumps(data),
-            dumps(headers),
-        )
-        if response.status != 204:
-            if self._debug:
-                _LOGGER.debug(
-                    "Failed to register capabilities: %s\n%s",
-                    response,
-                    await response.text(),
-                )
-            else:
-                _LOGGER.debug("Failed to register capabilities")
-            return False
-        return True
+            allow_redirects=False,
+        ) as response:
+            _LOGGER.debug("Amazon capability registration returned %s", response.status)
+            return response.status == 204
 
     async def refresh_access_token(self) -> bool:
         """Refresh access token and expires in using refresh token.
@@ -1809,7 +1984,7 @@ class AlexaLogin:
             return False
         data = {
             "app_name": APP_NAME,
-            "app_version": CALL_VERSION,
+            "app_version": LOGIN_APP_VERSION,
             "di.sdk.version": "6.12.4",
             "source_token": self.refresh_token,
             "package_name": "com.amazon.echo",
@@ -1822,7 +1997,7 @@ class AlexaLogin:
             "current_version": "6.12.4",
             "previous_version": "6.12.4",
         }
-         # Ensure data dictionary is compiled...
+        # Ensure data dictionary is compiled...
         try:
             # Check explicitly if the session was closed outside of our scope
             if self._session is None or self._session.closed:
@@ -1835,6 +2010,7 @@ class AlexaLogin:
             response = await self._session.post(
                 "https://api." + self.url + "/auth/token",
                 data=data,
+                allow_redirects=False,
             )
         except (aiohttp.ClientConnectionError, RuntimeError) as e:
             # Catch the "Session is closed" RuntimeError explicitly
@@ -1852,8 +2028,9 @@ class AlexaLogin:
 
             try:
                 response = await self._session.post(
-                    "https://amazon.com",
+                    "https://api.amazon.com/auth/token",
                     data=data,
+                    allow_redirects=False,
                 )
             except RuntimeError as fallback_err:
                 if "Session is closed" in str(fallback_err):
@@ -1863,20 +2040,10 @@ class AlexaLogin:
                     ) from fallback_err
                 raise
 
-        _redacted = {
-            **data,
-            "source_token": "[REDACTED]" if data.get("source_token") else "",
-        }
-        _LOGGER.debug("refresh response %s with \n%s", response, dumps(_redacted))
+        _LOGGER.debug("Amazon token refresh returned %s", response.status)
         if response.status != 200:
-            if self._debug:
-                _LOGGER.debug("Failed to refresh access token: %s", response)
-            else:
-                _LOGGER.debug("Failed to refresh access token")
             return False
         response = await response.json()
-        if self._debug:
-            _LOGGER.debug("Refresh token json:\n%s ", response)
         if response.get("access_token"):
             self.access_token = response.get("access_token")
             self.expires_in = datetime.datetime.now().timestamp() + int(
@@ -1904,7 +2071,7 @@ class AlexaLogin:
             return False
         data = {
             "app_name": APP_NAME,
-            "app_version": CALL_VERSION,
+            "app_version": LOGIN_APP_VERSION,
             "di.sdk.version": "6.12.4",
             "domain": f".{self.url}",
             "source_token": self.refresh_token,
@@ -1926,6 +2093,7 @@ class AlexaLogin:
                 "https://www." + self.url + "/ap/exchangetoken/cookies",
                 data=data,
                 headers=headers,
+                allow_redirects=False,
             )
         except aiohttp.ClientConnectorError:
             _LOGGER.debug("Fallback attempt to exchange tokens with www.amazon.com")
@@ -1933,21 +2101,14 @@ class AlexaLogin:
                 "https://www.amazon.com/ap/exchangetoken/cookies",
                 data=data,
                 headers=headers,
+                allow_redirects=False,
             )
         if response.status != 200:
-            if self._debug:
-                _LOGGER.debug(
-                    "Failed to exchange cookies for refresh token: %s", response
-                )
-            else:
-                _LOGGER.debug("Failed to exchange cookies for refresh token")
+            _LOGGER.debug("Amazon cookie exchange returned %s", response.status)
             return False
         response = (await response.json()).get("response")
-        if self._debug:
-            _LOGGER.debug("Exchange cookie json %s ", response)
         success = False
         for domain, cookies in response["tokens"]["cookies"].items():
-            # _LOGGER.debug("updating %s with %s", domain, cookies)
             for item in cookies:
                 raw_cookie = SimpleCookie()
                 cookie_name = item["Name"]
@@ -1963,8 +2124,7 @@ class AlexaLogin:
                 raw_cookie[cookie_name]["secure"] = item["Secure"]
                 raw_cookie[cookie_name]["expires"] = item["Expires"]
                 raw_cookie[cookie_name]["httpOnly"] = item["HttpOnly"]
-                _LOGGER.debug("updating jar with cookie %s", raw_cookie)
-                self._session.cookie_jar.update_cookies(raw_cookie, URL(domain))
+                self._session.cookie_jar.update_cookies(raw_cookie, _cookie_url(domain))
             _LOGGER.info(
                 "Exchanged refresh token for %s %s cookies: %s",
                 len(cookies),
@@ -1974,13 +2134,6 @@ class AlexaLogin:
             success = True
         return success
 
-    def _log_cookies_for_url(self, path):
-        """Log a debug message with the names of the session cookies for a given URL."""
-        cookies = self._session.cookie_jar.filter_cookies(path)
-        _LOGGER.debug(
-            "Session cookies for '%s': %s", path, [name for name, _ in cookies.items()]
-        )
-
     async def get_csrf(self) -> bool:
         """Generate csrf if missing.
 
@@ -1988,37 +2141,28 @@ class AlexaLogin:
             bool: True if csrf is found
 
         """
-        cookies = self._get_cookies_from_session()
-        if cookies.get("csrf"):
-            _LOGGER.debug("CSRF already exists; no need to discover")
+        if self._api_csrf():
             return True
-        _LOGGER.debug("Attempting to discover CSRF token")
-        csrf_urls = [
+        assert self._session
+        for path in (
             "/spa/index.html",
             "/api/language",
             "/api/devices-v2/device?cached=false",
             "/templates/oobe/d-device-pick.handlebars",
             "/api/strings",
-        ]
-        for url in csrf_urls:
-            failed = False
-            response = None
+        ):
             try:
-                path = f"{self._prefix}{self.url}{url}"
-                self._log_cookies_for_url(path)
-                response = await self._session.get(path)
-            except aiohttp.ClientConnectionError:
-                failed = True
-            if failed or (response and response.status != 200):
-                if self._debug:
-                    _LOGGER.debug("Unable to load page for csrf: %s", response)
-                continue
-            cookies = self._get_cookies_from_session()
-            if cookies.get("csrf"):
-                _LOGGER.debug("CSRF token found from %s", url)
-                return True
-            _LOGGER.debug("CSRF token not found from %s", url)
-        _LOGGER.debug("No csrf token found")
+                async with self._session.get(
+                    f"{self._prefix}{self.url}{path}",
+                    ssl=self._ssl,
+                    allow_redirects=False,
+                ) as response:
+                    if response.status in (403, 429) or response.status >= 500:
+                        return False
+                    if response.status == 200 and self._api_csrf():
+                        return True
+            except (aiohttp.ClientError, TimeoutError):
+                return False
         return False
 
     async def check_domain(self) -> bool:
@@ -2034,27 +2178,29 @@ class AlexaLogin:
             "x-amzn-identity-auth-domain": f"api.{self.url}",
             "Connection": "keep-alive",
             "Accept": "*/*",
-            "User-Agent": USER_AGENT,
+            "User-Agent": LOGIN_WEBVIEW_USER_AGENT,
             "Accept-Language": "en-US",
         }
         response = await self._session.get(
-            f"{self._prefix}{self.url}/api/users/me?platform=ios&version={CALL_VERSION}",
+            f"{self._prefix}{self.url}/api/users/me?platform=ios&version={LOGIN_APP_VERSION}",
             headers=headers,
         )
 
         if response.status != 200:
-            if self._debug:
-                _LOGGER.debug("Unable to check for domain; proceeding:\n%s", response)
+            _LOGGER.debug("Amazon marketplace lookup was unavailable")
             return True
 
         try:
             response = await response.json(content_type=None)
-        except JSONDecodeError:
-            if self._debug:
-                _LOGGER.debug("Unable to check for domain; proceeding:\n%s", response)
+        except (JSONDecodeError, ValueError):
+            _LOGGER.debug("Amazon marketplace lookup was unavailable")
             return True
 
-        domain = URL(response.get("marketPlaceDomainName")).host.replace("www.", "", 1)
+        domain = (
+            self._reported_marketplace(response) if isinstance(response, dict) else None
+        )
+        if not domain:
+            return True
         self.reported_account_domain = domain
 
         if self.url != domain:
@@ -2066,42 +2212,20 @@ class AlexaLogin:
             )
             return False
 
-        _LOGGER.debug(
-            "Domain %s matches reported account domain: %s",
-            self.url,
-            domain
-        )
+        _LOGGER.debug("Domain %s matches reported account domain: %s", self.url, domain)
         return True
 
     async def _process_resp(self, resp) -> str:
         if resp.history:
             for item in resp.history:
-                _LOGGER.debug("%s: redirected from\n%s", item.method, item.url)
+                _LOGGER.debug(
+                    "%s: redirected from\n%s", item.method, item.url.with_query(None)
+                )
             self._headers["Referer"] = str(resp.url)
         url = str(resp.request_info.url)
         method = resp.request_info.method
         status = resp.status
-        reason = resp.reason
-        headers = resp.request_info.headers
-        if self._debug:
-            _LOGGER.debug(
-                "%s: \n%s with\n%s\n returned %s:%s with response %s",
-                method,
-                url,
-                headers,
-                status,
-                reason,
-                resp.headers,
-            )
-        else:
-            _LOGGER.debug(
-                "%s: \n%s returned %s:%s with response %s",
-                method,
-                url,
-                status,
-                reason,
-                resp.headers,
-            )
+        _LOGGER.debug("%s %s returned %s", method, URL(url).with_query(None), status)
         self._headers["Referer"] = str(url)
         return url
 
@@ -2148,10 +2272,10 @@ class AlexaLogin:
                         links[str(index)] = (string, href)
                         index += 1
             if links:
-                _LOGGER.debug("Links: %s", links)
+                _LOGGER.debug("Found %s sign-in links", len(links))
             self._links = links
 
-        _LOGGER.debug("Processing %s", site)
+        _LOGGER.debug("Processing Amazon sign-in response")
         site_url = URL(site)
         soup: BeautifulSoup = BeautifulSoup(html, "html.parser")
 
@@ -2317,9 +2441,20 @@ class AlexaLogin:
         else:
             _LOGGER.debug("Captcha/2FA not requested; confirming login.")
             query = site_url.query
+            original_token, original_code = self.access_token, self.authorization_code
             self.access_token = query.get("openid.oa2.access_token")
-            if await self.test_loggedin():
-                return
+            self.authorization_code = query.get("openid.oa2.authorization_code")
+            verified = False
+            try:
+                verified = await self.test_loggedin()
+                if verified:
+                    return
+            finally:
+                if not verified:
+                    self.access_token, self.authorization_code = (
+                        original_token,
+                        original_code,
+                    )
             _LOGGER.debug("Login failed; check credentials")
             status["login_failed"] = "login_failed"
             if self._data and "" in self._data.values():
@@ -2335,12 +2470,12 @@ class AlexaLogin:
         elif form_tag and "login_successful" not in status:
             formsite: str = form_tag.get("action")
             if self._debug:
-                _LOGGER.debug("Found form to process: %s", form_tag)
+                _LOGGER.debug("Found an Amazon sign-in form")
             if formsite and formsite == "verify":
                 search_results = re.search(r"(.+)/(.*)", str(site))
                 assert search_results is not None
                 site = search_results.groups()[0] + "/verify"
-                _LOGGER.debug("Found post url to verify; converting to %s", site)
+                _LOGGER.debug("Found sign-in verification form")
             elif formsite and formsite == "get":
                 if "ap_error" in status and status.get("ap_error_href"):
                     assert isinstance(status["ap_error_href"], str)
@@ -2349,27 +2484,25 @@ class AlexaLogin:
                     site = self._headers["Referer"]
                 else:
                     site = self.start_url
-                _LOGGER.debug("Found post url to get; forcing get to %s", site)
+                _LOGGER.debug("Found sign-in continuation")
                 self._lastreq = None
             elif formsite and formsite == "/ap/cvf/approval/poll":
                 self._data = self.get_inputs(soup, {"id": "pollingForm"})
                 url = urlparse(site)
                 site = f"{url.scheme}://{url.netloc}{formsite}"
                 # site = form_tag.find("input", {"name": "openid.return_to"}).get("value")  # noqa: E501
-                _LOGGER.debug("Found url for polling page %s", site)
+                _LOGGER.debug("Found sign-in approval page")
             elif formsite and forgotpassword_tag:
                 site = self.start_url
-                _LOGGER.debug("Restarting login process %s", site)
+                _LOGGER.debug("Restarting sign-in")
             elif formsite:
                 site = site_url.join(URL(formsite))
-                _LOGGER.debug("Found post url to %s", site)
+                _LOGGER.debug("Found sign-in form destination")
         return str(site)
 
     def _populate_data(self, site: str, data: dict[str, str | None]) -> bool:
         """Populate self._data with info from data."""
-        _LOGGER.debug(
-            "Preparing form submission to %s with input data: %s", site, obfuscate(data)
-        )
+        _LOGGER.debug("Preparing Amazon sign-in form submission")
         # pull data from configurator
         password: str | None = data.get("password", "")
         captcha: str | None = data.get("captcha", "")
@@ -2439,8 +2572,12 @@ class AlexaLogin:
             self.url,
             self._cookiefile[0].replace(self.email, hide_email(self.email)),
         )
-        self.status = {}
-        self.status["login_successful"] = True
-        await self.save_cookiefile()
+        if self._session:
+            csrf = self._api_csrf()
+            if csrf:
+                self._headers["csrf"] = csrf
+        self.status = {"login_successful": True}
+        if not self._defer_cookie_save:
+            await self.save_cookiefile()
         #  remove extraneous Content-Type to avoid 500 errors
         self._headers.pop("Content-Type", None)

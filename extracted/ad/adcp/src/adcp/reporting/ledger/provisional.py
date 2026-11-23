@@ -121,8 +121,10 @@ class ProvisionalAcquisition:
 
     @classmethod
     def from_wire(cls, value: dict[str, Any]) -> ProvisionalAcquisition:
+        request = dict(value["request"])
+        request.pop("require_finality_evidence", None)
         return cls(
-            json.dumps(value["request"], sort_keys=True, separators=(",", ":")),
+            json.dumps(request, sort_keys=True, separators=(",", ":")),
             value["ordinal"],
             ProvisionalPolicy.from_wire(value["policy"]),
             value["predecessor_revision_id"],
@@ -148,6 +150,11 @@ class ProvisionalObservation:
         utc(self.provisional_until)
         if self.next_due_at is not None:
             utc(self.next_due_at)
+        object.__setattr__(
+            self,
+            "manifest_json",
+            json.dumps(json.loads(self.manifest_json), sort_keys=True, separators=(",", ":")),
+        )
 
     def to_wire(self) -> dict[str, Any]:
         return {
@@ -202,7 +209,7 @@ class ProvisionalObservationStore(Protocol):
     async def commit_provisional_observation(
         self,
         observation: ProvisionalObservation,
-        revision: ReportingRevisionRecord,
+        revision: ReportingRevisionRecord | None,
         rows: Sequence[dict[str, Any]],
     ) -> ReportingRevisionRecord:
         pass

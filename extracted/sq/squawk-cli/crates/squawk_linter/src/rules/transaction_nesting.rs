@@ -1,18 +1,14 @@
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_syntax::ast::{self, AstNode};
 
-use crate::{Linter, Rule, Violation};
+use crate::{Linter, Rule, Violation, transactions::TransactionControl};
 
-pub(crate) fn transaction_nesting(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    let file = parse.tree();
+pub(crate) fn transaction_nesting(ctx: &mut Linter, file: &ast::SourceFile) {
     let mut in_explicit_transaction = false;
     let assume_in_transaction_help = "move these statements to a separate migration file, or turn off the `assume-in-transaction` setting";
 
     for stmt in file.stmts() {
-        match stmt {
-            ast::Stmt::Begin(_) => {
+        match TransactionControl::from_stmt(&stmt) {
+            Some(TransactionControl::Begin) => {
                 if ctx.settings.assume_in_transaction {
                     ctx.report(Violation::for_node(
                         Rule::TransactionNesting,
@@ -31,7 +27,7 @@ pub(crate) fn transaction_nesting(ctx: &mut Linter, parse: &Parse<SourceFile>) {
                 }
                 in_explicit_transaction = true;
             }
-            ast::Stmt::Commit(_) | ast::Stmt::Rollback(_) => {
+            Some(TransactionControl::End { and_chain }) => {
                 if ctx.settings.assume_in_transaction {
                     ctx.report(Violation::for_node(
                         Rule::TransactionNesting,
@@ -46,9 +42,9 @@ pub(crate) fn transaction_nesting(ctx: &mut Linter, parse: &Parse<SourceFile>) {
                         stmt.syntax(),
                     ).help("`begin` a transaction at an earlier point in the migration or remove this statement"));
                 }
-                in_explicit_transaction = false;
+                in_explicit_transaction = in_explicit_transaction && and_chain;
             }
-            _ => (),
+            None => (),
         }
     }
 }
@@ -150,7 +146,7 @@ BEGIN;
 SELECT 1;
 COMMIT;
 -- This probably shouldn't be done in a migration. However, Squawk may be linting several
--- migrations that are concatentated, so don't raise a warning here.
+-- migrations that are concatenated, so don't raise a warning here.
 BEGIN;
 SELECT 2;
 COMMIT;
@@ -183,5 +179,28 @@ COMMIT;
             ..Default::default()
         };
         lint_ok_with(sql, settings);
+    }
+
+    #[test]
+    fn rollback_to_savepoint_ok() {
+        let sql = r#"
+begin;
+savepoint s;
+rollback to savepoint s;
+commit;
+        "#;
+        lint_ok(sql, Rule::TransactionNesting);
+    }
+
+    #[test]
+    fn commit_and_chain_ok() {
+        let sql = r#"
+begin;
+create table t (id bigint);
+commit and chain;
+create index i on t (id);
+commit;
+        "#;
+        lint_ok(sql, Rule::TransactionNesting);
     }
 }

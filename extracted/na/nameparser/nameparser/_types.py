@@ -47,7 +47,8 @@ class Role(StrEnum):
     FAMILY = "family"
     #: Post-nominal pieces ("III", "Jr.", "PhD").
     SUFFIX = "suffix"
-    #: Delimited nickname content ("Jonathan 'Jack' Kennedy" -> "Jack").
+    #: Delimited nickname content ("Jonathan 'Jack' Kennedy" -> "Jack"),
+    #: or the words after an alias marker ("Ali @ Abu bin Ahmad" -> "Abu").
     NICKNAME = "nickname"
     #: A birth surname, from a marker word ("Jane Smith née Jones" ->
     #: "Jones") or a delimiter pair routed via Policy.maiden_delimiters.
@@ -422,8 +423,11 @@ class Token:
             )
         if not self.text:
             raise ValueError("Token.text must be a non-empty string")
-        object.__setattr__(
-            self, "role", _coerce_enum(self.role, Role, "Role", "roles"))
+        # _coerce_enum returns a Role unchanged; asked only of what may
+        # need coercing, the parse's own tokens pay no frame for it
+        if not isinstance(self.role, Role):
+            object.__setattr__(
+                self, "role", _coerce_enum(self.role, Role, "Role", "roles"))
         if self.reading is not None:
             if not isinstance(self.reading, Reading):
                 raise TypeError(
@@ -438,36 +442,43 @@ class Token:
                     f"Reading(kind, role, source) with the token's role"
                 )
         if self.span is not None:
-            if not (
-                isinstance(self.span, tuple)
-                and len(self.span) == 2
-                # bool is an int subclass: (False, True) is a comparison
-                # result leaking into a coordinate slot, not a span
-                and all(isinstance(v, int) and not isinstance(v, bool)
-                        for v in self.span)
-            ):
+            # Each coordinate tested in turn, not by all() over a
+            # generator, which cost three frames a token; the parse
+            # builds every token it returns through here
+            if not (isinstance(self.span, tuple) and len(self.span) == 2):
                 raise TypeError(
                     f"invalid span {self.span!r}: expected a (start, end) "
                     "pair of ints or None"
                 )
             start, end = self.span
+            # bool is an int subclass: (False, True) is a comparison
+            # result leaking into a coordinate slot, not a span
+            if not (isinstance(start, int) and not isinstance(start, bool)
+                    and isinstance(end, int) and not isinstance(end, bool)):
+                raise TypeError(
+                    f"invalid span {self.span!r}: expected a (start, end) "
+                    "pair of ints or None"
+                )
             if start < 0 or end < start:
                 raise ValueError(
                     f"invalid span ({start}, {end}): need 0 <= start <= end"
                 )
-            object.__setattr__(self, "span", Span(start, end))
+            if type(self.span) is not Span:
+                object.__setattr__(self, "span", Span(start, end))
         # The same guards _normset applies to Lexicon vocabulary: a bare
         # string would become its character set, a mapping would silently
         # contribute only its keys.
-        if isinstance(self.tags, str):
-            raise TypeError(
-                "Token.tags must be an iterable of strings, "
-                "not a bare string"
-            )
-        if isinstance(self.tags, Mapping):
-            raise TypeError(
-                "Token.tags must be an iterable of strings, not a mapping"
-            )
+        # A frozenset is neither, and asking Mapping, an ABC, is a frame
+        if type(self.tags) is not frozenset:
+            if isinstance(self.tags, str):
+                raise TypeError(
+                    "Token.tags must be an iterable of strings, "
+                    "not a bare string"
+                )
+            if isinstance(self.tags, Mapping):
+                raise TypeError(
+                    "Token.tags must be an iterable of strings, not a mapping"
+                )
         tags = frozenset(self.tags)
         for tag in tags:
             if not isinstance(tag, str):
@@ -958,7 +969,9 @@ class ReadingSource(StrEnum):
     #: another category: "Ma" as a surname, "Dean" as a given name.
     DECLARED = "declared"
     #: The word's shape, not a list: a roman numeral, letters run
-    #: together with periods ("X.Y.Z."), a word in capitals.
+    #: together with periods ("X.Y.Z."), a word in capitals, or after a
+    #: comma, in a name written in mixed case, a word that opens with two
+    #: capitals or ends in one ("MRes").
     SHAPE = "shape"
     #: Nothing lists or shapes the word into this reading; it is the
     #: reading any word has where it stands, an ordinary name word. A
@@ -1478,9 +1491,12 @@ class ParsedName:
     def nickname(self) -> str:
         """The words written inside nickname delimiters (quotes,
         parentheses; :attr:`Policy.nickname_delimiters
-        <nameparser.Policy.nickname_delimiters>`), space-joined in
-        written order, the delimiters dropped; ``''`` for a name with
-        none."""
+        <nameparser.Policy.nickname_delimiters>`), the delimiters
+        dropped, and the words after a listed alias marker (by default
+        ``@`` or ``urf`` written as a word of its own: ``Ali @ Abu bin
+        Ahmad`` gives ``Abu``), the marker dropped, space-joined in
+        written order;
+        ``''`` for a name with none."""
         return self._text_for(Role.NICKNAME)
 
     @property
@@ -1598,9 +1614,12 @@ class ParsedName:
         """The family's second name unit where the parse read the
         family as two (``Márquez`` in ``Gabriel García Márquez`` under
         ``two_family_names``, ``李`` in ``王李小明`` under
-        ``locales.ZH``), which :attr:`family` keeps; ``''`` for a
-        family read as one, a family comma's ("Lloyd Webber, Andrew")
-        and a hyphenated one included, for a name unpickled from 2.x,
+        ``locales.ZH``), which :attr:`family` keeps, the part before a
+        family comma divided alike ("García Márquez, Gabriel"); ``''``
+        for a family read as one (a hyphenated one or one joined by
+        ``y`` included, and any family where no rule reads two, as
+        "Lloyd Webber, Andrew" under the default), for a name unpickled
+        from 2.x,
         and once :meth:`replace` or Parser.revise rewrites ``family``,
         whose words then carry no reading; rewriting another field
         keeps it. Added in 3.0."""
@@ -1624,9 +1643,11 @@ class ParsedName:
     @property
     def surname1(self) -> str:
         """The family's first name unit where the parse read the family
-        as two (``García`` in ``Gabriel García Márquez`` under
-        ``two_family_names``, ``de la Vega`` in ``Juan de la Vega del
-        Valle`` under it too), :attr:`surname2` being the other;
+        as two (``García`` in ``Gabriel García Márquez`` and in ``García
+        Márquez, Gabriel`` under ``two_family_names``, ``de la Vega`` in
+        ``Juan de la Vega del Valle`` under it too, ``王``
+        in ``王李小明`` under ``locales.ZH``), :attr:`surname2` being the
+        other;
         elsewhere the whole :attr:`family`. A middle name
         ``middle_as_family`` folds into the family is in neither
         (``María García`` in ``Ana María García López`` under
@@ -1857,6 +1878,8 @@ class ParsedName:
         outside the suffix are written in more than one case, and in a
         name it does repair keeps a suffix written in more than one
         case as written ('EdD'), repairing only one written in a
-        single case (rules/R5). Idempotent."""
+        single case (rules/R5); force=True repairs that suffix too, save
+        an unlisted credential read by its mixed case after a comma
+        ('MRes'), which it keeps as written. Idempotent."""
         import nameparser._render as _render
         return _render.capitalized(self, lexicon, force=force)

@@ -20,6 +20,7 @@ import pytest
 from tests.checkout import require_checkout
 from typing import Any
 
+from nameparser import Lexicon, Locale
 from nameparser import _reading_index as ri
 from nameparser.config import _compiled, _index
 
@@ -65,7 +66,8 @@ _SET = {"abbreviation": True, "addresses": "given", "after_given": True,
         "may_be_initial": True, "title_case_is_name": True,
         "shared": True, "after_particle": True, "capital_opening": True,
         "dotted": True,
-        "completed_by": ["zzq"]}
+        "completed_by": ["zzq"], "completes": ["zzq"], "completes_any": True,
+        "long_names_only": True}
 
 
 def _probe_readings() -> list[Any]:
@@ -186,7 +188,10 @@ def test_a_tag_selects_its_own_file_and_its_ancestors_never_its_descendants() ->
     # spelling cannot silently select only the parent
     assert ri.selected(["pt-br"]) == {"pt-BR", "pt"}
     # a region no file holds selects what its language's file holds
-    assert ri.selected(["pt-PT"]) == {"pt"}
+    assert ri.selected(["pt-AO"]) == {"pt"}
+    # a region whose file holds readings selects it beside its language's
+    # (pt-PT.toml, Portugal's own readings since #1189)
+    assert ri.selected(["pt-PT"]) == {"pt-PT", "pt"}
     # no macrolanguage table: Malay does not select Indonesian
     assert ri.selected(["ms"]) == {"ms"}
     assert ri.selected([]) == frozenset()
@@ -328,10 +333,20 @@ def test_a_strict_pool_holds_the_chosen_files_mul_and_native_script_only() -> No
     assert native and all(r in pool for r in native)
 
 
-def test_a_file_holding_no_reading_is_chosen_only_strictly() -> None:
+def test_a_file_holding_no_reading_is_chosen_only_strictly(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     empty = ri.files() - ri.tags()
     assert empty and ri.tags() <= ri.files()
-    for tag in sorted(empty):
+    # no shipped region's file holds no reading since pt-PT.toml took
+    # Portugal's own (#1189), so one is planted
+    regions = {tag for tag in empty if tag.split("-")[0] in ri.tags()}
+    assert regions == set()
+    monkeypatch.setattr(ri, "files", lambda: frozenset(ri.tags() | empty | {"pt-AO"}))
+    # such a file is chosen plainly through its language's file, which
+    # holds readings, and strictly with it
+    assert ri.selected(["pt-AO"]) == ri.selected(["pt"])
+    assert ri.selected(["pt-AO"], strict=True) == {"pt-AO"} | ri.selected(["pt"], strict=True)
+    for tag in sorted(empty - regions):
         with pytest.raises(ValueError,
                            match=f"{tag}.toml holds no reading a parse reads"):
             ri.selected([tag])
@@ -341,9 +356,11 @@ def test_a_file_holding_no_reading_is_chosen_only_strictly() -> None:
         assert ri.compile_choice(frozenset({tag}), True) == ri.compile_readings(
             ri.choose([r for r in ri.index() if ri.is_native_script(r.text)
                        or r.tag in ("mul", tag)], frozenset({tag})))
-        # any reading such a file holds is one no parse reads; a file of
-        # familiar readings alone is planted in the test below
-        assert all(r.category == "familiar"
+        # any reading such a file holds is one no parse reads, a
+        # familiar or a spelling one (hu.toml and zu.toml hold familiar
+        # readings alone on 2026-11-20); a file of familiar readings
+        # alone is planted in the test below
+        assert all(r.category in ri.MATCHING_ONLY
                    for r in ri.index() if r.tag == tag)
 
 
@@ -373,14 +390,26 @@ def test_a_file_holding_only_familiar_readings_is_chosen_only_strictly(
 #: choice of the same tag (decisions/vocabulary-model's 2026-10-30 #753,
 #: file-strict entry measured 16 words, 27 word-and-tag pairs over 13
 #: tags on 2026-10-31; the strict-gap batches of 2026-11-03 moved it, and
-#: #345 added hi's sushri, its Odia given name in or.toml). A
+#: #345 added hi's sushri, its Odia given name in or.toml; #1483 my's
+#: ranks, whose given names only en.toml writes; #1463 took off ar's cheikh
+#: and ms's sultan, each given a given reading in its file; de's and
+#: en's ra, whose name readings only ko.toml writes, #1483 on
+#: 2026-11-21, a strict German or English choice reading the
+#: credential as master's default did, and a strict German one the
+#: title in front; en's ab, #1178, decisions/vocabulary-collisions'
+#: 2026-11-21 #1178 entry; ar's imam and tr's effendi, #1206 on
+#: 2026-11-21, whose given readings id.toml writes, a strict Arabic
+#: choice reading imam and a strict Turkish one effendi as the title
+#: opening a name again, as 1.4.0 through 3.1.0 read both by default). A
 #: word leaves this table when a name reading is written in the chosen
 #: file whose names carry it, and joins it when a chosen file's
 #: vocabulary reading loses its gate: review each move.
 STRICT_UNGATED = {
-    "ar": {"ben", "cheikh"},
+    "ar": {"ben", "imam"},
     "ca": {"del", "la"},
     "cs": {"st"},
+    "de": {"ra"},
+    "en": {"ab", "ra"},
     "fil": {"del", "la", "san"},
     "fr": {"la", "marquis", "marquise", "saint", "st"},
     "ga": {"mac"},
@@ -388,12 +417,15 @@ STRICT_UNGATED = {
     "hi": {"sushri"},
     "hr": {"st"},
     "it": {"del", "la", "san", "santa"},
-    "ms": {"bin", "sultan"},
-    "nl": {"den", "tho"},
+    "ms": {"bin"},
+    "my": {"brig", "gen", "maj", "major"},
+    "nl": {"den", "ten", "tho"},
     "pt": {"da", "do", "santa"},
     "pt-BR": {"da", "do", "santa"},
+    "pt-PT": {"da", "do", "santa"},
     "sk": {"st"},
     "sl": {"st"},
+    "tr": {"effendi"},
 }
 
 
@@ -404,6 +436,81 @@ def test_the_words_strict_ungates_are_the_reviewed_set() -> None:
         if words:
             got[tag] = set(words)
     assert got == STRICT_UNGATED
+
+
+#: Names holding a word that left STRICT_UNGATED when its chosen file
+#: gained the name reading (#1463): the word opening the name, in each
+#: comma shape (one word, a full name and nothing before a family comma,
+#: and a suffix comma) and case, behind a title of another kind, beside
+#: a nickname and a generation, and two rows with the word last, which
+#: the gate never reached, as edges.
+_REGATED = {
+    "ar": ("Cheikh Kaddari", "Kaddari, Cheikh", "Kaddari, Cheikh Amine",
+           "Cheikh Kaddari, Amine", "Kaddari Amine, Cheikh",
+           ", Cheikh", "Cheikh", "CHEIKH KADDARI", "cheikh kaddari",
+           "Mr Cheikh Kaddari", "Dr. Cheikh Kaddari", "Cheikh Kaddari, PhD",
+           "(Bob), Cheikh", "Cheikh (Bob) Kaddari", "Cheikh Jr.",
+           "Amine Cheikh"),
+    "ms": ("Sultan Zulkarnain", "Zulkarnain, Sultan", "Zulkarnain, Sultan Ahmad",
+           "Sultan Zulkarnain, Ahmad", "Zulkarnain Ahmad, Sultan",
+           ", Sultan", "Sultan", "SULTAN ZULKARNAIN", "sultan zulkarnain",
+           "Encik Sultan Zulkarnain", "Haji Sultan Ahmad",
+           "Sultan bin Ahmad", "(Bob), Sultan", "Sultan (Bob) Ahmad",
+           "Aisha Sultan, DPT", "Sultan II", "Sultan Jr.",
+           "Ahmad bin Sultan"),
+}
+
+#: The title the strict choice reads in a row, where it reads one.
+_REGATED_TITLES = {"Mr Cheikh Kaddari": "Mr", "Dr. Cheikh Kaddari": "Dr.",
+                   "Encik Sultan Zulkarnain": "Encik",
+                   "Haji Sultan Ahmad": "Haji"}
+
+#: Rows the gate's other half reads: the word inside a title phrase, a
+#: title under a strict choice as by default, where en.toml is chosen
+#: beside the language (its style words and `of`).
+_REGATED_PHRASES = {
+    "ar": (("Grand Cheikh Ahmed", "Grand Cheikh"),),
+    "ms": (("His Majesty Sultan Rahmat", "His Majesty Sultan"),
+           ("Sultan of Johor Ibrahim", "Sultan of Johor")),
+}
+
+
+def _choice(tags: tuple[str, ...]) -> Locale:
+    return Locale(code="choice", lexicon=Lexicon.empty(),
+                  languages=frozenset(tags))
+
+
+@pytest.mark.parametrize("order", ["GIVEN_FIRST", "FAMILY_FIRST",
+                                   "FAMILY_FIRST_GIVEN_LAST"])
+@pytest.mark.parametrize("tags", [("ar",), ("ms",), ("ar", "en"), ("ms", "en"),
+                                  ("MS",)])
+def test_a_strict_choice_reads_a_regated_word_as_its_plain_choice_does(
+        tags: tuple[str, ...], order: str) -> None:
+    # strict drops every file holding a name reading of `cheikh` (fr.toml)
+    # and of `sultan` (ar.toml and tr.toml), and read each as the title
+    # opening a name (rules/H9) until ar.toml and ms.toml wrote one; "MS"
+    # is the shipped pack, the others a bare choice of those tags
+    import nameparser as N
+    from nameparser import Parser, Policy, locales, parser_for
+    choice = locales.MS if tags == ("MS",) else _choice(tags)
+    tag = tags[0].lower()
+    policy = Policy(name_order=getattr(N, order))
+    plain, strict = (Parser(lexicon=parser_for(choice, strict=s).lexicon,
+                            policy=policy) for s in (False, True))
+    for name in _REGATED[tag]:
+        got, want = strict.parse(name), plain.parse(name)
+        assert got.as_dict() == want.as_dict(), name
+        assert got.title == _REGATED_TITLES.get(name, ""), name
+        kinds = [a.kind.value for a in got.ambiguities]
+        if name == "Aisha Sultan, DPT" and "en" not in tags:
+            # strict drops en.toml's DPT, so it reports the credential
+            # the plain choice lists
+            assert [a.kind.value for a in want.ambiguities] == []
+            assert kinds == ["suffix-or-name"], name
+        else:
+            assert kinds == [a.kind.value for a in want.ambiguities], name
+    for name, title in _REGATED_PHRASES[tag] if "en" in tags else ():
+        assert strict.parse(name).title == title, name
 
 
 def test_strict_ungated_compares_with_the_plain_choice_not_the_default() -> None:
@@ -442,3 +549,63 @@ def test_same_as_compiles_for_readings_of_every_kind() -> None:
     # only a given reading's same_as makes an abbreviated given name
     assert "wm" in compiled["GIVEN_NAME_ABBREVIATIONS"]
     assert not {"junior", "capt"} & compiled["GIVEN_NAME_ABBREVIATIONS"]
+
+
+@pytest.mark.parametrize(("tag", "name", "word"), [
+    ("ar", "Cheikh Kaddari", "Cheikh"), ("ar", "Amine Cheikh", "Cheikh"),
+    ("ms", "Sultan Zulkarnain", "Sultan"), ("ms", "Aisha Sultan", "Sultan"),
+])
+def test_a_regated_word_names_its_chosen_file_in_either_name_role(
+        tag: str, name: str, word: str) -> None:
+    # ar.toml and ms.toml write both name readings (#1463): the given one
+    # keeps the gate, and the family one moves no role, but without it
+    # strict read a family Cheikh or Sultan naming no file
+    from nameparser import parser_for
+    strict = parser_for(_choice((tag,)), strict=True)
+    token = next(t for t in strict.parse(name).tokens if t.text == word)
+    assert token.reading is not None
+    assert tag in token.reading.languages
+
+
+#: The two titles #1206's batch gave a given reading in another file
+#: (id.toml), with a name each opens: a strict choice of the title's own
+#: tag drops id.toml and reads the word as the title again, as
+#: STRICT_UNGATED records, while the plain choice, the shipped pack, and
+#: a strict choice that keeps id.toml read the given name.
+_UNGATED_BY_ANOTHER_FILE = {
+    "ar": "Imam Taufik Sasongko",
+    "tr": "Effendi Purnomo Sitorus",
+}
+
+
+@pytest.mark.parametrize("tag", sorted(_UNGATED_BY_ANOTHER_FILE))
+def test_a_strict_choice_of_the_titles_own_tag_reads_it_as_the_title(
+        tag: str) -> None:
+    from nameparser import locales, parse, parser_for
+    name = _UNGATED_BY_ANOTHER_FILE[tag]
+    word = name.split()[0]
+    ungated = [parser_for(_choice((tag,)), strict=True)]
+    gated = [parser_for(_choice((tag,))),
+             parser_for(_choice((tag, "id")), strict=True),
+             parser_for(locales.MS)]
+    if tag == "ar":
+        ungated.append(parser_for(locales.AR, strict=True))
+        gated.append(parser_for(locales.AR))
+    for parser in ungated:
+        got = parser.parse(name)
+        assert (got.title, got.given) == (word, name.split()[1]), parser
+    for read in [parse, *(parser.parse for parser in gated)]:
+        got = read(name)
+        assert (got.title, got.given) == ("", word), read
+
+
+@pytest.mark.parametrize(("tag", "name"), [
+    ("yo", "Timi Adebayo"), ("en", "Sheriff Kanteh Jallow"),
+])
+def test_a_strict_choice_of_the_titles_own_file_keeps_its_gate(
+        tag: str, name: str) -> None:
+    # timi's and sheriff's given readings sit beside their titles (#1206),
+    # so a strict choice of that file keeps the word a name word
+    from nameparser import parser_for
+    got = parser_for(_choice((tag,)), strict=True).parse(name)
+    assert (got.title, got.given) == ("", name.split()[0])

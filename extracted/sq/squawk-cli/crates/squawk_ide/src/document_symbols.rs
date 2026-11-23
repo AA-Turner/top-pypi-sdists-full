@@ -1,22 +1,23 @@
-use rowan::TextRange;
-use salsa::Database as Db;
+use squawk_rowan::TextRange;
 use squawk_syntax::{
     SyntaxNode,
     ast::{self, AstNode, NameLike},
 };
 
-use crate::arena::IdxRange;
-use crate::db::{File, parse, semantic_index};
-use crate::file::{FileId, InFile, IrFileId};
-use crate::interner::Name;
-use crate::ir::{Column, FunctionKind, Item, MemberKind, MemberOwner, TableKind, TypeId, TypeKind};
-use crate::semantic_index::SemanticIndex;
+use squawk_sema::arena::IdxRange;
+use squawk_sema::file::{FileId, InFile, IrFileId};
+use squawk_sema::interner::Name;
+use squawk_sema::ir::{
+    Column, FunctionKind, Item, MemberKind, MemberOwner, TableKind, TypeId, TypeKind,
+};
+use squawk_sema::semantic_index::SemanticIndex;
 
-#[salsa::tracked]
-pub fn document_symbols(db: &dyn Db, file: File) -> Vec<DocumentSymbol> {
+use squawk_ide_db::{Db, parse, semantic_index};
+
+pub fn document_symbols(db: &dyn Db, file_id: FileId) -> Vec<DocumentSymbol> {
     document_symbols_with_index(
-        semantic_index(db, file.into()),
-        crate::file::InFile::new(file, &parse(db, file).tree()),
+        semantic_index(db, file_id),
+        squawk_sema::file::InFile::new(file_id, &parse(db, file_id).tree()),
     )
 }
 
@@ -378,6 +379,7 @@ impl Symbols<'_> {
             | ast::Stmt::Truncate(_)
             | ast::Stmt::Vacuum(_)
             | ast::Stmt::Values(_)
+            | ast::Stmt::Wait(_)
             | ast::Stmt::Commit(_)
             | ast::Stmt::Rollback(_) => None,
         };
@@ -758,7 +760,7 @@ impl Symbols<'_> {
 
 fn channel_symbol(stmt: &ast::Stmt, channel: &impl NameLike, detail: &str) -> DocumentSymbol {
     DocumentSymbol {
-        name: channel.text(),
+        name: channel.text().into_owned(),
         detail: Some(detail.to_string()),
         kind: DocumentSymbolKind::Channel,
         full_range: stmt.syntax().text_range(),

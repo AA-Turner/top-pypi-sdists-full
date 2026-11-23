@@ -755,6 +755,19 @@ def test_sse_stream_schema_violation_on_every_response():
             case.validate_response(response, checks=[response_schema_conformance])
 
 
+def test_sse_event_and_payload_violations_at_the_same_schema_path():
+    item_schema = {**SSE_VALUE_ITEM_SCHEMA, "required": ["data", "id"]}
+    case, response = _call_sse(_sse_schema(item_schema), 'data: {"value": 1}\n\nid: 2\ndata: {}\n\n')
+
+    with pytest.raises(FailureGroup) as exc:
+        case.validate_response(response, checks=[response_schema_conformance])
+
+    assert [(failure.title, failure.validation_message) for failure in exc.value.exceptions] == [
+        ("SSE event violates schema", '"id" is a required property'),
+        ("SSE event payload violates content schema", '"value" is a required property'),
+    ]
+
+
 def test_sse_stream_schema_with_unresolvable_reference_is_skipped():
     raw_schema = _sse_stream_schema({"schema": {"$ref": "#/components/schemas/Missing"}})
     case, response = _call_sse(raw_schema, TWO_EVENTS)
@@ -841,12 +854,14 @@ def test_sse_retry_field_validates_as_integer():
         "required": ["data"],
     }
     case, response = _call_sse(_sse_schema(item_schema), "retry: 3000\ndata: hello\n\n")
-    # Should not raise — retry:3000 is a valid integer
+    # `retry:3000` is a valid integer
     case.operation.schema.validate_response(case.operation, response, case=case)
 
 
 # Bytes keep flowing, so only a total deadline ends the read; the cap bounds runs where it does not.
 ENDLESS_STREAM_CAP = 3
+# Also bounds the wait for headers, which a server thread on a loaded runner may send late.
+HTTP_STREAM_TIMEOUT = 1
 FIRST_EVENT = b'data: {"value": 1}\n\n'
 # Read only in part, an endless stream never reaches `minItems`
 ENDLESS_STREAM_PATHS = _sse_paths(SSE_VALUE_ITEM_SCHEMA)
@@ -902,7 +917,7 @@ def _assert_cut_at_deadline(case, call):
     case.validate_response(response, checks=[response_schema_conformance])
 
 
-@pytest.mark.parametrize("timeout", [0.5, (5, 0.5)], ids=["total", "connect-and-read"])
+@pytest.mark.parametrize("timeout", [HTTP_STREAM_TIMEOUT, (5, HTTP_STREAM_TIMEOUT)], ids=["total", "connect-and-read"])
 def test_endless_sse_stream_over_http(ctx, app_runner, timeout):
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(_endless_flask_app(ctx)))
     case = schema["/sse"]["GET"].Case()
@@ -923,7 +938,7 @@ def test_silent_sse_stream_over_http(ctx, app_runner):
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     case = schema["/sse"]["GET"].Case()
-    _assert_cut_at_deadline(case, lambda: case.call(timeout=0.5))
+    _assert_cut_at_deadline(case, lambda: case.call(timeout=HTTP_STREAM_TIMEOUT))
 
 
 def test_endless_sse_stream_over_wsgi(ctx):

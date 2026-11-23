@@ -1,211 +1,10 @@
 Metadata-Version: 2.4
 Name: onnxtr
-Version: 0.9.0
+Version: 0.10.0
 Summary: Onnx Text Recognition (OnnxTR): docTR Onnx-Wrapper for high-performance OCR on documents.
 Author-email: Felix Dittrich <felixdittrich92@gmail.com>
 Maintainer: Felix Dittrich
-License:                                  Apache License
-                                   Version 2.0, January 2004
-                                http://www.apache.org/licenses/
-        
-           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-        
-           1. Definitions.
-        
-              "License" shall mean the terms and conditions for use, reproduction,
-              and distribution as defined by Sections 1 through 9 of this document.
-        
-              "Licensor" shall mean the copyright owner or entity authorized by
-              the copyright owner that is granting the License.
-        
-              "Legal Entity" shall mean the union of the acting entity and all
-              other entities that control, are controlled by, or are under common
-              control with that entity. For the purposes of this definition,
-              "control" means (i) the power, direct or indirect, to cause the
-              direction or management of such entity, whether by contract or
-              otherwise, or (ii) ownership of fifty percent (50%) or more of the
-              outstanding shares, or (iii) beneficial ownership of such entity.
-        
-              "You" (or "Your") shall mean an individual or Legal Entity
-              exercising permissions granted by this License.
-        
-              "Source" form shall mean the preferred form for making modifications,
-              including but not limited to software source code, documentation
-              source, and configuration files.
-        
-              "Object" form shall mean any form resulting from mechanical
-              transformation or translation of a Source form, including but
-              not limited to compiled object code, generated documentation,
-              and conversions to other media types.
-        
-              "Work" shall mean the work of authorship, whether in Source or
-              Object form, made available under the License, as indicated by a
-              copyright notice that is included in or attached to the work
-              (an example is provided in the Appendix below).
-        
-              "Derivative Works" shall mean any work, whether in Source or Object
-              form, that is based on (or derived from) the Work and for which the
-              editorial revisions, annotations, elaborations, or other modifications
-              represent, as a whole, an original work of authorship. For the purposes
-              of this License, Derivative Works shall not include works that remain
-              separable from, or merely link (or bind by name) to the interfaces of,
-              the Work and Derivative Works thereof.
-        
-              "Contribution" shall mean any work of authorship, including
-              the original version of the Work and any modifications or additions
-              to that Work or Derivative Works thereof, that is intentionally
-              submitted to Licensor for inclusion in the Work by the copyright owner
-              or by an individual or Legal Entity authorized to submit on behalf of
-              the copyright owner. For the purposes of this definition, "submitted"
-              means any form of electronic, verbal, or written communication sent
-              to the Licensor or its representatives, including but not limited to
-              communication on electronic mailing lists, source code control systems,
-              and issue tracking systems that are managed by, or on behalf of, the
-              Licensor for the purpose of discussing and improving the Work, but
-              excluding communication that is conspicuously marked or otherwise
-              designated in writing by the copyright owner as "Not a Contribution."
-        
-              "Contributor" shall mean Licensor and any individual or Legal Entity
-              on behalf of whom a Contribution has been received by Licensor and
-              subsequently incorporated within the Work.
-        
-           2. Grant of Copyright License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              copyright license to reproduce, prepare Derivative Works of,
-              publicly display, publicly perform, sublicense, and distribute the
-              Work and such Derivative Works in Source or Object form.
-        
-           3. Grant of Patent License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              (except as stated in this section) patent license to make, have made,
-              use, offer to sell, sell, import, and otherwise transfer the Work,
-              where such license applies only to those patent claims licensable
-              by such Contributor that are necessarily infringed by their
-              Contribution(s) alone or by combination of their Contribution(s)
-              with the Work to which such Contribution(s) was submitted. If You
-              institute patent litigation against any entity (including a
-              cross-claim or counterclaim in a lawsuit) alleging that the Work
-              or a Contribution incorporated within the Work constitutes direct
-              or contributory patent infringement, then any patent licenses
-              granted to You under this License for that Work shall terminate
-              as of the date such litigation is filed.
-        
-           4. Redistribution. You may reproduce and distribute copies of the
-              Work or Derivative Works thereof in any medium, with or without
-              modifications, and in Source or Object form, provided that You
-              meet the following conditions:
-        
-              (a) You must give any other recipients of the Work or
-                  Derivative Works a copy of this License; and
-        
-              (b) You must cause any modified files to carry prominent notices
-                  stating that You changed the files; and
-        
-              (c) You must retain, in the Source form of any Derivative Works
-                  that You distribute, all copyright, patent, trademark, and
-                  attribution notices from the Source form of the Work,
-                  excluding those notices that do not pertain to any part of
-                  the Derivative Works; and
-        
-              (d) If the Work includes a "NOTICE" text file as part of its
-                  distribution, then any Derivative Works that You distribute must
-                  include a readable copy of the attribution notices contained
-                  within such NOTICE file, excluding those notices that do not
-                  pertain to any part of the Derivative Works, in at least one
-                  of the following places: within a NOTICE text file distributed
-                  as part of the Derivative Works; within the Source form or
-                  documentation, if provided along with the Derivative Works; or,
-                  within a display generated by the Derivative Works, if and
-                  wherever such third-party notices normally appear. The contents
-                  of the NOTICE file are for informational purposes only and
-                  do not modify the License. You may add Your own attribution
-                  notices within Derivative Works that You distribute, alongside
-                  or as an addendum to the NOTICE text from the Work, provided
-                  that such additional attribution notices cannot be construed
-                  as modifying the License.
-        
-              You may add Your own copyright statement to Your modifications and
-              may provide additional or different license terms and conditions
-              for use, reproduction, or distribution of Your modifications, or
-              for any such Derivative Works as a whole, provided Your use,
-              reproduction, and distribution of the Work otherwise complies with
-              the conditions stated in this License.
-        
-           5. Submission of Contributions. Unless You explicitly state otherwise,
-              any Contribution intentionally submitted for inclusion in the Work
-              by You to the Licensor shall be under the terms and conditions of
-              this License, without any additional terms or conditions.
-              Notwithstanding the above, nothing herein shall supersede or modify
-              the terms of any separate license agreement you may have executed
-              with Licensor regarding such Contributions.
-        
-           6. Trademarks. This License does not grant permission to use the trade
-              names, trademarks, service marks, or product names of the Licensor,
-              except as required for reasonable and customary use in describing the
-              origin of the Work and reproducing the content of the NOTICE file.
-        
-           7. Disclaimer of Warranty. Unless required by applicable law or
-              agreed to in writing, Licensor provides the Work (and each
-              Contributor provides its Contributions) on an "AS IS" BASIS,
-              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-              implied, including, without limitation, any warranties or conditions
-              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-              PARTICULAR PURPOSE. You are solely responsible for determining the
-              appropriateness of using or redistributing the Work and assume any
-              risks associated with Your exercise of permissions under this License.
-        
-           8. Limitation of Liability. In no event and under no legal theory,
-              whether in tort (including negligence), contract, or otherwise,
-              unless required by applicable law (such as deliberate and grossly
-              negligent acts) or agreed to in writing, shall any Contributor be
-              liable to You for damages, including any direct, indirect, special,
-              incidental, or consequential damages of any character arising as a
-              result of this License or out of the use or inability to use the
-              Work (including but not limited to damages for loss of goodwill,
-              work stoppage, computer failure or malfunction, or any and all
-              other commercial damages or losses), even if such Contributor
-              has been advised of the possibility of such damages.
-        
-           9. Accepting Warranty or Additional Liability. While redistributing
-              the Work or Derivative Works thereof, You may choose to offer,
-              and charge a fee for, acceptance of support, warranty, indemnity,
-              or other liability obligations and/or rights consistent with this
-              License. However, in accepting such obligations, You may act only
-              on Your own behalf and on Your sole responsibility, not on behalf
-              of any other Contributor, and only if You agree to indemnify,
-              defend, and hold each Contributor harmless for any liability
-              incurred by, or claims asserted against, such Contributor by reason
-              of your accepting any such warranty or additional liability.
-        
-           END OF TERMS AND CONDITIONS
-        
-           APPENDIX: How to apply the Apache License to your work.
-        
-              To apply the Apache License to your work, attach the following
-              boilerplate notice, with the fields enclosed by brackets "[]"
-              replaced with your own identifying information. (Don't include
-              the brackets!)  The text should be enclosed in the appropriate
-              comment syntax for the file format. We also recommend that a
-              file or class name and description of purpose be included on the
-              same "printed page" as the copyright notice for easier
-              identification within third-party archives.
-        
-           Copyright [yyyy] [name of copyright owner]
-        
-           Licensed under the Apache License, Version 2.0 (the "License");
-           you may not use this file except in compliance with the License.
-           You may obtain a copy of the License at
-        
-               http://www.apache.org/licenses/LICENSE-2.0
-        
-           Unless required by applicable law or agreed to in writing, software
-           distributed under the License is distributed on an "AS IS" BASIS,
-           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-           See the License for the specific language governing permissions and
-           limitations under the License.
-        
+License-Expression: Apache-2.0
 Project-URL: repository, https://github.com/felixdittrich92/OnnxTR
 Project-URL: tracker, https://github.com/felixdittrich92/OnnxTR/issues
 Project-URL: changelog, https://github.com/felixdittrich92/OnnxTR/releases
@@ -214,7 +13,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -231,7 +29,7 @@ Requires-Dist: pypdfium2<6.0.0,>=4.11.0
 Requires-Dist: pyclipper<2.0.0,>=1.2.0
 Requires-Dist: rapidfuzz<4.0.0,>=3.0.0
 Requires-Dist: langdetect<2.0.0,>=1.0.9
-Requires-Dist: huggingface-hub<2.0.0,>=0.23.0
+Requires-Dist: huggingface-hub<3.0.0,>=1.0.0
 Requires-Dist: Pillow>=9.2.0
 Requires-Dist: defusedxml>=0.7.0
 Requires-Dist: anyascii>=0.3.2
@@ -298,8 +96,8 @@ Dynamic: license-file
 [![codecov](https://codecov.io/gh/felixdittrich92/OnnxTR/graph/badge.svg?token=WVFRCQBOLI)](https://codecov.io/gh/felixdittrich92/OnnxTR)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4fff4d764bb14fb8b4f4afeb9587231b)](https://app.codacy.com/gh/felixdittrich92/OnnxTR/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![CodeFactor](https://www.codefactor.io/repository/github/felixdittrich92/onnxtr/badge)](https://www.codefactor.io/repository/github/felixdittrich92/onnxtr)
-[![Socket Badge](https://socket.dev/api/badge/pypi/package/onnxtr/0.9.0?artifact_id=tar-gz)](https://socket.dev/pypi/package/onnxtr/overview/0.9.0/tar-gz)
-[![Pypi](https://img.shields.io/badge/pypi-v0.9.0-blue.svg)](https://pypi.org/project/OnnxTR/)
+[![Socket Badge](https://badge.socket.dev/pypi/package/onnxtr/0.10.0?artifact_id=tar-gz)](https://badge.socket.dev/pypi/package/onnxtr/0.10.0?artifact_id=tar-gz)
+[![Pypi](https://img.shields.io/badge/pypi-v0.10.0-blue.svg)](https://pypi.org/project/OnnxTR/)
 [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/felixdittrich92/OnnxTR/pkgs/container/onnxtr)
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/Felix92/OnnxTR-OCR)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/onnxtr)
@@ -381,6 +179,24 @@ single_img_doc = DocumentFile.from_images("path/to/your/img.jpg")
 webpage_doc = DocumentFile.from_url("https://www.yoursite.com")
 # Multiple page images
 multi_img_doc = DocumentFile.from_images(["path/to/page1.jpg", "path/to/page2.jpg"])
+# Every PDF and image of a folder
+folder_doc = DocumentFile.from_files("path/to/your/folder")
+```
+
+Long documents and large image collections can be opened lazily: the pages are only decoded when they are processed,
+chunk by chunk (`page_chunk_size` pages at a time), so that the memory footprint does not grow with the number of pages.
+
+```python
+from onnxtr.io import DocumentFile
+from onnxtr.models import ocr_predictor
+
+model = ocr_predictor(page_chunk_size=16)
+doc = DocumentFile.from_pdf("path/to/your/long_doc.pdf", lazy=True)
+# Predict on the whole document
+result = model(doc)
+# Or get the pages one by one, as soon as they are processed
+for page in model.stream(doc, on_error="skip"):  # skip the pages that cannot be read
+    print(page.page_idx, page.render())
 ```
 
 ### Putting it together
@@ -400,6 +216,8 @@ model = ocr_predictor(
     assume_straight_pages=True,  # set to `False` if the pages are not straight (rotation, perspective, etc.) (default: True)
     straighten_pages=False,  # set to `True` if the pages should be straightened before final processing (default: False)
     export_as_straight_boxes=False,  # set to `True` if the boxes should be exported as if the pages were straight (default: False)
+    # Recognition related parameters
+    confidence_aggregation="mean",  # set to "mean", "min", "max", "median", "geometric_mean", "harmonic_mean" or a Python callable taking the 1D array of probabilities and returning a float (default: None) - it aggregates the character probabilities of the recognition model into the word confidence
     # Preprocessing related parameters
     preserve_aspect_ratio=True,  # set to `False` if the aspect ratio should not be preserved (default: True)
     symmetric_pad=True,  # set to `False` to disable symmetric padding (default: True)
@@ -411,6 +229,7 @@ model = ocr_predictor(
     layout_arch="lw_detr_s",  # layout architecture to use (default: lw_detr_s)
     ignore_regions=None,  # optional list of layout classes to mask out before detection, e.g. ["Picture"] (default: None)
     detect_tables=False,  # set to `True` to recognize the structure of detected tables (default: False)
+    detect_formulas=False,  # set to `True` to read the detected formulas as LaTeX (default: False)
     # Orientation specific parameters in combination with `assume_straight_pages=False` and/or `straighten_pages=True`
     disable_crop_orientation=False,  # set to `True` if the crop orientation classification should be disabled (default: False)
     disable_page_orientation=False,  # set to `True` if the general page orientation classification should be disabled (default: False)
@@ -420,8 +239,11 @@ model = ocr_predictor(
     paragraph_break=0.035,  # relative length of the minimum space separating paragraphs (default: 0.035)
     keep_reading_order=False,  # whether the elements should be re-ordered by reading order (default: False)
     preserve_original_coords=False,  # with `straighten_pages=True`, map the boxes back onto the original page (default: False)
+    # Long documents
+    page_chunk_size=32,  # maximum number of pages of a lazy page source / iterator processed at once (default: 32)
     # OnnxTR specific parameters
-    # NOTE: 8-Bit quantized models are not available for FAST detection models and can in general lead to poorer accuracy
+    # NOTE: 8-Bit quantized models are not available for FAST, MASTER, VIPTR, LW-DETR, TableCenterNet and FormulaNet models
+    # (the full precision model is loaded instead) and can in general lead to poorer accuracy
     load_in_8_bit=False,  # set to `True` to load 8-bit quantized models instead of the full precision onces (default: False)
     # Advanced engine configuration options
     det_engine_cfg=EngineConfig(),  # detection model engine configuration (default: internal predefined configuration)
@@ -429,6 +251,7 @@ model = ocr_predictor(
     clf_engine_cfg=EngineConfig(),  # classification (orientation) model engine configuration (default: internal predefined configuration)
     layout_engine_cfg=EngineConfig(),  # layout model engine configuration (default: internal predefined configuration)
     table_engine_cfg=EngineConfig(),  # table structure model engine configuration (default: internal predefined configuration)
+    formula_engine_cfg=EngineConfig(),  # formula recognition model engine configuration (default: internal predefined configuration)
 )
 # PDF
 doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
@@ -555,6 +378,30 @@ run, which is useful to skip figures or stamps:
 model = ocr_predictor(detect_layout=True, ignore_regions=["Picture", "Formula"])
 ```
 
+Two layout architectures are available: `lw_detr_s` (default) and the more accurate `lw_detr_m`
+(`ocr_predictor(detect_layout=True, layout_arch="lw_detr_m")`).
+
+### Formula recognition
+
+With `detect_formulas=True`, the formula regions found by the layout model are masked out of the text detection,
+cropped and read as LaTeX by a formula recognition model (FormulaNet). They are exported as display math
+(e.g. `$$...$$` in Markdown).
+
+```python
+from onnxtr.io import DocumentFile
+from onnxtr.models import formula_predictor, ocr_predictor
+
+model = ocr_predictor(detect_formulas=True)
+result = model(DocumentFile.from_pdf("path/to/your/doc.pdf"))
+for formula in result.pages[0].formulas:
+    print(formula.value, formula.confidence, formula.geometry)
+print(result.export_as_markdown())
+
+# Or read formula images directly
+predictor = formula_predictor("formulanet")
+latex, confidence = predictor(DocumentFile.from_images("path/to/formula.png"))[0]
+```
+
 ### Exporting the results
 
 Beyond `export()` and `render()`, a document can be exported to several document formats:
@@ -596,6 +443,12 @@ onnxtr-cli --input_path doc.pdf --output results.txt --device cuda --load_in_8_b
 
 # Several inputs (images, PDFs and URLs) concatenated into a single document
 onnxtr-cli --input_path a.png b.pdf https://example.com --output results.html
+
+# Formulas read as LaTeX (display math in the Markdown export)
+onnxtr-cli --input_path paper.pdf --output results.md --detect_formulas
+
+# A whole folder of PDFs and images, processed chunk by chunk, skipping the files that cannot be read
+onnxtr-cli --input_path path/to/folder --output results.json --page_chunk_size 16 --on_error skip
 ```
 
 `--device` accepts `auto` (the default, picking CUDA when available), `cpu`, `cuda`, or an
@@ -693,6 +546,10 @@ Credits where it's due: this repository provides ONNX models for the following a
 
 - TableCenterNet: [TableCenterNet: A one-stage network for table structure recognition](https://arxiv.org/abs/2504.17522).
 
+### Formula Recognition
+
+- FormulaNet: [PP-FormulaNet: Bridging Accuracy and Efficiency in Advanced Formula Recognition](https://arxiv.org/abs/2503.18382).
+
 ```python
 predictor = ocr_predictor()
 predictor.list_archs()
@@ -713,7 +570,7 @@ predictor.list_archs()
         "crnn_mobilenet_v3_small",
         "crnn_mobilenet_v3_large",
         "sar_resnet31",
-        "master",
+        "master",  # No 8-bit support
         "vitstr_small",
         "vitstr_base",
         "parseq",
@@ -721,9 +578,13 @@ predictor.list_archs()
     ],
     "layout_archs": [
         "lw_detr_s",  # No 8-bit support
+        "lw_detr_m",  # No 8-bit support
     ],
     "table_structure_archs": [
         "tablecenternet",  # No 8-bit support
+    ],
+    "formula_archs": [
+        "formulanet",  # No 8-bit support
     ],
 }
 ```
@@ -741,40 +602,40 @@ NOTE:
 
 ### Benchmarks
 
-The CPU benchmarks was measured on a `i7-14700K Intel CPU`.
+The CPU benchmarks were measured on an `i7-14700K Intel CPU` and the GPU benchmarks on an `RTX 4080 Nvidia GPU`.
 
-The GPU benchmarks was measured on a `RTX 4080 Nvidia GPU`.
+Benchmarking performed on the FUNSD dataset and CORD dataset: mean time of the end-to-end OCR (text detection & recognition) of a page, on the original images, after a warm-up and with the default settings of each library.
 
-Benchmarking performed on the FUNSD dataset and CORD dataset.
+docTR / OnnxTR models used for the benchmarks are `fast_base` (full precision) | `db_resnet50` (8-bit variant) for detection and `crnn_vgg16_bn` for recognition. The float16 models of OnnxTR are converted with `scripts/convert_to_float16.py`.
 
-docTR / OnnxTR models used for the benchmarks are `fast_base` (full precision) | `db_resnet50` (8-bit variant) for detection and `crnn_vgg16_bn` for recognition.
-
-The smallest combination in OnnxTR (docTR) of `db_mobilenet_v3_large` and `crnn_mobilenet_v3_small` takes as comparison `~0.17s / Page` on the FUNSD dataset and `~0.12s / Page` on the CORD dataset in **full precision** on CPU.
+The smallest combination in OnnxTR of `db_mobilenet_v3_large` and `crnn_mobilenet_v3_small` takes as comparison `~0.15s / Page` on the FUNSD dataset and `~0.12s / Page` on the CORD dataset in **full precision** on CPU.
 
 - CPU benchmarks:
 
-|Library                             |FUNSD (199 pages)              |CORD  (900 pages)              |
-|------------------------------------|-------------------------------|-------------------------------|
-|docTR (CPU) - v0.8.1                | ~1.29s / Page                 | ~0.60s / Page                 |
-|**OnnxTR (CPU)** - v0.6.0           | ~0.57s / Page                 | **~0.25s / Page**             |
-|**OnnxTR (CPU) 8-bit** - v0.6.0     | **~0.38s / Page**             | **~0.14s / Page**             |
-|**OnnxTR (CPU-OpenVINO)** - v0.6.0  | **~0.15s / Page**             | **~0.14s / Page**             |
-|EasyOCR (CPU) - v1.7.1              | ~1.96s / Page                 | ~1.75s / Page                 |
-|**PyTesseract (CPU)** - v0.3.10     | **~0.50s / Page**             | ~0.52s / Page                 |
-|Surya (line) (CPU) - v0.4.4         | ~48.76s / Page                | ~35.49s / Page                |
-|PaddleOCR (CPU) - no cls - v2.7.3   | ~1.27s / Page                 | ~0.38s / Page                 |
+|Library                                       |FUNSD (199 pages)              |CORD  (900 pages)              |
+|----------------------------------------------|-------------------------------|-------------------------------|
+|docTR (CPU) - v1.1.0                          |~1.01s / Page                  |~0.45s / Page                  |
+|**OnnxTR (CPU)** - v0.10.0                    |~0.60s / Page                  |~0.27s / Page                  |
+|**OnnxTR (CPU) 8-bit** - v0.10.0              |**~0.28s / Page**              |**~0.15s / Page**              |
+|**OnnxTR (CPU-OpenVINO)** - v0.10.0           |~0.68s / Page                  |~0.30s / Page                  |
+|EasyOCR (CPU) - v1.7.2                        |~1.83s / Page                  |~1.80s / Page                  |
+|PyTesseract (CPU) - v0.3.13 (Tesseract 5.5.0) |~0.38s / Page                  |~0.44s / Page                  |
+|Surya (CPU) - v0.17.1                         |~27.00s / Page                 |~12.93s / Page                 |
+|PaddleOCR (CPU) - no cls - v3.7.0             |~10.53s / Page                 |~8.39s / Page                  |
 
 - GPU benchmarks:
 
-|Library                              |FUNSD (199 pages)              |CORD  (900 pages)              |
-|-------------------------------------|-------------------------------|-------------------------------|
-|docTR (GPU) - v0.8.1                 | ~0.07s / Page                 | ~0.05s / Page                 |
-|**docTR (GPU) float16** - v0.8.1     | **~0.06s / Page**             | **~0.03s / Page**             |
-|OnnxTR (GPU) - v0.6.0                | **~0.06s / Page**             | ~0.04s / Page                 |
-|**OnnxTR (GPU) float16 - v0.6.0**    | **~0.05s / Page**             | **~0.03s / Page**             |
-|EasyOCR (GPU) - v1.7.1               | ~0.31s / Page                 | ~0.19s / Page                 |
-|Surya (GPU) float16 - v0.4.4         | ~3.70s / Page                 | ~2.81s / Page                 |
-|**PaddleOCR (GPU) - no cls - v2.7.3**| ~0.08s / Page                 | **~0.03s / Page**             |
+|Library                            |FUNSD (199 pages)              |CORD  (900 pages)              |
+|-----------------------------------|-------------------------------|-------------------------------|
+|docTR (GPU) - v1.1.0               |~0.068s / Page                 |~0.030s / Page                 |
+|docTR (GPU) float16 - v1.1.0       |**~0.057s / Page**             |**~0.027s / Page**             |
+|**OnnxTR (GPU)** - v0.10.0         |**~0.057s / Page**             |~0.039s / Page                 |
+|**OnnxTR (GPU) float16** - v0.10.0 |~0.059s / Page                 |~0.048s / Page                 |
+|EasyOCR (GPU) - v1.7.2             |~0.34s / Page                  |~0.14s / Page                  |
+|Surya (GPU) - v0.17.1              |~1.23s / Page                  |~0.53s / Page                  |
+|PaddleOCR (GPU) - no cls - v3.7.0  |~0.15s / Page                  |~0.090s / Page                 |
+
+OnnxTR runs with onnxruntime(-gpu) 1.23.2 and onnxruntime-openvino 1.24.1, docTR and EasyOCR with PyTorch 2.15, PaddleOCR with PaddlePaddle 3.3.1 and its default text detection / recognition models (`PP-OCRv6_medium_det` + `PP-OCRv6_medium_rec`). Surya 0.17.1 is the last release running the text recognition with PyTorch (newer releases rely on a vLLM / llama.cpp inference server).
 
 ## Citation
 

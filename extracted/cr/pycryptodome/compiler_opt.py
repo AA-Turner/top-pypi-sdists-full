@@ -457,8 +457,8 @@ def compiler_supports_bmi2_adx():
 
     source = """
     #include <stdint.h>
-    #if !defined(__x86_64__)
-    #error Only for x86-64
+    #if !defined(__x86_64__) || defined(__ILP32__)
+    #error Only for 64-bit x86-64 (not the x32 ILP32 ABI)
     #endif
     int main(void) {
         uint64_t lo, hi, x = 3, y = 5;
@@ -652,17 +652,18 @@ def set_compiler_options(extensions):
 
     # AESNI
     aesni_result = (cpuid_h_present or intrin_h_present) and compiler_supports_aesni()
-    aesni_mod_name = "Crypto.Cipher._raw_aesni"
+    aesni_mod_names = ["Crypto.Cipher._raw_aesni", "Crypto.Cipher._raw_aegis_aesni"]
     if aesni_result:
         print("Compiling support for AESNI instructions")
-        aes_mods = [x for x in extensions if x.name == aesni_mod_name]
+        aes_mods = [x for x in extensions if x.name in aesni_mod_names]
         for x in aes_mods:
             x.extra_compile_args.extend(aesni_result["extra_cc_options"])
             for macro in aesni_result["extra_macros"]:
                 x.define_macros.append((macro, None))
     else:
         print("Warning: compiler does not support AESNI instructions")
-        remove_extension(extensions, aesni_mod_name)
+        for mod_name in aesni_mod_names:
+            remove_extension(extensions, mod_name)
 
     # CLMUL
     clmul_result = (cpuid_h_present or intrin_h_present) and compiler_supports_clmul()
@@ -682,9 +683,11 @@ def set_compiler_options(extensions):
     armv8_crypto_result = target_may_be_arm64() and compiler_supports_armv8_crypto()
     armv8_crypto_mod_names = [
         "Crypto.Cipher._raw_aes_armv8",
+        "Crypto.Cipher._raw_aegis_armv8",
         "Crypto.Hash._ghash_pmull",
         "Crypto.Hash._SHA224_armv8",
         "Crypto.Hash._SHA256_armv8",
+        "Crypto.PublicKey._slhdsa_armv8",
     ]
     if armv8_crypto_result:
         print("Compiling support for ARMv8 Cryptography Extensions")
@@ -719,6 +722,7 @@ def set_compiler_options(extensions):
         "Crypto.Cipher._chacha20_avx2_bmi2",
         "Crypto.PublicKey._mldsa_avx2_bmi2",
         "Crypto.PublicKey._mlkem_avx2_bmi2",
+        "Crypto.PublicKey._slhdsa_avx2_bmi2",
     ]
     if avx2_bmi2_result:
         print("Compiling support for AVX2 and BMI2 instructions")
@@ -734,7 +738,11 @@ def set_compiler_options(extensions):
 
     # SHA-NI
     sha_ni_result = (cpuid_h_present or intrin_h_present) and compiler_supports_sha_ni()
-    sha_ni_mod_names = ["Crypto.Hash._SHA224_shani", "Crypto.Hash._SHA256_shani"]
+    sha_ni_mod_names = [
+        "Crypto.Hash._SHA224_shani",
+        "Crypto.Hash._SHA256_shani",
+        "Crypto.PublicKey._slhdsa_shani",
+    ]
     if sha_ni_result:
         print("Compiling support for SHA-NI instructions")
         sha_ni_mods = [x for x in extensions if x.name in sha_ni_mod_names]

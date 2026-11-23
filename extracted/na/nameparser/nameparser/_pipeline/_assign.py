@@ -447,7 +447,7 @@ def _placed(read: TailRead, rest: list[int],
     # built, not `_replace`d: that is two frames on every read
     return names, tuple(titled), Peel(
         count, peel.numerals, peel.picks, peel.anchors, tuple(run_titles),
-        peel.absorbed)
+        peel.absorbed, peel.declined)
 
 
 def _assign_main(seg_idx: int, state: ParseState,
@@ -690,6 +690,19 @@ def _assign_main(seg_idx: int, state: ParseState,
         report = ambiguities[r]
         ambiguities[r] = copy_with(
             report, alternative=as_a_name(report.indices[0]))
+    # rules/S8: "nor, in a name written wholly in one case, does a
+    # credential that is also a given name written short" -- the run
+    # declined where nothing in the writing settles it, so the reading
+    # not taken is the credential's run (decisions/S8, #1394). Each such
+    # word stands before any run `run_start` starts, the walk returning
+    # the first, so it is in the name core and holds a name role
+    for i in peeled.declined:
+        ambiguities.append(PendingAmbiguity(
+            AmbiguityKind.SUFFIX_OR_NAME,
+            f"{tokens[i].text!r} is a credential and a given name "
+            f"written short, in a name written in one case; read as ",
+            (i,), field_tail=" rather than the credential",
+            alternative=suffix_reading(tokens[i])))
     # after the trailing reports are given their name reading, which
     # the order report has none of
     if order_report is not None:
@@ -2047,23 +2060,19 @@ def assign(state: ParseState) -> ParseState:
         # rules/H6: "A run of title words opening the part before a
         # family comma is the title" -- by vocabulary only, never H2's
         # shape, leaving one piece for the family, and stopping at a
-        # word that is a particle too ('St Pierre', 'Freiherr von
-        # Berg'), or where everything behind it is post-nominal, which
-        # leaves no family word to address -- H3's concern, by a
-        # stricter test than H3's one-word give-back, so this is not
-        # `leading_titles` ('RA PhD Jr., John' keeps family 'RA', where
-        # 'RA PhD Jr. John' reads title 'RA'). A dual is a title wherever
-        # a name word follows it ('Rev. Sr. Smith, Mary').
-        # `is_title_piece` is H5's vocabulary read, so the two slots that
-        # refuse the shape agree on what a title word is, save H5's
-        # written-short clause, which this slot does not read
-        # (decisions/H9, #999: 'Maj. Smith, John' keeps family 'Maj. Smith').
+        # word that is a particle too, or where everything behind it is
+        # post-nominal, which leaves no family word to address -- H3's
+        # concern, by a stricter test than H3's one-word give-back, so
+        # this is not `leading_titles`. A dual is a title wherever a name
+        # word follows it. `is_title_piece` is H5's vocabulary read, so
+        # the two slots that refuse the shape agree on what a title word
+        # is, save H5's written-short clause, which this slot does not
+        # read (decisions/H6, decisions/H9 (#999)).
         #
         # rules/H10: "where a title the run keeps stands behind it" --
-        # a dotted run ('U.S. Senator Smith, John') counts as a title
-        # word here as in the leading run, and one the run ends on is
-        # given back ('U.S. Grant Smith, John' keeps family 'U.S. Grant
-        # Smith'), so the roles are set once the run is known.
+        # a dotted run counts as a title word here as in the leading
+        # run, and one the run ends on is given back, so the roles are
+        # set once the run is known (decisions/H10 (#490)).
         lead = 0
         floor = len(fam_pieces)
         # the length test and the tag test first, both C-level: a part

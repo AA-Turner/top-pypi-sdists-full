@@ -45,6 +45,8 @@ class Bip32Slip10DerivatorConst:
 
     # Private key prefix
     PRIV_KEY_PREFIX: bytes = b"\x00"
+    # Prefix of the HMAC data used to retry an invalid child key
+    RETRY_PREFIX: bytes = b"\x01"
 
 
 class Bip32Slip10EcdsaDerivator(IBip32KeyDerivator):
@@ -81,11 +83,14 @@ class Bip32Slip10EcdsaDerivator(IBip32KeyDerivator):
         Returns:
             tuple[bytes, bytes]: Private key bytes (index 0) and chain code bytes (index 1)
 
-        Raises:
-            Bip32KeyError: If the index results in an invalid key
+        Note:
+            If the resulting key is invalid, the derivation is retried as specified by SLIP-0010
+            (BIP32 would instead consider the index invalid).
         """
         curve = pub_key.Curve()
+        curve_order = curve.Order()
         priv_key_bytes = priv_key.Raw().ToBytes()
+        chain_code = priv_key.ChainCode().ToBytes()
 
         # Data for HMAC
         if index.IsHardened():
@@ -95,14 +100,22 @@ class Bip32Slip10EcdsaDerivator(IBip32KeyDerivator):
         else:
             data_bytes = pub_key.RawCompressed().ToBytes() + index.ToBytes()
 
-        # Compute HMAC halves
-        il_bytes, ir_bytes = HmacSha512.QuickDigestHalves(priv_key.ChainCode().ToBytes(),
-                                                          data_bytes)
-
-        # Construct new key secret from iL and current private key
-        il_int = BytesUtils.ToInteger(il_bytes)
         priv_key_int = BytesUtils.ToInteger(priv_key_bytes)
-        new_priv_key_bytes = IntegerUtils.ToBytes((il_int + priv_key_int) % curve.Order(),
+        while True:
+            # Compute HMAC halves
+            il_bytes, ir_bytes = HmacSha512.QuickDigestHalves(chain_code, data_bytes)
+            il_int = BytesUtils.ToInteger(il_bytes)
+
+            # Construct new key secret from iL and current private key, if valid
+            if il_int < curve_order:
+                new_priv_key_int = (il_int + priv_key_int) % curve_order
+                if new_priv_key_int != 0:
+                    break
+
+            # Invalid key, retry with the right half
+            data_bytes = cls.__RetryData(ir_bytes, index)
+
+        new_priv_key_bytes = IntegerUtils.ToBytes(new_priv_key_int,
                                                   bytes_num=curve.PrivateKeyClass().Length())
 
         return new_priv_key_bytes, ir_bytes
@@ -122,21 +135,54 @@ class Bip32Slip10EcdsaDerivator(IBip32KeyDerivator):
         Returns:
             tuple[bytes or IPoint, bytes]: Public key bytes or point (index 0) and chain code bytes (index 1)
 
-        Raises:
-            Bip32KeyError: If the index results in an invalid key
+        Note:
+            If the resulting key is invalid, the derivation is retried as specified by SLIP-0010
+            (BIP32 would instead consider the index invalid).
         """
+        curve = pub_key.Curve()
+        curve_order = curve.Order()
+        chain_code = pub_key.ChainCode().ToBytes()
+
         # Data for HMAC, same of CkdPriv() for public child key
         data_bytes = pub_key.RawCompressed().ToBytes() + index.ToBytes()
 
-        # Get HMAC of data
-        il_bytes, ir_bytes = HmacSha512.QuickDigestHalves(pub_key.ChainCode().ToBytes(),
-                                                          data_bytes)
-        il_int = BytesUtils.ToInteger(il_bytes)
+        while True:
+            # Get HMAC of data
+            il_bytes, ir_bytes = HmacSha512.QuickDigestHalves(chain_code, data_bytes)
+            il_int = BytesUtils.ToInteger(il_bytes)
 
-        # Get a new public key point: pub_key_point + G*iL
-        new_pub_key_point = pub_key.Point() + (pub_key.Curve().Generator() * il_int)
+            # Get a new public key point: pub_key_point + G*iL, if valid
+            if il_int < curve_order:
+                try:
+                    # G*0 is the point at infinity, which coincurve cannot represent
+                    new_pub_key_point = (pub_key.Point() + (curve.Generator() * il_int)
+                                         if il_int != 0
+                                         else pub_key.Point())
+                    # Raise if the resulting point is the point at infinity
+                    curve.PublicKeyClass().FromPoint(new_pub_key_point)
+                    break
+                except (TypeError, ValueError):
+                    pass
+
+            # Invalid key, retry with the right half
+            data_bytes = cls.__RetryData(ir_bytes, index)
 
         return new_pub_key_point, ir_bytes
+
+    @staticmethod
+    def __RetryData(ir_bytes: bytes,
+                    index: Bip32KeyIndex) -> bytes:
+        """
+        Get the HMAC data for retrying an invalid child key (SLIP-0010).
+
+        Args:
+            ir_bytes (bytes)            : Right half of the previous HMAC
+            index (Bip32KeyIndex object): Key index
+
+        Returns:
+            bytes: HMAC data
+        """
+        return Bip32Slip10DerivatorConst.RETRY_PREFIX + ir_bytes + index.ToBytes()
 
 
 class Bip32Slip10Ed25519Derivator(IBip32KeyDerivator):

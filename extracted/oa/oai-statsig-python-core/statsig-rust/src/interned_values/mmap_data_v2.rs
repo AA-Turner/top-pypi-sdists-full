@@ -40,7 +40,7 @@ pub(crate) struct MmapDataV2 {
 }
 
 impl MmapDataV2 {
-    pub(crate) const FORMAT_VERSION: u32 = 2;
+    pub(crate) const FORMAT_VERSION: u32 = 3;
 }
 
 #[cfg(test)]

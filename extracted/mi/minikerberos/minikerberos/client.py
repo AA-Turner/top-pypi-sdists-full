@@ -183,12 +183,12 @@ class KerbrosClient:
 			raise KerberosError(rep, 'Preauth failed!')
 		return rep
 
-	def tgt_from_ccache(self):
+	def tgt_from_ccache(self, target_realm:str = None):
 		try:
 			if self.ccache is None:
 				raise Exception('No CCACHE file found')
 			
-			tgt, keystruct, err = self.ccache.get_tgt(self.credential.username, self.credential.domain, self.credential.ccache_spn_strict_check)
+			tgt, keystruct, err = self.ccache.get_tgt(self.credential.username, self.credential.domain, self.credential.ccache_spn_strict_check, target_realm)
 			if err is not None:
 				raise err
 			self.kerberos_TGT = tgt
@@ -335,7 +335,7 @@ class KerbrosClient:
 			if self.ccache is None:
 				raise Exception('No CCACHE file found')
 			
-			tgs, keystruct, err = self.ccache.get_tgs(spn_user)
+			tgs, keystruct, err = self.ccache.get_tgs(spn_user, self.credential.ccache_spn_strict_check)
 			if err is not None:
 				raise err
 			
@@ -362,7 +362,7 @@ class KerbrosClient:
 		
 		if self.kerberos_TGT is None:
 			#let's check if CCACHE has a TGT for us
-			_, err = self.tgt_from_ccache()
+			_, err = self.tgt_from_ccache(spn_user.domain)
 			if err is not None:
 				raise Exception('No TGT found in CCACHE!')
 

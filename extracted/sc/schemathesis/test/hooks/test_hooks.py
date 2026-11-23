@@ -1,9 +1,14 @@
+import sys
+from contextlib import ExitStack
 from unittest.mock import ANY
 
 import graphql
 import pytest
+from fastapi import FastAPI
+from flask import jsonify, request
 from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
+from hypothesis.errors import NoSuchExample
 
 import schemathesis
 from schemathesis.core.failures import FailureGroup
@@ -19,8 +24,12 @@ from schemathesis.hooks import (
     dispatch_before_call,
 )
 from schemathesis.pytest.plugin import SchemaHandleMark
+from schemathesis.specs.graphql.scalars import UnknownScalar
 from schemathesis.transport.prepare import get_default_headers
-from test.utils import assert_requests_call, run_given
+from test.apps.catalog.graphql import bookstore
+from test.apps.catalog.openapi import basic
+from test.python._constants.fixtures import buggy_app, graphql_string_pool
+from test.utils import assert_requests_call, find_first, run_given
 
 
 def integer_id(query):
@@ -239,16 +248,14 @@ def test_local_dispatcher(ctx, apply_first):
     schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
     assert schema.hooks.scope == HookScope.SCHEMA
 
-    # When there are schema-level hooks
     @schema.hook("map_query")
     def schema_hook(context, query):
         return query
 
-    # And per-test hooks are applied
     def local_hook(context, cookies):
         return cookies
 
-    # And order of decorators is any
+    # Decorator order must not matter.
     apply = schema.hooks.apply(local_hook, name="map_cookies")
     parametrize = schema.parametrize()
     if apply_first:
@@ -265,14 +272,11 @@ def test_local_dispatcher(ctx, apply_first):
     def test(case):
         pass
 
-    # Then a hook dispatcher instance is attached to the test function
     hook_dispatcher = HookDispatcherMark.get(test)
     assert isinstance(hook_dispatcher, HookDispatcher)
     assert hook_dispatcher.scope == HookScope.TEST
-    # And this dispatcher contains only local hooks
     assert hook_dispatcher.get_all_by_name("map_cookies") == [local_hook]
     assert hook_dispatcher.get_all_by_name("map_query") == []
-    # And the schema-level dispatcher still contains only schema-level hooks
     handle = SchemaHandleMark.get(test)
     assert handle is not None
     assert handle.hooks.get_all_by_name("map_query") == [schema_hook]
@@ -428,7 +432,7 @@ def test_graphql_body(ctx):
 
     @run_given(case=strategy, max_examples=3, phases=[Phase.generate])
     def test(case):
-        # Not necessarily valid GraphQL, but it is simpler to check the hook this way
+        # The body need not be valid GraphQL; this shape makes the hook easy to check.
         assert case.body == "mutation {\n  addedViaHook\n}"
 
 
@@ -671,3 +675,356 @@ def test_component_hooks_shape_generated_parts_in_examples_phase(ctx):
     assert [(case.query["q"], case.headers) for case in cases] == [("e", {"X-Token": "secret"})]
     assert filtered
     assert all(set(query) == {"limit"} for query in filtered), filtered
+
+
+def _fastapi_app():
+    app = FastAPI()
+
+    @app.get("/items")
+    def items():
+        return []
+
+    return app
+
+
+@pytest.mark.parametrize(
+    ("loader", "path", "make_app"),
+    [
+        (schemathesis.openapi.from_asgi, "/openapi.json", _fastapi_app),
+        (schemathesis.openapi.from_wsgi, "/openapi.json", lambda: basic.success().server),
+        (schemathesis.graphql.from_asgi, "/graphql", lambda: bookstore.books(framework="fastapi").server),
+        (schemathesis.graphql.from_wsgi, "/graphql", lambda: bookstore.books().server),
+    ],
+    ids=["openapi-asgi", "openapi-wsgi", "graphql-asgi", "graphql-wsgi"],
+)
+def test_after_load_schema_receives_the_app(loader, path, make_app):
+    app = make_app()
+    seen = []
+
+    @schemathesis.hook
+    def after_load_schema(context, schema):
+        seen.append(schema.app)
+
+    loader(path, app)
+    assert seen == [app]
+
+
+def _asgi_tap(app, seen):
+    async def tapped(scope, receive, send):
+        if scope["type"] == "http":
+            seen.append(dict(scope["headers"])[b"x-schemathesis-testcaseid"].decode())
+        await app(scope, receive, send)
+
+    return tapped
+
+
+def _wsgi_tap(app, seen):
+    def tapped(environ, start_response):
+        seen.append(environ["HTTP_X_SCHEMATHESIS_TESTCASEID"])
+        return app(environ, start_response)
+
+    return tapped
+
+
+@pytest.mark.parametrize(
+    ("loader", "make_app", "tap"),
+    [
+        (schemathesis.openapi.from_asgi, _fastapi_app, _asgi_tap),
+        (schemathesis.openapi.from_wsgi, lambda: basic.success().server, _wsgi_tap),
+    ],
+    ids=["asgi", "wsgi"],
+)
+def test_app_wrapped_in_after_load_schema_sees_test_case_ids(loader, make_app, tap):
+    seen = []
+
+    @schemathesis.hook
+    def after_load_schema(context, schema):
+        schema.app = tap(schema.app, seen)
+
+    schema = loader("/openapi.json", make_app())
+    case = next(schema.get_all_operations()).ok().Case()
+    case.call()
+    assert seen == [case.id]
+
+
+def register_hook():
+    @schemathesis.hook
+    def map_headers(context, headers):
+        return {**(headers or {}), "X-Scoped": "hook"}
+
+
+def register_auth():
+    @schemathesis.auth()
+    class ScopedAuth:
+        def get(self, case, context):
+            return "scoped"
+
+        def set(self, case, data, context):
+            case.headers = {**(case.headers or {}), "Authorization": data}
+
+
+def register_check():
+    @schemathesis.check
+    def scoped_check(ctx, response, case):
+        raise AssertionError("Scoped check failed")
+
+
+def register_deserializer():
+    @schemathesis.deserializer("application/x-scoped")
+    def deserialize(ctx, response):
+        return "not an object"
+
+
+def register_serializer():
+    @schemathesis.serializer("text/x-scoped")
+    def serialize(ctx, value):
+        return b"scoped"
+
+
+def register_format():
+    schemathesis.openapi.format("scoped", st.just("scoped"))
+
+
+def register_media_type():
+    schemathesis.openapi.media_type("text/x-scoped", st.just(b"scoped"))
+
+
+def register_scalar():
+    schemathesis.graphql.scalar("Scoped", st.just(graphql.StringValueNode(value="scoped")))
+
+
+def register_constants():
+    @schemathesis.python.constants
+    def source():
+        return graphql_string_pool
+
+
+def register_extension(label):
+    @schemathesis.extension("scoped")
+    class Scoped:
+        def __init__(self, settings):
+            pass
+
+        def map_headers(self, context, headers):
+            return {**(headers or {}), "X-Scoped": label}
+
+
+def generated_headers(ctx, response_factory):
+    operation = ctx.openapi.load_operation("GET /items", {"responses": {"200": {"description": "OK"}}})
+    return examples.generate_one(operation.as_strategy()).headers
+
+
+def validation_failures(ctx, response_factory):
+    content = {"application/x-scoped": {"schema": {"type": "object"}}}
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"responses": {"200": {"description": "OK", "content": content}}}
+    )
+    response = response_factory.requests(content=b"{}", content_type="application/x-scoped", method="GET")
+    try:
+        operation.Case().validate_response(response)
+    except FailureGroup as exc:
+        return sorted(failure.title for failure in exc.exceptions)
+    return []
+
+
+def text_body_operation(ctx):
+    return ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"text/x-scoped": {"schema": {"type": "string"}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+
+def serialized_body(ctx, response_factory):
+    case = text_body_operation(ctx).Case(body="value", media_type="text/x-scoped")
+    return case.as_transport_kwargs()["data"]
+
+
+def generated_body(ctx, response_factory):
+    return examples.generate_one(text_body_operation(ctx).as_strategy()).body
+
+
+def generated_query(ctx, response_factory):
+    parameter = {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "format": "scoped"}}
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}
+    )
+    return examples.generate_one(operation.as_strategy()).query
+
+
+def generated_graphql_query(ctx, response_factory):
+    schema = schemathesis.graphql.from_file("scalar Scoped\ntype Query { item(id: Scoped!): Int }")
+    try:
+        return examples.generate_one(schema["Query"]["item"].as_strategy()).body
+    except UnknownScalar:
+        return None
+
+
+def draws_constant(ctx, response_factory):
+    operation = schemathesis.openapi.from_dict(buggy_app.SCHEMA)["/unlock"]["POST"]
+    # Registered constants are drawn among other values, so finding one takes many examples
+    try:
+        find_first(
+            operation.as_strategy(),
+            lambda case: isinstance(case.body, dict) and case.body.get("code") == graphql_string_pool.TOKEN,
+            max_examples=200,
+        )
+    except NoSuchExample:
+        return False
+    return True
+
+
+@pytest.mark.parametrize(
+    ("register", "observe", "outside", "inside"),
+    [
+        (register_hook, generated_headers, {}, {"X-Scoped": "hook"}),
+        (register_auth, generated_headers, {}, {"Authorization": "scoped"}),
+        (register_check, validation_failures, [], ["Custom check failed: `scoped_check`"]),
+        (register_deserializer, validation_failures, [], ["Response violates schema"]),
+        (register_serializer, serialized_body, b"value", b"scoped"),
+        (register_format, generated_query, {"q": ""}, {"q": "scoped"}),
+        (register_media_type, generated_body, "", b"scoped"),
+        (register_scalar, generated_graphql_query, None, '{\n  item(id: "scoped")\n}'),
+        (register_constants, draws_constant, False, True),
+    ],
+    ids=["hook", "auth", "check", "deserializer", "serializer", "format", "media-type", "graphql-scalar", "constants"],
+)
+def test_scoped_extensions_remove_registrations_made_inside(ctx, response_factory, register, observe, outside, inside):
+    assert observe(ctx, response_factory) == outside
+    with schemathesis.scoped_extensions():
+        register()
+        assert observe(ctx, response_factory) == inside
+    assert observe(ctx, response_factory) == outside
+
+
+BEFORE_HOOKS = """
+import schemathesis
+
+
+@schemathesis.hook
+def map_headers(context, headers):
+    return {**(headers or {}), "X-Before": "1"}
+"""
+
+
+def register_before_with_decorator(tmp_path, monkeypatch):
+    @schemathesis.hook
+    def map_headers(context, headers):
+        return {**(headers or {}), "X-Before": "1"}
+
+
+def register_before_with_environment(tmp_path, monkeypatch):
+    path = tmp_path / "before_hooks.py"
+    path.write_text(BEFORE_HOOKS)
+    monkeypatch.setenv("SCHEMATHESIS_HOOKS", str(path))
+    schemathesis.Config.from_dict({})
+
+
+def register_before_with_config(tmp_path, monkeypatch):
+    path = tmp_path / "before_hooks.py"
+    path.write_text(BEFORE_HOOKS)
+    schemathesis.Config.from_dict({"hooks": [str(path)]})
+
+
+@pytest.mark.parametrize(
+    "register_before",
+    [register_before_with_decorator, register_before_with_environment, register_before_with_config],
+    ids=["decorator", "environment", "config"],
+)
+def test_scoped_extensions_keep_registrations_made_before(
+    ctx, response_factory, tmp_path, monkeypatch, register_before
+):
+    register_before(tmp_path, monkeypatch)
+    with schemathesis.scoped_extensions():
+        register_hook()
+        assert generated_headers(ctx, response_factory) == {"X-Before": "1", "X-Scoped": "hook"}
+    assert generated_headers(ctx, response_factory) == {"X-Before": "1"}
+
+
+def test_scoped_extensions_keep_constants_registered_before(ctx, response_factory):
+    register_constants()
+    with schemathesis.scoped_extensions():
+
+        @schemathesis.python.constants
+        def scoped():
+            return buggy_app
+
+        assert draws_constant(ctx, response_factory)
+    assert draws_constant(ctx, response_factory)
+
+
+def test_scoped_extensions_keep_hooks_module_from_environment(ctx, response_factory, tmp_path, monkeypatch):
+    # Python imports the module once, so it must not load for the first time inside the scope
+    (tmp_path / "scoped_environment_hooks.py").write_text(BEFORE_HOOKS)
+    monkeypatch.syspath_prepend(tmp_path)
+    monkeypatch.setenv("SCHEMATHESIS_HOOKS", "scoped_environment_hooks")
+    try:
+        with schemathesis.scoped_extensions():
+            assert generated_headers(ctx, response_factory) == {"X-Before": "1"}
+        assert generated_headers(ctx, response_factory) == {"X-Before": "1"}
+    finally:
+        sys.modules.pop("scoped_environment_hooks", None)
+
+
+def test_scoped_extensions_load_hooks_file_from_config_in_every_scope(ctx, response_factory, tmp_path):
+    path = tmp_path / "suite_hooks.py"
+    path.write_text(BEFORE_HOOKS)
+    for _ in range(2):
+        with schemathesis.scoped_extensions():
+            schemathesis.Config.from_dict({"hooks": [str(path)]})
+            assert generated_headers(ctx, response_factory) == {"X-Before": "1"}
+    assert generated_headers(ctx, response_factory) == {}
+
+
+def test_scoped_extensions_nest(ctx, response_factory):
+    with schemathesis.scoped_extensions():
+        register_hook()
+        with schemathesis.scoped_extensions():
+            register_auth()
+            assert generated_headers(ctx, response_factory) == {"X-Scoped": "hook", "Authorization": "scoped"}
+        assert generated_headers(ctx, response_factory) == {"X-Scoped": "hook"}
+    assert generated_headers(ctx, response_factory) == {}
+
+
+def test_scoped_extensions_restore_after_exception(ctx, response_factory):
+    with pytest.raises(RuntimeError, match="Suite failed"), schemathesis.scoped_extensions():
+        register_hook()
+        raise RuntimeError("Suite failed")
+    assert generated_headers(ctx, response_factory) == {}
+
+
+def test_scoped_extensions_free_extension_names(ctx, response_factory):
+    for label in ("first", "second"):
+        with schemathesis.scoped_extensions():
+            register_extension(label)
+            assert generated_headers(ctx, response_factory) == {"X-Scoped": label}
+    assert generated_headers(ctx, response_factory) == {}
+
+
+def test_scoped_extensions_do_not_reach_schemas_tested_after_the_scope(ctx):
+    app, _ = ctx.openapi.make_flask_app({"/user": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/user")
+    def user():
+        return jsonify({name: request.headers.get(name) for name in ("Authorization", "X-Scoped")})
+
+    def start_suite(extensions):
+        extensions.enter_context(schemathesis.scoped_extensions())
+        register_hook()
+        register_auth()
+
+    def run_suite():
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+        return examples.generate_one(schema["/user"]["GET"].as_strategy()).call().json()
+
+    extensions = ExitStack()
+    start_suite(extensions)
+    inside = run_suite()
+    extensions.close()
+
+    assert [inside, run_suite()] == [
+        {"Authorization": "scoped", "X-Scoped": "hook"},
+        {"Authorization": None, "X-Scoped": None},
+    ]

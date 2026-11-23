@@ -1,6 +1,6 @@
 [package]
 name = "ripgrep"
-version = "15.2.0"  #:version
+version = "16.0.0"  #:version
 authors = ["Andrew Gallant <jamslam@gmail.com>"]
 description = """
 ripgrep is a line-oriented search tool that recursively searches the current
@@ -8,7 +8,6 @@ directory for a regex pattern while respecting gitignore rules. ripgrep has
 first class support on Windows, macOS and Linux.
 """
 documentation = "https://github.com/BurntSushi/ripgrep"
-homepage = "https://github.com/BurntSushi/ripgrep"
 repository = "https://github.com/BurntSushi/ripgrep"
 keywords = ["regex", "grep", "egrep", "search", "pattern"]
 categories = ["command-line-utilities", "text-processing"]
@@ -20,12 +19,11 @@ exclude = [
   "/pkg/brew",
   "/benchsuite/",
   "/scripts/",
-  "/crates/fuzz",
 ]
 build = "build.rs"
 autotests = false
-edition = "2024"
-rust-version = "1.85"
+edition.workspace = true
+rust-version.workspace = true
 readme = "README.md"
 
 [[bin]]
@@ -40,11 +38,15 @@ path = "tests/tests.rs"
 [workspace]
 members = ["crates/globset", "crates/grep", "crates/cli", "crates/matcher", "crates/pcre2", "crates/printer", "crates/regex", "crates/searcher", "crates/ignore"]
 
+[workspace.package]
+edition = "2024"
+rust-version = "1.96"
+
 [dependencies]
 anyhow = "1.0.75"
 bstr = "1.7.0"
-grep = { version = "0.4.1", path = "crates/grep" }
-ignore = { version = "0.4.29", path = "crates/ignore" }
+grep = { version = "0.4.2", path = "crates/grep" }
+ignore = { version = "0.4.35", path = "crates/ignore" }
 lexopt = "0.3.0"
 log = "0.4.5"
 serde_json = "1.0.23"

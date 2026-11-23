@@ -51,6 +51,7 @@ pub struct EvaluatorResult {
     pub undelegated_secondary_exposures: Option<Vec<SecondaryExposure>>,
     pub override_reason: Option<&'static str>,
     pub version: Option<u32>,
+    pub served_version: Option<u32>,
     pub sampling_rate: Option<u64>,
     pub rule_pass_percentage: Option<f64>,
     pub forward_all_exposures: Option<bool>,
@@ -80,6 +81,7 @@ impl EvaluatorResult {
         self.undelegated_secondary_exposures = None;
         self.override_reason = None;
         self.version = None;
+        self.served_version = None;
         self.sampling_rate = None;
         self.rule_pass_percentage = None;
         self.forward_all_exposures = None;
@@ -807,6 +809,7 @@ mod tests {
             }]),
             override_reason: Some("override"),
             version: Some(1),
+            served_version: Some(2),
             sampling_rate: Some(10),
             rule_pass_percentage: Some(50.0),
             forward_all_exposures: Some(true),
@@ -850,6 +853,7 @@ mod tests {
         assert!(result.undelegated_secondary_exposures.is_none());
         assert!(result.override_reason.is_none());
         assert!(result.version.is_none());
+        assert!(result.served_version.is_none());
         assert!(result.sampling_rate.is_none());
         assert!(result.rule_pass_percentage.is_none());
         assert!(result.forward_all_exposures.is_none());

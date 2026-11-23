@@ -19,6 +19,7 @@ from . import (
     messages_config,
     palette,
     restore_config,
+    slack_config,
     status_registry,
     tasks_config,
     watch_config,
@@ -233,6 +234,10 @@ class TuiConfig:
     grove_pulse_seconds: float = 4.5
     # How solid the grove window's background is: 1 hides the terminal under it, lower shows it through.
     grove_window_opacity: float = 1.0
+    # How much of the terminal's front window the grove window must cover to count as over it:
+    # over it, the window covers the terminal and hides after a jump; elsewhere it stays where it
+    # was left and stays up.
+    grove_window_cover_share: float = 0.1
     # Seconds the brief view's attention line shows a brief's new status after it changes.
     status_pulse_seconds: float = 10.0
     # The key that flips a zoomed block's lemon lists to their other page, and whether it shows
@@ -432,6 +437,7 @@ class Config:
     codex: codex_config.CodexConfig = field(default_factory=codex_config.CodexConfig)
     tasks: tasks_config.TasksConfig = field(default_factory=tasks_config.TasksConfig)
     restore: restore_config.RestoreConfig = field(default_factory=restore_config.RestoreConfig)
+    slack: slack_config.SlackConfig = field(default_factory=slack_config.SlackConfig)
 
     def get_handler(self, channel: str) -> str | None:
         """Get the handler for a channel, using pattern matching."""
@@ -782,6 +788,9 @@ def _parse_config(data: dict[str, Any]) -> Config:
         status_pulse_seconds=max(0.0, float(tui_data.get("status_pulse_seconds", 10.0))),
         grove_flip_key=_grove_flip_key(tui_data.get("grove_flip_key", ";")),
         grove_flip=_grove_flip(tui_data.get("grove_flip", "hold")),
+        grove_window_cover_share=min(
+            1.0, max(0.0, float(tui_data.get("grove_window_cover_share", 0.1)))
+        ),
         grove_select_key=_grove_select_key(
             tui_data.get("grove_select_key", "tab"), str(tui_data.get("grove_flip_key", ";"))
         ),
@@ -889,6 +898,7 @@ def _parse_config(data: dict[str, Any]) -> Config:
         tasks=tasks_config.parse(data.get("tasks", {})),
         restore=restore_config.parse(data.get("restore", {})),
         codex=codex_config.parse(data.get("codex", {})),
+        slack=slack_config.parse(data.get("slack", {})),
     )
 
 

@@ -583,10 +583,10 @@ async fn id_list_snapshot_denials_and_redirects_do_not_forward_credentials() {
 }
 
 #[tokio::test]
-async fn id_list_snapshot_opt_out_uses_legacy_raw_request() {
-    for enabled in [Some(false), None] {
+async fn id_list_raw_requests_build_the_selected_local_format() {
+    for (option, compact) in [(None, true), (Some(false), false)] {
         let mut server = Server::new_async().await;
-        let (adapter, store) = configured_client(&server, enabled, server.url());
+        let (adapter, store) = configured_client(&server, option, server.url());
         let _row = manifest(&mut server, GEN, 10);
         let raw = raw_request(&mut server, RAW, 0)
             .with_body(RECORD)
@@ -594,12 +594,15 @@ async fn id_list_snapshot_opt_out_uses_legacy_raw_request() {
             .create();
         adapter.sync_id_lists().await.unwrap();
         raw.assert();
-        assert!(store.load_data().id_lists["users"].ids.contains("AAAAAAAA"));
+        let data = store.load_data();
+        let ids = &data.id_lists["users"].ids;
+        assert!(ids.contains("AAAAAAAA"));
+        ids.assert_private_format(compact);
     }
 }
 
 #[test]
-fn id_list_snapshot_requires_private_ef_and_an_explicit_file_endpoint() {
+fn id_list_snapshot_requires_explicit_ef_and_a_compatible_file_endpoint() {
     for (ef, endpoint, enabled) in [
         (None, Some("https://files.test"), false),
         (Some(false), Some("https://files.test"), false),
@@ -801,7 +804,7 @@ async fn id_list_snapshot_empty_and_removal_only_replacements_check_concurrent_c
         let staged = adapter
             .fetch_id_list_updates(
                 adapter.base_sources(&adapter.current_listener().unwrap()),
-                FetchReason::Refresh(RefreshTrigger::PrivateInitialize),
+                FetchReason::Refresh(RefreshTrigger::Initialize),
                 &store.get_current_id_list_metadata(),
                 HashMap::new(),
                 &mut 0,
@@ -1202,14 +1205,12 @@ async fn initial_base_skips_body_on_late_start_and_resumes_at_covered_end() {
                 download_id_list_file_api: (packed || !ef).then_some(url.clone()),
                 enable_id_list_elias_fano: Some(ef),
                 shared_id_lists_dir: Some(root.path().display().to_string()),
-                experimental_flags: Some(["shared_initial_id_list_base".into()].into()),
                 lazy_load_id_lists: Some(lazy),
                 ..Default::default()
             };
             let client = || {
-                let cache = SharedInitialBaseCache::from_options(KEY, &options);
                 let (adapter, store) = store_client(options.clone());
-                (Arc::new(adapter.with_initial_base_cache(cache)), store)
+                (Arc::new(adapter), store)
             };
             let prefix = "+AAAAAAAA\n+CCCCCCCC\n";
             let _row = manifest_at(&mut server, &format!("{url}{RAW}"), GEN, 1, 40);
@@ -1250,13 +1251,74 @@ async fn initial_base_skips_body_on_late_start_and_resumes_at_covered_end() {
             let list = &late.id_lists["users"];
             assert_eq!(list.metadata.size, 40);
             assert_eq!(
-                list.ids.base_file(),
-                early.id_lists["users"].ids.base_file()
+                list.ids.base_digest(),
+                early.id_lists["users"].ids.base_digest()
             );
             assert!(!list.ids.contains("AAAAAAAA"));
             assert!(list.ids.contains("BBBBBBBB"));
             assert!(early.id_lists["users"].ids.contains("AAAAAAAA"));
         }
+    }
+}
+
+#[tokio::test]
+async fn initial_base_adopts_prefix_published_during_download_and_polls_from_its_end() {
+    let body = "+AAAAAAAA\n+CCCCCCCC\n-AAAAAAAA\n+BBBBBBBB\n";
+    // The other worker publishes 20 bytes while this worker downloads 10 or 40.
+    for downloaded in [10, 40] {
+        let root = tempfile::tempdir().unwrap();
+        let mut server = Server::new_async().await;
+        let options = StatsigOptions {
+            id_lists_url: Some(format!("{}/manifest", server.url())),
+            download_id_list_file_api: Some(server.url()),
+            enable_id_list_elias_fano: Some(true),
+            shared_id_lists_dir: Some(root.path().display().to_string()),
+            ..Default::default()
+        };
+        let (adapter, store) = store_client(options);
+        let cache = adapter.initial_base_cache.clone().unwrap();
+        let _row = manifest(&mut server, GEN, body.len());
+        let (end, image) = encode_prefix_v1(&body.as_bytes()[..downloaded], 0)
+            .unwrap()
+            .unwrap();
+        let snapshot = image_headers(offer(&mut server, RAW), &image, end)
+            .with_body_from_request(move |_| {
+                let metadata = IdListMetadata {
+                    name: "users".into(),
+                    file_id: Some(GEN.into()),
+                    creation_time: 1,
+                    size: 20,
+                    url: RAW.into(),
+                };
+                let raw = DownloadedIdList::Raw {
+                    changeset: body[..20].into(),
+                    range: 0..20,
+                };
+                raw.prepare(metadata).offer(&cache, 20);
+                image.clone()
+            })
+            .create();
+        let tail = raw_request(&mut server, RAW, 20)
+            .with_status(206)
+            .with_header("content-range", "bytes 20-39/40")
+            .with_body(&body[20..])
+            .create();
+        adapter.sync_id_lists().await.unwrap();
+        snapshot.assert();
+        let initial = &store.load_data().id_lists["users"];
+        assert_eq!(initial.metadata.size, 20);
+        assert!(initial.ids.is_mapped());
+        assert!(initial.ids.contains("AAAAAAAA"));
+        assert!(initial.ids.contains("CCCCCCCC"));
+        assert!(!initial.ids.contains("BBBBBBBB"));
+
+        adapter.sync_id_lists().await.unwrap();
+        tail.assert();
+        let updated = &store.load_data().id_lists["users"];
+        assert_eq!(updated.metadata.size, 40);
+        assert!(updated.ids.is_mapped());
+        assert!(!updated.ids.contains("AAAAAAAA"));
+        assert!(updated.ids.contains("BBBBBBBB"));
     }
 }
 
@@ -1266,10 +1328,14 @@ fn initial_base_keeps_unverified_raw_responses_private() {
     let options = StatsigOptions {
         enable_id_list_elias_fano: Some(true),
         shared_id_lists_dir: Some(root.path().display().to_string()),
-        experimental_flags: Some(["shared_initial_id_list_base".into()].into()),
         ..Default::default()
     };
-    let cache = SharedInitialBaseCache::from_options(KEY, &options).unwrap();
+    let cache = SharedInitialBaseCache::from_options(
+        KEY,
+        &options,
+        &Arc::new(OpsStatsForInstance::disabled()),
+    )
+    .unwrap();
     let metadata = IdListMetadata {
         name: "users".into(),
         file_id: Some(GEN.into()),
@@ -1283,7 +1349,9 @@ fn initial_base_keeps_unverified_raw_responses_private() {
             range: 0..body.len() as u64,
         };
         assert!(matches!(
-            raw.prepare(metadata.clone()).offer(&cache).update,
+            raw.prepare(metadata.clone())
+                .offer(&cache, metadata.size)
+                .update,
             PreparedIdListUpdate::Raw(_)
         ));
     }

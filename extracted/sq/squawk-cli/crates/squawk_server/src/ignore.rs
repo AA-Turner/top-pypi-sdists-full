@@ -1,6 +1,8 @@
+use squawk_diagnostics::Edit;
+use squawk_lexer::BOM;
 use squawk_line_index::{LineEnding, LineIndex, TextSize};
 use squawk_linter::{
-    Edit, Rule, Violation,
+    Rule, Violation,
     ignore::{IGNORE_FILE_TEXT, IGNORE_LINE_TEXT},
 };
 use squawk_syntax::{Parse, SourceFile, SyntaxKind, SyntaxToken, ast::AstNode};
@@ -48,16 +50,20 @@ pub(crate) fn ignore_line_edit(
 pub(crate) fn ignore_file_edit(
     violation: &Violation,
     _line_index: &LineIndex,
-    _parse: &Parse<SourceFile>,
+    parse: &Parse<SourceFile>,
     line_ending: LineEnding,
 ) -> Option<Edit> {
     if UNSUPPORTED_RULES.contains(&violation.code) {
         return None;
     }
     let rule_name = violation.code.to_string();
+    let at = match parse.tree().syntax().first_token() {
+        Some(token) if token.text() == BOM => token.text_range().end(),
+        _ => TextSize::new(0),
+    };
     Some(Edit::insert(
         format!("-- {IGNORE_FILE_TEXT} {rule_name}{}", line_ending.as_str()),
-        TextSize::new(0),
+        at,
     ))
 }
 
@@ -68,9 +74,10 @@ fn is_ignore_comment(token: &SyntaxToken) -> bool {
 
 #[cfg(test)]
 mod test {
+    use squawk_ide::db::Database;
+
     use crate::{diagnostic::AssociatedDiagnosticData, lint::lint};
     use insta::assert_snapshot;
-    use squawk_ide::db::{Database, File};
 
     #[test]
     fn ignore_line() {
@@ -168,6 +175,25 @@ create table c (
         ");
     }
 
+    #[test]
+    fn ignore_file_after_bom() {
+        let sql = "\u{feff}create table a (a int);\n";
+        let edits = lint_sql(sql)
+            .into_iter()
+            .filter_map(|x| {
+                let data = x.data?;
+                let associated_data: AssociatedDiagnosticData =
+                    serde_json::from_value(data).unwrap();
+                associated_data.ignore_file_edit
+            })
+            .take(1)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            apply_text_edits(sql, edits),
+            "\u{feff}-- squawk-ignore-file prefer-robust-stmts\ncreate table a (a int);\n"
+        );
+    }
+
     fn apply_text_edits(sql: &str, mut edits: Vec<gen_lsp_types::TextEdit>) -> String {
         use squawk_line_index::{LineCol, LineIndex};
 
@@ -204,9 +230,9 @@ create table c (
     }
 
     fn lint_sql(sql: &str) -> Vec<gen_lsp_types::Diagnostic> {
-        let db = Database::default();
-        let file = File::new(&db, sql.to_owned().into());
-        lint(&db, file)
+        let mut db = Database::default();
+        let file = db.add_file(sql.into());
+        lint(&db, file.into())
     }
 
     fn ignore_line_edits_with_line_ending(line_ending: &str) -> String {

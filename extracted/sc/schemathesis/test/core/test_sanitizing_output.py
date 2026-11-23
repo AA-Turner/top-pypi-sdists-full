@@ -5,7 +5,7 @@ import pytest
 from schemathesis.config import SanitizationConfig
 from schemathesis.config._output import DEFAULT_KEYS_TO_SANITIZE, DEFAULT_REPLACEMENT
 from schemathesis.core import NOT_SET
-from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
+from schemathesis.core.output.sanitization import sanitize_headers, sanitize_url, sanitize_value
 
 
 @pytest.fixture
@@ -46,11 +46,11 @@ def test_sanitize_case(sanitized_case_factory, attr, initial, expected):
 
 
 def test_sanitize_case_body_not_dict_or_not_set(sanitized_case_factory):
-    assert sanitized_case_factory(body="Some string body").body == "Some string body"  # Body should remain unchanged
+    assert sanitized_case_factory(body="Some string body").body == "Some string body"
 
 
 def test_sanitize_case_body_is_not_set(sanitized_case_factory):
-    assert sanitized_case_factory(body=NOT_SET).body is NOT_SET  # Body should remain unchanged
+    assert sanitized_case_factory(body=NOT_SET).body is NOT_SET
 
 
 def test_sanitize_case_custom_keys_to_sanitize(sanitized_case_factory):
@@ -84,42 +84,34 @@ URLENCODED_REPLACEMENT = urlencode({"": DEFAULT_REPLACEMENT})[1:]  # skip the `=
 @pytest.mark.parametrize(
     ("input_url", "expected_url"),
     [
-        # No sensitive data
         (
             "http://127.0.0.1/path?param1=value1&param2=value2",
             "http://127.0.0.1/path?param1=value1&param2=value2",
         ),
-        # Masking authority
         (
             "http://user:pass@127.0.0.1/path",
             f"http://{DEFAULT_REPLACEMENT}@127.0.0.1/path",
         ),
-        # Masking query parameters with default keys
         (
             "http://127.0.0.1/path?password=secret&token=abc123",
             f"http://127.0.0.1/path?password={URLENCODED_REPLACEMENT}&token={URLENCODED_REPLACEMENT}",
         ),
-        # Masking both authority and query parameters
         (
             "http://user:pass@127.0.0.1/path?password=secret&token=abc123",
             f"http://{DEFAULT_REPLACEMENT}@127.0.0.1/path?password={URLENCODED_REPLACEMENT}&token={URLENCODED_REPLACEMENT}",
         ),
-        # URL with fragment
         (
             "http://127.0.0.1/path?password=secret#fragment",
             f"http://127.0.0.1/path?password={URLENCODED_REPLACEMENT}#fragment",
         ),
-        # URL with port
         (
             "http://127.0.0.1:8080/path?password=secret",
             f"http://127.0.0.1:8080/path?password={URLENCODED_REPLACEMENT}",
         ),
-        # URL with special characters in query params
         (
             "http://127.0.0.1/path?password=secret%20password",
             f"http://127.0.0.1/path?password={URLENCODED_REPLACEMENT}",
         ),
-        # No query parameters
         (
             "http://127.0.0.1/path",
             "http://127.0.0.1/path",
@@ -154,3 +146,46 @@ def test_sanitize_url(input_url, expected_url):
 )
 def test_sanitize_url_preserves_query(input_url, expected_url):
     assert sanitize_url(input_url, config=SanitizationConfig()) == expected_url
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Cookie": "token=a=b; lang=en"}, {"Cookie": "token=[Filtered]; lang=en"}),
+        ({"cookie": ["sessionid=abc", "lang=en"]}, {"cookie": ["sessionid=[Filtered]", "lang=en"]}),
+        ({"Cookie": " sessionid = abc ;lang=en;"}, {"Cookie": " sessionid =[Filtered];lang=en;"}),
+        ({"Cookie": ""}, {"Cookie": ""}),
+        ({"Cookie": 42}, {"Cookie": "[Filtered]"}),
+        (
+            {"Set-Cookie": ["sessionid=xyz; Path=/; HttpOnly", "lang=en; Path=/"]},
+            {"Set-Cookie": ["sessionid=[Filtered]; Path=/; HttpOnly", "lang=en; Path=/"]},
+        ),
+        (
+            {"set-cookie": "sessionid=xyz; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/"},
+            {"set-cookie": "sessionid=[Filtered]; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/"},
+        ),
+        ({"Set-Cookie": "lang=en"}, {"Set-Cookie": "lang=en"}),
+        ({"Set-Cookie": "lang=en; Path=/, sessionid=xyz; Path=/"}, {"Set-Cookie": "[Filtered]"}),
+        ({"Set-Cookie": "sessionid; Path=/"}, {"Set-Cookie": "[Filtered]"}),
+        (
+            {"Authorization": ["Bearer a", "Bearer b"], "X-Trace": "1"},
+            {"Authorization": ["[Filtered]"], "X-Trace": "1"},
+        ),
+    ],
+    ids=[
+        "equals-in-value",
+        "repeated-cookie-headers",
+        "whitespace-and-trailing-separator",
+        "empty",
+        "non-string",
+        "set-cookie-attributes",
+        "set-cookie-expires",
+        "set-cookie-without-attributes",
+        "set-cookie-joined",
+        "set-cookie-without-value",
+        "other-headers",
+    ],
+)
+def test_sanitize_headers(headers, expected):
+    sanitize_headers(headers, config=SanitizationConfig())
+    assert headers == expected

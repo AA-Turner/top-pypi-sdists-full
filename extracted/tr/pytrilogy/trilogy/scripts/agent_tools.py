@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from trilogy.ai.models import LLMToolDefinition
+from trilogy.scripts.agent_render import render_event, render_events
 from trilogy.scripts.display_core import _pretty, print_info
 from trilogy.scripts.file_helpers import preql_description
 
@@ -148,6 +149,13 @@ class AgentState:
     # AgentConfig.allow_file_read — query-gen evals push schema discovery
     # through `explore` rather than reading raw file contents.
     allow_file_read: bool = True
+    # When set, file tools refuse paths that resolve outside it: an eval agent
+    # must not read references or source off the host.
+    workspace: Path | None = None
+    # Env vars (LLM API keys) the agent's CLI subprocesses never inherit.
+    withheld_env: frozenset[str] = frozenset()
+    # AgentConfig.allow_script_write: refuse to create Python files.
+    allow_script_write: bool = True
     # One id per conversation: repeat `explore` payload entries collapse to
     # `already_shown` stubs within a session (see scripts/explore_seen.py).
     explore_session: str = field(default_factory=lambda: uuid.uuid4().hex)
@@ -167,13 +175,13 @@ TRILOGY_TOOL = LLMToolDefinition(
     name="trilogy",
     description=(
         "Invoke the trilogy CLI as a subprocess. Returns captured stdout, stderr, "
-        "and exit code. stdout typically JSONL "
-        "(newline-separated, parse successively), e.g. "
-        '{"event":"result","columns":[...],"rows":[...],"row_count":N} for query '
-        'output, {"type":"concepts","namespaces":{...}} for explore, '
-        '{"event":"error","message":...} for failures. Oversized output is capped and middle truncated '
+        "and exit code. stdout is a series of events separated by blank lines, "
+        "each as indented `key: value` lines (result rows one JSON array per "
+        "line), e.g. `event: result` with `columns`, `rows`, `row_count` for "
+        "query output, `type: concepts` with `namespaces` for explore, "
+        "`event: error` with `message` for failures. Oversized output is capped "
         "with a warning. Explore entries identical to earlier explore output "
-        'this session collapse to {"already_shown": <file>} stubs — the '
+        "this session collapse to `already_shown: <file>` stubs — the "
         "content is unchanged from when that file was explored; add --reshow "
         "to reprint."
     ),
@@ -204,7 +212,7 @@ LIST_FILES_TOOL = LLMToolDefinition(
     description=(
         "List files in the workspace (default: current directory, recursive). "
         "Use this to understand available files before running explore. "
-        "Returns a JSON `files` event with an `entries` array; each .preql "
+        "Returns an `event: files` block with an `entries` list; each .preql "
         "entry carries a `description` from its leading `#` comment block."
     ),
     input_schema={
@@ -343,13 +351,36 @@ def _file_entry(display_path: str, abs_path: Path) -> dict:
     return entry
 
 
+def outside_workspace(state: AgentState, path: str) -> bool:
+    if state.workspace is None:
+        return False
+    root = state.workspace.resolve()
+    return not (root / path).resolve().is_relative_to(root)
+
+
+def is_script_path(path: str) -> bool:
+    return Path(path).suffix.lower() in (".py", ".pyw")
+
+
+def script_write_refused(state: AgentState, paths: list[str]) -> bool:
+    return not state.allow_script_write and any(is_script_path(p) for p in paths)
+
+
 def handle_list_files(state: AgentState, args: dict) -> str:
+    payload = list_files_payload(state, args)
+    return payload if isinstance(payload, str) else render_event(payload)
+
+
+def list_files_payload(state: AgentState, args: dict) -> dict[str, object] | str:
+    """The listing as a ``files`` event, or an error message."""
     path = args.get("path", ".")
     recursive = args.get("recursive", True)
     if not isinstance(path, str) or not path:
         return "list_files error: 'path' must be a non-empty string."
     if not isinstance(recursive, bool):
         return "list_files error: 'recursive' must be a boolean."
+    if outside_workspace(state, path):
+        return f"list_files error: {path} is outside the workspace."
     root = Path(path)
     if not root.exists():
         return f"list_files error: no such path: {path}"
@@ -389,7 +420,7 @@ def handle_list_files(state: AgentState, args: dict) -> str:
     if truncated:
         payload["truncated"] = True
     payload["entries"] = entries
-    return _pretty(payload)
+    return payload
 
 
 def _first_non_flag_arg(raw_args: list[str]) -> str | None:
@@ -529,8 +560,14 @@ def handle_trilogy(state: AgentState, args: dict) -> str:
             "file contents. `file list` and `file write` are still available. "
             + _NO_IMPORTS_HINT
         )
+    if (
+        _first_non_flag_arg(raw_args) == "file"
+        and ("write" in raw_args or "move" in raw_args)
+        and script_write_refused(state, raw_args)
+    ):
+        return "trilogy error: writing Python (.py) files is disabled for this task."
     cmd = [sys.executable, "-m", "trilogy.scripts.trilogy", *raw_args]
-    # Agents consume the CLI as structured NDJSON (one JSON event per line) —
+    # The CLI emits JSON events (rendered to plain text below for the model) —
     # same information as the rich view, none of the formatting chrome that
     # wastes tokens. A flag in `raw_args` (e.g. `--format rich`) still wins,
     # since group-level flags are parsed after the env default is applied.
@@ -540,7 +577,7 @@ def handle_trilogy(state: AgentState, args: dict) -> str:
     subcommand = _first_non_flag_arg(raw_args)
     out_limit = _explore_output_cap(subcommand, raw_args, state.tool_output_limit)
     child_env = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if k not in state.withheld_env},
         "PYTHONIOENCODING": "utf-8",
         "TRILOGY_OUTPUT_FORMAT": "json",
         "TRILOGY_AGENT_MODE": "1",
@@ -577,7 +614,7 @@ def handle_trilogy(state: AgentState, args: dict) -> str:
     else:
         # stdout is structured JSON events — truncate on event boundaries so the
         # agent never receives a sliced, unparseable object. stderr is free text.
-        stdout = truncate_json_events(completed.stdout or "", out_limit)
+        stdout = render_events(truncate_json_events(completed.stdout or "", out_limit))
         stderr = truncate_middle(completed.stderr or "", state.tool_output_limit)
     return (
         f"exit_code: {completed.returncode}\n"

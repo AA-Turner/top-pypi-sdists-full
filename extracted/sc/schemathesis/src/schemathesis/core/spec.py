@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from schemathesis.generation.feedback import FeedbackSources
     from schemathesis.generation.meta import CaseMetadata, TestPhase
     from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput
+    from schemathesis.generation.suggestions import Suggestions
     from schemathesis.hooks import HookDispatcher
     from schemathesis.resources import ExtraDataSource, ResourcePool
     from schemathesis.schemas import APIOperation
@@ -42,6 +43,9 @@ class SchemaMetadata(Protocol):
     auth: AuthStorage
     raw_schema: JsonSchemaObject
     location: str | None
+    suggestions: Suggestions
+    app: object
+    raise_app_exceptions: bool
 
     @property
     def specification(self) -> Specification: ...  # pragma: no cover
@@ -100,9 +104,6 @@ class AuthFlow(Protocol):
 
 
 class ApiSchema(SchemaMetadata, Protocol):
-    """Full schema contract."""
-
-    # Static-analysis warnings collected from the schema.
     def iter_schema_warnings(self) -> list[SchemaWarning]: ...  # pragma: no cover
 
     # Operation enumeration, lookup, statistics, and unit-phase scheduling.

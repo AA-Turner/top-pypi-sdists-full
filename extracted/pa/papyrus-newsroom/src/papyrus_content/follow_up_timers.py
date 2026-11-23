@@ -160,6 +160,50 @@ class FollowUpTimers:
         return str(request["wakeKey"])
 
 
+    def wake_again_at(self, record_kind: str, record_id: str, request: Mapping[str, Any], *, due_at: str) -> str:
+        """Set the one timer of a record whose message is a wake that already has its run record (``request``, with its own key), due at ``due_at``. A later call
+        for the same record moves the entry and replaces its message. The budget's cycle timer (spend_stop.py, PPY-9376f8) is one per site and cycle."""
+        parse_utc(due_at)
+        wake = agent_wakes.wake_of(dict(request))
+        target = {"Arn": self.queue_arn, "RoleArn": self.role_arn, "Input": agent_wakes.message_body(dict(request)),
+                  "SqsParameters": {"MessageGroupId": agent_wakes.group_id(wake)}}
+        self.schedules.set(entry_name(record_kind, record_id), due_at, target, description=f"Wakes {wake['agent']} for {record_kind} {record_id} at {due_at}")
+        return str(request["wakeKey"])
+
+
+class SiteNotNamed(FollowUpError):
+    """This process was not told which site's schedule group and wake queue its follow-ups go to."""
+
+
+def site_follow_ups(environment: Mapping[str, str], *, appsync_endpoint: str, procedure_key: str, actor_label: str, needed_for: str,
+                    require_policy_location: bool = False, client: Any = None) -> tuple[FollowUpTimers, dict[str, Any]]:
+    """The follow-up timers of the site this process works for, and the base of the runner request each wake carries, named as the site's functions name them.
+
+    ``PAPYRUS_AGENT_PUBLICATION_ID``, ``PAPYRUS_AWS_ACCOUNT_ID`` and ``AWS_REGION`` are required; ``PAPYRUS_AWS_PARTITION`` defaults to ``aws``. The tenant
+    (``PAPYRUS_AGENT_TENANT_ID``, else ``PAPYRUS_TENANT_ID``) and the site bucket (``PAPYRUS_SITE_BUCKET``) say where the run finds the site's agent policy. With
+    ``require_policy_location`` they are required too, because the runner refuses a wake that does not name them. ``needed_for`` says in words what needs the timers.
+    A function that must not read and write as a tenant carries the tenant as ``PAPYRUS_AGENT_TENANT_ID`` (the image service)."""
+    def value(name: str) -> str:
+        return str(environment.get(name) or "").strip()
+
+    tenant = value("PAPYRUS_AGENT_TENANT_ID") or value("PAPYRUS_TENANT_ID")
+    names = ["PAPYRUS_AGENT_PUBLICATION_ID", "PAPYRUS_AWS_ACCOUNT_ID", "AWS_REGION"]
+    missing = [name for name in names if not value(name)]
+    if require_policy_location:
+        missing += [name for name, given in (("PAPYRUS_TENANT_ID", tenant), ("PAPYRUS_SITE_BUCKET", value("PAPYRUS_SITE_BUCKET"))) if not given]
+    if missing:
+        raise SiteNotNamed(f"{needed_for} sets a follow-up timer on the site's schedule group, which needs {', '.join(missing)}")
+    publication = value("PAPYRUS_AGENT_PUBLICATION_ID")
+    timers = FollowUpTimers.for_site(publication, account=value("PAPYRUS_AWS_ACCOUNT_ID"), region=value("AWS_REGION"),
+                                     partition=value("PAPYRUS_AWS_PARTITION") or "aws", client=client)
+    base: dict[str, Any] = {"publicationId": publication, "appsyncEndpoint": appsync_endpoint, "procedureKey": procedure_key, "actorLabel": actor_label}
+    if tenant:
+        base["tenantId"] = tenant
+    if value("PAPYRUS_SITE_BUCKET"):
+        base["siteBucket"] = value("PAPYRUS_SITE_BUCKET")
+    return timers, base
+
+
 # --- the run's first check -----------------------------------------------------------------------------------------------------
 
 
@@ -169,6 +213,12 @@ def due_time_of(wake_key: str) -> str:
     if len(parts) != 4 or parts[3] != WHAT:
         raise FollowUpError(f"{wake_key!r} is not a follow-up's wake key: <owner>|<record id>|<due time>|{WHAT}")
     return parts[2]
+
+
+def record_id_of(wake_key: str) -> str:
+    """The record a follow-up's wake key names."""
+    due_time_of(wake_key)
+    return wake_keys.checked(wake_key).split(wake_keys.SEPARATOR)[1]
 
 
 def check_wake(wake_key: str, row: Mapping[str, Any] | None) -> dict[str, Any]:

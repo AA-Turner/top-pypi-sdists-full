@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lemonaid-inbox
-Version: 0.149.0
+Version: 0.151.0
 Summary: Attention inbox for managing notifications from lemons and other background tools
 Project-URL: Homepage, https://github.com/petergaultney/lemonaid
 Project-URL: Repository, https://github.com/petergaultney/lemonaid
@@ -12,6 +12,9 @@ Requires-Python: >=3.11
 Requires-Dist: pyyaml>=6
 Requires-Dist: textual>=0.89.0
 Requires-Dist: wordybin==0.2.0
+Provides-Extra: slack
+Requires-Dist: pywebview>=6.2; extra == 'slack'
+Requires-Dist: websockets>=15; extra == 'slack'
 Provides-Extra: web
 Requires-Dist: pyobjc-framework-quartz>=11; (sys_platform == 'darwin') and extra == 'web'
 Requires-Dist: pywebview>=6.2; extra == 'web'

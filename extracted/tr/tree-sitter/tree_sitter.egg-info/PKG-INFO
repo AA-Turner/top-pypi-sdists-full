@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter
-Version: 0.26.1
+Version: 0.27.0
 Summary: Python bindings to the Tree-sitter parsing library
 Author-email: Max Brunsfeld <maxbrunsfeld@gmail.com>
 Maintainer-email: ObserverOfTime <chronobserver@disroot.org>
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Compilers
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: docs

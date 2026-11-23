@@ -134,16 +134,19 @@ pub(crate) fn plan(
         }
         reach = closed;
     }
-    let calling = defs
-        .iter()
-        .enumerate()
-        .filter(|(_, body)| calls_code(py, body, pool))
-        .fold(0u128, |bits, (at, _)| bits | 1 << at);
-    let remembered = reach
-        .iter()
-        .enumerate()
-        .filter(|(at, reached)| (calling >> at) & 1 == 0 && *reached & calling == 0)
-        .fold(0u128, |bits, (at, _)| bits | 1 << at);
+    let calling = definitions(
+        defs.iter()
+            .enumerate()
+            .filter(|(_, body)| calls_code(py, body, pool))
+            .map(|(at, _)| at),
+    );
+    let remembered = definitions(
+        reach
+            .iter()
+            .enumerate()
+            .filter(|(at, reached)| (calling >> at) & 1 == 0 && *reached & calling == 0)
+            .map(|(at, _)| at),
+    );
     let mut shared = FxHashSet::default();
     if remembered != 0 {
         for node in std::iter::once(schema).chain(defs) {
@@ -170,6 +173,12 @@ fn height(schema: &Schema) -> usize {
     let mut below = 0;
     for_each_child(schema, &mut |child| below = below.max(height(child)));
     below + 1
+}
+
+/// The definitions at these indices, one bit each, every index inside the
+/// plan's table: an index met twice is in the set once.
+fn definitions(indices: impl Iterator<Item = usize>) -> u128 {
+    indices.fold(0, |bits, at| bits | 1 << at)
 }
 
 /// `named` together with everything the definitions it names reach.
@@ -443,12 +452,16 @@ impl Memo {
         self.bits.get() & Self::ARMED != 0
     }
 
-    /// Run `walk` with the memo armed.
+    /// Run `walk` with the memo armed, and leave it armed after as it was
+    /// before: a member armed inside an armed one returns to it armed.
     pub(crate) fn armed<R>(&self, walk: impl FnOnce() -> R) -> R {
-        let outer = self.bits.get() & Self::ARMED;
-        self.bits.set(self.bits.get() | Self::USED | Self::ARMED);
+        let outer = self.is_armed();
+        self.bits.set(self.bits.get() | Self::USED);
+        self.bits.set(self.bits.get() | Self::ARMED);
         let answer = walk();
-        self.bits.set(self.bits.get() & !Self::ARMED | outer);
+        if !outer {
+            self.bits.set(self.bits.get() & !Self::ARMED);
+        }
         answer
     }
 }
@@ -660,5 +673,57 @@ impl Kept {
         if let Value::Py(obj) = value {
             self.held.push((*obj).clone().unbind());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use valgebra_core::{DefIx, Schema};
+
+    use super::{Memo, PLANNED_DEFINITIONS, definitions, names};
+
+    /// A reference names its own bit up to the last definition the plan's
+    /// table holds, and a reference past it names none: a bit past a `u128`'s
+    /// width is no bit, and shifting to it would wrap or panic.
+    #[test]
+    fn a_reference_past_the_plans_table_names_no_definition() {
+        let at = |index| Schema::Ref(DefIx::new(index));
+        let last = PLANNED_DEFINITIONS - 1;
+        assert_eq!(names(&at(last)), 1 << last);
+        assert_eq!(names(&at(PLANNED_DEFINITIONS)), 0);
+        let both = Schema::Union(vec![at(PLANNED_DEFINITIONS), at(3)].into());
+        assert_eq!(names(&both), 1 << 3);
+    }
+
+    /// The set a plan folds its definitions into holds each index once, an
+    /// index met twice as one met once.
+    #[test]
+    fn a_definition_met_twice_is_in_the_set_once() {
+        assert_eq!(definitions([3, 0, 3].into_iter()), 0b1001);
+        assert_eq!(definitions(std::iter::empty()), 0);
+    }
+
+    /// Arming marks the memo used for the rest of the call and armed for the
+    /// member's walk, and leaves it armed after as it found it: an inner
+    /// member returns to an outer one still armed, and a second arming finds
+    /// the memo used. The count of definitions entered runs through it all.
+    #[test]
+    fn arming_keeps_the_use_and_restores_the_flag_it_found() {
+        let memo = Memo::default();
+        assert!(!memo.enter(), "no node has armed the memo yet");
+        memo.armed(|| {
+            assert!(memo.is_armed());
+            assert!(memo.enter());
+            memo.armed(|| assert!(memo.is_armed() && memo.enter()));
+            assert!(
+                memo.is_armed(),
+                "an inner member returns to the outer armed"
+            );
+        });
+        assert!(!memo.is_armed());
+        memo.armed(|| assert!(memo.enter(), "a second arming finds the memo used"));
+        assert!(!memo.is_armed());
+        assert!(memo.enter(), "the memo stays used for the call");
+        assert_eq!(memo.entered(), (5 * Memo::ENTERED) | Memo::USED);
     }
 }

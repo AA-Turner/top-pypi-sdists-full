@@ -46,16 +46,19 @@ class CapsSuffixes(StrEnum):
     #: 2.3 read it.
     OFF = "off"
     #: Only after a comma, behind two or more name words ("John Smith,
-    #: XYZ" gives suffix ``XYZ``). The default: the all-caps SURNAME
-    #: convention ("Jean DUPONT", "DUPONT, Jean") never writes the
-    #: capitals there.
+    #: XYZ" gives suffix ``XYZ``), where a word in mixed case that opens
+    #: with two capitals or ends in one reads so too ("Jane Smith, MRes").
+    #: The default: the all-caps SURNAME convention ("Jean DUPONT",
+    #: "DUPONT, Jean") never writes the capitals there.
     AFTER_COMMA = "after-comma"
     #: After a comma and ending a name with no comma ("John Smith XYZ"
     #: gives suffix ``XYZ``), where the all-caps surname convention
     #: does write them -- "Jean Pierre DUPONT" then gives family
     #: ``Pierre``, suffix ``DUPONT``. Cannot be set with
     #: ``Policy.capitals_as_family``, which reads that word as the
-    #: family.
+    #: family. Its other positions read a word wholly in capitals only:
+    #: a surname typed without its apostrophe ("Alex Lee ONeill") ends
+    #: a name there.
     EVERYWHERE = "everywhere"
 
 
@@ -348,9 +351,10 @@ _classified_char = _script_matcher(*_EAST_ASIAN_SCRIPTS, whole=True)
 # can key a setting on, and membership there settles nothing about
 # case or initials. mechanisms.md#SCRIPT-PROPERTY-TABLE ("a reader selects the spans of the column that is ITS question")
 # names the pattern. Each answer is a writing CONVENTION, never the
-# script's typology: Devanagari is an abugida and Arabic an abjad,
-# and both abbreviate a name to a letter and a period ("म. गांधी",
-# "م. الفارسي"), as Cyrillic does ("А. С. Пушкин"). decisions/script-properties holds each row's
+# script's typology: Devanagari is an abugida and abbreviates a name
+# to a letter and a period ("म. गांधी"), as Cyrillic does ("А. С.
+# Пушкин"), while Arabic, an abjad, writes a letter and a period for a
+# title (د.) and, in the name lists measured, almost none for a name. decisions/script-properties holds each row's
 # history and the recompute recipes, the CLDR count that decides
 # "writes initials" where a locale states it among them.
 
@@ -439,6 +443,26 @@ _SCRIPT_PROPERTIES: Mapping[str, _ScriptRow] = MappingProxyType({
         "CLDR th uses an initial in 0 of 20 authored patterns, a block of "
         "its own (12 of 20 equal to en's by the copy test; 2026-08-02 "
         "#320, re-run 2026-11-12, #1256)"),
+    "lao": _ScriptRow(
+        ((0x0E80, 0x0EFF),), None, False, True, False,
+        "no Lao name is abbreviated to a letter and a period, but a title "
+        "is written short with a period (ດຣ.), so it writes period "
+        "abbreviations, as Thai does",
+        "CLDR lo uses an initial in 0 of 37 authored patterns, writing the "
+        "name in full in each of the 6 where en's has an initial (cldr "
+        "main c0b65ae3, 2026-11-20; #1380)"),
+    "arabic": _ScriptRow(
+        ((0x0600, 0x06FF), (0x0750, 0x077F), (0x0870, 0x089F),
+         (0x08A0, 0x08FF), (0xFB50, 0xFDFF), (0xFE70, 0xFEFC),
+         (0x10EC0, 0x10EFF)), None, False, True, False,
+        "the Arabic-script name lists measured write a letter and a period "
+        "for a title (د., أ.د., م.م.) and almost never for a name, so it "
+        "writes period abbreviations and no initials; Persian and Urdu "
+        "are covered on thin evidence (decisions/script-properties' Open)",
+        "decided 2026-11-19 on #1149 from usage, against CLDR ar's 8 of 42 "
+        "authored patterns with an initial: ORCID's 6,291 Arabic-script "
+        "names write every opening letter with a period as a title, "
+        "Wikidata's 212 none (decisions/script-properties)"),
 })
 
 
@@ -904,7 +928,11 @@ class Policy:
     #: ``AFTER_COMMA``, the default, reads it only in the part after a
     #: comma with two or more name words before it: "John Smith, XYZ"
     #: gives suffix ``XYZ``, while "Smith, XYZ" keeps given ``XYZ`` (one
-    #: name word) and "García Márquez, MJ" keeps given ``MJ`` -- a lone
+    #: name word). There a word in mixed case that opens with two
+    #: capitals or ends in one is read as an all-caps word is ("Jane
+    #: Smith, MRes", "Jane Smith, AuD"), a capital only inside a word
+    #: being a name's writing ("Jane Smith, LeBron" keeps given
+    #: ``LeBron``). "García Márquez, MJ" keeps given ``MJ`` -- a lone
     #: two-letter word is how a person's initials are written, and two
     #: words before the comma may be one surname, the case #563 decides
     #: for "M.J." too. Credentials behind the two letters make them one:
@@ -921,7 +949,8 @@ class Policy:
     #: convention's own position: "John Smith XYZ" gives suffix ``XYZ``,
     #: and "Jean Pierre DUPONT" gives family ``Pierre``, suffix
     #: ``DUPONT`` -- the cost, a swallowed family name being the worse
-    #: failure. The two-word "Jean DUPONT" and "Minjun KIM" keep their
+    #: failure. The mixed-case word is not read there: "Alex Lee ONeill"
+    #: keeps family ``ONeill``. The two-word "Jean DUPONT" and "Minjun KIM" keep their
     #: family even then (one word before the credential is never
     #: enough), but gain the fork's report. ``OFF`` reads no such word
     #: as a credential anywhere and reports nothing, as 2.3 did. A digit
@@ -937,7 +966,10 @@ class Policy:
     #: the word it attaches to ("Juan Pérez de la Vega" gives family
     #: ``Pérez de la Vega``), a family already holding two words keeps
     #: what it has ("José María Ortega y Gasset", "Ana María
-    #: García-López", "Ana María de la Vega Rodríguez"), titles and
+    #: García-López", "Ana María de la Vega Rodríguez"), and is divided
+    #: by its own words into ``surname1`` and ``surname2`` (``de la
+    #: Vega``, ``Rodríguez``) unless ``y`` joins it or it is one
+    #: hyphenated word, titles and
     #: suffixes count as no name word, and a name of two name words is
     #: unchanged. The word taken must be one name word a family name
     #: could be, so an initial written alone ("Ana M. García"), hyphenated
@@ -950,15 +982,17 @@ class Policy:
     #: script reads in an order other than name_order (a spaced Han or
     #: Hangul name under the default) is left alone, though under a
     #: declared FAMILY_FIRST, which the script agrees with, it moves. A
-    #: family comma decides by itself, so "García López, Ana" is
-    #: unaffected. A name with one family name behind two given names
+    #: family comma decides by itself, so "García López, Ana" keeps its
+    #: family, divided into ``surname1`` ``García`` and ``surname2``
+    #: ``López`` as the comma-less name is. A name with one family name behind two given names
     #: loses one to the family ("Juan Carlos Pérez" gives family
     #: ``Carlos Pérez``), which is most English and Argentine names of
     #: three words or more and many Portuguese and Brazilian ones as
     #: filed: switched on for a mixed population it costs more names
-    #: than it mends, so it is off by default and reports nothing. Runs
-    #: before middle_as_family, which then folds whatever middles are
-    #: left.
+    #: than it mends, so it is off by default and reports nothing;
+    #: Parser.suggest may suggest it for a group written given name
+    #: first (Signal.FIRST_SURNAME). Runs before middle_as_family, which
+    #: then folds whatever middles are left.
     two_family_names: bool = False
     #: Reads the given name as two name units, for data where a person
     #: carries a compound given name and no middle name (rules/O7):

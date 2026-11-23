@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.62.0
+Version: 0.63.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -167,6 +167,44 @@ validator = jsonschema_rs.validator_for(
 validator.is_valid("USD")  # True
 validator.is_valid("invalid")  # False
 ```
+
+To check numbers, wrap the function in `number_format`; it receives an `int`, `float` or `Decimal`:
+
+```python
+is_int32 = jsonschema_rs.number_format(lambda number: -(2**31) <= number < 2**31)
+validator = jsonschema_rs.validator_for(
+    {"format": "int32"}, formats={"int32": is_int32}, validate_formats=True
+)
+assert not validator.is_valid(2**31)
+```
+
+`known_formats` lists the formats with a check under a draft, built in and from `formats`:
+
+```python
+names = jsonschema_rs.known_formats(jsonschema_rs.Draft202012, formats={"currency": is_currency})
+assert "uuid" in names and "currency" in names
+```
+
+### Validating JSON Text
+
+When instances arrive as JSON text, such as request bodies or queue messages, `JsonTextValidator`
+validates the `str` or `bytes` directly, without building Python objects for them. On the benchmark
+documents this is 2.5-9.9x faster than `json.loads` followed by `is_valid`, and 1.3-2.3x faster
+than `orjson.loads` followed by `is_valid`. It takes the same arguments as `validator_for`, plus
+`draft`:
+
+```python
+import jsonschema_rs
+
+validator = jsonschema_rs.JsonTextValidator({"type": "object", "required": ["id"]})
+validator.is_valid('{"id": 1}')  # True
+validator.is_valid(b'{"name": "x"}')  # False
+```
+
+Text that is not a single JSON document raises `ValueError`, and a repeated key keeps its last
+value, as with `json.loads`. Unlike `json.loads`, it also raises for `NaN` and `Infinity`, which
+are not JSON, and for documents nested 128 levels deep or more. Custom keywords receive the
+instance as Python objects.
 
 ### Custom Keywords
 

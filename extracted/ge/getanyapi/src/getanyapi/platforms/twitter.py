@@ -155,16 +155,12 @@ class TwitterSearchInput(TypedDict, total=False):
     """Opaque pagination cursor from a previous response's nextCursor. Omit for the first page; pass it to fetch the next page of search results."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
-    limit: NotRequired[int]
-    """Page size to ask for (1-50, default 20). Some sources honor it; others always return their whole native page of about 20. A page is never trimmed after the call, so follow nextCursor to continue exactly where this response ended. Range: 1 to 50. Default: 20."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """Search query using X (Twitter) advanced-search syntax. IMPORTANT: bare terms are ANDed - a tweet must contain EVERY word, so a list of loosely related keywords matches nothing; use one short phrase or OR between alternatives (e.g. 'anyapi OR getanyapi'). When an operator follows an OR list, put the list in parentheses, e.g. '(anyapi OR getanyapi) -filter:replies': without them X applies the operator to the last alternative only, so such a query still runs as X reads it and the response's hint carries the corrected query. You can embed X advanced-search operators directly in the query to filter results: from:username and to:username (author or recipient), since:YYYY-MM-DD and until:YYYY-MM-DD (date range), min_faves:N, min_retweets:N, min_replies:N (engagement floors), "exact phrase", -term to exclude, filter:media and filter:links and -filter:replies (content filters), lang:en, near:city, and geocode:lat,long,radius. Examples: 'from:OpenAI', 'AI agents min_faves:500 -filter:replies', 'nvidia since:2026-01-01 until:2026-03-01'. A query with no matches returns an empty items array; prefer the fewest words that identify the topic."""
     queryType: NotRequired[Literal["Latest", "Top", "Photos", "Videos"]]
     """Which posts to return: 'Latest' (newest first, the default), 'Top' (most popular), 'Photos' (newest posts with images), or 'Videos' (newest posts with video). Photos and Videos search your query as written with filter:images or filter:videos added after it, so they cost the same as a Latest search. Default: Latest."""
-    requireSinglePage: NotRequired[bool]
-    """Set true to get up to limit results in one response instead of provider-native pages, served by a bulk provider when needed."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -301,14 +297,10 @@ class TwitterUserTweetsInput(TypedDict, total=False):
     """Twitter/X handle without the leading @."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
-    limit: NotRequired[int]
-    """Page size to ask for (1-100, default 20). Some sources honor it; others always return their whole native page of about 20 authored tweets and replies. A page is never trimmed after the call, so follow nextCursor and pass it back as cursor to continue exactly where this response ended. Range: 1 to 100. Default: 20."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[list[Literal["isPinned"]]]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `isPinned`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
-    requireSinglePage: NotRequired[bool]
-    """Require a lane that can return the requested limit in one response."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -1700,9 +1692,8 @@ class TwitterNamespace:
 
         Search X (Twitter) with full advanced-search syntax (operators like from:,
         since:, until:, min_faves: work inline in the query) and get structured
-        tweets with text, author, engagement, and cursor pagination. Limit is a
-        per-page maximum; native pages contain approximately 20 tweets unless
-        requireSinglePage selects a bulk lane.
+        tweets with text, author, engagement, and cursor pagination. Every call
+        returns one full native page of about 20 tweets; follow nextCursor for more.
 
         Price: $0.00048 per request.
 
@@ -1966,14 +1957,14 @@ class TwitterNamespace:
     ) -> RunResult[TwitterUserTweetsData]:
         """X / Twitter User Tweets and Replies
 
-        Get up to the requested limit of tweets and replies authored by an X
-        (Twitter) account, with engagement, views, language, and cursor pagination
-        where available.
+        Get the tweets and replies authored by an X (Twitter) account, with
+        engagement, views, language, and cursor pagination. Every call returns one
+        full native page of about 20 tweets; follow nextCursor for more.
 
         Price: $0.00044 per request.
 
         Example:
-            res = client.twitter.user_tweets(handle="levelsio", limit=20)
+            res = client.twitter.user_tweets(handle="levelsio")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "twitter.user_tweets", dict(input), options
@@ -2239,9 +2230,8 @@ class AsyncTwitterNamespace:
 
         Search X (Twitter) with full advanced-search syntax (operators like from:,
         since:, until:, min_faves: work inline in the query) and get structured
-        tweets with text, author, engagement, and cursor pagination. Limit is a
-        per-page maximum; native pages contain approximately 20 tweets unless
-        requireSinglePage selects a bulk lane.
+        tweets with text, author, engagement, and cursor pagination. Every call
+        returns one full native page of about 20 tweets; follow nextCursor for more.
 
         Price: $0.00048 per request.
 
@@ -2507,14 +2497,14 @@ class AsyncTwitterNamespace:
     ) -> RunResult[TwitterUserTweetsData]:
         """X / Twitter User Tweets and Replies
 
-        Get up to the requested limit of tweets and replies authored by an X
-        (Twitter) account, with engagement, views, language, and cursor pagination
-        where available.
+        Get the tweets and replies authored by an X (Twitter) account, with
+        engagement, views, language, and cursor pagination. Every call returns one
+        full native page of about 20 tweets; follow nextCursor for more.
 
         Price: $0.00044 per request.
 
         Example:
-            res = client.twitter.user_tweets(handle="levelsio", limit=20)
+            res = client.twitter.user_tweets(handle="levelsio")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "twitter.user_tweets", dict(input), options

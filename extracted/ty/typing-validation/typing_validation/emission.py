@@ -23,9 +23,10 @@ de-optimisation a plugin forces, for the same reason: you cannot inline code you
 do not have.
 """
 
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Buffer, Callable, Collection, Mapping
 from typing import Any, Literal, Union, get_args, get_origin
 
+from ._compat import is_bytestring_origin
 from .composition import Runner, Validator, runner_for, validator
 from .diagnosis import diagnose
 from .errors import UnsupportedTypeError, ValidationError
@@ -280,13 +281,22 @@ def _lines(
         return []
     if form is TypeForm.NONE:
         return [f"if {var} is not None:", "    return False"]
+    if form is TypeForm.SENTINEL:
+        name = out.constant(t, "sentinel")
+        return [f"if {var} is not {name}:", "    return False"]
     if form in _WRAPPERS:
         if not node.children:
             return []
         return _lines(node.children[0], var, out, depth=depth, budget=budget)
     if form is TypeForm.CLASS or form is TypeForm.PROTOCOL:
         origin = get_origin(t)
-        name = out.constant(t if origin is None else origin, "cls")
+        if origin is None:
+            target = t
+        elif is_bytestring_origin(origin):
+            target = Buffer
+        else:
+            target = origin
+        name = out.constant(target, "cls")
         return [f"if not isinstance({var}, {name}):", "    return False"]
     if form is TypeForm.UNION:
         members = t.__args__
@@ -406,6 +416,29 @@ def _typed_dict(
     lines = [f"if not isinstance({var}, {mapping}):", "    return False"]
     for key in sorted(t.__required_keys__):
         lines += [f"if {key!r} not in {var}:", "    return False"]
+    string = out.constant(str, "cls")
+    labels = node.labels or ()
+    extra = node.extra_items
+    extra_lines = (
+        []
+        if extra is None
+        else _lines(extra, f"_x{depth}", out, depth=depth + 1, budget=budget)
+    )
+    if extra_lines:
+        lines.append(f"for _k{depth}, _x{depth} in {var}.items():")
+    else:
+        lines.append(f"for _k{depth} in {var}:")
+    lines += [
+        f"    if not isinstance(_k{depth}, {string}):",
+        "        return False",
+    ]
+    if node.closed or extra_lines:
+        declared = out.constant(frozenset(labels), "keys")
+        lines.append(f"    if _k{depth} not in {declared}:")
+        if node.closed:
+            lines.append("        return False")
+        else:
+            lines.extend(f"        {line}" for line in extra_lines)
     for label, child in zip(node.labels or (), node.children):
         item = f"_f{depth}"
         inner = _lines(child, item, out, depth=depth + 1, budget=budget)

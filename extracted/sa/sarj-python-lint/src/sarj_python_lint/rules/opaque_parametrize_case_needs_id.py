@@ -34,11 +34,8 @@ class _UnnameableTable(NamedTuple):
     case_count: int
 
 
-# Node kinds pytest cannot render into a readable test id.
 _OPAQUE_NODES = (ast.Dict, ast.Set, ast.DictComp, ast.SetComp, ast.ListComp, ast.GeneratorExp)
 
-# Constructors whose result pytest's `_idval` always renders: the scalar types it stringifies, plus `type` and
-# `re.compile`, whose results carry a `__name__` / a `.pattern` that pytest reads instead.
 _NAMEABLE_CONSTRUCTORS = frozenset({"str", "bytes", "int", "float", "bool", "complex", "type"})
 _STRING_TRANSFORMS = frozenset({"encode", "format"})
 _PYTEST_MARK_SOURCES = frozenset({"pytest.mark"})
@@ -140,8 +137,6 @@ def _message(count: int) -> str:
 def _tables_with_unnameable_cases(
     tree: ast.Module, imports: ImportIndex, *, node_index: NodeIndex | None = None
 ) -> list[_UnnameableTable]:
-    # One diagnostic per table, not per case: a single `ids=` on the decorator resolves every case at once, so per-case
-    # reporting would be N copies of one fix and would bury a large table's other diagnostics.
     hits: list[_UnnameableTable] = []
     for node in _decorator_calls(tree, node_index=node_index):
         if not _is_parametrize(node.func, imports):
@@ -201,15 +196,18 @@ def _explicit_decorator_ids(node: ast.Call, case_count: int) -> tuple[bool, ...]
 
 
 def _parametrize_width(argnames: ast.expr) -> int | None:
-    if isinstance(argnames, ast.Constant) and isinstance(argnames.value, str):
-        names = [stripped_name for name in argnames.value.split(",") if (stripped_name := name.strip())]
-        return len(names) or None
-    if isinstance(argnames, (ast.List, ast.Tuple)):
-        if not argnames.elts or not all(
-            isinstance(elt, ast.Constant) and isinstance(elt.value, str) for elt in argnames.elts
-        ):
-            return None
-        return len(argnames.elts)
+    match argnames:
+        case ast.Constant() if isinstance(argnames.value, str):
+            names = [stripped_name for name in argnames.value.split(",") if (stripped_name := name.strip())]
+            return len(names) or None
+        case ast.List() | ast.Tuple():
+            if not argnames.elts or not all(
+                isinstance(elt, ast.Constant) and isinstance(elt.value, str) for elt in argnames.elts
+            ):
+                return None
+            return len(argnames.elts)
+        case _:
+            pass
     return None
 
 
@@ -228,20 +226,19 @@ def _is_param_wrapper(func: ast.expr, imports: ImportIndex) -> bool:
 
 
 def _is_opaque_value(value: ast.expr, *, single_value: bool, imports: ImportIndex) -> bool:
-    # A multi-column case is a tuple. pytest joins the per-column ids with `-`, so one nameable column is enough to tell
-    # the case apart — only an all-opaque case falls back to argument-name-and-index components.
     if single_value and isinstance(value, (ast.Tuple, ast.List)):
         return True
-    if isinstance(value, ast.Constant) and value.value is Ellipsis:
-        return True
-    if isinstance(value, ast.Call):
-        return not _is_nameable_call(value, imports)
+    match value:
+        case ast.Constant() if value.value is Ellipsis:
+            return True
+        case ast.Call():
+            return not _is_nameable_call(value, imports)
+        case _:
+            pass
     return isinstance(value, _OPAQUE_NODES)
 
 
 def _is_nameable_call(call: ast.Call, imports: ImportIndex) -> bool:
-    # `float('nan')` -> `nan`, `type(None)` -> `NoneType`: pytest renders the
-    # value these produce, so the case names itself after all.
     if isinstance(call.func, ast.Name) and call.func.id in _NAMEABLE_CONSTRUCTORS:
         return imports.builtin_is_unshadowed(call.func.id)
     if imports.resolves(call.func, sources=_RE_SOURCES, symbol="compile"):
@@ -268,12 +265,15 @@ def _is_none(node: ast.expr) -> bool:
 def _module_import_index(tree: ast.Module) -> ImportIndex:
     body: list[ast.stmt] = []
     for statement in tree.body:
-        if isinstance(statement, ast.ImportFrom) and statement.module == "pytest":
-            _expand_pytest_mark_import(statement, body)
-            continue
-        if isinstance(statement, (ast.Import, ast.ImportFrom)):
-            body.append(statement)
-            continue
+        match statement:
+            case ast.ImportFrom() if statement.module == "pytest":
+                _expand_pytest_mark_import(statement, body)
+                continue
+            case ast.Import() | ast.ImportFrom():
+                body.append(statement)
+                continue
+            case _:
+                pass
         body.extend(
             ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=ast.Constant(None))
             for name in _statement_bound_names(statement)
@@ -292,7 +292,6 @@ def _statement_bound_names(statement: ast.stmt) -> frozenset[str]:
 
 
 def _is_unnameable_param(case: ast.Call, width: int, imports: ImportIndex) -> bool:
-    # An explicitly named case is fine however opaque its payload is.
     case_id = next((keyword.value for keyword in case.keywords if keyword.arg == "id"), None)
     if case_id is not None and not _is_none(case_id):
         return False

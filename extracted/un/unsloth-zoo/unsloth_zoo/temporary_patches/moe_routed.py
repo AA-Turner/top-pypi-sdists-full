@@ -633,8 +633,15 @@ def _lora_op_args(lora):
     return B, [], lora[1], float(lora[2])
 
 
+def _flat_index(idx):
+    """idx flattened with unit stride: the kernels read expert ids at IDX + p, and reshape(-1) of a strided view
+    (a column slice of the router's top-k) can keep a non-unit stride and read the wrong ids."""
+    return idx.reshape(-1).contiguous()
+
+
 def routed_gate_up(x, idx, tb, top_k, alpha, limit, lora = None, act = ACT_GPTOSS, interleaved = True):
     """[T * top_k, N // 2] fp32 gated activation of the routed gate_up GEMVs."""
+    idx = _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_nf4_gate_up(
             x, idx, *_table_args(tb), top_k, *_lora_op_args(lora), float(alpha), float(limit),
@@ -646,6 +653,7 @@ def routed_gate_up(x, idx, tb, top_k, alpha, limit, lora = None, act = ACT_GPTOS
 
 def routed_down(x, idx, rw, dense_rw, tb, top_k, out_dtype, lora = None):
     """[T, N]: routing-weighted top-k sum of the routed down GEMVs."""
+    idx = _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_nf4_down(
             x, idx, rw, dense_rw, *_table_args(tb), top_k, *_lora_op_args(lora), out_dtype, _bias_list(tb))
@@ -717,6 +725,7 @@ if triton is not None:
 
 def routed_lora_h(x, idx, a_list, row_div = 1):
     """fp32 [P, r]: row p = A[idx[p]] @ x[p // row_div], read in place via lora_pointer_table."""
+    idx = _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_lora_h(x, idx, list(a_list), int(row_div))
     return _lora_h_eager(x, idx, a_list, row_div)
@@ -797,7 +806,7 @@ def _lora_x(x):
 
 def routed_lora_a(x, idx, a, row_div = 1):
     """fp32 [P, r]: row p = x[p // row_div] @ a[idx[p]] for a stacked [E, in, r] a, read in place."""
-    x, idx = _lora_x(x), idx.reshape(-1)
+    x, idx = _lora_x(x), _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_lora_a(x, idx, a, int(row_div))
     return _lora_a_launch(x, idx, a, row_div)
@@ -807,7 +816,7 @@ def routed_lora_b(base, h, idx, b, scaling, prev = None):
     """fp32 [P, out]: base + (prev + scaling * h[p] @ b[idx[p]]) for a stacked [E, r, out] b.
 
     base (any float dtype, unit last stride) and prev (fp32 [P, out], an earlier term) may be None."""
-    idx, h = idx.reshape(-1), h.contiguous()
+    idx, h = _flat_index(idx), h.contiguous()
     prev = prev.contiguous() if prev is not None else None
     if base is not None and base.stride(-1) != 1:
         base = base.contiguous()
@@ -860,6 +869,7 @@ if triton is not None:
 
 def nf4_select_dequant(tb, uniq, dtype):
     """[len(uniq), N, K]: expert uniq[g] dequantized bit-exact; uniq[g] < 0 left unwritten."""
+    uniq = _flat_index(uniq)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.nf4_select_dequant(
             tb["w"], tb["a"], tb["a2"], tb["c2"], tb["off"], tb["lut"], uniq,
@@ -927,7 +937,7 @@ if triton is not None:
 
 def routed_bf16_gemm(x, idx, weight, bias = None, row_div = 1):
     """fp32 [P, N]: row p = x[p // row_div] @ weight[idx[p]] + bias[idx[p]]; no host sync."""
-    idx = idx.reshape(-1)
+    idx = _flat_index(idx)
     if x.stride(-1) != 1:
         x = x.contiguous()
     if torch.compiler.is_compiling():
@@ -1164,6 +1174,7 @@ def routed_bf16_gate_up_act(x, idx, w_gu, b_gu = None, lora_a = None, lora_b = N
 
     lora_a [E, H, r] / lora_b [E, r, 2I], any strides. lora_h ([P, r] or [S, P, r] fp32 partials)
     replaces the in-kernel A product when given."""
+    idx = _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_bf16_gate_up_act(
             x, idx, w_gu, b_gu, lora_a, lora_b, lora_h, float(scaling), int(top_k), int(act), bool(interleaved),
@@ -1175,6 +1186,7 @@ def routed_bf16_gate_up_act(x, idx, w_gu, b_gu = None, lora_a = None, lora_b = N
 def routed_bf16_down_sum(inter, idx, rw, w_dn, b_dn = None, lora_a = None, lora_b = None, lora_h = None,
                          scaling = 0.0, top_k = 1, out_dtype = torch.bfloat16):
     """[T, H] fixed-order sum over top-k of rw[t, k] * (inter[s] @ w_dn[e] + b_dn[e] + LoRA), s = t * top_k + k."""
+    idx = _flat_index(idx)
     if torch.compiler.is_compiling():
         return torch.ops.unsloth_zoo.routed_bf16_down_sum(
             inter, idx, rw, w_dn, b_dn, lora_a, lora_b, lora_h, float(scaling), int(top_k), out_dtype)
@@ -1205,9 +1217,9 @@ def routed_bf16_moe(x, idx, routing_weights, w_gu, w_dn, b_gu, b_dn, act, interl
     glue = torch.compiler.is_compiling() and not gu_lora and not dn_lora
     if len(gu_lora) <= 1 and len(dn_lora) <= 1 and not glue and routed_fused_enabled():
         return _routed_bf16_moe_fused(
-            x, idx.reshape(-1), routing_weights, w_gu, w_dn, b_gu, b_dn, act, interleaved, gu_lora, dn_lora,
+            x, _flat_index(idx), routing_weights, w_gu, w_dn, b_gu, b_dn, act, interleaved, gu_lora, dn_lora,
             alpha, limit, out_dtype if out_dtype is not None else x.dtype, top_k)
-    flat = idx.reshape(-1)
+    flat = _flat_index(idx)
     gate_up = routed_bf16_gemm(x.to(w_gu.dtype), flat, w_gu, b_gu, row_div = top_k)
     if gu_lora:
         gate_up = routed_lora_add(gate_up, x, flat, gu_lora, row_div = top_k)
@@ -1397,9 +1409,12 @@ def _build_stacked_nf4(experts, hidden_dim):
     device = gu_p.data.device
     if device.type != "cuda" or getattr(experts, "is_transposed", False) or not getattr(experts, "has_gate", True):
         return _decline(experts, "not CUDA, transposed or ungated")
+    from .moe_utils import _uses_own_apply_gate
     act = _act_code(experts)
-    if act is None:
-        return _decline(experts, f"activation {type(getattr(experts, 'act_fn', None)).__name__} / own gate")
+    # Experts owning their gate (Inkling 2's softcapped SwiGLU) take _nf4_own_gate: no fused activation there.
+    own_gate = act is None and _uses_own_apply_gate(experts) and callable(getattr(experts, "_apply_gate", None))
+    if act is None and not own_gate:
+        return _decline(experts, f"activation {type(getattr(experts, 'act_fn', None)).__name__}")
     gu, dn = _nf4_table(gu_p, device), _nf4_table(dn_p, device)
     if gu is None or dn is None:
         return _decline(experts, "not a stacked NF4 [E, N, K] with whole absmax blocks per row")
@@ -1427,7 +1442,7 @@ def _build_stacked_nf4(experts, hidden_dim):
             return _decline(experts, f"{name} not a contiguous [E, N] float tensor")
         tb["bias"], tb["bias_kind"] = bias.detach(), 4
     return {
-        "gate_up": gu, "down": dn, "E": E, "act": act,
+        "gate_up": gu, "down": dn, "E": E, "act": act, "own_gate": own_gate,
         "interleaved": bool(_gate_up_is_interleaved(experts)),
         "alpha": float(getattr(experts, "alpha", 1.702)), "limit": float(getattr(experts, "limit", 7.0)),
     }
@@ -1503,7 +1518,7 @@ def _stash_lora(experts):
 
 def _nf4_routed(state, x, idx, rw, top_k, gu_lora, dn_lora, out_dtype):
     gu_tb, dn_tb = state["gate_up"], state["down"]
-    flat = idx.reshape(-1)
+    flat = _flat_index(idx)
     lora = None
     if gu_lora is not None:
         first, second, scaling = gu_lora[:3]
@@ -1515,6 +1530,38 @@ def _nf4_routed(state, x, idx, rw, top_k, gu_lora, dn_lora, out_dtype):
         first, second, scaling = dn_lora[:3]
         lora = (second.transpose(1, 2), routed_lora_a(inter, flat, first), scaling)
     return routed_down(inter, flat, rw, False, dn_tb, top_k, out_dtype, lora)
+
+
+# Own-gate NF4 experts dequantize one [N, K] expert per (token, expert) slot, so cap the slots (4 decode rows x top_k 8).
+OWN_GATE_MAX_SLOTS = _env_int("UNSLOTH_MOE_ROUTED_OWN_GATE_MAX_SLOTS", 32)
+
+
+def _nf4_own_gate(experts, state, x, idx, rw, top_k, gu_lora, dn_lora, out_dtype):
+    """Stacked NF4 experts with their own _apply_gate: dequantize only the routed experts (bit-exact), one batched
+    GEMV per projection, the module's gate between them, routed outputs weighted and summed in fp32."""
+    from .moe_utils import _apply_own_gate
+    gu_tb, dn_tb = state["gate_up"], state["down"]
+    T, H = x.shape
+    flat = _flat_index(idx)
+    dtype = x.dtype
+    xs = x.unsqueeze(1).expand(T, top_k, H).reshape(-1, H)
+    w_gu = nf4_select_dequant(gu_tb, flat, dtype)
+    mm1 = torch.bmm(w_gu, xs.unsqueeze(-1)).squeeze(-1)
+    del w_gu
+    if gu_tb["bias"] is not None:
+        mm1 = mm1 + gu_tb["bias"][flat].to(dtype)
+    if gu_lora is not None:
+        mm1 = (mm1.float() + _lora_delta(xs, flat, [gu_lora[:3]])).to(dtype)
+    inter = _apply_own_gate(experts, mm1)
+    w_dn = nf4_select_dequant(dn_tb, flat, dtype)
+    mm2 = torch.bmm(w_dn, inter.unsqueeze(-1)).squeeze(-1)
+    del w_dn
+    if dn_tb["bias"] is not None:
+        mm2 = mm2 + dn_tb["bias"][flat].to(dtype)
+    if dn_lora is not None:
+        mm2 = (mm2.float() + _lora_delta(inter, flat, [dn_lora[:3]])).to(dtype)
+    out = (mm2.float().view(T, top_k, -1) * rw.float()[..., None]).sum(1)
+    return out.to(out_dtype)
 
 
 def _nf4_grouped(state, x, idx, rw, top_k, gu_lora, dn_lora, out_dtype):
@@ -1684,7 +1731,10 @@ def routed_moe_forward(experts, hidden_states, top_k_index, top_k_weights):
         sub = graph_step and not routed_16bit_supported(hidden_states.device)
         if not nf4_routes(state["E"], top_k_index.numel(), sub, graph_step):
             return None
-        if mode == "grouped":
+        if state.get("own_gate"):
+            if top_k_index.numel() > OWN_GATE_MAX_SLOTS:
+                return None
+        elif mode == "grouped":
             # torch._grouped_mm takes bf16 only (its fake impl rejects fp16 under compile).
             from .moe_utils import _grouped_mm_supported_on, moe_compute_dtype
             if moe_compute_dtype(hidden_states) != torch.bfloat16 or not _grouped_mm_supported_on(hidden_states.device):
@@ -1716,11 +1766,14 @@ def routed_moe_forward(experts, hidden_states, top_k_index, top_k_weights):
     if nf4:
         x = x.to(moe_compute_dtype(hidden_states)).contiguous()
         out_dtype = hidden_states.dtype if hidden_states.dtype.is_floating_point else x.dtype
-        fn = _nf4_grouped if mode == "grouped" else _nf4_routed
         state = _live_biases(experts, state)
         if state is None:
             return None
-        out = fn(state, x, top_k_index, rw, top_k, gu_lora, dn_lora, out_dtype)
+        if state.get("own_gate"):
+            out = _nf4_own_gate(experts, state, x, top_k_index, rw, top_k, gu_lora, dn_lora, out_dtype)
+        else:
+            fn = _nf4_grouped if mode == "grouped" else _nf4_routed
+            out = fn(state, x, top_k_index, rw, top_k, gu_lora, dn_lora, out_dtype)
     else:
         w_gu, w_dn, act, interleaved, _ = views
         biases = (getattr(experts, "gate_up_proj_bias", None), getattr(experts, "down_proj_bias", None))

@@ -4,6 +4,7 @@ report a writer gone (twin: app/runs)."""
 from __future__ import annotations
 
 from ....delivery.transport.deadlines import disable_retries
+from ....hardware.join_keys import get_beat_join_keys, mark_join_keys_sent
 
 
 class RunWritersMixin:
@@ -82,11 +83,18 @@ class RunWritersMixin:
         """``POST /v1/runs/{id}/writers/{session}/beat`` (SDK reliability 2.8):
         one lease beat. The first registers the lease. Returns
         ``{run_status, write_epoch, liveness_protocol}``; a 409 means a newer
-        attempt took the run over. Sent once (I14): the next beat is its retry."""
+        attempt took the run over. Sent once (I14): the next beat is its retry.
+
+        Carries this process's join keys (probe-node P0: ``gpu_uuids``, ``node_key``, ``pod_uid``...) on a
+        session's first answered beat and again whenever they change; an older server ignores them."""
+        join_keys = get_beat_join_keys(run_id, session_id)
         with disable_retries():
-            return self.transport.post(
-                f"/v1/runs/{run_id}/writers/{session_id}/beat", body, idempotent=True
-            ) or {}
+            answer = self.transport.post(
+                f"/v1/runs/{run_id}/writers/{session_id}/beat", {**body, **join_keys}, idempotent=True
+            )
+        if join_keys:
+            mark_join_keys_sent(run_id, session_id, join_keys)
+        return answer or {}
 
     def release_writer(self, run_id: str, session_id: str, body: dict) -> dict:
         """``POST /v1/runs/{id}/writers/{session}/release`` (2.8): this writer

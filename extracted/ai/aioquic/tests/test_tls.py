@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import hashlib
 import ssl
 from collections.abc import Callable
 from functools import partial
@@ -20,7 +21,6 @@ from aioquic.tls import (
     ServerHello,
     SessionTicket,
     State,
-    load_pem_x509_certificates,
     pull_block,
     pull_certificate_request,
     pull_certificate_verify,
@@ -41,8 +41,9 @@ from aioquic.tls import (
 )
 from cryptography import x509
 from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import ec, mlkem, x25519
 
 from .utils import (
     SERVER_CACERTFILE,
@@ -56,6 +57,7 @@ from .utils import (
     generate_ed25519_certificate,
     generate_rsa_certificate,
     load_cert_chain,
+    send_first_key_share_only,
 )
 
 # TLS treats the QUIC transport parameters as opaque data.
@@ -90,7 +92,7 @@ def create_session_ticket() -> SessionTicket:
     """
     Create an TLS_AES_256_GCM_SHA384 session ticket, valid for an hour.
     """
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
     return SessionTicket(
         age_add=0,
         cipher_suite=tls.CipherSuite.TLS_AES_256_GCM_SHA384,
@@ -121,6 +123,17 @@ def modify_certificate_verify(data: bytes, **changes: Any) -> bytes:
     output = Buffer(capacity=buf.tell() - start + 64)
     push_certificate_verify(output, verify)
     return data[:start] + output.data + data[buf.tell() :]
+
+
+def modify_client_hello(data: bytes, **changes: Any) -> bytes:
+    """
+    Replace fields of the ClientHello at the start of `data`.
+    """
+    buf = Buffer(data=data)
+    hello = dataclasses.replace(pull_client_hello(buf), **changes)
+    output = Buffer(capacity=len(data) + 1024)
+    push_client_hello(output, hello)
+    return output.data + data[buf.tell() :]
 
 
 def modify_server_hello(data: bytes, **changes: Any) -> bytes:
@@ -162,7 +175,7 @@ class ContextTest(TestCase):
     def assertClientHello(self, data: bytes) -> None:
         self.assertEqual(data[0], tls.HandshakeType.CLIENT_HELLO)
         self.assertGreaterEqual(len(data), 161)
-        self.assertLessEqual(len(data), 536)
+        self.assertLessEqual(len(data), 1470)
 
     def create_client(
         self,
@@ -346,6 +359,128 @@ class ContextTest(TestCase):
             ),
         )
 
+    def test_client_bad_hello_after_hello_retry_request(self) -> None:
+        """
+        The ServerHello after a HelloRetryRequest must keep its cipher suite
+        (RFC 9846 section 4.2.4) and use the requested group (RFC 9846 section
+        4.3.8).
+        """
+        cases: list[tuple[str, dict[str, Any], tls.Alert]] = [
+            (
+                "cipher suite",
+                {"cipher_suite": tls.CipherSuite.TLS_AES_128_GCM_SHA256},
+                tls.AlertIllegalParameter(
+                    "ServerHello has a cipher suite other than the HelloRetryRequest's"
+                ),
+            ),
+            (
+                "group",
+                {"key_share": (tls.Group.X25519, bytes(32))},
+                tls.AlertIllegalParameter(
+                    "ServerHello has a key share we did not advertise"
+                ),
+            ),
+        ]
+        for desc, changes, exc in cases:
+            with self.subTest(desc):
+                client = self.create_client()
+                server = self.create_server()
+                client_hello = self._client_retry_hello(
+                    client, self._client_hello_retry_request(client, server)
+                )
+                server_buf = create_buffers()
+                server.handle_message(client_hello, server_buf)
+
+                with self.assertRaisesMessage(type(exc), str(exc)):
+                    client.handle_message(
+                        modify_server_hello(merge_buffers(server_buf), **changes),
+                        create_buffers(),
+                    )
+
+    def test_client_bad_hello_retry_request(self) -> None:
+        """
+        A HelloRetryRequest may only ask for a key share in a group we offered
+        without one, or send a cookie (RFC 9846 sections 4.2.4 and 4.3.8).
+        """
+        cases: list[tuple[str, dict[str, Any], tls.Alert]] = [
+            (
+                "group not advertised",
+                {"selected_group": tls.Group.SECP384R1},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest has a group we did not advertise"
+                ),
+            ),
+            (
+                "GREASE group",
+                {"selected_group": tls.Group.GREASE},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest has a group we did not advertise"
+                ),
+            ),
+            (
+                "group already shared",
+                {"selected_group": tls.Group.X25519},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest has a group we sent a key share for"
+                ),
+            ),
+            (
+                "no change",
+                {"selected_group": None},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest does not change the ClientHello"
+                ),
+            ),
+            (
+                "pre_shared_key",
+                {"other_extensions": [(tls.ExtensionType.PRE_SHARED_KEY, bytes(2))]},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest has a prohibited extension 0x0029"
+                ),
+            ),
+            (
+                "cipher suite not advertised",
+                {"cipher_suite": 0x1304},
+                tls.AlertIllegalParameter(
+                    "HelloRetryRequest has a cipher suite we did not advertise"
+                ),
+            ),
+        ]
+        for desc, changes, exc in cases:
+            with self.subTest(desc):
+                client = self.create_client()
+                server = self.create_server()
+                hello_retry_request = self._client_hello_retry_request(
+                    client,
+                    server,
+                    client_groups=[
+                        tls.Group.X25519,
+                        tls.Group.SECP256R1,
+                        tls.Group.GREASE,
+                    ],
+                )
+
+                with self.assertRaisesMessage(type(exc), str(exc)):
+                    client.handle_message(
+                        modify_server_hello(hello_retry_request, **changes),
+                        create_buffers(),
+                    )
+
+    def test_client_bad_hello_retry_request_twice(self) -> None:
+        """
+        A second HelloRetryRequest requires an unexpected_message alert (RFC 9846
+        section 4.2.4).
+        """
+        client = self.create_client()
+        server = self.create_server()
+        hello_retry_request = self._client_hello_retry_request(client, server)
+        self._client_retry_hello(client, hello_retry_request)
+
+        with self.assertRaisesMessage(
+            tls.AlertUnexpectedMessage, "Received a second HelloRetryRequest"
+        ):
+            client.handle_message(hello_retry_request, create_buffers())
+
     def test_client_bad_hello_compression_method(self) -> None:
         self.handshake_with_client_input_corruption(
             lambda x: modify_server_hello(x, compression_method=0xFF),
@@ -356,10 +491,8 @@ class ContextTest(TestCase):
 
     def test_client_bad_hello_invalid_key_share(self) -> None:
         self.handshake_with_client_input_corruption(
-            # A SECP256R1 public key which is not a valid point encoding.
-            lambda x: modify_server_hello(
-                x, key_share=(tls.Group.SECP256R1, b"\x05" + bytes(64))
-            ),
+            # An X25519 public key which is too short.
+            lambda x: modify_server_hello(x, key_share=(tls.Group.X25519, bytes(31))),
             tls.AlertIllegalParameter("ServerHello has an invalid key share"),
         )
 
@@ -712,7 +845,7 @@ class ContextTest(TestCase):
         # Send client hello with a public key which is not on the curve.
         client_buf = create_buffers()
         client.handle_message(b"", client_buf)
-        public_key = tls.encode_public_key(client._ec_private_keys[0].public_key())[1]
+        public_key = client._key_exchanges[tls.Group.SECP256R1].key_share[1]
         server_input = merge_buffers(client_buf).replace(
             public_key, b"\x05" + public_key[1:]
         )
@@ -734,7 +867,7 @@ class ContextTest(TestCase):
             client.handle_message(b"", client_buf)
         except UnsupportedAlgorithm as exc:
             self.skipTest(str(exc))
-        public_key = tls.encode_public_key(client._x25519_private_key.public_key())[1]
+        public_key = client._key_exchanges[tls.Group.X25519].key_share[1]
         server_input = merge_buffers(client_buf).replace(public_key, bytes(32))
 
         with self.assertRaisesMessage(
@@ -889,6 +1022,81 @@ class ContextTest(TestCase):
         ):
             self._server_fail_hello(client, server)
 
+    def test_server_bad_second_hello_early_data(self) -> None:
+        """
+        A ClientHello after a HelloRetryRequest must not offer early data (RFC
+        9846 section 4.2.2).
+        """
+        client = self.create_client()
+        server = self.create_server()
+        client_hello, _ = self._hello_retry_request(client, server)
+
+        with self.assertRaisesMessage(
+            tls.AlertIllegalParameter,
+            "ClientHello has early data after a HelloRetryRequest",
+        ):
+            server.handle_message(
+                modify_client_hello(
+                    client_hello,
+                    early_data=True,
+                    key_share=[client._key_exchanges[tls.Group.SECP256R1].key_share],
+                ),
+                create_buffers(),
+            )
+
+    def test_server_bad_second_hello_key_share(self) -> None:
+        """
+        A ClientHello after a HelloRetryRequest must have a single key share, in
+        the requested group (RFC 9846 section 4.3.8).
+        """
+        for desc, groups in [
+            ("none", []),
+            ("other group", [tls.Group.X25519]),
+            ("extra group", [tls.Group.SECP256R1, tls.Group.X25519]),
+        ]:
+            with self.subTest(desc):
+                client = self.create_client()
+                server = self.create_server()
+                client_hello, _ = self._hello_retry_request(client, server)
+
+                with self.assertRaisesMessage(
+                    tls.AlertIllegalParameter,
+                    "ClientHello does not have a single key share in the requested "
+                    "group",
+                ):
+                    server.handle_message(
+                        modify_client_hello(
+                            client_hello,
+                            key_share=[
+                                client._key_exchanges[group].key_share
+                                for group in groups
+                            ],
+                        ),
+                        create_buffers(),
+                    )
+
+    def test_server_hello_retry_request_group(self) -> None:
+        """
+        A HelloRetryRequest asks for the client's first group which the server
+        supports, as the client lists its groups in order of preference.
+        """
+        client = self.create_client()
+        client._supported_groups = [tls.Group.SECP384R1, tls.Group.SECP256R1]
+        server = self.create_server()
+        server._supported_groups = [tls.Group.SECP256R1, tls.Group.SECP384R1]
+
+        # Send client hello, without any key share.
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+        client_hello = modify_client_hello(merge_buffers(client_buf), key_share=[])
+
+        # Handle client hello, send hello retry request for SECP384R1.
+        server_buf = create_buffers()
+        server.handle_message(client_hello, server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_CLIENT_HELLO)
+        # The last extension is key_share, with SECP384R1.
+        self.assertEqual(merge_buffers(server_buf)[-6:], bytes.fromhex("003300020018"))
+
     def test_server_malformed_certificate(self) -> None:
         certificate, private_key = generate_rsa_certificate(
             common_name="client.example.com"
@@ -985,6 +1193,66 @@ class ContextTest(TestCase):
         with self.assertRaises(tls.AlertDecryptError):
             server.handle_message(server_input, server_buf)
 
+    def _client_hello_retry_request(
+        self,
+        client: Context,
+        server: Context,
+        client_groups: list[int] = [tls.Group.X25519, tls.Group.SECP256R1],
+    ) -> bytes:
+        """
+        Send the client's ClientHello with only its first key share, to a server
+        which only supports SECP256R1, and return the server's
+        HelloRetryRequest.
+        """
+        client._supported_groups = client_groups
+        server._supported_groups = [tls.Group.SECP256R1]
+
+        # Send client hello.
+        client_buf = create_buffers()
+        with send_first_key_share_only():
+            client.handle_message(b"", client_buf)
+
+        # Handle client hello, send hello retry request.
+        server_buf = create_buffers()
+        server.handle_message(merge_buffers(client_buf), server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_CLIENT_HELLO)
+        return merge_buffers(server_buf)
+
+    def _client_retry_hello(self, client: Context, hello_retry_request: bytes) -> bytes:
+        """
+        Handle a HelloRetryRequest and return the client's second ClientHello.
+        """
+        client_buf = create_buffers()
+        client.handle_message(hello_retry_request, client_buf)
+        self.assertTrue(client.hello_retry_requested)
+        self.assertEqual(client.state, State.CLIENT_EXPECT_SERVER_HELLO)
+        return merge_buffers(client_buf)
+
+    def _hello_retry_request(
+        self, client: Context, server: Context
+    ) -> tuple[bytes, bytes]:
+        """
+        Send the client's ClientHello without its SECP256R1 key share, to a
+        server which only supports SECP256R1, and return the ClientHello and the
+        server's HelloRetryRequest.
+        """
+        client._supported_groups = [tls.Group.X25519, tls.Group.SECP256R1]
+        server._supported_groups = [tls.Group.SECP256R1]
+
+        # Send client hello, with only the X25519 key share.
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+        client_hello = modify_client_hello(
+            merge_buffers(client_buf),
+            key_share=[client._key_exchanges[tls.Group.X25519].key_share],
+        )
+
+        # Handle client hello, send hello retry request.
+        server_buf = create_buffers()
+        server.handle_message(client_hello, server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_CLIENT_HELLO)
+        return client_hello, merge_buffers(server_buf)
+
     def _handshake(self, client: Context, server: Context) -> None:
         # Send client hello.
         client_buf = create_buffers()
@@ -1002,8 +1270,8 @@ class ContextTest(TestCase):
         server.handle_message(server_input, server_buf)
         self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
         client_input = merge_buffers(server_buf)
-        self.assertGreaterEqual(len(client_input), 534)
-        self.assertLessEqual(len(client_input), 2263)
+        self.assertGreaterEqual(len(client_input), 502)
+        self.assertLessEqual(len(client_input), 3229)
 
         reset_buffers(server_buf)
 
@@ -1044,6 +1312,30 @@ class ContextTest(TestCase):
         )
         self.assertEqual(
             server.key_schedule.cipher_suite, tls.CipherSuite.TLS_AES_256_GCM_SHA384
+        )
+
+    def test_client_hello_key_shares(self) -> None:
+        """
+        The client only sends key shares for its first two groups, but lists all
+        of them in supported_groups.
+        """
+        client = self.create_client()
+        client._supported_groups = [
+            tls.Group.X25519,
+            tls.Group.SECP256R1,
+            tls.Group.SECP384R1,
+        ]
+
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+        hello = pull_client_hello(Buffer(data=merge_buffers(client_buf)))
+        self.assertEqual(
+            [group for group, _ in hello.key_share],
+            [tls.Group.X25519, tls.Group.SECP256R1],
+        )
+        self.assertEqual(
+            hello.supported_groups,
+            [tls.Group.X25519, tls.Group.SECP256R1, tls.Group.SECP384R1],
         )
 
     def test_handshake(self) -> None:
@@ -1121,7 +1413,7 @@ class ContextTest(TestCase):
         self.assertEqual(server.state, State.SERVER_EXPECT_CERTIFICATE)
         client_input = merge_buffers(server_buf)
         self.assertGreaterEqual(len(client_input), 534)
-        self.assertLessEqual(len(client_input), 2263)
+        self.assertLessEqual(len(client_input), 3228)
 
         reset_buffers(server_buf)
 
@@ -1179,7 +1471,7 @@ class ContextTest(TestCase):
         self.assertEqual(server.state, State.SERVER_EXPECT_CERTIFICATE)
         client_input = merge_buffers(server_buf)
         self.assertGreaterEqual(len(client_input), 534)
-        self.assertLessEqual(len(client_input), 2263)
+        self.assertLessEqual(len(client_input), 3228)
 
         reset_buffers(server_buf)
 
@@ -1318,12 +1610,265 @@ class ContextTest(TestCase):
 
         self._handshake(client, server)
 
+    def test_handshake_with_hello_retry_request(self) -> None:
+        """
+        A server which supports a group the client lists but sent no key share
+        for asks for one with a HelloRetryRequest (RFC 9846 section 4.2.1).
+        """
+        cipher_suite = tls.CipherSuite.TLS_AES_128_GCM_SHA256
+        client = self.create_client(cipher_suites=[cipher_suite])
+        server = self.create_server()
+        alpn_calls: list[str | None] = []
+        server.alpn_cb = alpn_calls.append
+        extensions_calls: list[list[tls.Extension]] = []
+        server.received_extensions_cb = extensions_calls.append
+
+        client_hello_1, hello_retry_request = self._hello_retry_request(client, server)
+        self.assertEqual(
+            hello_retry_request,
+            # A ServerHello: type, length, legacy_version.
+            bytes.fromhex("020000340303")
+            + tls.HELLO_RETRY_REQUEST_RANDOM
+            # Empty legacy_session_id, cipher suite, compression method,
+            # extensions length.
+            + bytes.fromhex("00130100000c")
+            # supported_versions with TLS 1.3, key_share with SECP256R1.
+            + bytes.fromhex("002b00020304003300020017"),
+        )
+        self.assertEqual(alpn_calls, [])
+        self.assertEqual(len(extensions_calls), 1)
+
+        # Send the second client hello, with the requested key share. The client
+        # cannot do this yet, so build its transcript here: a message_hash of the
+        # first ClientHello replaces it (RFC 9846 section 4.1).
+        client_hello_2 = modify_client_hello(
+            client_hello_1,
+            key_share=[client._key_exchanges[tls.Group.SECP256R1].key_share],
+        )
+        client._key_schedule_proxy = tls.KeyScheduleProxy([cipher_suite])
+        client._key_schedule_proxy.extract(None)
+        client._key_schedule_proxy.update_hash(
+            bytes([tls.HandshakeType.MESSAGE_HASH, 0, 0, 32])
+            + hashlib.sha256(client_hello_1).digest()
+            + hello_retry_request
+            + client_hello_2
+        )
+
+        # Handle the second client hello, send server hello, encrypted
+        # extensions, certificate, certificate verify, finished.
+        server_buf = create_buffers()
+        server.handle_message(client_hello_2, server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+        self.assertEqual(alpn_calls, [None])
+        self.assertEqual(len(extensions_calls), 2)
+
+        # Handle server hello, encrypted extensions, certificate, certificate
+        # verify, finished. Send finished.
+        client_buf = create_buffers()
+        client.handle_message(merge_buffers(server_buf), client_buf)
+        self.assertEqual(client.state, State.CLIENT_POST_HANDSHAKE)
+
+        # Handle finished.
+        server.handle_message(merge_buffers(client_buf), create_buffers())
+        self.assertEqual(server.state, State.SERVER_POST_HANDSHAKE)
+
+        # Check keys match.
+        self.assertEqual(client._dec_key, server._enc_key)
+        self.assertEqual(client._enc_key, server._dec_key)
+
+    def test_handshake_with_hello_retry_request_cookie(self) -> None:
+        """
+        The second ClientHello echoes the HelloRetryRequest's cookie, and keeps
+        its key shares if no group was selected (RFC 9846 section 4.2.2).
+        """
+        for desc, changes, groups in [
+            ("with group", {}, [tls.Group.SECP256R1]),
+            ("cookie only", {"selected_group": None}, [tls.Group.X25519]),
+        ]:
+            with self.subTest(desc):
+                client = self.create_client()
+                server = self.create_server()
+                hello_retry_request = modify_server_hello(
+                    self._client_hello_retry_request(client, server),
+                    cookie=b"cookie",
+                    **changes,
+                )
+
+                client_hello = pull_client_hello(
+                    Buffer(data=self._client_retry_hello(client, hello_retry_request))
+                )
+                self.assertEqual(client_hello.cookie, b"cookie")
+                self.assertEqual([group for group, _ in client_hello.key_share], groups)
+
+    def test_handshake_with_hello_retry_request_from_client(self) -> None:
+        """
+        A client which receives a HelloRetryRequest sends the same ClientHello
+        with a key share in the requested group (RFC 9846 section 4.2.2).
+        """
+        client = self.create_client()
+        server = self.create_server()
+        hello_retry_request = self._client_hello_retry_request(client, server)
+
+        # Handle hello retry request, send the second client hello.
+        client_hello = self._client_retry_hello(client, hello_retry_request)
+        self.assertEqual(
+            [
+                group
+                for group, _ in pull_client_hello(Buffer(data=client_hello)).key_share
+            ],
+            [tls.Group.SECP256R1],
+        )
+
+        # Handle the second client hello, send server hello, encrypted
+        # extensions, certificate, certificate verify, finished.
+        server_buf = create_buffers()
+        server.handle_message(client_hello, server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+
+        # Handle server hello, encrypted extensions, certificate, certificate
+        # verify, finished. Send finished.
+        client_buf = create_buffers()
+        client.handle_message(merge_buffers(server_buf), client_buf)
+        self.assertEqual(client.state, State.CLIENT_POST_HANDSHAKE)
+
+        # Handle finished.
+        server.handle_message(merge_buffers(client_buf), create_buffers())
+        self.assertEqual(server.state, State.SERVER_POST_HANDSHAKE)
+
+        # Check keys match.
+        self.assertEqual(client._dec_key, server._enc_key)
+        self.assertEqual(client._enc_key, server._dec_key)
+
+    @skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+    def test_handshake_with_hello_retry_request_x25519mlkem768(self) -> None:
+        """
+        A server can ask for an X25519MLKEM768 key share with a
+        HelloRetryRequest, which the client sends in its second ClientHello.
+        """
+        client = self.create_client()
+        client._supported_groups = [tls.Group.SECP521R1, tls.Group.X25519MLKEM768]
+        server = self.create_server()
+
+        # Send client hello, with only the SECP521R1 key share, which the server
+        # does not support.
+        client_buf = create_buffers()
+        with send_first_key_share_only():
+            client.handle_message(b"", client_buf)
+
+        # Handle client hello, send hello retry request for X25519MLKEM768.
+        server_buf = create_buffers()
+        server.handle_message(merge_buffers(client_buf), server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_CLIENT_HELLO)
+
+        # Handle hello retry request, send the second client hello.
+        client_hello = self._client_retry_hello(client, merge_buffers(server_buf))
+        self.assertEqual(
+            [
+                (group, len(key_share))
+                for group, key_share in pull_client_hello(
+                    Buffer(data=client_hello)
+                ).key_share
+            ],
+            [(tls.Group.X25519MLKEM768, 1216)],
+        )
+
+        # Handle the second client hello, send server hello, encrypted
+        # extensions, certificate, certificate verify, finished.
+        server_buf = create_buffers()
+        server.handle_message(client_hello, server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+
+        # Handle server hello, encrypted extensions, certificate, certificate
+        # verify, finished. Send finished.
+        client_buf = create_buffers()
+        client.handle_message(merge_buffers(server_buf), client_buf)
+        self.assertEqual(client.state, State.CLIENT_POST_HANDSHAKE)
+
+        # Handle finished.
+        server.handle_message(merge_buffers(client_buf), create_buffers())
+        self.assertEqual(server.state, State.SERVER_POST_HANDSHAKE)
+
+        # Check keys match.
+        self.assertEqual(client._dec_key, server._enc_key)
+        self.assertEqual(client._enc_key, server._dec_key)
+
+    @skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+    def test_handshake_with_hello_retry_request_x25519mlkem768_upgrade(
+        self,
+    ) -> None:
+        """
+        A server asks for an X25519MLKEM768 key share with a HelloRetryRequest
+        when the client supports it, even if the client sent another usable key
+        share.
+        """
+        client = self.create_client()
+        client._supported_groups = [tls.Group.X25519, tls.Group.X25519MLKEM768]
+        server = self.create_server()
+
+        # Send client hello, with only the X25519 key share.
+        client_buf = create_buffers()
+        with send_first_key_share_only():
+            client.handle_message(b"", client_buf)
+
+        # Handle client hello, send hello retry request for X25519MLKEM768.
+        server_buf = create_buffers()
+        server.handle_message(merge_buffers(client_buf), server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_CLIENT_HELLO)
+        hello_retry_request = pull_server_hello(
+            Buffer(data=server_buf[tls.Epoch.INITIAL].data)
+        )
+        self.assertEqual(hello_retry_request.selected_group, tls.Group.X25519MLKEM768)
+
     def test_handshake_with_legacy_session_id(self) -> None:
         client = self.create_client()
         client.legacy_session_id = bytes(32)
         server = self.create_server()
 
         self._handshake(client, server)
+
+    def test_handshake_with_received_extensions(self) -> None:
+        """
+        Each side is given the extensions TLS does not handle itself, before
+        ALPN is negotiated.
+        """
+        calls: list[tuple[str, Any]] = []
+        client = self.create_client()
+        client.alpn_cb = lambda alpn: calls.append(("client alpn", alpn))
+        client.received_extensions_cb = lambda extensions: calls.append(
+            ("client extensions", extensions)
+        )
+        server = self.create_server()
+        server.alpn_cb = lambda alpn: calls.append(("server alpn", alpn))
+        server.received_extensions_cb = lambda extensions: calls.append(
+            ("server extensions", extensions)
+        )
+
+        self._handshake(client, server)
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "server extensions",
+                    [
+                        (
+                            tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS,
+                            CLIENT_QUIC_TRANSPORT_PARAMETERS,
+                        )
+                    ],
+                ),
+                ("server alpn", None),
+                (
+                    "client extensions",
+                    [
+                        (
+                            tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS,
+                            SERVER_QUIC_TRANSPORT_PARAMETERS,
+                        )
+                    ],
+                ),
+                ("client alpn", None),
+            ],
+        )
 
     def test_handshake_with_secp256r1_group(self) -> None:
         client = self.create_client()
@@ -1358,10 +1903,25 @@ class ContextTest(TestCase):
         server = self.create_server()
         server._supported_groups = [tls.Group.SECP384R1]
 
-        self._handshake(client, server)
+        # Send client hello.
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+        server_input = merge_buffers(client_buf)
+        reset_buffers(client_buf)
 
-        # The server skipped the key share for a group it does not support.
-        self.assertEqual(server._ec_private_keys[0].curve.name, "secp384r1")
+        # Handle client hello, skipping the key share for a group the server does
+        # not support.
+        server_buf = create_buffers()
+        server.handle_message(server_input, server_buf)
+        server_hello = pull_server_hello(
+            Buffer(data=server_buf[tls.Epoch.INITIAL].data)
+        )
+        self.assertEqual(server_hello.key_share[0], tls.Group.SECP384R1)
+
+        # Handle server hello, encrypted extensions, certificate, certificate verify,
+        # finished.
+        client.handle_message(merge_buffers(server_buf), client_buf)
+        self.assertEqual(client.state, State.CLIENT_POST_HANDSHAKE)
 
     def test_handshake_with_x25519(self) -> None:
         client = self.create_client()
@@ -1372,6 +1932,62 @@ class ContextTest(TestCase):
             self._handshake(client, server)
         except UnsupportedAlgorithm as exc:
             self.skipTest(str(exc))
+
+    def test_handshake_with_x25519mlkem768(self) -> None:
+        client = self.create_client()
+        client._supported_groups = [tls.Group.X25519MLKEM768]
+        server = self.create_server()
+
+        try:
+            self._handshake(client, server)
+        except UnsupportedAlgorithm as exc:
+            self.skipTest(str(exc))
+
+    @skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+    def test_handshake_with_x25519mlkem768_second_key_share(self) -> None:
+        """
+        A server uses the client's X25519MLKEM768 key share, even if it is not
+        the first one.
+        """
+        client = self.create_client()
+        client._supported_groups = [tls.Group.X25519, tls.Group.X25519MLKEM768]
+        server = self.create_server()
+
+        # Send client hello, with X25519 and X25519MLKEM768 key shares.
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+
+        # Handle client hello, send server hello for X25519MLKEM768.
+        server_buf = create_buffers()
+        server.handle_message(merge_buffers(client_buf), server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+        server_hello = pull_server_hello(
+            Buffer(data=server_buf[tls.Epoch.INITIAL].data)
+        )
+        self.assertEqual(server_hello.key_share[0], tls.Group.X25519MLKEM768)
+
+    @skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+    def test_handshake_with_x25519mlkem768_not_supported_by_server(self) -> None:
+        """
+        A server which does not support X25519MLKEM768 uses the client's next
+        key share.
+        """
+        client = self.create_client()
+        server = self.create_server()
+        server._supported_groups.remove(tls.Group.X25519MLKEM768)
+
+        # Send client hello, with X25519MLKEM768 and X25519 key shares.
+        client_buf = create_buffers()
+        client.handle_message(b"", client_buf)
+
+        # Handle client hello, send server hello for X25519.
+        server_buf = create_buffers()
+        server.handle_message(merge_buffers(client_buf), server_buf)
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+        server_hello = pull_server_hello(
+            Buffer(data=server_buf[tls.Epoch.INITIAL].data)
+        )
+        self.assertEqual(server_hello.key_share[0], tls.Group.X25519)
 
     def test_handshake_with_x448(self) -> None:
         client = self.create_client()
@@ -1542,7 +2158,7 @@ class ContextTest(TestCase):
         Create a client with an TLS_AES_128_GCM_SHA256 session ticket, and a server
         which only supports TLS_CHACHA20_POLY1305_SHA256.
         """
-        now = datetime.datetime.now(datetime.UTC)
+        now = datetime.datetime.now(datetime.timezone.utc)
         ticket = SessionTicket(
             age_add=0,
             cipher_suite=tls.CipherSuite.TLS_AES_128_GCM_SHA256,
@@ -1612,6 +2228,175 @@ class ContextTest(TestCase):
         with self.assertRaises(tls.AlertIllegalParameter):
             client.handle_message(client_input, create_buffers())
 
+    def test_session_ticket_with_hello_retry_request(self) -> None:
+        """
+        After a HelloRetryRequest, the PSK binder covers the first ClientHello's
+        message_hash and the HelloRetryRequest (RFC 9846 section 4.3.11.2), and
+        early data is not accepted.
+        """
+        ticket = dataclasses.replace(
+            create_session_ticket(), max_early_data_size=0xFFFFFFFF
+        )
+        client = self.create_client(cipher_suites=[ticket.cipher_suite])
+        client.session_ticket = ticket
+        server = self.create_server()
+        server.get_session_ticket_cb = lambda label: ticket
+        epochs: list[tls.Epoch] = []
+        server.update_traffic_key_cb = lambda d, epoch, c, s: epochs.append(epoch)
+
+        client_hello_1, hello_retry_request = self._hello_retry_request(client, server)
+        self.assertEqual(epochs, [])
+
+        # Send the second client hello, with the requested key share, without
+        # early data, and with a binder over the new transcript.
+        client_hello_2 = modify_client_hello(
+            client_hello_1,
+            early_data=False,
+            key_share=[client._key_exchanges[tls.Group.SECP256R1].key_share],
+        )
+        key_schedule = tls.KeySchedule(ticket.cipher_suite)
+        key_schedule.extract(ticket.resumption_secret)
+        binder_key = key_schedule.derive_secret(b"res binder")
+        key_schedule.update_hash(
+            bytes([tls.HandshakeType.MESSAGE_HASH, 0, 0, 48])
+            + hashlib.sha384(client_hello_1).digest()
+            + hello_retry_request
+            # The ClientHello truncated before its binders list.
+            + client_hello_2[: -(3 + 48)]
+        )
+        client_hello_2 = client_hello_2[:-48] + key_schedule.finished_verify_data(
+            binder_key
+        )
+
+        # Handle the second client hello, resuming the session.
+        server.handle_message(client_hello_2, create_buffers())
+        self.assertEqual(server.state, State.SERVER_EXPECT_FINISHED)
+        self.assertTrue(server.session_resumed)
+        self.assertFalse(server.early_data_accepted)
+        self.assertNotIn(tls.Epoch.ZERO_RTT, epochs)
+
+    def test_session_ticket_with_hello_retry_request_from_client(self) -> None:
+        """
+        After a HelloRetryRequest, the client keeps its PSK if the selected
+        cipher suite has the same hash, without early data, and drops it
+        otherwise (RFC 9846 section 4.2.4).
+        """
+        ticket = dataclasses.replace(
+            create_session_ticket(), max_early_data_size=0xFFFFFFFF
+        )
+        for desc, server_cipher_suites, resumed in [
+            ("same hash", [tls.CipherSuite.TLS_AES_256_GCM_SHA384], True),
+            ("other hash", [tls.CipherSuite.TLS_AES_128_GCM_SHA256], False),
+        ]:
+            with self.subTest(desc):
+                client = self.create_client()
+                client.session_ticket = ticket
+                epochs: list[tls.Epoch] = []
+                client.update_traffic_key_cb = lambda d, epoch, c, s: epochs.append(
+                    epoch
+                )
+                server = self.create_server(cipher_suites=server_cipher_suites)
+                server.get_session_ticket_cb = lambda label: ticket
+                hello_retry_request = self._client_hello_retry_request(client, server)
+                self.assertEqual(epochs, [tls.Epoch.ZERO_RTT])
+
+                client_hello = self._client_retry_hello(client, hello_retry_request)
+                parsed = pull_client_hello(Buffer(data=client_hello))
+                self.assertFalse(parsed.early_data)
+                self.assertEqual(parsed.pre_shared_key is not None, resumed)
+
+                # The server resumes the session if it was offered.
+                server_buf = create_buffers()
+                server.handle_message(client_hello, server_buf)
+                self.assertEqual(server.session_resumed, resumed)
+                self.assertFalse(server.early_data_accepted)
+
+                client_buf = create_buffers()
+                client.handle_message(merge_buffers(server_buf), client_buf)
+                self.assertEqual(client.state, State.CLIENT_POST_HANDSHAKE)
+                self.assertEqual(client.session_resumed, resumed)
+                self.assertEqual(epochs.count(tls.Epoch.ZERO_RTT), 1)
+
+
+@skipIf(not default_backend().mlkem_supported(), "ML-KEM is not supported")
+class KeyExchangeTest(TestCase):
+    def test_supported_groups_x25519mlkem768(self) -> None:
+        # Clients and servers prefer X25519MLKEM768.
+        for is_client in (True, False):
+            with self.subTest(is_client=is_client):
+                self.assertEqual(
+                    Context(is_client=is_client)._supported_groups[0],
+                    tls.Group.X25519MLKEM768,
+                )
+
+    def test_x25519mlkem768_complete(self) -> None:
+        key_exchange = tls.KeyExchange(tls.Group.X25519MLKEM768)
+        group, key_share = key_exchange.key_share
+        self.assertEqual(group, tls.Group.X25519MLKEM768)
+        self.assertEqual(len(key_share), 1216)
+
+        # Respond as the server, using the primitives directly.
+        mlkem_shared_secret, ciphertext = mlkem.MLKEM768PublicKey.from_public_bytes(
+            key_share[:1184]
+        ).encapsulate()
+        x25519_private_key = x25519.X25519PrivateKey.generate()
+        x25519_shared_secret = x25519_private_key.exchange(
+            x25519.X25519PublicKey.from_public_bytes(key_share[1184:])
+        )
+        server_key_share = (
+            ciphertext + x25519_private_key.public_key().public_bytes_raw()
+        )
+
+        self.assertEqual(
+            key_exchange.complete(server_key_share),
+            mlkem_shared_secret + x25519_shared_secret,
+        )
+
+        for label, peer_key_share in [
+            ("too short", server_key_share[:-1]),
+            ("too long", server_key_share + b"\x00"),
+            ("short ciphertext", server_key_share[:1000]),
+            ("all-zero X25519 share", ciphertext + bytes(32)),
+        ]:
+            with self.subTest(label), self.assertRaises(ValueError):
+                key_exchange.complete(peer_key_share)
+
+    def test_x25519mlkem768_respond(self) -> None:
+        # Offer a key share as the client, using the primitives directly.
+        mlkem_private_key = mlkem.MLKEM768PrivateKey.generate()
+        x25519_private_key = x25519.X25519PrivateKey.generate()
+        client_key_share = (
+            mlkem_private_key.public_key().public_bytes_raw()
+            + x25519_private_key.public_key().public_bytes_raw()
+        )
+
+        shared_secret, (group, key_share) = tls.KeyExchange.respond(
+            tls.Group.X25519MLKEM768, client_key_share
+        )
+        self.assertEqual(group, tls.Group.X25519MLKEM768)
+        self.assertEqual(len(key_share), 1120)
+        self.assertEqual(
+            shared_secret,
+            mlkem_private_key.decapsulate(key_share[:1088])
+            + x25519_private_key.exchange(
+                x25519.X25519PublicKey.from_public_bytes(key_share[1088:])
+            ),
+        )
+
+        for label, peer_key_share in [
+            ("too short", client_key_share[:-1]),
+            ("too long", client_key_share + b"\x00"),
+            # The first coefficient is 4095, which is not reduced modulo 3329, so
+            # the encapsulation key check fails (FIPS 203 section 7.2).
+            (
+                "unreduced coefficient",
+                bytes([0xFF, client_key_share[1] | 0x0F]) + client_key_share[2:],
+            ),
+            ("all-zero X25519 share", client_key_share[:1184] + bytes(32)),
+        ]:
+            with self.subTest(label), self.assertRaises(ValueError):
+                tls.KeyExchange.respond(tls.Group.X25519MLKEM768, peer_key_share)
+
 
 class TlsTest(TestCase):
     def test_cipher_suite_aliases(self) -> None:
@@ -1637,6 +2422,35 @@ class TlsTest(TestCase):
                 "TLS_EMPTY_RENEGOTIATION_INFO_SCSV",
             ],
         )
+
+    def test_hello_retry_request_random(self) -> None:
+        # It is the SHA-256 of "HelloRetryRequest" (RFC 9846 section 4.2.3).
+        self.assertEqual(
+            tls.HELLO_RETRY_REQUEST_RANDOM,
+            hashlib.sha256(b"HelloRetryRequest").digest(),
+        )
+
+    def test_pull_server_hello_with_hello_retry_request(self) -> None:
+        """
+        A HelloRetryRequest's key_share only has the selected group, and it may
+        have a cookie (RFC 9846 section 4.2.4).
+        """
+        hello = ServerHello(
+            random=tls.HELLO_RETRY_REQUEST_RANDOM,
+            legacy_session_id=b"",
+            cipher_suite=tls.CipherSuite.TLS_AES_128_GCM_SHA256,
+            compression_method=tls.CompressionMethod.NULL,
+            cookie=b"cookie",
+            selected_group=tls.Group.SECP256R1,
+            supported_version=tls.TLS_VERSION_1_3,
+        )
+        buf = Buffer(capacity=256)
+        push_server_hello(buf, hello)
+        self.assertEqual(pull_server_hello(Buffer(data=buf.data)), hello)
+
+        # The cookie must not be empty.
+        with self.assertRaisesMessage(tls.AlertDecodeError, "cookie is empty"):
+            pull_server_hello(Buffer(data=modify_server_hello(buf.data, cookie=b"")))
 
     def test_pull_block_incomplete_read(self) -> None:
         """
@@ -1929,7 +2743,7 @@ class VerifyCertificateTest(TestCase):
 
     def test_verify_certificate_chain(self) -> None:
         with open(SERVER_CERTFILE, "rb") as fp:
-            certificate = load_pem_x509_certificates(fp.read())[0]
+            certificate = x509.load_pem_x509_certificate(fp.read())
 
         with patch("aioquic.tls.utcnow") as mock_utcnow:
             mock_utcnow.return_value = certificate.not_valid_before_utc

@@ -5,15 +5,17 @@ mod config;
 mod debug;
 mod file;
 mod file_finding;
+mod format;
 mod github;
 mod reporter;
 use crate::cmd::Cmd;
 use crate::reporter::LintArgs;
 use anyhow::{Context, Result};
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use debug::debug;
 use reporter::lint_and_report;
 use simplelog::CombinedLogger;
+use squawk_fmt::FormatOptions;
 use squawk_linter::{Rule, Version};
 use squawk_thread::ThreadIntent;
 use std::io;
@@ -57,11 +59,65 @@ pub struct UploadToGithubArgs {
     github_pr_number: i64,
 }
 
+#[derive(Args, Debug)]
+pub struct CheckArgs {
+    /// Paths or patterns to search
+    #[arg(value_name = "path")]
+    path_patterns: Vec<String>,
+    /// Output debug format
+    #[arg(long, value_name = "format", ignore_case = true)]
+    debug: Option<DebugOption>,
+    /// Style of error reporting
+    #[arg(long, ignore_case = true)]
+    reporter: Option<Reporter>,
+    #[arg(long, value_name = "filepath")]
+    /// Path to use in reporting for stdin
+    stdin_filepath: Option<String>,
+}
+
+impl CheckArgs {
+    fn is_empty(&self) -> bool {
+        self.path_patterns.is_empty()
+            && self.debug.is_none()
+            && self.reporter.is_none()
+            && self.stdin_filepath.is_none()
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct FormatArgs {
+    /// Paths or patterns to format
+    #[arg(value_name = "path")]
+    path_patterns: Vec<String>,
+    /// Don't write formatted files. Exit with a non-zero status code if any files
+    /// would have been modified
+    #[arg(long)]
+    check: bool,
+    /// Don't write formatted files. Print a diff of the changes and exit with a
+    /// non-zero status code if any files would have been modified
+    #[arg(long)]
+    diff: bool,
+    /// The line length where Squawk will try wrapping.
+    #[arg(long, default_value_t = FormatOptions::default().width)]
+    line_length: usize,
+    /// Exit with a non-zero status code if any files were modified via format, even if all files
+    /// were formatted successfully
+    #[arg(long)]
+    exit_non_zero_on_format: bool,
+    /// Path to use in reporting for stdin
+    #[arg(long, value_name = "filepath")]
+    stdin_filepath: Option<String>,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Lint SQL files
+    Check(CheckArgs),
+    /// Format SQL files
+    Format(FormatArgs),
     /// Run the language server
     Server,
-    /// Comment on a PR with Squawk's results.
+    /// Comment on a PR with lint results.
     UploadToGithub(Box<UploadToGithubArgs>),
 }
 
@@ -86,9 +142,8 @@ pub enum Reporter {
 #[derive(Parser, Debug)]
 #[command(version)]
 struct Opts {
-    /// Paths or patterns to search
-    #[arg(value_name = "path")]
-    path_patterns: Vec<String>,
+    #[command(flatten)]
+    check: CheckArgs,
     /// Paths to exclude
     ///
     /// For example:
@@ -130,15 +185,6 @@ struct Opts {
     /// --pg-version=13.0
     #[arg(long, global = true)]
     pg_version: Option<Version>,
-    /// Output debug format
-    #[arg(long, value_name = "format", ignore_case = true)]
-    debug: Option<DebugOption>,
-    /// Style of error reporting
-    #[arg(long, ignore_case = true)]
-    reporter: Option<Reporter>,
-    #[arg(long, value_name = "filepath")]
-    /// Path to use in reporting for stdin
-    stdin_filepath: Option<String>,
     #[command(subcommand)]
     cmd: Option<Command>,
     /// Enable debug logging output
@@ -167,9 +213,9 @@ struct Opts {
 const STACK_SIZE: usize = 1024 * 1024 * 8;
 
 // rust-analyzer and ty both spawn an extra latency sensitive thread to run the
-// language server. This is approach is taken directly from rust-analyzer.
+// language server. This approach is taken directly from rust-analyzer.
 //
-/// Parts of server can use a lot of stack space, and some operating systems only
+/// Parts of the server can use a lot of stack space, and some operating systems only
 /// give us 1 MB by default (for example Windows), so this spawns a new thread
 /// with a larger stack for the LSP server loop.
 fn with_extra_thread(
@@ -194,7 +240,7 @@ fn main() -> Result<ExitCode> {
         // Don't use `eprintln` because `eprintln` itself may panic if the pipe is broken.
         let mut stderr = std::io::stderr().lock();
         let open_an_issue = format!(
-            r#"An internal error has occured with Squawk v{version}!
+            r#"An internal error has occurred with Squawk v{version}!
 Please open an issue at https://github.com/sbdchd/squawk/issues/new with the logs above!
 "#
         );
@@ -240,6 +286,9 @@ Please open an issue at https://github.com/sbdchd/squawk/issues/new with the log
             let stdout = io::stdout();
             let mut handle = stdout.lock();
             return lint_and_report(&mut handle, &lint_args);
+        }
+        Cmd::Format(format_config) => {
+            return format::format(&format_config);
         }
         Cmd::Help => {
             Opts::command().print_long_help()?;

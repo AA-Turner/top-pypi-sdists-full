@@ -5,9 +5,7 @@ use blob_repair::{BlobRepair, restore_full_configs, restore_pending_configs};
 pub(crate) use blob_repair::{ConditionMap, RetainedConditions, resolve_condition};
 
 use crate::id_lists_adapter::id_list_load_timing::{self, Phase};
-use crate::id_lists_adapter::{
-    IdListUpdateBase, IdListUpdateBatch, PreparedIdListUpdate, UpdateMode,
-};
+use crate::id_lists_adapter::{IdListUpdateBase, IdListUpdateBatch, PreparedIdListUpdate};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -571,13 +569,7 @@ impl SpecStore {
                     1
                 }
             },
-            id_list_encoding: if options.and_then(|options| options.enable_id_list_elias_fano)
-                == Some(true)
-            {
-                IdListEncoding::EliasFano
-            } else {
-                IdListEncoding::Hash
-            },
+            id_list_encoding: IdListEncoding::from_options(options),
             config_updates: Arc::new(crate::ConfigUpdates::default()),
             event_emitter,
             data_store,
@@ -2855,7 +2847,7 @@ impl SpecStore {
         previous: Option<&IdList>,
         update: PreparedIdListUpdate,
     ) -> IdList {
-        IdList::build(previous, update, UpdateMode::Private(self.id_list_encoding))
+        IdList::build(previous, update, self.id_list_encoding)
     }
 
     fn id_list_lock_timeout() -> StatsigErr {

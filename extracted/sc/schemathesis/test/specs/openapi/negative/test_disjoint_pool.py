@@ -15,10 +15,10 @@ def _descriptor(*selectors, keyword="properties"):
 @pytest.mark.parametrize(
     ("primary_selectors", "candidate_selectors", "included"),
     [
-        (("a",), ("b",), True),  # siblings are disjoint
-        (("a",), ("a", "b"), False),  # descendant excluded
-        (("a", "b"), ("a",), False),  # ancestor excluded
-        (("a",), ("a",), False),  # self excluded
+        (("a",), ("b",), True),
+        (("a",), ("a", "b"), False),
+        (("a", "b"), ("a",), False),
+        (("a",), ("a",), False),
     ],
     ids=["siblings", "descendant", "ancestor", "self"],
 )
@@ -29,8 +29,10 @@ def test_disjoint_pool(primary_selectors, candidate_selectors, included):
     assert (candidate in result) == included
 
 
-def test_oneof_sibling_branch_excluded():
-    # Both branches share the same oneOf parent — mutating one invalidates the other.
-    primary = MutationTargetDescriptor(walk=(WalkStep(keyword="oneOf", selector=0),))
-    sibling = MutationTargetDescriptor(walk=(WalkStep(keyword="oneOf", selector=1),))
+@pytest.mark.parametrize("keyword", ["oneOf", "anyOf"])
+def test_sibling_branch_excluded(keyword):
+    # Both branches share the same parent, so mutating one invalidates the other.
+    parent = WalkStep(keyword="properties", selector="a")
+    primary = MutationTargetDescriptor(walk=(parent, WalkStep(keyword=keyword, selector=0)))
+    sibling = MutationTargetDescriptor(walk=(parent, WalkStep(keyword=keyword, selector=1)))
     assert _disjoint_descriptor_pool((sibling,), chosen=[primary]) == []

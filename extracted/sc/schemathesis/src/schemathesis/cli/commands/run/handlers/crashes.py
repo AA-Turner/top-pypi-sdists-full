@@ -5,13 +5,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from queue import Queue
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit, urlunsplit
 
 from schemathesis.cli.commands.run.handlers.base import BackgroundWriterHandler
 from schemathesis.cli.events import LoadingFinished
 from schemathesis.core.cache.io import effective_directory
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import RecordedScenario
-from schemathesis.reporting.crashes import CrashWriter, build_crashes_from_recorder
+from schemathesis.reporting.crashes import (
+    CrashWriter,
+    adopt_flat_crashes,
+    build_crashes_from_recorder,
+    schema_crash_directory,
+)
 
 if TYPE_CHECKING:
     from schemathesis.cli.context import BaseExecutionContext
@@ -72,8 +78,14 @@ def _run(
     queue: Queue[_Process | None],
 ) -> None:
     try:
-        writer = CrashWriter(directory=directory)
-        writer.open(schema_location=schema_location, base_url=base_url, tls_verify=tls_verify)
+        schema_directory = schema_crash_directory(directory, schema_location)
+        adopt_flat_crashes(directory, schema_directory, schema_location)
+        writer = CrashWriter(directory=schema_directory)
+        writer.open(
+            schema_location=_recorded_url(schema_location, sanitization),
+            base_url=_recorded_url(base_url, sanitization),
+            tls_verify=tls_verify,
+        )
 
         failed: set[str] = set()
         succeeded: set[str] = set()
@@ -84,6 +96,9 @@ def _run(
             if not item.success:
                 failing_case_ids = item.recorder.failing_case_ids()
                 failed |= _operation_labels(item.recorder, failing_case_ids)
+                # The writer keeps the first crash per failure, and the output reports the latest case of a shrunk one
+                if item.recorder.shrinks_failures:
+                    failing_case_ids.reverse()
                 for failing_case_id in failing_case_ids:
                     for crash in build_crashes_from_recorder(
                         recorder=item.recorder,
@@ -98,6 +113,15 @@ def _run(
             writer.remove_by_operation(operation)
     except OSError:
         pass
+
+
+def _recorded_url(url: str, sanitization: SanitizationConfig) -> str:
+    # Replay sends requests to the recorded URLs, so credentials are dropped rather than masked with a placeholder.
+    if not sanitization.enabled:
+        return url
+    parts = urlsplit(url)
+    _, separator, host = parts.netloc.rpartition("@")
+    return urlunsplit(parts._replace(netloc=host)) if separator else url
 
 
 def _operation_labels(recorder: RecordedScenario, case_ids: Iterable[str]) -> set[str]:

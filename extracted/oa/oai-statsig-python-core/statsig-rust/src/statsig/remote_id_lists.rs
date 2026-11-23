@@ -76,6 +76,7 @@ pub(crate) struct RemoteIdListResolver {
     allowlist: RemoteIdListAllowlist,
     closed: AtomicBool,
     revisions: super::remote_id_list_revisions::RemoteIdListRevisions,
+    revision_deadline: Mutex<Option<tokio::time::Instant>>,
     wait_with_binding: OnceLock<MembershipWait>,
     metrics: RemoteIdListMetrics,
     runtime: Weak<StatsigRuntime>,
@@ -105,6 +106,7 @@ impl RemoteIdListResolver {
             allowlist,
             closed: AtomicBool::new(false),
             revisions: Default::default(),
+            revision_deadline: Mutex::new(None),
             wait_with_binding: OnceLock::new(),
             metrics: RemoteIdListMetrics::new(options, ops),
             runtime: Arc::downgrade(runtime),
@@ -141,22 +143,33 @@ impl RemoteIdListResolver {
         })
     }
 
-    pub(crate) fn observe_manifest(&self, manifest: &crate::id_lists_adapter::IdListManifest) {
-        self.observe_revisions(|name| {
+    pub(crate) fn observe_manifest_poll(
+        &self,
+        manifest: Option<&crate::id_lists_adapter::IdListManifest>,
+        max_age: Option<Duration>,
+    ) {
+        if let Some(max_age) = max_age {
+            let now = tokio::time::Instant::now();
+            let mut deadline = self.revision_deadline.lock();
+            if manifest.is_some() {
+                *deadline = Some(now + max_age);
+            } else if deadline.take_if(|expires| now > *expires).is_some() {
+                self.revisions.clear();
+            }
+        }
+        if let Some(manifest) = manifest {
+            self.observe_manifest(manifest);
+        }
+    }
+
+    fn observe_manifest(&self, manifest: &crate::id_lists_adapter::IdListManifest) {
+        self.revisions.update(self.allowlist.list_names(), |name| {
             manifest
                 .get(name)?
                 .metadata
                 .file_version()
                 .membership_revision()
         });
-    }
-
-    pub(crate) fn observe_revisions(
-        &self,
-        revision_for: impl Fn(&str) -> Option<MembershipRevision>,
-    ) {
-        self.revisions
-            .update(self.allowlist.list_names(), revision_for);
     }
 
     pub(super) fn shutdown(&self) {

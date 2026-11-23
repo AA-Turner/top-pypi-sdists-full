@@ -41,6 +41,14 @@ _VOTES = [
     ("Mary Smith", Signal.GIVEN_NAME, GIVEN_FIRST),
     ("Иванов Иван Петрович", Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC),
     ("Ivan Petrovich Sidorov", Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC),
+    # the Ukrainian Cyrillic endings (#1212); a decomposed ї votes too,
+    # the suggester composing each word before any signal reads it
+    ("Коваленко Олена Петрівна", Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC),
+    ("Коваленко Олена Петрівна", Signal.PATRONYMIC_POSITION, FAMILY_FIRST),
+    (unicodedata.normalize("NFD", "Ткачук Ганна Сергіївна"), Signal.PATRONYMIC,
+     PatronymicRule.EAST_SLAVIC),
+    ("Мельник Тарас Ілліч", Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC),
+    ("Олена Леонтіївна Бондар", Signal.PATRONYMIC_POSITION, GIVEN_FIRST),
     ("Ziyo Azamat Hamid o‘g‘li", Signal.PATRONYMIC, PatronymicRule.TURKIC),
     # cased evidence in any script: Cyrillic capitals vote
     ("ИВАНОВ Иван", Signal.CAPITALS, FAMILY_FIRST),
@@ -67,6 +75,13 @@ def test_a_name_casts_its_vote(
     ("Smith Jean-Pierre", Signal.TRAILING_INITIAL),
     ("Smith J-", Signal.TRAILING_INITIAL),
     ("Smith -", Signal.TRAILING_INITIAL),
+    # a letter of a script that writes no initials is no initial to the
+    # vote (decisions/group-suggestion): Thai, Burmese (#1256), Arabic
+    # (#1149) and Lao (#1380)
+    ("สมชาย ส.", Signal.TRAILING_INITIAL),
+    ("ကြည် က.", Signal.TRAILING_INITIAL),
+    ("أحمد ع.", Signal.TRAILING_INITIAL),
+    ("ສົມຊາຍ ສ.", Signal.TRAILING_INITIAL),
     ("Smith A.", Signal.SURNAME),
     ("A. Smith", Signal.SURNAME),
     ("김민준", Signal.CAPITALS),
@@ -321,10 +336,17 @@ def test_joined_initials_keep_a_family_first_base() -> None:
     assert s.parser.policy.name_order == FAMILY_FIRST
 
 
-def test_a_patronymic_casts_no_order_vote_of_its_own() -> None:
+def test_a_patronymic_votes_its_rule_and_its_position_apart() -> None:
+    # the rule on patronymic_rules, where it stands on name_order
+    # (#1447): two signals, one vote each
     votes = name_votes("Ivan Petrovich Sidorov", L)
     assert votes[Signal.PATRONYMIC] == PatronymicRule.EAST_SLAVIC
-    assert set(votes) - {Signal.PATRONYMIC, Signal.GIVEN_NAME} == set()
+    assert votes[Signal.PATRONYMIC_POSITION] == GIVEN_FIRST
+    assert set(votes) - {Signal.PATRONYMIC, Signal.PATRONYMIC_POSITION,
+                         Signal.GIVEN_NAME} == set()
+    # a Turkic patronymic casts no position vote
+    assert Signal.PATRONYMIC_POSITION not in name_votes(
+        "Mamedov Ali Huseyn oglu", L)
 
 
 def test_a_name_with_both_patronymic_shapes_reports_turkic() -> None:
@@ -417,6 +439,11 @@ def test_a_group_holding_a_name_with_nothing_to_read_does_not_raise(
 _EAST_SLAVIC = ["Сидоров Иван Петрович", "Иванов Пётр Сергеевич",
                 "Петров Олег Иванович", "Смирнов Павел Андреевич",
                 "Попов Илья Ильич"]
+#: The same names written given first, the patronymic in the middle,
+#: whose position votes the given-first order the rule reads under
+#: (#1447): a list deciding the rule with no order to move.
+_EAST_SLAVIC_GIVEN_FIRST = [
+    " ".join((g, p, f)) for f, g, p in map(str.split, _EAST_SLAVIC)]
 _TURKIC = ["Mamedov Ali Huseyn oglu", "Aliyev Rauf Ilham oglu",
            "Quliyev Elman Rasim oglu", "Hasanova Afet Abil qizi",
            "Mikayilova Sevil Alirza qizi"]
@@ -543,7 +570,7 @@ def test_a_group_with_no_trailing_initial_carries_no_note_of_one() -> None:
 
 
 def test_the_patronymic_evidence_says_what_its_share_counted() -> None:
-    s = Parser().suggest(_EAST_SLAVIC + ["Popov Ivan I.", "Orlov Oleg P."])
+    s = Parser().suggest(_EAST_SLAVIC + ["Zorvov Ivan I.", "Orlov Oleg P."])
     note = _patronymic_evidence(s).note
     assert ("2 names whose only vote was a set-aside trailing initial "
             "count among the names casting a vote") in note
@@ -551,7 +578,7 @@ def test_the_patronymic_evidence_says_what_its_share_counted() -> None:
     assert "set-aside" not in _patronymic_evidence(plain).note
     # a set-aside name with another vote left is no name of the count
     capitals = Parser().suggest(
-        _EAST_SLAVIC + ["Popov Ivan I.", "SMITH John A."])
+        _EAST_SLAVIC + ["Zorvov Ivan I.", "SMITH John A."])
     assert ("1 name whose only vote was a set-aside trailing initial "
             "counts among") in _patronymic_evidence(capitals).note
     # and with no patronymic vote in the group it explains nothing
@@ -564,7 +591,7 @@ def test_a_set_aside_name_still_counts_in_the_patronymic_share() -> None:
     # evidence, so the rule holds 5 of 7 voting names, under four in
     # five, and decides nothing (it decided East Slavic, 5 of 5, while
     # a set-aside name left the denominator)
-    s = Parser().suggest(_EAST_SLAVIC + ["Popov Ivan I.", "Orlov Oleg P."])
+    s = Parser().suggest(_EAST_SLAVIC_GIVEN_FIRST + ["Zorvov Ivan I.", "Orlov Oleg P."])
     assert not _patronymic_evidence(s).decided
     assert s.patch == PolicyPatch()
 
@@ -685,28 +712,57 @@ def test_strays_for_the_rules_order_leave_no_floor_note(
     assert "too few" not in order.note
 
 
-@pytest.mark.parametrize("base_order, patronymics", [
-    (GIVEN_FIRST, _MIDDLE_PATRONYMICS),
-    (FAMILY_FIRST, _MIDDLE_PATRONYMICS),
-    # under this order the rule is needed with the patronymic written
-    # last too (#1356): it takes the patronymic for the given name
-    (FAMILY_FIRST_GIVEN_LAST, _MIDDLE_PATRONYMICS),
-    (FAMILY_FIRST_GIVEN_LAST, ["Zzyvova Qqsan Petrovich"] * 10),
-])
+#: The patronymic written in the middle, the name's capitals voting
+#: family-first: each name is contested and casts no order vote, though
+#: it votes East Slavic, so the rule decides the order alone.
+_CONTESTED_PATRONYMICS = ["QQSAN Petrovich Zzyvova"] * 10
+
+
+@pytest.mark.parametrize("base_order", [
+    GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
 def test_strays_against_the_rules_order_no_longer_decide_it(
-        base_order: tuple[Role, Role, Role], patronymics: list[str]) -> None:
+        base_order: tuple[Role, Role, Role]) -> None:
     # two stray family-first votes among 1,012 names: before the floor
     # they decided a family-first order, under which the rule reorders
     # no name; now the rule's given-first order stands
     s = Parser(policy=Policy(name_order=base_order)).suggest(
-        patronymics + ["Smith Mary", "Kim Minjun"] + [_SILENT] * 1000)
+        _CONTESTED_PATRONYMICS + ["Smith Mary", "Kim Minjun"]
+        + [_SILENT] * 1000)
     order = _order_evidence(s)
     assert order.decided and order.value == GIVEN_FIRST
+    assert order.contested == 10
     assert s.patch.patronymic_rules == frozenset({PatronymicRule.EAST_SLAVIC})
     assert order.note.endswith(
         "2 of the group's 1012 names vote FAMILY_FIRST, too few to decide "
         "that order against the rule: an order is decided where the names "
         "voting for one end are at least 1% of those names")
+
+
+@pytest.mark.parametrize("base_order, patronymics, end", [
+    (GIVEN_FIRST, _MIDDLE_PATRONYMICS, GIVEN_FIRST),
+    (FAMILY_FIRST, _MIDDLE_PATRONYMICS, GIVEN_FIRST),
+    (FAMILY_FIRST_GIVEN_LAST, _MIDDLE_PATRONYMICS, GIVEN_FIRST),
+    # written last, the patronymics vote family-first (#1447), and this
+    # base, which would read each patronymic as the given name, gets
+    # FAMILY_FIRST (2026-11-19 #1364)
+    (FAMILY_FIRST_GIVEN_LAST, ["Zzyvova Qqsan Petrovich"] * 10,
+     FAMILY_FIRST),
+])
+def test_patronymics_and_strays_by_where_they_stand(
+        base_order: tuple[Role, Role, Role], patronymics: list[str],
+        end: tuple[Role, Role, Role]) -> None:
+    # each patronymic votes the order its position writes (#1447). In
+    # the middle, the ten given-first votes are 10 of 1,012, held back by
+    # the floor, and the rule gives that order, so no note names them;
+    # written last, the two strays vote family-first with them, the
+    # twelve clear the floor, and the given-last base gets FAMILY_FIRST
+    s = Parser(policy=Policy(name_order=base_order)).suggest(
+        patronymics + ["Smith Mary", "Kim Minjun"] + [_SILENT] * 1000)
+    order = _order_evidence(s)
+    assert order.decided and s.parser.policy.name_order == end
+    assert s.patch.patronymic_rules == frozenset({PatronymicRule.EAST_SLAVIC})
+    assert "too few" not in order.note
+    assert {s.parser.parse(n).family for n in patronymics} == {"Zzyvova"}
 
 
 #: #1442's group: written family first, with a patronymic, under a
@@ -717,22 +773,26 @@ _STRAYS = ["Adam Qqsan Petrovich", "Alexander Xxmir Ivanovich",
            "Emanuel Qqsan Petrovich"]
 
 
-@pytest.mark.parametrize("copies, order", [
-    # thirteen names: the two votes are 15% of the group, and decide
-    (5, GIVEN_FIRST),
-    # 1,003 names: 0.2%, and the base keeps its order
-    (500, UNSET),
-])
+@pytest.mark.parametrize("copies", [5, 500])
 def test_stray_votes_in_a_long_family_first_patronymic_group(
-        copies: int, order: object) -> None:
+        copies: int) -> None:
+    # both sizes now read alike; the floor's own case is held by
+    # test_strays_against_the_rules_order_no_longer_decide_it
+    # the patronymics, written last, vote family-first (#1447), so the
+    # two given names among the surnames (`Adam`, `Alexander`) no longer
+    # decide a given-first order: at thirteen names they were 15% of the
+    # group and did, before the vote; at 1,003 the floor held them back
     base = Parser(policy=Policy(name_order=FAMILY_FIRST))
     s = base.suggest(_QUIET * copies + _STRAYS)
-    assert s.patch.name_order == order
-    # the patronymics, written last, decide the rule either way, and
-    # under the kept order it reorders no name (#1356)
+    assert s.patch.name_order is UNSET
+    order = _order_evidence(s)
+    assert order.decided and order.value == FAMILY_FIRST
+    assert (order.votes_for, order.votes_against, order.contested) == (
+        2 * copies + 1, 0, 2)
+    # the rule is decided either way, and under the kept order it
+    # reorders no name (#1356)
     assert s.patch.patronymic_rules == frozenset({PatronymicRule.EAST_SLAVIC})
-    if order is UNSET:
-        assert s.parser.parse("Zzyvov Qqsan").family == "Zzyvov"
+    assert s.parser.parse("Zzyvov Qqsan").family == "Zzyvov"
 
 
 def test_a_family_first_group_suggests_family_first() -> None:
@@ -779,9 +839,11 @@ def test_a_tie_decides_nothing() -> None:
     assert s.disagreeing() == ()
 
 
-def test_an_east_slavic_group_gets_the_rule_and_a_given_first_order(
+def test_an_east_slavic_group_written_given_first_gets_the_rule(
         ) -> None:
-    s = Parser().suggest(_EAST_SLAVIC)
+    # the patronymic in the middle votes given-first, the rule's order
+    names = _EAST_SLAVIC_GIVEN_FIRST
+    s = Parser().suggest(names)
     assert s.patch.patronymic_rules == frozenset({PatronymicRule.EAST_SLAVIC})
     # the base is given-first already, so the patch leaves the order out
     assert s.patch.name_order is UNSET
@@ -789,8 +851,25 @@ def test_an_east_slavic_group_gets_the_rule_and_a_given_first_order(
     order = _order_evidence(s)
     assert order.decided
     assert order.value == GIVEN_FIRST
+    assert (Signal.PATRONYMIC_POSITION, GIVEN_FIRST, 5) in order.by_signal
     assert "East Slavic" in order.note
     assert s.parser.parse("Ivan Petrovich Sidorov").family == "Sidorov"
+
+
+def test_an_east_slavic_group_written_family_first_gets_family_first(
+        ) -> None:
+    # the patronymic last votes family-first (#1447): the names' votes
+    # decide that order, which the rule never overrides, and a name of
+    # two words in the list is read family first too
+    s = Parser().suggest(_EAST_SLAVIC)
+    assert s.patch == PolicyPatch(name_order=FAMILY_FIRST,
+                                  patronymic_rules=_EAST_SLAVIC_RULE)
+    order = _order_evidence(s)
+    assert order.decided
+    assert (Signal.PATRONYMIC_POSITION, FAMILY_FIRST, 5) in order.by_signal
+    assert "reorders no name" in order.note
+    assert s.parser.parse("Сидоров Иван").family == "Сидоров"
+    assert s.parser.parse("Сидоров Иван Петрович").patronymic == "Петрович"
 
 
 # -- the East Slavic rule and a family-first base (#1356) ------------------
@@ -850,7 +929,9 @@ def test_patronymics_written_last_keep_a_family_first_base_and_get_the_rule(
     s = base.suggest(_FAMILY_FIRST_PATRONYMICS)
     assert s.patch == _THE_RULE_ALONE
     order = _order_evidence(s)
-    assert not order.decided
+    # the patronymics written last vote the base's own order (#1447)
+    assert order.decided
+    assert (Signal.PATRONYMIC_POSITION, FAMILY_FIRST, 9) in order.by_signal
     assert order.value == FAMILY_FIRST
     assert order.note == ""
     rules = _patronymic_evidence(s)
@@ -919,12 +1000,14 @@ def test_patronymics_written_in_the_middle_move_a_family_first_base(
 
 def test_a_given_last_base_is_moved_by_patronymics_written_last() -> None:
     # FAMILY_FIRST_GIVEN_LAST takes the patronymic of such a list for
-    # the given name, so its order is not kept: the given-first order
-    # with the rule reads the list
+    # the given name, so its order is not kept: the patronymics vote
+    # family-first (#1447), and FAMILY_FIRST with the rule reads the list
+    # (2026-11-19 #1364)
     names = _written("last", 0, 8)
     base = Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST))
     s = base.suggest(names)
-    assert s.patch == _GIVEN_FIRST_WITH_THE_RULE
+    assert s.patch == PolicyPatch(name_order=FAMILY_FIRST,
+                                  patronymic_rules=_EAST_SLAVIC_RULE)
     assert _wholly_right(base, names) == 0
     assert _wholly_right(s.parser, names) == 8
 
@@ -936,8 +1019,11 @@ def test_the_rule_comes_with_capitals_as_family_under_a_given_last_base(
     names = _written("LAST", 0, 5)
     base = Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST))
     s = base.suggest(names)
+    # the capitals votes decide family-first, so the base's given-last
+    # spelling gives way to FAMILY_FIRST (2026-11-19 #1364)
     assert s.patch == PolicyPatch(
-        patronymic_rules=_EAST_SLAVIC_RULE, capitals_as_family=True)
+        name_order=FAMILY_FIRST, patronymic_rules=_EAST_SLAVIC_RULE,
+        capitals_as_family=True)
     assert _wholly_right(s.parser, names) == 5
     assert [s.parser.parse(n).patronymic for n in names] == _FATHERS[:5]
 
@@ -1019,12 +1105,15 @@ def test_only_the_names_carrying_the_patronymic_are_counted() -> None:
 
 
 @pytest.mark.parametrize(("base_order", "shape", "patch", "decided"), [
-    # written last under FAMILY_FIRST: nothing to change
-    (FAMILY_FIRST, "last", PolicyPatch(), False),
-    # every other case: the given-first order, as before
+    # written last under FAMILY_FIRST: nothing to change, the
+    # patronymics voting the base's order (#1447)
+    (FAMILY_FIRST, "last", PolicyPatch(), True),
+    # written in the middle: the given-first order, as before
     (FAMILY_FIRST, "middle", PolicyPatch(name_order=GIVEN_FIRST), True),
+    # written last under the given-last base: FAMILY_FIRST, which reads
+    # the patronymic where it stands (2026-11-19 #1364)
     (FAMILY_FIRST_GIVEN_LAST, "last",
-     PolicyPatch(name_order=GIVEN_FIRST), True),
+     PolicyPatch(name_order=FAMILY_FIRST), True),
     (FAMILY_FIRST_GIVEN_LAST, "middle",
      PolicyPatch(name_order=GIVEN_FIRST), True),
 ])
@@ -1046,7 +1135,9 @@ def test_a_family_first_base_carrying_the_rule_keeps_its_rule(
 
 @pytest.mark.parametrize(("base_order", "patch"), [
     (FAMILY_FIRST, _THE_RULE_ALONE),
-    (FAMILY_FIRST_GIVEN_LAST, _GIVEN_FIRST_WITH_THE_RULE)])
+    # written family first, the patronymics vote that order (#1447)
+    (FAMILY_FIRST_GIVEN_LAST, PolicyPatch(
+        name_order=FAMILY_FIRST, patronymic_rules=_EAST_SLAVIC_RULE))])
 def test_a_family_first_base_carrying_the_turkic_rule_gets_both(
         base_order: tuple[Role, Role, Role], patch: PolicyPatch) -> None:
     base = Parser(policy=Policy(
@@ -1081,19 +1172,21 @@ def test_given_first_order_votes_move_a_family_first_base_with_the_rule(
     assert s.parser.parse("Иван Петрович СИДОРОВ").family == "СИДОРОВ"
 
 
-def test_given_first_votes_are_not_kept_out_by_patronymics_written_last(
+def test_given_names_as_surnames_contest_patronymics_written_last(
         ) -> None:
-    # every patronymic written last, but each family name is a common
-    # given name, which votes given-first: the votes decide the order,
-    # and the rule, which rotates each name, comes with it
+    # every patronymic written last, each family name a common given
+    # name: the given name votes given-first, the patronymic's position
+    # family-first (#1447), so each name is contested and casts no order
+    # vote; the FAMILY_FIRST base is kept on the patronymics written last
+    # (#1356), and reads each family as written
     names = [f"{family} {given} {father}" for family, given, father in zip(
         ["Boris", "Viktor", "Oleg", "Igor", "Anna"], _GIVEN, _FATHERS)]
     s = Parser(policy=Policy(name_order=FAMILY_FIRST)).suggest(names)
-    assert _order_evidence(s).votes_for == 5
-    assert s.patch == _GIVEN_FIRST_WITH_THE_RULE
-    # and no note says the base's order was kept
-    assert "it needs a given-first order" in _order_evidence(s).note
-    assert _patronymic_evidence(s).note == ""
+    order = _order_evidence(s)
+    assert (order.votes_for, order.contested, order.decided) == (0, 5, False)
+    assert s.patch == _THE_RULE_ALONE
+    assert _patronymic_evidence(s).note.startswith(
+        "the base's family-first order is kept")
     assert [s.parser.parse(n).family for n in names] == [
         "Boris", "Viktor", "Oleg", "Igor", "Anna"]
 
@@ -1110,19 +1203,27 @@ def test_a_turkic_group_gets_the_rule_alone_under_every_base(
     assert s.disagreeing() == ()
 
 
-@pytest.mark.parametrize("names", [
-    _FAMILY_FIRST_PATRONYMICS, _written("last", 0, 8),
-    _written("middle", 0, 8),
-    _written("last", 0, 5) + _written("middle", 5, 8)])
-def test_an_east_slavic_group_moves_no_order_under_a_given_first_base(
-        names: list[str]) -> None:
-    # the default base: the rule, and the given-first order it reads
-    # under, which is the base's own, however the names are written
+@pytest.mark.parametrize("names, patch, note", [
+    # written last: the patronymics vote family-first (#1447)
+    (_FAMILY_FIRST_PATRONYMICS, PolicyPatch(
+        name_order=FAMILY_FIRST, patronymic_rules=_EAST_SLAVIC_RULE),
+     "reorders no name"),
+    (_written("last", 0, 8), PolicyPatch(
+        name_order=FAMILY_FIRST, patronymic_rules=_EAST_SLAVIC_RULE),
+     "reorders no name"),
+    # in the middle, or five last and three in the middle (62%, under
+    # two thirds): the rule, and the base's given-first order it needs
+    (_written("middle", 0, 8), _THE_RULE_ALONE,
+     "it needs a given-first order"),
+    (_written("last", 0, 5) + _written("middle", 5, 8), _THE_RULE_ALONE,
+     "it needs a given-first order")])
+def test_an_east_slavic_group_under_a_given_first_base(
+        names: list[str], patch: PolicyPatch, note: str) -> None:
     s = Parser().suggest(names)
-    assert s.patch == _THE_RULE_ALONE
+    assert s.patch == patch
     order = _order_evidence(s)
-    assert order.decided and order.value == GIVEN_FIRST
-    assert "it needs a given-first order" in order.note
+    assert order.decided
+    assert note in order.note
     assert _patronymic_evidence(s).note == ""
 
 
@@ -1236,7 +1337,7 @@ def test_a_base_holding_the_turkic_rule_leaves_the_patch_empty() -> None:
 def test_a_base_holding_the_rule_already_leaves_the_patch_empty() -> None:
     base = Parser(policy=Policy(
         patronymic_rules=frozenset({PatronymicRule.EAST_SLAVIC})))
-    s = base.suggest(_EAST_SLAVIC)
+    s = base.suggest(_EAST_SLAVIC_GIVEN_FIRST)
     assert s.patch == PolicyPatch()
     assert _patronymic_evidence(s).decided
 
@@ -1452,7 +1553,7 @@ def test_the_counts_add_up_to_the_group(names: list[str]) -> None:
 def test_an_east_slavic_name_never_disagrees_on_order() -> None:
     # `SIDOROV Ivan Petrovich` votes family-first by its capitals, but
     # the decided East Slavic rule reorders it
-    s = Parser().suggest([*_EAST_SLAVIC, "SIDOROV Ivan Petrovich"])
+    s = Parser().suggest([*_EAST_SLAVIC_GIVEN_FIRST, "SIDOROV Ivan Petrovich"])
     assert s.patch.patronymic_rules == frozenset({PatronymicRule.EAST_SLAVIC})
     assert _order_evidence(s).votes_against == 1
     assert s.disagreeing() == ()
@@ -1460,7 +1561,7 @@ def test_an_east_slavic_name_never_disagrees_on_order() -> None:
 
 def test_a_non_east_slavic_name_still_disagrees_in_an_east_slavic_group(
         ) -> None:
-    s = Parser().suggest([*_EAST_SLAVIC, "Kim Minjun"])
+    s = Parser().suggest([*_EAST_SLAVIC_GIVEN_FIRST, "Kim Minjun"])
     assert [n.text for n in s.disagreeing()] == ["Kim Minjun"]
 
 
@@ -1473,6 +1574,8 @@ def test_a_non_east_slavic_name_still_disagrees_in_an_east_slavic_group(
     ({Signal.SURNAME: PatronymicRule.TURKIC}, TypeError, "must be an order"),
     ({Signal.PATRONYMIC: FAMILY_FIRST}, TypeError, "PatronymicRule"),
     ({Signal.PATRONYMIC: "turkic"}, TypeError, "PatronymicRule"),
+    ({Signal.PATRONYMIC_POSITION: PatronymicRule.EAST_SLAVIC}, TypeError,
+     "must be an order"),
     ({"no-such-signal": FAMILY_FIRST}, ValueError, "no-such-signal"),
 ])
 def test_name_evidence_refuses_a_vote_of_the_wrong_kind(
@@ -1532,6 +1635,10 @@ def test_setting_evidence_accepts_a_well_formed_value() -> None:
      "must be an order"),
     ({"by_signal": [(Signal.PATRONYMIC, FAMILY_FIRST, 1)]}, TypeError,
      "PatronymicRule"),
+    # the position votes an order, never a rule (#1447)
+    ({"by_signal": [(Signal.PATRONYMIC_POSITION,
+                     PatronymicRule.EAST_SLAVIC, 1)]},
+     TypeError, "must be an order"),
     ({"by_signal": [(Signal.SURNAME, FAMILY_FIRST, -1)]}, ValueError,
      "count must not be negative, got -1"),
     ({"by_signal": [(Signal.SURNAME, FAMILY_FIRST, True)]}, TypeError,
@@ -1665,6 +1772,7 @@ def test_a_decided_rule_never_overrides_an_order_decided_against_it(
     order = _order_evidence(s)
     assert order.decided
     assert (order.votes_for, order.votes_against) == (5, 0)
+    assert (Signal.PATRONYMIC_POSITION, FAMILY_FIRST, 5) in order.by_signal
     if base_order == FAMILY_FIRST:
         # the base's own order, kept by the patronymics written last
         # too: the patronymic evidence says so
@@ -1882,6 +1990,7 @@ def test_a_vote_is_the_shared_order_constant() -> None:
 @pytest.mark.parametrize("setting, row", [
     ("name_order", (Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC, 1)),
     ("patronymic_rules", (Signal.SURNAME, FAMILY_FIRST, 1)),
+    ("patronymic_rules", (Signal.PATRONYMIC_POSITION, FAMILY_FIRST, 1)),
     ("middle_as_family", (Signal.SURNAME, FAMILY_FIRST, 1)),
 ])
 def test_setting_evidence_refuses_a_signal_of_another_setting(
@@ -2000,7 +2109,7 @@ def test_a_family_first_group_on_a_family_first_base_leaves_the_patch_empty(
 
 def test_the_ru_pack_and_an_east_slavic_group_leave_the_patch_empty() -> None:
     from nameparser import locales, parser_for
-    s = parser_for(locales.RU).suggest(_EAST_SLAVIC)
+    s = parser_for(locales.RU).suggest(_EAST_SLAVIC_GIVEN_FIRST)
     assert s.patch == PolicyPatch()
     assert _patronymic_evidence(s).decided
     assert _order_evidence(s).decided
@@ -2182,12 +2291,163 @@ def test_a_title_abbreviation_at_either_end_is_no_given_name() -> None:
         [f"Gen. Zorvan {name}" for name in names]).patch == PolicyPatch()
 
 
+# -- #1364: the ORCID surname table ----------------------------------------
+# `García` and `Quispe` are listed (a family word ORCID holders rarely
+# type in the given box), `Wang` romanized, `Emily` a given name, `Lyu`
+# a listed surname of three letters; the other words are invented and
+# listed nowhere. Run with the ORCID table emptied, as on 6560abde, every
+# row fails but `García Quispe`, `Zorvan LYU`, `García LYU`, `AM García`
+# and `García, Zorvan`, which cast nothing there either.
+@pytest.mark.parametrize("text, votes", [
+    ("García Zorvan", {Signal.SURNAME: FAMILY_FIRST}),
+    ("Zorvan García", {Signal.SURNAME: GIVEN_FIRST}),
+    # written as a keyboard writes it, the fold reads it the same
+    ("GARCIA Zorvan", {Signal.SURNAME: FAMILY_FIRST,
+                       Signal.CAPITALS: FAMILY_FIRST}),
+    # listed at both ends, from one table or from two: no surname vote
+    ("García Quispe", {}),
+    ("Wang García", {}),
+    ("García Wang", {}),
+    # beside a listed given name, the two signals agree
+    ("Emily García", {Signal.SURNAME: GIVEN_FIRST,
+                      Signal.GIVEN_NAME: GIVEN_FIRST}),
+    # a trailing initial beside the surname: both vote family-first
+    ("García Z", {Signal.SURNAME: FAMILY_FIRST,
+                  Signal.TRAILING_INITIAL: FAMILY_FIRST}),
+    # #1397: a short capitals word ending a mixed-case name that is a
+    # listed surname silences the signal, the new table's `lyu`
+    # included: `Wang LYU` is the witness, which votes family-first by
+    # `Wang` with the table emptied; `Zorvan LYU` is a control, and
+    # `García LYU` is listed at both ends and casts nothing anyway
+    ("Zorvan LYU", {}),
+    ("Wang LYU", {}),
+    ("García LYU", {}),
+    # a listed surname written with a full stop is a name, never the
+    # title rules/H2's shape reads at the head (`_a_listed_name`)
+    ("García. Zorvan", {Signal.SURNAME: FAMILY_FIRST}),
+    ("Zorvan García.", {Signal.SURNAME: GIVEN_FIRST}),
+    # post-nominals are read past; a comma name states its own order
+    ("Zorvan García, PhD", {Signal.SURNAME: GIVEN_FIRST}),
+    ("Zorvan García Jr.", {Signal.SURNAME: GIVEN_FIRST}),
+    ("García, Zorvan", {}),
+    # #1355: a short capitals word opening a mixed-case name silences
+    # it, the listed surname at the other end included
+    ("AM García", {}),
+    # a title in front of a listed surname is read past, as before
+    ("Dr. García Zorvan", {Signal.SURNAME: FAMILY_FIRST}),
+])
+def test_an_orcid_surname_votes_by_one_end_and_not_the_other(
+        text: str, votes: dict[Signal, object]) -> None:
+    assert name_votes(text, L) == votes
+
+
+@pytest.mark.parametrize("base_order", [
+    GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("family_first", [True, False])
+def test_a_list_of_orcid_surnames_decides_its_order_on_every_base(
+        base_order: tuple[Role, Role, Role], family_first: bool) -> None:
+    # two names, the given names invented and listed nowhere: on
+    # 6560abde no name voted and every base stood. The whole name is
+    # read right, given and family, under the suggestion
+    pairs = [("Zorvan", "García"), ("Qelliot", "Quispe")]
+    names = [f"{f} {g}" if family_first else f"{g} {f}" for g, f in pairs]
+    s = Parser(policy=Policy(name_order=base_order)).suggest(names)
+    want = FAMILY_FIRST if family_first else GIVEN_FIRST
+    if base_order[0] is want[0]:
+        # the base already writes the family at that end: kept
+        assert s.patch == PolicyPatch()
+    else:
+        assert s.patch == PolicyPatch(name_order=want)
+    assert [(n.given, n.family) for n in map(s.parser.parse, names)] == pairs
+
+
+@pytest.mark.parametrize("surnames, base_order, order", [
+    # three of five family names listed (`Popov`, `Popova`, `Petrova`):
+    # the names' votes decide family-first, which the East Slavic rule
+    # never overrides; a FAMILY_FIRST_GIVEN_LAST base gets FAMILY_FIRST,
+    # under which the patronymic stays the middle name. On 6560abde no
+    # name voted, and every base got GIVEN_FIRST or kept FAMILY_FIRST
+    (["Popov", "Popova", "Petrova", "Zorvov", "Qelova"],
+     FAMILY_FIRST_GIVEN_LAST, FAMILY_FIRST),
+    (["Popov", "Popova", "Petrova", "Zorvov", "Qelova"],
+     GIVEN_FIRST, FAMILY_FIRST),
+    (["Popov", "Popova", "Petrova", "Zorvov", "Qelova"],
+     FAMILY_FIRST, FAMILY_FIRST),
+    # no surname listed: the patronymics, written last, vote
+    # family-first themselves (#1447), where on c5e58aa2 no name voted
+    # and the rule brought its given-first order
+    (["Zorvov", "Qelova", "Plughov", "Xyzzova", "Frotzov"],
+     FAMILY_FIRST_GIVEN_LAST, FAMILY_FIRST),
+    (["Zorvov", "Qelova", "Plughov", "Xyzzova", "Frotzov"],
+     GIVEN_FIRST, FAMILY_FIRST),
+])
+def test_an_east_slavic_list_voting_family_first_reads_its_patronymics(
+        surnames: list[str], base_order: tuple[Role, Role, Role],
+        order: tuple[Role, Role, Role]) -> None:
+    given = [("Ivan", "Ivanovich"), ("Anna", "Petrovna"),
+             ("Olga", "Sergeevna"), ("Pavel", "Ivanovich"),
+             ("Maria", "Olegovna")]
+    names = [f"{f} {g} {p}" for f, (g, p) in zip(surnames, given)]
+    s = Parser(policy=Policy(name_order=base_order)).suggest(names)
+    assert s.parser.policy.name_order == order
+    assert s.parser.policy.patronymic_rules == frozenset(
+        {PatronymicRule.EAST_SLAVIC})
+    assert [(n.given, n.family) for n in map(s.parser.parse, names)] == [
+        (g, f) for f, (g, _) in zip(surnames, given)]
+
+
+@pytest.mark.parametrize("capitals_base", [False, True])
+@pytest.mark.parametrize("surnames", [
+    ["POPOV", "POPOVA", "PETROVA", "ZORVOV", "QELOVA"],   # all in capitals
+    ["POPOV", "POPOVA", "PETROVA", "ZORVOV", "Qelova"],   # but one
+    ["Popov", "Popova", "Petrova", "Zorvov", "Qelova"]])  # none
+def test_an_east_slavic_list_under_a_given_last_base_reads_every_name(
+        surnames: list[str], capitals_base: bool) -> None:
+    # FAMILY_FIRST reads the patronymic where it is written whatever the
+    # switch, while the given-last spelling reads it as the given name in
+    # a name the switch does not read (one with no family in capitals),
+    # so the base gives way whether capitals_as_family is suggested, on
+    # in the base, or off (2026-11-19 #1364)
+    given = [("Ivan", "Ivanovich"), ("Anna", "Petrovna"),
+             ("Olga", "Sergeevna"), ("Pavel", "Ivanovich"),
+             ("Maria", "Olegovna")]
+    names = [f"{f} {g} {p}" for f, (g, p) in zip(surnames, given)]
+    s = Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST,
+                             capitals_as_family=capitals_base)).suggest(names)
+    assert s.parser.policy.name_order == FAMILY_FIRST
+    assert s.parser.policy.patronymic_rules == frozenset(
+        {PatronymicRule.EAST_SLAVIC})
+    assert [(n.given, n.family) for n in map(s.parser.parse, names)] == [
+        (g, f) for f, (g, _) in zip(surnames, given)]
+
+
+def test_no_orcid_surname_is_read_as_a_title_or_a_suffix() -> None:
+    # as the given names are held (above): the suffix sets, the title
+    # abbreviations, the particles and the conjunctions hold none of the
+    # surnames' folded spellings, and by the parse's own
+    # reading no surname is a title or a suffix at either end of a name
+    from nameparser.config._order_names import COMMON_SURNAMES
+    sets = L._sets
+    assert not COMMON_SURNAMES & (
+        sets.suffix_acronyms | sets.suffix_words | sets.title_abbreviations
+        | sets.particles | sets.conjunctions)
+    parser = Parser()
+    read = []
+    for word in sorted(COMMON_SURNAMES):
+        for cased in (word.upper(), word.capitalize()):
+            names = [f"Zorvan Qelliot {cased}", f"Zorvan Qelliot {cased}.",
+                     f"{cased} Zorvan Qelliot"]
+            read += [name for name in names
+                     if (parsed := parser.parse(name)).title or parsed.suffix]
+    assert read == []
+
+
 @pytest.fixture
 def _invented_tables(monkeypatch: pytest.MonkeyPatch) -> None:
     # the decision rule, read with tables of invented words, so no
     # shipped table's contents decides a test
     from nameparser import _suggest
-    monkeypatch.setattr(_suggest, "ROMANIZED_SURNAMES",
+    monkeypatch.setattr(_suggest, "SURNAMES",
                         frozenset({"zzsur", "zzfam"}))
     monkeypatch.setattr(_suggest, "COMMON_GIVEN_NAMES",
                         frozenset({"zzgiv", "zzfirst"}))
@@ -2237,6 +2497,7 @@ def test_the_group_rule_reads_invented_tables() -> None:
     ("Hasanova Afət Əbil qızı", Signal.PATRONYMIC, PatronymicRule.TURKIC),
     ("Иванов Иван Сергеевич", Signal.PATRONYMIC, PatronymicRule.EAST_SLAVIC),
     ("Nguyễn Minh", Signal.SURNAME, FAMILY_FIRST),
+    ("Zorvan García", Signal.SURNAME, GIVEN_FIRST),
 ])
 def test_a_decomposed_name_votes_as_its_composed_twin(
         text: str, signal: Signal, value: object) -> None:
@@ -2251,11 +2512,23 @@ def test_a_decomposed_name_votes_as_its_composed_twin(
 #: relaxed answer equals its guarded one guards nothing here.
 #: (threshold, relaxed value, group, base order, guarded, relaxed), the
 #: answers as the name_order, patronymic_rules and initials_as_family
-#: patches, and the capitals_as_family patch where a fourth is given (a
-#: row of three holds it unset under both).
+#: patches, the capitals_as_family patch where a fourth is given and the
+#: two_family_names patch where a fifth is (a shorter row holds the rest
+#: unset under both).
 _UNGUARDED_EFFECT: list[tuple[str, object, list[str],
                               tuple[Role, Role, Role],
                               tuple[object, ...], tuple[object, ...]]] = [
+    # two names with a listed surname second-to-last: two votes, under
+    # the three the switch needs (#1452)
+    ("_MIN_TWO_FAMILY_VOTES", 2, ["Ana García López", "Luis Pérez Ruiz"],
+     GIVEN_FIRST, (UNSET, UNSET, UNSET, UNSET, UNSET),
+     (UNSET, UNSET, UNSET, UNSET, True)),
+    # three votes among twelve names the switch moves: 25%, under 30%
+    ("_MIN_TWO_FAMILY_SHARE", 0.1,
+     ["Ana García López", "Luis Pérez Ruiz", "Elena Torres Díaz"]
+     + [f"Ana Xx{c}mir Qq{c}lov" for c in "abcdefghi"],
+     GIVEN_FIRST, (UNSET, UNSET, UNSET, UNSET, UNSET),
+     (UNSET, UNSET, UNSET, UNSET, True)),
     ("_MIN_VOTES", 1, ["Smith Mary", "Xyzzy Plugh"], GIVEN_FIRST,
      (UNSET, UNSET, UNSET), (FAMILY_FIRST, UNSET, UNSET)),
     ("_MIN_SHARE", 0.5, ["Smith Mary", "Kim Minjun", "Jason Smith"],
@@ -2264,12 +2537,15 @@ _UNGUARDED_EFFECT: list[tuple[str, object, list[str],
     ("_MIN_ORDER_GROUP_SHARE", 0.0,
      ["Smith Mary", "Kim Minjun"] + [_SILENT] * 199, GIVEN_FIRST,
      (UNSET, UNSET, UNSET), (FAMILY_FIRST, UNSET, UNSET)),
+    # the five patronymics written last vote family-first (#1447), five
+    # of the seven names, so the order moves guarded or not
     ("_MIN_PATRONYMIC_SHARE", 0.5, _east_slavic(5) + _OTHERS[:2],
-     GIVEN_FIRST, (UNSET, UNSET, UNSET),
-     (UNSET, frozenset({PatronymicRule.EAST_SLAVIC}), UNSET)),
+     GIVEN_FIRST, (FAMILY_FIRST, UNSET, UNSET),
+     (FAMILY_FIRST, frozenset({PatronymicRule.EAST_SLAVIC}), UNSET)),
     # under a FAMILY_FIRST base the rule comes without an order where the
-    # patronymics are written last, as these are (#1356);
-    # under the default one the order it needs is the base's own
+    # patronymics are written last, as these are (#1356); under the
+    # default base the two would vote family-first by their position
+    # (#1447)
     ("_MIN_PATRONYMIC_VOTES", 2, _east_slavic(2), FAMILY_FIRST,
      (UNSET, UNSET, UNSET),
      (UNSET, frozenset({PatronymicRule.EAST_SLAVIC}), UNSET)),
@@ -2312,10 +2588,11 @@ def test_each_threshold_changes_its_recorded_answer(
     def answer() -> tuple[object, ...]:
         patch = base.suggest(names).patch
         return (patch.name_order, patch.patronymic_rules,
-                patch.initials_as_family, patch.capitals_as_family)
+                patch.initials_as_family, patch.capitals_as_family,
+                patch.two_family_names)
 
     def four(answers: tuple[object, ...]) -> tuple[object, ...]:
-        return answers if len(answers) == 4 else (*answers, UNSET)
+        return (*answers, *(UNSET,) * (5 - len(answers)))
 
     assert answer() == four(guarded)
     monkeypatch.setattr(_suggest, threshold, relaxed)
@@ -2359,7 +2636,7 @@ def test_the_report_writes_a_setting_value_of_any_kind() -> None:
 
 
 def test_the_report_writes_the_order_note() -> None:
-    report = str(Parser().suggest(_EAST_SLAVIC))
+    report = str(Parser().suggest(_EAST_SLAVIC_GIVEN_FIRST))
     assert "it needs a given-first order" in report
 
 
@@ -2892,16 +3169,594 @@ def test_the_base_parse_is_asked_only_of_a_listed_title(
         monkeypatch: pytest.MonkeyPatch) -> None:
     # a family in capitals the vocabulary lists as no title costs the
     # switch-on parse alone; one it lists costs the base parse too
+    # (the base object itself: the two_family_names vote parses under a
+    # copy of it, #1452)
     calls: list[str] = []
     real = Parser.parse
+    base = Parser()
 
     def counting(self: Parser, text: str) -> object:
-        if not self.policy.capitals_as_family:
+        if self is base:
             calls.append(text)
         return real(self, text)
 
     monkeypatch.setattr(Parser, "parse", counting)
-    Parser().suggest(["Jean DUPONT", "Marie MARTIN", "Anne Leroy"])
+    base.suggest(["Jean DUPONT", "Marie MARTIN", "Anne Leroy"])
     assert calls == []
-    Parser().suggest(["MISS Ann Berg", "Jean DUPONT"])
+    base.suggest(["MISS Ann Berg", "Jean DUPONT"])
     assert calls == ["MISS Ann Berg"]
+
+
+# -- #1447: where an East Slavic patronymic stands is an order vote --------
+# read exactly where rules/O1 reads the patronymic: the ending on the
+# middle word is the given-first shape, whatever the last word ends in,
+# and otherwise the family-first shape the rule restores; a name the
+# rule does not read (an initial first or in the middle, four words, a
+# Turkic marker) casts none. On c5e58aa2 every row casts no order vote
+# by its patronymic.
+@pytest.mark.parametrize("text, end", [
+    ("Qqsan Petrovich Zzyvova", GIVEN_FIRST),
+    ("Zzyvova Qqsan Petrovich", FAMILY_FIRST),
+    ("Иван Петрович Сидорров", GIVEN_FIRST),
+    ("Сидорров Иван Петрович", FAMILY_FIRST),
+    # the ending on both: the middle word, as rules/O1 reads it
+    ("Qqsan Petrovich Abramovich", GIVEN_FIRST),
+    # a surname ending as a patronymic does, first: family-first
+    ("Abramovich Qqsan Arkadyevich", FAMILY_FIRST),
+    # a final full stop is read past on either word
+    ("Zzyvova Qqsan Petrovich.", FAMILY_FIRST),
+    ("Qqsan Petrovich. Zzyvova", GIVEN_FIRST),
+    # no vote where the rule reads none
+    ("Q. Petrovich Zzyvova", None),
+    ("Zzyvova Q. Petrovich", None),
+    ("Zzyvova Qqsan Xxmir Petrovich", None),
+    ("Mamedov Ali Huseyn oglu", None),
+    ("Zzyvova Qqsan", None),
+    # letters NFD decomposes (`й`, `ї`)
+    ("Сидоров Олексій Андрійович", FAMILY_FIRST),
+    ("Олексій Андрійович Сидоров", GIVEN_FIRST),
+    # read past a title, a post-nominal and a comma followed by one
+    ("Dr. Zzyvova Qqsan Petrovich", FAMILY_FIRST),
+    ("Zzyvova Qqsan Petrovich Jr.", FAMILY_FIRST),
+    ("Qqsan Petrovich Zzyvova, PhD", GIVEN_FIRST),
+    # a comma states its own order: no vote
+    ("Zzyvova, Qqsan Petrovich", None),
+])
+def test_an_east_slavic_patronymic_votes_the_order_its_position_writes(
+        text: str, end: tuple[Role, Role, Role] | None) -> None:
+    for name in (text, unicodedata.normalize("NFD", text)):
+        rows = [row for row in _order_evidence(
+            Parser().suggest([name, name])).by_signal
+            if row[0] is Signal.PATRONYMIC_POSITION]
+        assert rows == ([] if end is None else
+                        [(Signal.PATRONYMIC_POSITION, end, 2)])
+        assert name_votes(name, L).get(Signal.PATRONYMIC_POSITION) == end
+
+
+def test_a_patronymic_position_against_a_given_name_is_contested() -> None:
+    # `David` votes given-first at the head, the patronymic's position
+    # family-first: the name casts no order vote
+    s = Parser().suggest(["David Michael Abramovich"] * 3)
+    order = _order_evidence(s)
+    assert (order.votes_for, order.votes_against, order.contested) == (
+        0, 0, 3)
+    assert s.patch.name_order is UNSET
+
+
+def test_two_word_names_in_a_family_first_patronymic_list_read_right(
+        ) -> None:
+    # #1447's list: twenty names written family first with a patronymic
+    # and one without, which master read given-first
+    names = _written("last", 0, 5) * 4 + ["Qqsidorov Zzyvan"]
+    s = Parser().suggest(names)
+    assert s.parser.policy.name_order == FAMILY_FIRST
+    assert s.parser.parse("Qqsidorov Zzyvan").family == "Qqsidorov"
+    assert _wholly_right(s.parser, names) == 21
+
+
+@pytest.mark.parametrize("count", [2, 3, 4])
+def test_a_short_given_last_list_with_patronymics_last_keeps_its_base(
+        count: int) -> None:
+    # recorded, not intended: the patronymics vote family-first, the
+    # base's own end, and five names are needed to decide the rule, so
+    # nothing moves and the base reads each patronymic as the given
+    # name, as on c5e58aa2 (decisions/group-suggestion, 2026-11-19 #1447)
+    names = _written("last", 0, count)
+    s = Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST)).suggest(
+        names)
+    assert s.patch == PolicyPatch()
+    assert _wholly_right(s.parser, names) == 0
+
+
+def test_votes_deciding_given_first_take_no_family_first_base_keep() -> None:
+    # five written last but contested (a given name as the surname), four
+    # in the middle: the votes decide given-first (4 for), and the base is
+    # not kept though more write the patronymic last, so no note says it
+    # was (`_keeps_family_first`'s guard on a given-first order)
+    names = ([f"{family} {given} {father}" for family, given, father in zip(
+        ["Boris", "Viktor", "Oleg", "Igor", "Anna"], _GIVEN, _FATHERS)]
+        + _written("middle", 5, 8) + ["Qqolek Sergeevich Zzlebedin"])
+    s = Parser(policy=Policy(name_order=FAMILY_FIRST)).suggest(names)
+    order = _order_evidence(s)
+    assert (order.votes_for, order.contested) == (4, 5)
+    assert s.patch == _GIVEN_FIRST_WITH_THE_RULE
+    assert "it needs a given-first order" in order.note
+    assert _patronymic_evidence(s).note == ""
+
+
+@pytest.mark.parametrize("base_order", [
+    GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+def test_a_name_written_against_a_family_first_list_disagrees(
+        base_order: tuple[Role, Role, Role]) -> None:
+    # six written last decide family-first by their position, under which
+    # the rule reorders no name: the one written in the middle reads its
+    # given name as the family, and is listed (#1447); written the other
+    # way round, the decided rule reorders the odd one, which agrees
+    base = Parser(policy=Policy(name_order=base_order))
+    odd = "Zzyvan Petrovich Qqsidorov"
+    s = base.suggest(_written("last", 0, 6) + [odd])
+    assert [n.text for n in s.disagreeing()] == [odd]
+    assert s.parser.parse(odd).family == "Zzyvan"
+    s = base.suggest(_written("middle", 0, 6) + ["Qqsidorov Zzyvan Petrovich"])
+    assert s.disagreeing() == ()
+
+
+@pytest.mark.parametrize("base_order", [
+    GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+def test_a_patronymic_before_a_final_initial_is_read_given_first(
+        base_order: tuple[Role, Role, Role]) -> None:
+    # `Zzyvan Petrovich Q.`: the trailing initial votes family-first, the
+    # patronymic in the middle given-first, so the name is contested and
+    # counts as no name ending in initials; the decided rule reads it
+    # given-first, its initial the family (on c5e58aa2 the trailing
+    # initials decided family-first, reading `Zzyvan` as the family)
+    names = [f"{g} {p} {f[0]}." for g, p, f in zip(_GIVEN, _FATHERS, _FAMILY)][:6]
+    s = Parser(policy=Policy(name_order=base_order)).suggest(names)
+    assert s.parser.policy.name_order == GIVEN_FIRST
+    assert s.parser.policy.patronymic_rules == _EAST_SLAVIC_RULE
+    assert {s.parser.parse(n).family for n in names} == {
+        f[0] + "." for f in _FAMILY[:6]}
+
+
+def test_patronymics_before_initials_can_hold_back_a_byline_list() -> None:
+    # recorded, not intended: three bylines and three names with a
+    # patronymic before a final initial; the three contested names no
+    # longer count as ending in initials, so three of six is under 60%
+    # and no trailing initial votes, where on c5e58aa2 the list decided
+    # family-first (decisions/group-suggestion, 2026-11-19 #1447)
+    s = Parser().suggest(["Qqsmith J.", "Zzjones K.", "Xxbrown L.",
+                          "Zzyvan Petrovich Q.", "Qqolek Sergeevich Z.",
+                          "Xxpavel Ivanovich X."])
+    assert s.patch == PolicyPatch()
+    assert "too few for the trailing-initial signal" in (
+        _order_evidence(s).note)
+
+
+def test_an_ovich_surname_after_an_unlisted_given_name_votes_family_first(
+        ) -> None:
+    # recorded, not intended: the vote reads the shape alone, so a
+    # given-first name of three words whose surname ends as a patronymic
+    # votes family-first unless a listed given name opens it (measured on
+    # real lists: 72 of 2,570,746 US inventors, decisions/group-suggestion,
+    # 2026-11-19 #1447)
+    assert name_votes("Tal Noa Rabinovich", L)[
+        Signal.PATRONYMIC_POSITION] == FAMILY_FIRST
+    names = ["Tal Noa Rabinovich", "Yael Shira Abramovich",
+             "Noam Ido Berkovich", "Ori Gal Leibovich", "Dvir Amit Rabinovich",
+             "Avi Cohen", "Dana Levi", "Qqsan Xxmir", "Zzyvan Brown"]
+    s = Parser().suggest(names)
+    order = _order_evidence(s)
+    assert (order.votes_for, order.votes_against, order.contested) == (
+        2, 2, 3)
+    assert s.patch == PolicyPatch()
+
+
+def test_a_list_mixing_east_slavic_and_turkic_patronymics() -> None:
+    # recorded: neither rule is decided (4 of 7, 3 of 7), and the East
+    # Slavic names' positions decide the order alone; written last they
+    # move a given-first base to family-first, which reads both kinds;
+    # written in the middle beside Turkic names written family first they
+    # move a family-first base to given-first, which reads the Turkic
+    # names' marker as the family (an open question, 2026-11-15 #1356)
+    turkic = _TURKIC[:3]
+    s = Parser().suggest(_written("last", 0, 4) + turkic)
+    assert s.patch == PolicyPatch(name_order=FAMILY_FIRST)
+    s = Parser(policy=Policy(name_order=FAMILY_FIRST)).suggest(
+        _written("middle", 0, 4) + turkic)
+    assert s.patch == PolicyPatch(name_order=GIVEN_FIRST)
+    assert s.parser.parse(turkic[0]).family == "oglu"
+
+
+def test_a_suggestion_holding_a_position_vote_round_trips() -> None:
+    # within one release; a pickle holding the member does not load
+    # under 3.1, which does not know it (decisions/group-suggestion,
+    # 2026-11-19 #1447)
+    import pickle
+    s = Parser().suggest(_written("last", 0, 5))
+    assert Signal.PATRONYMIC_POSITION in s.names[0].votes
+    again = pickle.loads(pickle.dumps(s))
+    assert again.names == s.names
+    assert again.patch == s.patch
+
+
+# -- #1452: two_family_names -----------------------------------------------
+# The word the switch would take into the family, asked of the parse:
+# a listed surname (`García`, `López`) votes True, a father's name votes
+# False, a listed given name (`María`) is moved and casts no vote, and a
+# name the switch leaves as it is casts nothing. On 13cf07cd no row votes.
+@pytest.mark.parametrize("text, vote, moved", [
+    ("Zzana García Qqmoreno", True, True),
+    # the taken word is the unlisted one, the listed surname ending it
+    ("Zzana Qqmoreno García", None, True),
+    ("Zzana María Qqmoreno", None, True),
+    (unicodedata.normalize("NFD", "Zzana María Qqmoreno"), None, True),
+    ("Zzana Xxmir Qqmoreno", None, True),
+    # a particle run after it: the word before the run is taken
+    ("Zzana García de la Qqvega", True, True),
+    ("Zzana García López Qqmoreno", True, True),
+    # read past a title, a post-nominal and a comma before post-nominals
+    ("Dr. Zzana García Qqmoreno", True, True),
+    ("Zzana García Qqmoreno Jr.", True, True),
+    ("Gabriel García Qqmarquez, PhD", True, True),
+    # capitals and the decomposed spelling vote alike
+    ("Zzana GARCÍA Qqmoreno", True, True),
+    (unicodedata.normalize("NFD", "Zzana García Qqmoreno"), True, True),
+    # a father's name or its marker votes against, in any script or case
+    ("Ivan Petrovich Qqsidorov", False, True),
+    ("IVAN PETROVICH QQSIDOROV", False, True),
+    ("Иван Петрович Сидорров", False, True),
+    ("Anna Ivanovna Qqsidorova", False, True),
+    (unicodedata.normalize("NFD", "Ali Vali oğlu Qqmammadov"), False, True),
+    # moved but read by no signal: a comma before a job, words joined by
+    # an interpunct; each counts in the share and casts no vote
+    ("Zzana García Qqmoreno, Clinical Research Coordinator", None, True),
+    ("马丁·路德·金", None, True),
+    # not moved: an initial, a comma, two words, a hyphenated family
+    ("Zzana G. Qqmoreno", None, False),
+    ("Qqmoreno, Zzana García", None, False),
+    ("Zzana Qqmoreno", None, False),
+    ("Zzana García-López", None, False),
+])
+def test_a_listed_surname_the_switch_would_take_votes_for_it(
+        text: str, vote: bool | None, moved: bool) -> None:
+    from nameparser._suggest import _read, _two_family_votes
+    parser = Parser()
+    votes, moved_count, _ = _two_family_votes(
+        [(text, *_read(text, parser.lexicon))], parser)
+    assert votes[0].get(Signal.FIRST_SURNAME) is vote
+    assert bool(moved_count) is moved
+
+
+#: Three names written given first with two family names, each first
+#: surname a listed one (`García`, `López`, `Pérez`).
+_TWO_FAMILY = ["Zzana García Qqmoreno", "Qqluis López Xxromero",
+               "Xxelena Pérez Vvnavarro"]
+#: Three Russian names written given first, too few to decide the East
+#: Slavic rule, each a father's name where the switch would take a word.
+_RUSSIAN_GIVEN_FIRST = ["Ivan Petrovich Qqsidorov",
+                        "Anna Sergeevna Qqpetrova",
+                        "Oleg Ivanovich Qqvolkov"]
+
+
+def _two_family(s: Suggestion) -> SettingEvidence:
+    return [e for e in s.evidence if e.setting == "two_family_names"][0]
+
+
+@pytest.mark.parametrize("base_order", [
+    GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+def test_a_list_of_two_family_names_gets_the_switch(
+        base_order: tuple[Role, Role, Role]) -> None:
+    # `Ana` and `Luis`, listed given names opening each name, decide the
+    # given-first order on every base, under which the switch is weighed
+    names = [f"Ana {n}" for n in _TWO_FAMILY] + [f"Luis {n}" for n in
+                                                  _TWO_FAMILY]
+    s = Parser(policy=Policy(name_order=base_order)).suggest(names)
+    assert s.parser.policy.name_order == GIVEN_FIRST
+    assert s.parser.policy.two_family_names is True
+    assert s.patch.two_family_names is True
+    assert (Signal.FIRST_SURNAME, True, 6) in _two_family(s).by_signal
+    assert {s.parser.parse(n).surname2 for n in names} == {
+        "Qqmoreno", "Xxromero", "Vvnavarro"}
+
+
+def test_the_switch_needs_three_votes() -> None:
+    # left off, the report counts for and against the value kept, as the
+    # other switches do: the two names voting for the switch are against
+    s = Parser().suggest(_TWO_FAMILY[:2])
+    assert s.patch.two_family_names is UNSET
+    evidence = _two_family(s)
+    assert (evidence.votes_for, evidence.votes_against,
+            evidence.decided) == (0, 2, False)
+    # three alone decide it, with no order vote cast
+    s = Parser().suggest(_TWO_FAMILY)
+    assert s.patch == PolicyPatch(two_family_names=True)
+    assert (_two_family(s).votes_for, _two_family(s).votes_against) == (3, 0)
+
+
+@pytest.mark.parametrize("unlisted, decided", [(6, True), (7, False)])
+def test_the_switch_needs_three_in_ten_of_the_names_it_moves(
+        unlisted: int, decided: bool) -> None:
+    # three votes among nine moved is a third, among ten 30%: not more
+    names = _TWO_FAMILY + [f"Zzana Xx{c}mir Qq{c}lov"
+                           for c in "abcdefg"[:unlisted]]
+    s = Parser().suggest(names)
+    assert _two_family(s).decided is decided
+
+
+def test_a_name_with_a_comma_counts_among_the_names_the_switch_moves() -> None:
+    # the switch reads the names before a job title too, so they count in
+    # the share though no signal reads them: 3 of 15 is not more than 30%
+    names = ["Gabriel García Qqmarquez", "Juan Pérez Qqlopez",
+             "Ana Gómez Qqsanchez"] + [
+        "John Michael Smith, Clinical Research Coordinator",
+        "Mary Ann Jones, Study Nurse",
+        "Robert James Brown, Principal Investigator"] * 4
+    s = Parser().suggest(names)
+    assert s.patch.two_family_names is UNSET
+    assert _two_family(s).note.startswith(
+        "3 of the 15 names two_family_names would change")
+
+
+def test_a_given_name_the_switch_would_take_lowers_the_share() -> None:
+    # `María` is a second given name: moved, so it counts in the share,
+    # and casts no vote; three surnames among eight moved is 37.5%, over
+    # 30%, so the given names lower the share without vetoing the switch
+    names = _TWO_FAMILY + [f"Zzana María Qq{c}lov" for c in "abcde"]
+    s = Parser().suggest(names)
+    note = _two_family(s).note
+    assert "5 of them a common given name there" in note
+    assert _two_family(s).decided
+
+
+def test_names_the_table_does_not_list_can_be_outvoted() -> None:
+    # the accepted cost of the 30% share: three Spanish names decide the
+    # switch beside four English ones, whose second given names it then
+    # reads as first surnames (Michael and Ann listed, James not)
+    names = _TWO_FAMILY + ["John Michael Smith", "Mary Ann Jones",
+                           "Robert James Brown", "Zzx Qqy Zzz"]
+    s = Parser().suggest(names)
+    assert s.patch.two_family_names is True
+    assert s.parser.parse("John Michael Smith").family == "Michael Smith"
+
+
+def test_patronymics_beside_two_family_names_keep_the_switch_off() -> None:
+    # five Russian names written given first, which the switch would read
+    # with the patronymic as the first surname, against three Spanish
+    # ones, whose listed given name `Ana` votes on the order, so the
+    # rule is not decided (5 of 8): 3 for the switch, 5 against, so it
+    # stays off, counted for and against the value kept
+    names = [f"Ana {n}" for n in _TWO_FAMILY] + _written("middle", 0, 5)
+    s = Parser().suggest(names)
+    evidence = _two_family(s)
+    assert (evidence.votes_for, evidence.votes_against) == (5, 3)
+    assert not evidence.decided
+    assert s.patch.two_family_names is UNSET
+
+
+@pytest.mark.parametrize("spanish, decided", [(3, False), (4, True)])
+def test_the_switch_needs_more_votes_for_it_than_against(
+        spanish: int, decided: bool) -> None:
+    names = (_TWO_FAMILY + ["Zzmaria Sánchez Qqruiz"])[:spanish] + _RUSSIAN_GIVEN_FIRST
+    s = Parser().suggest(names)
+    assert s.patch.patronymic_rules is UNSET
+    assert _two_family(s).decided is decided
+
+
+def test_a_fathers_name_disagrees_with_a_decided_switch() -> None:
+    names = _TWO_FAMILY * 2 + ["Ivan Petrovich Qqsidorov"]
+    s = Parser().suggest(names)
+    assert s.patch.two_family_names is True
+    assert [n.text for n in s.disagreeing()] == ["Ivan Petrovich Qqsidorov"]
+    assert s.names[-1].votes[Signal.FIRST_SURNAME] is False
+    report = str(s)
+    assert "two_family_names  True  6 for, 1 against, 0 no evidence" in report
+    assert "first-surname False  1" in report
+    assert "; 1 a father's name there" in report
+    assert "disagreeing (1): Ivan Petrovich Qqsidorov" in report
+
+
+def test_the_evidence_for_the_switch_reads_alike_in_either_order() -> None:
+    # a False and a True row of one signal sort by their value, not by
+    # which name of the list cast its vote first
+    names = ["Ivan Petrovich Qqsidorov"] + _TWO_FAMILY * 2
+    forward = _two_family(Parser().suggest(names))
+    backward = _two_family(Parser().suggest(names[::-1]))
+    assert forward.by_signal == backward.by_signal == (
+        (Signal.FIRST_SURNAME, False, 1), (Signal.FIRST_SURNAME, True, 6))
+    assert forward == backward
+
+
+def test_the_east_slavic_rule_excludes_the_switch() -> None:
+    base = Parser(policy=Policy(patronymic_rules=_EAST_SLAVIC_RULE))
+    s = base.suggest(_TWO_FAMILY * 2)
+    assert s.patch == PolicyPatch()
+    assert _two_family(s).note.startswith("not read: the East Slavic rule")
+
+
+def test_a_family_first_list_is_not_weighed_for_the_switch() -> None:
+    # no mirror under a family-first order in this version (#1452)
+    names = ["García Qqmoreno Zzana", "López Xxromero Qqluis",
+             "Pérez Vvnavarro Xxelena"] * 2
+    s = Parser(policy=Policy(name_order=FAMILY_FIRST)).suggest(names)
+    assert s.patch.two_family_names is UNSET
+    assert _two_family(s).note.startswith("not read: the order is family")
+
+
+def test_an_east_slavic_rule_the_list_decides_excludes_the_switch() -> None:
+    # read under the parser the rest of the suggestion gives, not the base
+    names = _TWO_FAMILY * 3 + [f"Ivan Petrovich Qq{c}ov" for c in "abcde"]
+    s = Parser().suggest(names)
+    assert s.patch == PolicyPatch(patronymic_rules=_EAST_SLAVIC_RULE)
+    assert _two_family(s).note.startswith("not read: the East Slavic rule")
+
+
+def test_a_family_first_order_the_list_decides_is_not_weighed() -> None:
+    names = ["Qqmoreno García Zzana", "Xxromero López Qqluis",
+             "Vvnavarro Pérez Xxelena"] * 2 + [
+        "WANG Xiao Li", "LI Ming Hua", "ZHANG Wei Qi"]
+    s = Parser().suggest(names)
+    assert s.patch.name_order == FAMILY_FIRST
+    assert s.patch.two_family_names is UNSET
+    assert _two_family(s).note.startswith("not read: the order is family")
+
+
+def test_a_capitals_switch_the_list_decides_moves_no_name() -> None:
+    # the family in capitals is read whole under capitals_as_family, so
+    # the switch would take nothing
+    names = ["Zzana García QQMORENO", "Qqluis López XXROMERO",
+             "Xxelena Pérez VVNAVARRO"] * 2
+    s = Parser().suggest(names)
+    assert s.patch == PolicyPatch(capitals_as_family=True)
+    assert (_two_family(s).decided, _two_family(s).note) == (False, "")
+
+
+def test_a_base_reading_middle_names_as_family_moves_no_name() -> None:
+    s = Parser(policy=Policy(middle_as_family=True)).suggest(_TWO_FAMILY * 2)
+    assert s.patch == PolicyPatch()
+    assert (_two_family(s).votes_for, _two_family(s).note) == (0, "")
+
+
+def test_a_base_reading_two_family_names_is_not_weighed() -> None:
+    s = Parser(policy=Policy(two_family_names=True)).suggest(_TWO_FAMILY)
+    assert s.patch == PolicyPatch()
+    assert _two_family(s).note.startswith("not read: the base reads")
+
+
+@pytest.mark.parametrize("vote", [1, 0, "yes", None, GIVEN_FIRST])
+def test_a_first_surname_vote_must_be_a_bool(vote: object) -> None:
+    with pytest.raises(TypeError, match="must be True or False"):
+        NameEvidence("Zzana García Qqmoreno", {Signal.FIRST_SURNAME: vote})  # type: ignore[dict-item]
+    for value in (True, False):
+        assert NameEvidence("Zzana García Qqmoreno", {
+            Signal.FIRST_SURNAME: value}).votes == {
+                Signal.FIRST_SURNAME: value}
+
+
+def test_every_signal_votes_on_one_setting() -> None:
+    from nameparser._suggest import _SETTING_OF
+    assert set(_SETTING_OF) == set(Signal)
+    assert set(_SETTING_OF.values()) <= {f.name for f in
+                                         dataclasses.fields(Policy)}
+
+
+def test_a_suggestion_holding_a_first_surname_vote_round_trips() -> None:
+    import pickle
+    s = Parser().suggest(_TWO_FAMILY)
+    assert any(Signal.FIRST_SURNAME in n.votes for n in s.names)
+    again = pickle.loads(pickle.dumps(s))
+    assert (again.names, again.patch) == (s.names, s.patch)
+
+
+#: Why the switch is not weighed, each reason in full, as str() prints it.
+_NOT_READ = {
+    "base": "not read: the base reads two family names already",
+    "east-slavic": ("not read: the East Slavic rule is on, and the switch "
+                    "would read a patronymic as a first surname"),
+    "family-first": ("not read: the order is family-first, and two family "
+                     "names are weighed under a given-first order alone"),
+}
+
+
+@pytest.mark.parametrize(("policy", "names", "reason"), [
+    (Policy(two_family_names=True), _TWO_FAMILY * 2, "base"),
+    # the base's own switch is asked first, before the rule and the order
+    (Policy(two_family_names=True, patronymic_rules=_EAST_SLAVIC_RULE),
+     _TWO_FAMILY * 2, "base"),
+    (Policy(two_family_names=True, name_order=FAMILY_FIRST),
+     _TWO_FAMILY * 2, "base"),
+    (Policy(), _TWO_FAMILY * 3 + [f"Ivan Petrovich Qq{c}ov" for c in "abcde"],
+     "east-slavic"),
+    (Policy(name_order=FAMILY_FIRST),
+     ["García Qqmoreno Zzana", "López Xxromero Qqluis",
+      "Pérez Vvnavarro Xxelena"] * 2, "family-first"),
+])
+def test_a_switch_not_weighed_says_why_and_casts_no_vote(
+        policy: Policy, names: list[str], reason: str) -> None:
+    # every row pins its note and the evidence; only the East Slavic row
+    # holds names that would cast a switch vote were it weighed, so it
+    # alone pins that none is cast
+    s = Parser(policy=policy).suggest(names)
+    evidence = _two_family(s)
+    assert evidence.note == _NOT_READ[reason]
+    assert (evidence.decided, evidence.votes_for, evidence.votes_against,
+            evidence.contested, evidence.no_evidence, evidence.by_signal
+            ) == (False, 0, 0, 0, len(names), ())
+    assert not any(Signal.FIRST_SURNAME in name.votes for name in s.names)
+
+
+#: A value of each setting a signal votes on, for SettingEvidence rows
+_SETTING_VALUES: dict[str, object] = {
+    "name_order": FAMILY_FIRST, "two_family_names": True,
+    "patronymic_rules": frozenset({PatronymicRule.EAST_SLAVIC})}
+
+
+def _non_order_signals() -> list[tuple[Signal, object, str, object]]:
+    from nameparser._suggest import _SETTING_OF
+    bad = {"two_family_names": 1, "patronymic_rules": "east-slavic"}
+    rows = [(signal, bad[setting], setting, _SETTING_VALUES[setting])
+            for signal, setting in _SETTING_OF.items()
+            if setting != "name_order"]
+    assert rows
+    return rows
+
+
+@pytest.mark.parametrize("signal, bad, setting, value", _non_order_signals())
+def test_a_refused_vote_offers_its_owners_shape_and_the_code_runs(
+        signal: Signal, bad: object, setting: str, value: object) -> None:
+    # a NameEvidence vote is a mapping entry, a SettingEvidence row a
+    # triple: each refusal offers its own owner's spelling (the row's
+    # offered a mapping until the 3.2 prose sweep), and that spelling
+    # is accepted where the refused one was
+    names = {"Signal": Signal, "PatronymicRule": PatronymicRule}
+    with pytest.raises(TypeError) as name_refused:
+        NameEvidence("Zzana Qqmoreno", {signal: bad})  # type: ignore[dict-item]
+    entry = eval(str(name_refused.value).rsplit("pass e.g. ", 1)[1], names)
+    NameEvidence("Zzana Qqmoreno", entry)
+    with pytest.raises(TypeError) as row_refused:
+        SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                        ((signal, bad, 2),))  # type: ignore[arg-type]
+    row = eval(str(row_refused.value).rsplit("pass e.g. ", 1)[1], names)
+    SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                    (row,))
+
+
+def _settings_voted_on() -> list[str]:
+    from nameparser._suggest import _SETTING_OF
+    settings = sorted(set(_SETTING_OF.values()))
+    assert settings
+    return settings
+
+
+#: The settings ``Parser.suggest`` returns evidence for: the three a
+#: signal votes on, and two it decides with no signal's row
+_EMITTED = (*_settings_voted_on(), "initials_as_family", "capitals_as_family")
+
+
+@pytest.mark.parametrize("setting", _EMITTED)
+def test_a_refused_by_signal_is_offered_code_its_own_setting_takes(
+        setting: str) -> None:
+    # a row that is no triple, and a by_signal that is no iterable, are
+    # each offered code the evidence's own setting accepts: a row whose
+    # signal votes on it, or no row where no signal does (the name_order
+    # row was offered for every setting until the 3.2 prose sweep)
+    from nameparser._suggest import _SETTING_OF
+    value = _SETTING_VALUES.get(setting, True)
+    names = {"Signal": Signal, "PatronymicRule": PatronymicRule,
+             "FAMILY_FIRST": FAMILY_FIRST}
+    voted_on = setting in set(_SETTING_OF.values())
+    with pytest.raises(TypeError) as refused_row:
+        SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                        ("x",))  # type: ignore[arg-type]
+    if voted_on:
+        row = eval(str(refused_row.value).rsplit("pass e.g. ", 1)[1], names)
+        SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                        (row,))
+    else:
+        assert str(refused_row.value).endswith("pass by_signal=()")
+    with pytest.raises(TypeError) as refused_rows:
+        SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                        5)  # type: ignore[arg-type]
+    offered = str(refused_rows.value).rsplit("pass e.g. ", 1)[1]
+    for code in offered.split(" or "):
+        SettingEvidence(setting, value, True, 2, 0, 0, 0,  # type: ignore[arg-type]
+                        eval(code, names))

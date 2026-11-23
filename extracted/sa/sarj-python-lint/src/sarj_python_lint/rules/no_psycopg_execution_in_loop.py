@@ -96,25 +96,46 @@ def _repeated(call: ast.Call, context: PythonFileContext) -> bool:
     child: ast.AST = call
     parent = context.parents.get(child)
     while parent is not None:
-        if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef):
-            return False
-        if (
-            isinstance(parent, ast.For | ast.AsyncFor)
-            and child in parent.body
-            and not known_single_iteration(parent.iter)
-        ):
-            return True
-        if isinstance(parent, ast.comprehension):
-            owner = context.parents.get(parent)
-            if child in parent.ifs or (
-                child is parent.iter
-                and isinstance(owner, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp)
-                and owner.generators.index(parent) > 0
+        match parent:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.Lambda() | ast.ClassDef():
+                return False
+            case ast.For() | ast.AsyncFor() if child in parent.body and not known_single_iteration(parent.iter):
+                return True
+            case ast.comprehension() if _comprehension_repeats(parent, child, context):
+                return True
+            case ast.ListComp() | ast.SetComp() | ast.GeneratorExp() if child is parent.elt and not _at_most_once(
+                parent.generators
             ):
                 return True
-        if isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp) and child is parent.elt:
-            return True
-        if isinstance(parent, ast.DictComp) and child in {parent.key, parent.value}:
-            return True
+            case ast.DictComp() if child in {parent.key, parent.value} and not _at_most_once(parent.generators):
+                return True
+            case _:
+                pass
         child, parent = parent, context.parents.get(parent)
     return False
+
+
+def _comprehension_repeats(parent: ast.comprehension, child: ast.AST, context: PythonFileContext) -> bool:
+    owner = context.parents.get(parent)
+    if not isinstance(owner, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
+        return False
+    index = owner.generators.index(parent)
+    if child in parent.ifs:
+        return not _at_most_once(owner.generators[: index + 1])
+    return child is parent.iter and index > 0 and not _at_most_once(owner.generators[:index])
+
+
+def _at_most_once(generators: list[ast.comprehension]) -> bool:
+    return any(_empty(item.iter) for item in generators) or all(
+        known_single_iteration(item.iter) for item in generators
+    )
+
+
+def _empty(iterable: ast.expr) -> bool:
+    match iterable:
+        case ast.List(elts=[]) | ast.Tuple(elts=[]) | ast.Set(elts=[]) | ast.Dict(keys=[]):
+            return True
+        case ast.Constant(value=str() | bytes() as value):
+            return not value
+        case _:
+            return False

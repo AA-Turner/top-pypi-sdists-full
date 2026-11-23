@@ -41,6 +41,8 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from pydantic import BaseModel, TypeAdapter
 
 from adcp._deferred_adapters import deferred_adapter
+from adcp._unset import UNSET as _UNSET
+from adcp.signing.constants import WEBHOOK_ACCEPTED_ADCP_USES
 from adcp.signing.crypto import (
     ALG_ED25519,
     ALG_ES256,
@@ -64,6 +66,7 @@ from adcp.types import (
     WholesaleFeedEvent,
     WholesaleFeedWebhook,
 )
+from adcp.types.base import AdCPBaseModel
 from adcp.types.domains.core.async_response_data import AdcpAsyncResponseData
 from adcp.webhook_auth import (
     AdcpLegacyHmacStrategy,
@@ -389,10 +392,8 @@ class WebhookSender:
     ) -> WebhookSender:
         """Construct from a JWK that includes the private scalar.
 
-        The JWK MUST have ``adcp_use == "webhook-signing"`` — the sender
-        doesn't validate this (you're signing with your own key; validation
-        happens at the receiver), but a key whose adcp_use is wrong will be
-        rejected by every conformant verifier.
+        The JWK must identify a purpose accepted by the AdCP webhook profile:
+        ``request-signing`` or ``webhook-signing``.
 
         ``allow_private_destinations`` and ``allowed_destination_ports``
         forward to :meth:`__init__` — see that signature for semantics.
@@ -400,15 +401,12 @@ class WebhookSender:
         # Snapshot the mapping once — a live Mapping could otherwise return
         # different values across the adcp_use / kid / d / alg reads.
         jwk_snapshot = dict(jwk)
-        if jwk_snapshot.get("adcp_use") != "webhook-signing":
+        adcp_use = jwk_snapshot.get("adcp_use")
+        if adcp_use not in WEBHOOK_ACCEPTED_ADCP_USES:
+            accepted_uses = ", ".join(sorted(WEBHOOK_ACCEPTED_ADCP_USES))
             raise ValueError(
-                f"WebhookSender requires a JWK with adcp_use='webhook-signing' "
-                f"(got {jwk_snapshot.get('adcp_use')!r}). Webhook-signing and "
-                f"request-signing keys MUST be distinct so a signature from one "
-                f"surface cannot be replayed as the other. Generate a separate "
-                f"key with adcp_use='webhook-signing' and publish it in your "
-                f"adagents.json alongside your request-signing key. See "
-                f"https://adcontextprotocol.org/docs/building/implementation/security"
+                "WebhookSender requires a JWK with an AdCP webhook signing purpose "
+                f"({accepted_uses}); got {adcp_use!r}"
             )
         alg = jwk_snapshot.get("alg")
         if alg == "EdDSA":
@@ -445,7 +443,7 @@ class WebhookSender:
     ) -> WebhookSender:
         """Load a private key from a PEM file and bind it as a webhook sender.
 
-        Companion to ``adcp-keygen --purpose webhook-signing``, which writes
+        Companion to ``adcp-keygen --purpose request-signing``, which writes
         the PEM and prints the public JWK. The JWK is published at your
         ``jwks_uri``; the PEM holds the private key material. ``from_pem``
         reads the PEM, constructs the right ``PrivateKey`` type for ``alg``,
@@ -1643,22 +1641,106 @@ class WebhookSender:
         url: str,
         account_id: str,
         subscriber_id: str,
+        seller_agent_url: str = _UNSET,
+        event_types: Sequence[str] = _UNSET,
+        authentication: AdCPBaseModel | Mapping[str, Any] | None = None,
         challenge: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> WebhookDeliveryResult:
         """POST a signed durable-subscription proof-of-control challenge.
 
         The body matches the durable ``notification_configs[]`` challenge
-        shape and intentionally does not inject ``idempotency_key``:
+        shape, binds the pending delivery authentication and event set, and
+        intentionally does not inject ``idempotency_key``:
 
         ``{"type":"webhook.challenge","challenge":"...", ...}``
 
         Pair this low-level sender method with
         :func:`adcp.webhooks.challenge_webhook_destination` when you also
         want URL validation and response echo checking in one call.
+
+        Passing ``seller_agent_url`` and ``event_types`` sends the AdCP 3.2
+        challenge and requires an RFC 9421 sender. Omitting both is
+        deprecated: it emits a :class:`DeprecationWarning` and sends the
+        four-field adcp 9.6 challenge with this sender's own authentication.
+        On a sender that does not sign with RFC 9421 (Bearer, HMAC-SHA256 or
+        Standard Webhooks) that means its non-RFC 9421 authentication, with a
+        second :class:`DeprecationWarning`. adcp 10.0 requires both arguments
+        and an RFC 9421 sender.
         """
 
-        payload = create_webhook_challenge_payload(
+        _check_challenge_fields_passed_together(
+            "WebhookSender.send_webhook_challenge",
+            seller_agent_url=seller_agent_url,
+            event_types=event_types,
+        )
+        if seller_agent_url is _UNSET:
+            return await self._send_v9_6_webhook_challenge(
+                url=url,
+                account_id=account_id,
+                subscriber_id=subscriber_id,
+                authentication=authentication,
+                challenge=challenge,
+                extra_headers=extra_headers,
+            )
+
+        if not self.signs_with_rfc9421:
+            raise ValueError("webhook challenges require RFC 9421 signing")
+
+        payload = _build_webhook_challenge_payload(
+            account_id=account_id,
+            subscriber_id=subscriber_id,
+            seller_agent_url=seller_agent_url,
+            event_types=event_types,
+            authentication=authentication,
+            challenge=challenge,
+        )
+        challenge_value = str(payload["challenge"])
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        return await self._send_bytes(
+            url=url,
+            body=body,
+            idempotency_key=challenge_value,
+            extra_headers=extra_headers,
+        )
+
+    async def _send_v9_6_webhook_challenge(
+        self,
+        *,
+        url: str,
+        account_id: str,
+        subscriber_id: str,
+        authentication: AdCPBaseModel | Mapping[str, Any] | None,
+        challenge: str | None,
+        extra_headers: Mapping[str, str] | None,
+    ) -> WebhookDeliveryResult:
+        """adcp 9.6 ``send_webhook_challenge`` behaviour, kept for 9.x callers.
+
+        Reached only when the caller omits ``seller_agent_url`` and
+        ``event_types``. Remove in 10.0, when those arguments become required.
+        """
+
+        if authentication is not None:
+            raise TypeError(
+                "WebhookSender.send_webhook_challenge() binds authentication only into "
+                "the AdCP 3.2 challenge; pass seller_agent_url and event_types too"
+            )
+        # Frames: warn helper -> this method -> send_webhook_challenge -> caller.
+        _warn_missing_challenge_fields("WebhookSender.send_webhook_challenge", stacklevel=4)
+        if not self.signs_with_rfc9421:
+            # Frames: warnings.warn -> this method -> send_webhook_challenge -> caller.
+            warnings.warn(
+                "WebhookSender.send_webhook_challenge() called on a sender that does "
+                "not sign with RFC 9421; sending the proof-of-control challenge with "
+                "this sender's non-RFC 9421 authentication. adcp 10.0 "
+                "requires an RFC 9421 sender: construct it with "
+                "WebhookSender.from_jwk(...) and pass the durable config's legacy "
+                "credentials as authentication=, together with seller_agent_url and "
+                "event_types.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+        payload = _legacy_webhook_challenge_payload(
             account_id=account_id,
             subscriber_id=subscriber_id,
             challenge=challenge,
@@ -1876,11 +1958,18 @@ class WebhookSender:
 # bottom (after the classes are defined) to break the webhooks <-> webhook_sender
 # cycle — see the note next to the removed top-level import.
 from adcp.webhooks import (  # noqa: E402
+    _build_webhook_challenge_payload,
+    _check_challenge_fields_passed_together,
+    _legacy_webhook_challenge_payload,
+    _warn_missing_challenge_fields,
     create_mcp_webhook_payload,
     create_media_buy_delivery_webhook_payload,
-    create_webhook_challenge_payload,
     generate_webhook_idempotency_key,
     to_wire_dict,
+)
+from adcp.webhooks import (
+    # Unused here since the 3.2 split; kept importable from this module as in adcp 9.6.
+    create_webhook_challenge_payload as create_webhook_challenge_payload,
 )
 
 __all__ = [

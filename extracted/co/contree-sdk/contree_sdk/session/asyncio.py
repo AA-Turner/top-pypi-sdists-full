@@ -4,6 +4,7 @@ import time
 from asyncio import Lock, shield
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
+from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 from math import ceil
@@ -31,6 +32,12 @@ from contree_sdk.session.commit_policy import AbstractCommitPolicy, ApiSuccessCo
 from contree_sdk.session.contracts import AsyncOperationContract
 from contree_sdk.session.detached import decode_response, operation_context, operation_record
 from contree_sdk.session.models import HistoryEntry
+from contree_sdk.session.networking import (
+    apply_legacy_networking,
+    validate_network_enabled,
+    validate_policy_references,
+    validate_policy_uuid,
+)
 from contree_sdk.session.operation_async import AsyncOperation
 from contree_sdk.session.records import OperationRecord
 from contree_sdk.session.tree import entry_from_node, entry_node, order_entries
@@ -103,6 +110,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         file_transfer: AsyncFileTransfer | None = None,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
+        network_enabled: bool = True,
+        network_policy: str | Sequence[str] | None = None,
+        resources_limits: InstanceResourcesLimits | None = None,
         commit_policy: AbstractCommitPolicy | None = None,
     ) -> None:
         if image is None and session_id is None:
@@ -119,6 +129,11 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         self.env_override = env
         self.cwd = cwd
         self.env: dict[str, str] = env if env is not None else {}
+        self._network_enabled = validate_network_enabled(network_enabled)
+        self._initial_network_policy = validate_policy_references(network_policy)
+        self._network_policy_uuids: tuple[str, ...] = ()
+        self.resources_limits = deepcopy(resources_limits)
+        self.resources_limits_override = self.resources_limits
         self.image_uuid: str | None = None
         self.tip_id = ""
         self.node_id = node_id
@@ -138,8 +153,81 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         async with self.init_lock:
             if self.ready:
                 return
-            await self._initialize(self.image, self.node_id, self.tree_kind)
+            await self._initialize(self.image, self.node_id, self.tree_kind, self._initial_network_policy)
             self.ready = True
+
+    @property
+    def network_policy_uuids(self) -> tuple[str, ...]:
+        """Default policy UUIDs; operations can override them without changing the session."""
+        return self._network_policy_uuids
+
+    @property
+    def network_enabled(self) -> bool:
+        """Default networking flag; operations can override it without changing the session."""
+        return self._network_enabled
+
+    async def change_network_policy(self, policy: str | Sequence[str] | None) -> None:
+        """Replace policies using UUIDs or tag:name references, singly or as a sequence.
+
+        None or an empty sequence clears the selection, restoring backend defaults.
+        UUIDs are checked and tags resolve before saving; later tag changes do not alter saved settings.
+        Sets session defaults. An operation can override them without changing defaults.
+        Use the lazy wrapper's method while it owns a VM.
+        Resolution failure leaves the selected settings unchanged.
+        """
+        references = validate_policy_references(policy)
+        await self.ensure_ready()
+        policy_uuids = await self.resolve_network_policy(references)
+        await self._set_network_policy_uuids(policy_uuids)
+
+    async def _set_network_policy_uuids(self, policy_uuids: tuple[str, ...]) -> None:
+        await self.ensure_ready()
+        self._network_policy_uuids = policy_uuids
+        await self._save_configuration()
+
+    async def resolve_network_policy(self, policy: str | Sequence[str] | None) -> tuple[str, ...]:
+        """Validate policy existence and resolve tags without changing the session or VM.
+
+        Override this hook to customize lookup. Return UUIDs, never unresolved tags.
+        Duplicate UUIDs are removed while preserving their first occurrence.
+
+        Returns:
+            The selected UUIDs, or an empty tuple for backend defaults.
+
+        """
+        resolved = []
+        for reference in dict.fromkeys(validate_policy_references(policy)):
+            if reference.startswith("tag:"):
+                tag = await self.client.get_network_policy_tag(reference.removeprefix("tag:"))
+                uuid = validate_policy_uuid(require_str(tag.uuid, "network policy tag returned no UUID"))
+            else:
+                uuid = validate_policy_uuid(reference)
+                if uuid not in resolved:
+                    await self.client.get_network_policy(uuid)
+
+            if uuid not in resolved:
+                resolved.append(uuid)
+        return tuple(resolved)
+
+    async def change_network_enabled(self, enabled: bool) -> None:
+        """Persist whether future VMs have networking, retaining the policy UUIDs.
+
+        Use the lazy wrapper's method while it owns a VM.
+        """
+        enabled = validate_network_enabled(enabled)
+        await self.ensure_ready()
+        self._network_enabled = enabled
+        await self._save_configuration()
+
+    async def change_resources_limits(self, limits: InstanceResourcesLimits | None) -> None:
+        """Replace saved VM resource defaults; None selects service defaults.
+
+        Use the lazy wrapper's method while it owns a VM.
+        """
+        limits = deepcopy(limits)
+        await self.ensure_ready()
+        self.resources_limits = limits
+        await self._save_configuration()
 
     async def set_cwd(self, cwd: str | None) -> None:
         await self.ensure_ready()
@@ -160,6 +248,8 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         parent_id = self.tip_id
         version = self._position_version
         image_uuid, cwd, env = self.image_uuid, self.cwd, dict(self.env)
+        network_policy_uuids, network_enabled = self.network_policy_uuids, self.network_enabled
+        resources_limits = deepcopy(self.resources_limits)
         branch = self._active_branch
         prepared = await self.file_transfer.prepare_files(files)
         attachments = tuple(StagedFile.from_spec(path, spec) for path, spec in (prepared or {}).items())
@@ -173,6 +263,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             attachments=attachments,
             cwd=cwd,
             env=env,
+            network_enabled=network_enabled,
+            network_policy_uuids=network_policy_uuids,
+            resources_limits=resources_limits,
         )
         await self.store.append(self.session_id, node)
         entry = entry_from_node(self.session_id, node)
@@ -214,6 +307,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         args: Iterable[str] = (),
         env: dict[str, str] | None = None,
         cwd: str | None = None,
+        network_enabled: bool | None = None,
+        network_policy: str | Sequence[str] | None = None,
+        networking: InstanceNetworking | None = None,
         stdin: InputSource | None = None,
         stdin_open: bool = False,
         files: RunFiles = None,
@@ -225,14 +321,17 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         uid: int | None = None,
         gid: int | None = None,
         resources_limits: InstanceResourcesLimits | None = None,
-        networking: InstanceNetworking | None = None,
     ) -> AsyncOperationContract:
+        network_enabled, network_policy = apply_legacy_networking(networking, network_enabled, network_policy)
+
         request = RunRequest(
             command=command,
             shell=shell,
             args=tuple(args),
             env=env,
             cwd=cwd,
+            network_enabled=network_enabled,
+            network_policy=network_policy,
             stdin=stdin,
             stdin_open=stdin_open,
             files=files,
@@ -244,7 +343,6 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             uid=uid,
             gid=gid,
             resources_limits=resources_limits,
-            networking=networking,
         )
         return await self.spawn_request(request)
 
@@ -388,6 +486,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             applied_files=record.files,
             cwd=context.session_cwd,
             env=dict(context.session_env),
+            network_enabled=context.session_network_enabled,
+            network_policy_uuids=context.session_network_policy_uuids,
+            resources_limits=context.session_resources_limits,
             payload={"record": completed.to_dict(), "staging_complete": image_uuid is not None},
         )
         try:
@@ -482,6 +583,7 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         result = instance_result(response)
         if context.request.disposable or not self.commit_policy.should_commit(context, result):
             return None
+
         node = entry_node(
             node_id=context.node_id,
             parent_id=context.parent_id,
@@ -497,6 +599,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             user=data,
             cwd=context.session_cwd,
             env=dict(context.session_env),
+            network_enabled=context.session_network_enabled,
+            network_policy_uuids=context.session_network_policy_uuids,
+            resources_limits=context.session_resources_limits,
         )
         await self.store.append(self.session_id, node)
         entry = entry_from_node(self.session_id, node)
@@ -523,6 +628,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         args: Iterable[str] = (),
         env: dict[str, str] | None = None,
         cwd: str | None = None,
+        network_enabled: bool | None = None,
+        network_policy: str | Sequence[str] | None = None,
+        networking: InstanceNetworking | None = None,
         stdin: InputSource | None = None,
         stdin_open: bool = False,
         files: RunFiles = None,
@@ -534,15 +642,18 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         uid: int | None = None,
         gid: int | None = None,
         resources_limits: InstanceResourcesLimits | None = None,
-        networking: InstanceNetworking | None = None,
         branch: str | None = None,
     ) -> PendingRun:
+        network_enabled, network_policy = apply_legacy_networking(networking, network_enabled, network_policy)
+
         request = RunRequest(
             command=command,
             shell=shell,
             args=tuple(args),
             env=env,
             cwd=cwd,
+            network_enabled=network_enabled,
+            network_policy=network_policy,
             stdin=stdin,
             stdin_open=stdin_open,
             files=files,
@@ -554,13 +665,18 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             uid=uid,
             gid=gid,
             resources_limits=resources_limits,
-            networking=networking,
         )
         return self.create_pending_run(request, branch=branch)
 
     async def refresh_from_entry(self, entry: HistoryEntry) -> None:
+        """Apply loaded state without suspending; overrides must preserve this guarantee."""
         self.tip_id = entry.id
         self.image_uuid = entry.image_uuid
+        self.cwd = entry.cwd
+        self.env = dict(entry.env)
+        self.resources_limits = deepcopy(entry.resources_limits)
+        self._network_policy_uuids = entry.network_policy_uuids
+        self._network_enabled = entry.network_enabled
 
     async def create_branch(self, name: str, *, from_branch: str | None = None) -> None:
         await self.ensure_ready()
@@ -677,17 +793,36 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         merged = {**self.env, **(env or {})}
         return merged if merged or env is not None else None
 
-    def prepare_request(self, request: RunRequest) -> RunRequest:
+    async def prepare_request(self, request: RunRequest) -> RunRequest:
         """Apply defaults before uploads or execution. Override to validate or transform commands.
 
         Returns:
             The effective command with session defaults applied.
 
         """
+        await self.ensure_ready()
+        effective_env = self.prepare_environment(request.env)
+        effective_cwd = request.cwd if request.cwd is not None else self.cwd
+        effective_resources_limits = deepcopy(
+            request.resources_limits if request.resources_limits is not None else self.resources_limits
+        )
+        effective_network_enabled = (
+            self.network_enabled
+            if request.network_enabled is None
+            else validate_network_enabled(request.network_enabled)
+        )
+        effective_network_policy_uuids = (
+            self.network_policy_uuids
+            if request.network_policy is None
+            else await self.resolve_network_policy(request.network_policy)
+        )
         return replace(
             request,
-            env=self.prepare_environment(request.env),
-            cwd=request.cwd if request.cwd is not None else self.cwd,
+            env=effective_env,
+            cwd=effective_cwd,
+            network_enabled=effective_network_enabled,
+            network_policy=effective_network_policy_uuids,
+            resources_limits=effective_resources_limits,
         )
 
     def create_inspector(self, image_uuid: str) -> AsyncImageInspector:
@@ -764,19 +899,24 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
 
         """
         await self.ensure_ready()
-        request = self.prepare_request(request)
         image_uuid = require_str(self.image_uuid, "session has no resolved image")
         parent_id = self.tip_id
         position_version = self._position_version
         session_cwd, session_env = self.cwd, dict(self.env)
+        session_resources_limits = deepcopy(self.resources_limits)
+        session_network_enabled = self.network_enabled
+        session_network_policy_uuids = self.network_policy_uuids
         branch = self._active_branch
-        staged = await self.pending_files(parent_id)
-        files = {item.path: item.as_spec() for item in staged}
+
+        request = await self.prepare_request(request)
+        files = {item.path: item.as_spec() for item in await self.pending_files(parent_id)}
         files.update(await self.file_transfer.prepare_files(request.files) or {})
         stdin = None
         if request.stdin is not None or request.stdin_open:
-            data = await self.file_transfer.read_stdin(request.stdin) if request.stdin is not None else b""
-            stdin = stream_repr_for_stdin(data, close=not request.stdin_open)
+            stdin = stream_repr_for_stdin(
+                await self.file_transfer.read_stdin(request.stdin) if request.stdin is not None else b"",
+                close=not request.stdin_open,
+            )
         context = OperationContext(
             request,
             self.session_id,
@@ -788,6 +928,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             position_version=position_version,
             session_cwd=session_cwd,
             session_env=session_env,
+            session_resources_limits=session_resources_limits,
+            session_network_enabled=session_network_enabled,
+            session_network_policy_uuids=session_network_policy_uuids,
         )
         response = await self.submit_request(request, image_uuid, files=files or None, stdin=stdin)
         try:
@@ -827,7 +970,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             uid=request.uid if request.uid is not None else ...,
             gid=request.gid if request.gid is not None else ...,
             resources_limits=request.resources_limits if request.resources_limits is not None else ...,
-            networking=request.networking if request.networking is not None else ...,
+            networking=InstanceNetworking(
+                enabled=cast("bool", request.network_enabled), policy=list(request.network_policy or ())
+            ),
             timeout=ceil(timeout) if timeout is not None else ...,
             truncate_output_at=request.truncate_output_at if request.truncate_output_at is not None else ...,
             files=files if files is not None else ...,
@@ -872,7 +1017,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             if cursor is None:
                 return result
 
-    async def _initialize(self, image: str | None, node_id: str | None, tree_kind: str) -> None:
+    async def _initialize(
+        self, image: str | None, node_id: str | None, tree_kind: str, initial_network_policy: tuple[str, ...]
+    ) -> None:
         info = await self.store.get_session(self.session_id)
         if info is None:
             if image is None:
@@ -887,8 +1034,11 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
                 image_uuid=await self.resolve_image(image),
                 kind="init",
                 created_at=time.time(),
+                network_enabled=self.network_enabled,
+                network_policy_uuids=await self.resolve_network_policy(initial_network_policy),
                 cwd=self.cwd,
                 env=self.env,
+                resources_limits=self.resources_limits,
             )
             try:
                 await self.store.append(self.session_id, root)
@@ -911,10 +1061,12 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
         else:
             node = await self.store.get_node(self.session_id, node_id)
         await self.refresh_from_entry(entry_from_node(self.session_id, node))
-        if self.cwd_override is None:
-            self.cwd = cast("str | None", node.data.get("cwd"))
-        if self.env_override is None:
-            self.env = dict(cast("dict[str, str]", node.data.get("env", {})))
+        if self.cwd_override is not None:
+            self.cwd = self.cwd_override
+        if self.env_override is not None:
+            self.env = dict(self.env_override)
+        if self.resources_limits_override is not None:
+            self.resources_limits = self.resources_limits_override
         self._branches = {"main": self.tip_id}
 
     async def get_entry(self, node_id: str) -> HistoryEntry:
@@ -949,6 +1101,9 @@ class ContreeAsyncSession(AsyncExecutor):  # noqa: PLR0904 - public extension co
             created_at=time.time(),
             cwd=self.cwd,
             env=self.env,
+            resources_limits=self.resources_limits,
+            network_enabled=self.network_enabled,
+            network_policy_uuids=self.network_policy_uuids,
         )
         await self.store.append(self.session_id, node)
         self._branches[self._active_branch] = node.id

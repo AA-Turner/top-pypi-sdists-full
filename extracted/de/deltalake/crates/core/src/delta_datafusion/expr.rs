@@ -25,13 +25,15 @@ use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
+use arrow_array::types::{Decimal128Type, DecimalType};
 use arrow_array::{Array, GenericListArray};
 use arrow_schema::{DataType, Field, Schema};
 use chrono::{DateTime, NaiveDate};
 use datafusion::catalog::Session;
 use datafusion::common::Result as DFResult;
 use datafusion::common::{
-    DFSchema, Result, ScalarValue, TableReference, ToDFSchema, config::ConfigOptions,
+    DFSchema, DataFusionError, Result, ScalarValue, TableReference, ToDFSchema,
+    config::ConfigOptions, unqualified_field_not_found,
 };
 use datafusion::execution::context::SessionState;
 use datafusion::execution::session_state::SessionStateBuilder;
@@ -316,6 +318,65 @@ pub fn parse_sql_predicate_to_kernel(
         DeltaTableError::Generic(format!(
             "Cannot use predicate {predicate:?} for file skipping: {err}. Supported are \
              column comparisons, IS [NOT] NULL, [NOT] IN, [NOT] BETWEEN, NOT, AND and OR."
+        ))
+    })
+}
+
+/// Parse a column name, as the user wrote it, into an `Expr`
+///
+/// The name is a list of identifiers such as `s.a` or `` `my.col`.a ``. Resolved in this order:
+/// - a table alias first
+/// - then a column
+/// - its struct fields.
+///
+/// A name that does not parse this way, such as `my col`, is used as it is: it names the column
+/// `my col`. If there is no such column, the error tells the user to put backticks around names.
+pub(crate) fn parse_column_name(
+    schema: &DFSchema,
+    name: &str,
+    session: &dyn Session,
+) -> DeltaResult<Expr> {
+    let idents = Parser::new(&GenericDialect {})
+        .try_with_sql(name)
+        .and_then(|mut parser| parser.parse_multipart_identifier());
+    let is_one_name = idents.is_err();
+    let idents = idents.unwrap_or_else(|_| vec![Ident::new(name)]);
+    // The planner reads an unquoted `@name` as a variable
+    let mut idents: Vec<_> = idents
+        .into_iter()
+        .map(|ident| Ident::with_quote('"', ident.value))
+        .collect();
+    let parts = idents.len();
+    let sql = if parts == 1 {
+        SqlExpr::Identifier(idents.remove(0))
+    } else {
+        SqlExpr::CompoundIdentifier(idents)
+    };
+    let context_provider = DeltaContextProvider::try_new(session)?;
+    let sql_to_rel =
+        SqlToRel::new_with_options(&context_provider, DeltaParserOptions::default().into());
+    let expr = sql_to_rel
+        .sql_to_expr(sql, schema, &mut Default::default())
+        .map_err(|err| match err {
+            // The planner gives this error, not "No field named", for an unknown name with five
+            // or more parts
+            DataFusionError::NotImplemented(_) if parts >= 5 => {
+                unqualified_field_not_found(name, schema)
+            }
+            err => err,
+        });
+    expr.map_err(DeltaTableError::from).map_err(|err| {
+        if !is_one_name {
+            return err;
+        }
+        let message = match err {
+            DeltaTableError::Generic(message) => message,
+            err => err.to_string(),
+        };
+        DeltaTableError::generic(format!(
+            "{message}\n'{name}' is read as one column name, because it is not a list of \
+             identifiers. Put backticks around each name that has a space or another special \
+             character, for example `my col`.a"
         ))
     })
 }
@@ -705,7 +766,13 @@ impl fmt::Display for ScalarValueFormat<'_> {
             ScalarValue::UInt32(e) => format_option!(f, e)?,
             ScalarValue::UInt64(e) => format_option!(f, e)?,
             ScalarValue::Decimal128(e, precision, scale) => match e {
-                Some(e) => write!(f, "'{e}'::decimal({precision}, {scale})",)?,
+                // `e` is the unscaled value; render it with the scale applied so the
+                // literal keeps its magnitude when the string is parsed again.
+                Some(e) => write!(
+                    f,
+                    "'{}'::decimal({precision}, {scale})",
+                    Decimal128Type::format_decimal(*e, *precision, *scale)
+                )?,
                 None => write!(f, "NULL")?,
             },
             ScalarValue::Date32(e) => match e {
@@ -801,7 +868,10 @@ impl fmt::Display for ScalarValueFormat<'_> {
 
 #[cfg(test)]
 mod test {
-    use arrow_schema::{DataType as ArrowDataType, Field as ArrowField, Schema as ArrowSchema};
+    use arrow_schema::{
+        DataType as ArrowDataType, Field as ArrowField, Fields as ArrowFields,
+        Schema as ArrowSchema,
+    };
     use datafusion::common::{Column, DFSchema, ScalarValue, ToDFSchema};
     use datafusion::execution::SessionStateBuilder;
     use datafusion::execution::runtime_env::RuntimeEnvBuilder;
@@ -814,6 +884,7 @@ mod test {
     use datafusion::logical_expr::expr::ScalarFunction;
     use datafusion::logical_expr::{BinaryExpr, Cast, Expr, ExprSchemable, col, lit};
     use datafusion::prelude::{SessionConfig, SessionContext};
+    use rstest::rstest;
 
     use crate::DeltaTable;
     use crate::delta_datafusion::planner::DeltaPlanner;
@@ -823,6 +894,7 @@ mod test {
     use crate::test_utils::datafusion::{WrapperSession, make_test_scalar_udf};
 
     use super::fmt_expr_to_sql;
+    use super::parse_column_name;
     use super::parse_generated_column_expression;
     use super::parse_predicate_expression;
 
@@ -986,6 +1058,65 @@ mod test {
             expr.is_ok(),
             "Expected UDF to be available during parsing but got: {expr:?}"
         );
+    }
+
+    /// The columns of a table that has the alias `t`
+    fn column_name_schema() -> DFSchema {
+        let inner = ArrowFields::from(vec![ArrowField::new("x", ArrowDataType::Int32, true)]);
+        let fields = ArrowFields::from(vec![
+            ArrowField::new("a", ArrowDataType::Int32, true),
+            ArrowField::new("inner", ArrowDataType::Struct(inner), true),
+        ]);
+        let schema = ArrowSchema::new(vec![
+            ArrowField::new("id", ArrowDataType::Int32, true),
+            ArrowField::new("Value", ArrowDataType::Int32, true),
+            ArrowField::new("s", ArrowDataType::Struct(fields.clone()), true),
+            ArrowField::new("my.col", ArrowDataType::Struct(fields), true),
+            ArrowField::new("my col", ArrowDataType::Int32, true),
+            ArrowField::new("@x", ArrowDataType::Int32, true),
+            ArrowField::new("interval", ArrowDataType::Int32, true),
+        ]);
+        DFSchema::try_from_qualified_schema("t", &schema).unwrap()
+    }
+
+    /// The column `name` of the table that has the alias `table`
+    fn column(table: &str, name: &str) -> Expr {
+        Expr::Column(Column::new(Some(table), name))
+    }
+
+    #[rstest]
+    #[case::column("id", column("t", "id"))]
+    #[case::column_with_alias("t.id", column("t", "id"))]
+    #[case::case_is_kept("Value", column("t", "Value"))]
+    #[case::struct_field("s.a", column("t", "s").field("a"))]
+    #[case::struct_field_with_alias("t.s.a", column("t", "s").field("a"))]
+    #[case::nested_struct_field("s.inner.x", column("t", "s").field("inner").field("x"))]
+    #[case::backticks("`s`.`a`", column("t", "s").field("a"))]
+    #[case::double_quotes(r#""s"."a""#, column("t", "s").field("a"))]
+    #[case::dot_in_quotes("`my.col`.a", column("t", "my.col").field("a"))]
+    #[case::space("my col", column("t", "my col"))]
+    #[case::at_sign("@x", column("t", "@x"))]
+    #[case::keyword("interval", column("t", "interval"))]
+    fn parse_column_name_returns_column_or_struct_field(
+        #[case] name: &str,
+        #[case] expected: Expr,
+    ) {
+        let session = SessionContext::new();
+        let expr = parse_column_name(&column_name_schema(), name, &session.state()).unwrap();
+        assert_eq!(expr, expected);
+    }
+
+    #[rstest]
+    #[case::other_case("value")]
+    #[case::unknown_alias("other.id")]
+    #[case::dot_without_quotes("my.col")]
+    #[case::expression("id + 1")]
+    fn parse_column_name_rejects_unknown_column(#[case] name: &str) {
+        let session = SessionContext::new();
+        let err = parse_column_name(&column_name_schema(), name, &session.state())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("No field named"), "unexpected error: {err}");
     }
 
     #[test]
@@ -1359,15 +1490,30 @@ mod test {
                     ))
                 )),
             },
+            // Decimal literals carry an unscaled value; the SQL text must apply the scale.
             ParseTest {
-                expr: col("_decimal").eq(lit(ScalarValue::Decimal128(Some(1),2,2))),
-                expected: "_decimal = '1'::decimal(2, 2)".to_string(),
-                override_expected_expr: Some(col("_decimal").eq(
-                    Expr::Cast(Cast::new(
-                        Box::from(lit("1")),
-                        arrow_schema::DataType::Decimal128(2, 2)
-                    ))
-                )),
+                expr: col("_decimal").eq(lit(ScalarValue::Decimal128(Some(1), 2, 2))),
+                expected: "_decimal = '0.01'::decimal(2, 2)".to_string(),
+                override_expected_expr: Some(col("_decimal").eq(Expr::Cast(Cast::new(
+                    Box::from(lit("0.01")),
+                    arrow_schema::DataType::Decimal128(2, 2)
+                )))),
+            },
+            ParseTest {
+                expr: col("money").gt(lit(ScalarValue::Decimal128(Some(1050), 12, 2))),
+                expected: "money > '10.50'::decimal(12, 2)".to_string(),
+                override_expected_expr: Some(col("money").gt(Expr::Cast(Cast::new(
+                    Box::from(lit("10.50")),
+                    arrow_schema::DataType::Decimal128(12, 2)
+                )))),
+            },
+            ParseTest {
+                expr: col("money").lt(lit(ScalarValue::Decimal128(Some(-105), 12, 2))),
+                expected: "money < '-1.05'::decimal(12, 2)".to_string(),
+                override_expected_expr: Some(col("money").lt(Expr::Cast(Cast::new(
+                    Box::from(lit("-1.05")),
+                    arrow_schema::DataType::Decimal128(12, 2)
+                )))),
             },
         ];
 

@@ -1081,6 +1081,7 @@ async fn lazy_load_timings_skip_an_already_published_list() {
 async fn lazy_load_timings_report_unpublished_hash_list_as_error() {
     let observer = crate::__tests__::mock_observability_client::observer();
     let (_provider, mut adapter, store) = setup_with_options(StatsigOptions {
+        enable_id_list_elias_fano: Some(false),
         lazy_load_id_lists: Some(true),
         observability_client: Some(Arc::downgrade(&observer)),
         ..Default::default()

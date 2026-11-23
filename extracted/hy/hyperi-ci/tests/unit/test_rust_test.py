@@ -314,7 +314,7 @@ class TestCoverageSaysWhenItDidNotRun:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(f"{MODULE}.shutil.which", lambda _: None)
         monkeypatch.setattr("hyperi_ci.common.is_github_actions", lambda: True)
-        assert _run_coverage("default") == -1
+        assert _run_coverage("default") is None
         out = capsys.readouterr().out
         assert "::warning title=hyperi-ci coverage skipped::" in out
         assert "did NOT run" in out
@@ -328,7 +328,7 @@ class TestCoverageSaysWhenItDidNotRun:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(f"{MODULE}.shutil.which", lambda _: None)
         monkeypatch.setattr("hyperi_ci.common.is_github_actions", lambda: False)
-        assert _run_coverage("default") == -1
+        assert _run_coverage("default") is None
         assert "::warning" not in capsys.readouterr().out
 
 
@@ -344,12 +344,13 @@ class _Recorder:
         self.streamed: list[_Call] = []
         self.ran: list[_Call] = []
         self.report_rc = 0
+        self.stream_rc = 0
 
     def stream(
         self, cmd: list[str], *, env: dict[str, str] | None = None, **_kw: Any
     ) -> tuple[int, str]:
         self.streamed.append((cmd, env))
-        return 0, ""
+        return self.stream_rc, ""
 
     def run(
         self, cmd: list[str], *, env: dict[str, str] | None = None, **_kw: Any
@@ -551,6 +552,15 @@ class TestCoverageOnTheFirstFeatureSetOnly:
         ]
         assert len(recorder.ran) == 1
 
+    @pytest.mark.parametrize("rc", [-1, -9, 101])
+    def test_a_failed_coverage_run_fails_without_a_plain_rerun(
+        self, monkeypatch: pytest.MonkeyPatch, recorder: _Recorder, rc: int
+    ) -> None:
+        _coverage_tool(monkeypatch, "cargo-llvm-cov")
+        recorder.stream_rc = rc
+        assert run(_make_config(), extra_env={"RUST_FEATURES": "a|b"}) == rc
+        assert len(recorder.streamed) == 1
+
     def test_a_missing_tool_is_reported_once(
         self, monkeypatch: pytest.MonkeyPatch, recorder: _Recorder
     ) -> None:
@@ -641,6 +651,53 @@ class TestCompileBoundary:
         monkeypatch.setattr(rust_test, "stream_cmd", stream)
         assert rust_test._run_tests(["cargo"], rust_test.SuiteTier.CORE, "x") == 0
         assert phases == ["test-compile (x)", "test-run (x)"]
+
+    @pytest.mark.parametrize(("aborted", "expected"), [(False, 0), (True, 1)])
+    def test_a_stopped_watch_fails_the_run(
+        self, monkeypatch: pytest.MonkeyPatch, aborted: bool, expected: int
+    ) -> None:
+        from hyperi_ci.languages.rust import test as rust_test
+        from hyperi_ci.memwatch import WatchSettings
+
+        class Watch:
+            def __init__(self, _settings: WatchSettings) -> None:
+                self.aborted = aborted
+
+            def __call__(self, _elapsed: float, _pid: int) -> None:
+                return None
+
+        beats: list[Any] = []
+
+        def stream(cmd: list[str], *, on_heartbeat: Any, **_kw: Any) -> tuple[int, str]:
+            beats.append(on_heartbeat)
+            return -15 if aborted else 0, ""
+
+        monkeypatch.setattr(rust_test, "_mark_peak", lambda _p: None)
+        monkeypatch.setattr(rust_test, "announce_tier", lambda *_a: None)
+        monkeypatch.setattr(rust_test, "MemoryWatch", Watch)
+        monkeypatch.setattr(rust_test, "stream_cmd", stream)
+        rc = rust_test._run_tests(
+            ["cargo"], rust_test.SuiteTier.CORE, watch=WatchSettings(50, 4)
+        )
+        assert rc == expected
+        assert isinstance(beats[0], Watch)
+
+    def test_an_unwatched_run_sends_no_heartbeat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from hyperi_ci.languages.rust import test as rust_test
+
+        beats: list[Any] = []
+
+        def stream(cmd: list[str], *, on_heartbeat: Any, **_kw: Any) -> tuple[int, str]:
+            beats.append(on_heartbeat)
+            return 0, ""
+
+        monkeypatch.setattr(rust_test, "_mark_peak", lambda _p: None)
+        monkeypatch.setattr(rust_test, "announce_tier", lambda *_a: None)
+        monkeypatch.setattr(rust_test, "stream_cmd", stream)
+        assert rust_test._run_tests(["cargo"], rust_test.SuiteTier.CORE) == 0
+        assert beats == [None]
 
     def test_an_unreadable_peak_never_fails_the_run(
         self, monkeypatch: pytest.MonkeyPatch

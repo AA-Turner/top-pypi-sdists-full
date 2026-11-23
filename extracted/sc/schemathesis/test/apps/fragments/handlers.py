@@ -128,6 +128,16 @@ def register_ignored_auth(app: Flask) -> None:
         return jsonify({"has_auth": "Authorization" in request.headers})
 
 
+def register_linked_get_server_error(app: Flask) -> None:
+    @app.route("/api/items", methods=["POST"])
+    def create_item() -> Any:
+        return jsonify({"id": 1}), 201
+
+    @app.route("/api/items/<int:item_id>", methods=["GET"])
+    def get_item(item_id: int) -> Any:
+        return jsonify({}), 500
+
+
 _SUCCESS_RESPONSE = {"read": "success!"}
 
 
@@ -388,6 +398,78 @@ def register_additional_properties_bug(app: Flask) -> None:
         for value in body.values():
             if not isinstance(value, str):
                 return jsonify({"error": "values must be strings"}), 400
+        return jsonify({"ok": True}), 200
+
+
+_CHILDREN_BY_PARENT = {"1": ["c11", "c12"], "2": ["c21", "c22"], "3": []}
+
+
+def register_parents_with_children(app: Flask) -> None:
+    # Parent IDs are JSON integers, while the path parameters declare strings.
+    @app.route("/api/parents", methods=["GET"])
+    def list_parents() -> Any:
+        if request.args.get("limit") == "0":
+            # A warning next to an empty page, as some REST APIs send.
+            return jsonify({"data": [], "errors": [{"message": "Empty page"}]}), 200
+        return jsonify({"data": [{"id": int(parent)} for parent in _CHILDREN_BY_PARENT]}), 200
+
+    @app.route("/api/parents/<parent_id>/children", methods=["GET"])
+    def list_children(parent_id: str) -> Any:
+        if parent_id not in _CHILDREN_BY_PARENT:
+            return jsonify({"detail": "Unknown parent"}), 404
+        return jsonify({"data": [{"id": child} for child in _CHILDREN_BY_PARENT[parent_id]]}), 200
+
+    @app.route("/api/parents/<parent_id>/children/<child_id>", methods=["GET"])
+    def get_child(parent_id: str, child_id: str) -> Any:
+        if child_id not in _CHILDREN_BY_PARENT.get(parent_id, []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"id": child_id}), 200
+
+    @app.route("/api/parents/<parent_id>/children/<child_id>/toys", methods=["GET"])
+    def list_toys(parent_id: str, child_id: str) -> Any:
+        if child_id not in _CHILDREN_BY_PARENT.get(parent_id, []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"data": [{"id": f"{child_id}-toy"}]}), 200
+
+    @app.route("/api/children/<child_id>", methods=["GET"])
+    def get_child_by_query(child_id: str) -> Any:
+        if child_id not in _CHILDREN_BY_PARENT.get(request.args.get("parentId", ""), []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"id": child_id}), 200
+
+    @app.route("/api/parents/<parent_id>/adoptions", methods=["POST"])
+    def adopt(parent_id: str) -> Any:
+        body = request.get_json(silent=True) or {}
+        if body.get("childId") not in _CHILDREN_BY_PARENT.get(parent_id, []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"ok": True}), 200
+
+    @app.route("/api/parents/<parent_id>/children/<child_id>/notes", methods=["POST"])
+    def add_note(parent_id: str, child_id: str) -> Any:
+        if child_id not in _CHILDREN_BY_PARENT.get(parent_id, []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"ok": True}), 200
+
+    @app.route("/api/parents/<parent_id>/guardians", methods=["POST"])
+    def guard(parent_id: str) -> Any:
+        body = request.get_json(silent=True) or {}
+        if body.get("wardId", body.get("childId")) not in _CHILDREN_BY_PARENT.get(parent_id, []):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"ok": True}), 200
+
+    @app.route("/api/parents/<parent_id>/adoptions/batch", methods=["POST"])
+    def adopt_many(parent_id: str) -> Any:
+        body = request.get_json(silent=True) or {}
+        children = _CHILDREN_BY_PARENT.get(parent_id, [])
+        if not all(child in children for child in body.get("childIds", [])):
+            return jsonify({"detail": "Unknown child"}), 404
+        return jsonify({"ok": True}), 200
+
+    @app.route("/api/transfers", methods=["POST"])
+    def transfer() -> Any:
+        body = request.get_json(silent=True) or {}
+        if body.get("childId") not in _CHILDREN_BY_PARENT.get(body.get("parentId"), []):
+            return jsonify({"detail": "Unknown child"}), 404
         return jsonify({"ok": True}), 200
 
 

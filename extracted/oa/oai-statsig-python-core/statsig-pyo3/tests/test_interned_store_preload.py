@@ -108,7 +108,7 @@ def _assert_interned_store_mmap_preload(specs_url, log_event_url, preload_kind, 
 
     memory = InternedStore.mmap_reader_memory_snapshot()
     assert memory is not None
-    assert memory.format_version == 2
+    assert memory.format_version == 3
     assert memory.mapped_bytes > 0
     assert memory.loaded_generation_count == 1
     if sys.platform == "linux":

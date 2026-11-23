@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkov
-Version: 3.4.6
+Version: 3.4.7
 Summary: Infrastructure as code static analysis
 Home-page: https://github.com/bridgecrewio/checkov
 Author: bridgecrew
@@ -43,7 +43,7 @@ Requires-Dist: argcomplete<4.0.0,>=3.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.5.0
 Requires-Dist: importlib-metadata<8.0.0,>=6.0.0
 Requires-Dist: cachetools<6.0.0,>=5.2.0
-Requires-Dist: cyclonedx-python-lib<8.0.0,>=6.0.0
+Requires-Dist: cyclonedx-python-lib<12.0.0,>=8.0.0
 Requires-Dist: packageurl-python<0.14.0,>=0.11.1
 Requires-Dist: click<9.0.0,>=8.1.0
 Requires-Dist: aiohttp<3.15.0,>=3.8.0

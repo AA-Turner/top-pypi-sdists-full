@@ -9,11 +9,17 @@ from aioquic.h3.connection import (
 )
 from aioquic.h3.events import (
     DatagramReceived,
+    GoAwayReceived,
     HeadersReceived,
+    ResetReceived,
+    StopReceived,
     WebTransportStreamDataReceived,
 )
-from aioquic.h3.exceptions import InvalidStreamIdError, InvalidStreamTypeError
-from aioquic.quic.events import DatagramFrameReceived
+from aioquic.h3.exceptions import (
+    InvalidConnectionStateError,
+    InvalidStreamIdError,
+    InvalidStreamTypeError,
+)
 
 from .test_h3 import (
     closed,
@@ -183,6 +189,28 @@ class WebTransportTest(TestCase):
             self.assertNotIn(stream_id, h3_server._stream)
             self.assertFalse(quic_server._streams[stream_id].sender.reset_pending)
 
+    def test_bidirectional_stream_after_goaway(self) -> None:
+        """
+        A server's GOAWAY rejects requests, not the WebTransport streams of a
+        session it accepted.
+        """
+        with h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
+            quic_client,
+            quic_server,
+        ):
+            h3_client = H3Connection(quic_client, enable_webtransport=True)
+            h3_server = H3Connection(quic_server, enable_webtransport=True)
+
+            # Create session, then shut down.
+            session_id = self._make_session(h3_client, h3_server)
+            h3_server.send_goaway()
+            self.assertEqual(
+                h3_transfer(quic_server, h3_client), [GoAwayReceived(stream_id=4)]
+            )
+
+            # Client opens a stream above the GOAWAY's ID, server replies.
+            self._check_bidirectional_stream(h3_client, h3_server, session_id)
+
     def test_bidirectional_stream_opener_receives_reset(self) -> None:
         """
         When the peer resets its half of a stream we opened, HTTP/3 releases the
@@ -273,6 +301,75 @@ class WebTransportTest(TestCase):
 
             # Server opens the stream, client replies.
             self._check_bidirectional_stream(h3_server, h3_client, session_id)
+
+    def test_bidirectional_stream_server_initiated_not_enabled(self) -> None:
+        """
+        A client which did not enable WebTransport closes the connection when the
+        server opens a bidirectional stream, see RFC 9114 section 6.1.
+        """
+        with h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
+            quic_client,
+            quic_server,
+        ):
+            h3_client = H3Connection(quic_client)
+            H3Connection(quic_server, enable_webtransport=True)
+            h3_transfer(quic_server, h3_client)
+
+            stream_id = quic_server.get_next_available_stream_id()
+            quic_server.send_stream_data(
+                stream_id,
+                encode_uint_var(FrameType.WEBTRANSPORT_STREAM)
+                + encode_uint_var(0)
+                + b"foo",
+            )
+            self.assertEqual(h3_transfer(quic_server, h3_client), [])
+            self.assertEqual(
+                closed(quic_client),
+                (
+                    ErrorCode.H3_STREAM_CREATION_ERROR,
+                    "Server-initiated bidirectional streams are not allowed",
+                ),
+            )
+
+    def test_bidirectional_stream_server_initiated_not_webtransport(self) -> None:
+        """
+        A client which enabled WebTransport closes the connection when a
+        bidirectional stream opened by the server is not a WebTransport stream, see
+        RFC 9114 section 6.1.
+        """
+        for data, end_stream in (
+            (
+                # ":status: 200" from the QPACK static table.
+                encode_frame(FrameType.HEADERS, b"\x00\x00\xd9")
+                + encode_frame(FrameType.DATA, b"hello"),
+                True,
+            ),
+            (encode_frame(FrameType.DATA, b"hello"), False),
+            (encode_frame(0x21, b""), False),
+            (b"", True),
+        ):
+            with (
+                self.subTest(data=data, end_stream=end_stream),
+                h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
+                    quic_client,
+                    quic_server,
+                ),
+            ):
+                h3_client = H3Connection(quic_client, enable_webtransport=True)
+                H3Connection(quic_server, enable_webtransport=True)
+                h3_transfer(quic_server, h3_client)
+
+                stream_id = quic_server.get_next_available_stream_id()
+                quic_server.send_stream_data(stream_id, data, end_stream=end_stream)
+                self.assertEqual(h3_transfer(quic_server, h3_client), [])
+                self.assertEqual(
+                    closed(quic_client),
+                    (
+                        ErrorCode.H3_STREAM_CREATION_ERROR,
+                        "Server-initiated bidirectional streams must be WebTransport "
+                        "streams",
+                    ),
+                )
 
     def test_bidirectional_stream_signal_after_unknown_frame(self) -> None:
         """
@@ -482,6 +579,41 @@ class WebTransportTest(TestCase):
             self.assertEqual(h3_transfer(quic_client, h3_server), [])
             self.assertIsNone(closed(quic_server))
 
+    def test_create_webtransport_stream_after_connection_closed(self) -> None:
+        """
+        Once the connection is closing, no WebTransport stream can be created. An
+        invalid session ID is still reported as such.
+        """
+        with h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
+            quic_client,
+            quic_server,
+        ):
+            h3_client = H3Connection(quic_client, enable_webtransport=True)
+
+            quic_client.close()
+            for is_unidirectional in (False, True):
+                with self.subTest(is_unidirectional=is_unidirectional):
+                    stream_id = quic_client.get_next_available_stream_id(
+                        is_unidirectional=is_unidirectional
+                    )
+                    with self.assertRaisesMessage(
+                        InvalidConnectionStateError,
+                        "Cannot send once the connection is closing",
+                    ):
+                        h3_client.create_webtransport_stream(
+                            0, is_unidirectional=is_unidirectional
+                        )
+                    with self.assertRaisesMessage(
+                        InvalidStreamTypeError,
+                        "WebTransport sessions can only be client-initiated "
+                        "bidirectional streams",
+                    ):
+                        h3_client.create_webtransport_stream(
+                            1, is_unidirectional=is_unidirectional
+                        )
+                    self.assertNotIn(stream_id, quic_client._streams)
+                    self.assertNotIn(stream_id, h3_client._stream)
+
     def test_create_webtransport_stream_invalid_session(self) -> None:
         """
         A session ID must be the ID of a client-initiated bidirectional stream,
@@ -548,13 +680,53 @@ class WebTransportTest(TestCase):
                         is_unidirectional=is_unidirectional
                     )
                     with self.assertRaisesMessage(
-                        InvalidStreamTypeError, "WebTransport is not enabled"
+                        InvalidConnectionStateError, "WebTransport is not enabled"
                     ):
                         h3_client.create_webtransport_stream(
                             0, is_unidirectional=is_unidirectional
                         )
                     self.assertNotIn(stream_id, quic_client._streams)
                     self.assertNotIn(stream_id, h3_client._stream)
+
+    def test_session_reset_and_stop_received(self) -> None:
+        """
+        The application is told when the peer resets or stops the CONNECT stream
+        of a session, but not one of the session's data streams.
+        """
+        with h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
+            quic_client,
+            quic_server,
+        ):
+            h3_client = H3Connection(quic_client, enable_webtransport=True)
+            h3_server = H3Connection(quic_server, enable_webtransport=True)
+
+            # Create session.
+            session_id = self._make_session(h3_client, h3_server)
+
+            # Client opens a bidirectional stream and sends data.
+            stream_id = h3_client.create_webtransport_stream(session_id)
+            quic_client.send_stream_data(stream_id, b"foo")
+            h3_transfer(quic_client, h3_server)
+
+            # Client stops and resets the data stream.
+            quic_client.stop_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            quic_client.reset_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+
+            # Client stops and resets the CONNECT stream.
+            quic_client.stop_stream(session_id, ErrorCode.H3_REQUEST_CANCELLED)
+            quic_client.reset_stream(session_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(
+                h3_transfer(quic_client, h3_server),
+                [
+                    StopReceived(
+                        error_code=ErrorCode.H3_REQUEST_CANCELLED, stream_id=session_id
+                    ),
+                    ResetReceived(
+                        error_code=ErrorCode.H3_REQUEST_CANCELLED, stream_id=session_id
+                    ),
+                ],
+            )
 
     def test_stream_fragmented_prefix(self) -> None:
         """
@@ -725,13 +897,6 @@ class WebTransportTest(TestCase):
             # create session
             session_id = self._make_session(h3_client, h3_server)
 
-            # send datagram on a server-initiated stream
-            with self.assertRaisesMessage(
-                InvalidStreamTypeError,
-                "Datagrams can only be sent for client-initiated bidirectional streams",
-            ):
-                h3_client.send_datagram(data=b"foo", stream_id=1)
-
             # send datagram
             h3_client.send_datagram(data=b"foo", stream_id=session_id)
 
@@ -742,36 +907,42 @@ class WebTransportTest(TestCase):
                 [DatagramReceived(data=b"foo", stream_id=session_id)],
             )
 
-    def test_datagram_out_of_range(self) -> None:
+    def test_datagram_data_stream(self) -> None:
+        """
+        Datagrams belong to a session, so both endpoints drop one which carries
+        the ID of a bidirectional data stream.
+        """
         with h3_client_and_server(QUIC_CONFIGURATION_OPTIONS) as (
             quic_client,
             quic_server,
         ):
             h3_client = H3Connection(quic_client, enable_webtransport=True)
             h3_server = H3Connection(quic_server, enable_webtransport=True)
+            session_id = self._make_session(h3_client, h3_server)
 
-            for stream_id in (-4, UINT_VAR_MAX + 1):
-                with self.subTest(stream_id=stream_id):
-                    with self.assertRaisesMessage(
-                        InvalidStreamIdError, "Stream ID must be between 0 and 2^62 - 1"
-                    ):
-                        h3_client.send_datagram(data=b"foo", stream_id=stream_id)
-            self.assertEqual(h3_transfer(quic_client, h3_server), [])
-
-            # The largest client-initiated bidirectional stream ID is sent.
-            h3_client.send_datagram(data=b"foo", stream_id=UINT_VAR_MAX - 3)
+            # Open a bidirectional data stream which both endpoints know.
+            stream_id = h3_client.create_webtransport_stream(session_id)
+            quic_client.send_stream_data(stream_id, b"foo")
             self.assertEqual(
                 h3_transfer(quic_client, h3_server),
-                [DatagramReceived(data=b"foo", stream_id=UINT_VAR_MAX - 3)],
+                [
+                    WebTransportStreamDataReceived(
+                        data=b"foo",
+                        session_id=session_id,
+                        stream_ended=False,
+                        stream_id=stream_id,
+                    )
+                ],
             )
 
-    def test_handle_datagram_truncated(self) -> None:
-        with h3_client_and_server() as (quic_client, quic_server):
-            h3_server = H3Connection(quic_server)
-
-            # receive a datagram with a truncated session ID
-            h3_server.handle_event(DatagramFrameReceived(data=b"\xff"))
-            self.assertEqual(
-                closed(quic_server),
-                (ErrorCode.H3_DATAGRAM_ERROR, "Could not parse quarter stream ID"),
-            )
+            for quic_sender, h3_receiver in [
+                (quic_client, h3_server),
+                (quic_server, h3_client),
+            ]:
+                with self.subTest(is_client=quic_sender is quic_client):
+                    # The sender's QUIC connection sends the datagram directly.
+                    quic_sender.send_datagram_frame(
+                        encode_uint_var(stream_id // 4) + b"bar"
+                    )
+                    self.assertEqual(h3_transfer(quic_sender, h3_receiver), [])
+                    self.assertIsNone(closed(h3_receiver._quic))

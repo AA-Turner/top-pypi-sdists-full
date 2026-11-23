@@ -22,7 +22,7 @@ import h5py
 import warnings
 
 # hickle imports
-from hickle.helpers import PyContainer,NotHicklable,no_compression,nobody_is_my_name
+from hickle.helpers import PyContainer,NotHicklable,no_compression,_MISSING
 
 
 # Define conversion dict of all dict key types which shall be mapped
@@ -170,8 +170,7 @@ def create_listlike_dataset(py_obj, h_group, name,list_len = -1,item_dtype = Non
         # strings and bytes are stored as array of bytes with strings encoded
         # using utf8 encoding
         string_data = bytearray(py_obj,"utf8") if isinstance(py_obj,str) else memoryview(py_obj)
-        string_data = np.array(string_data,copy=False)
-        string_data.dtype = 'S1'
+        string_data = np.asarray(string_data).view('S1')
         dataset = h_group.create_dataset( name, data = string_data,shape = (1,string_data.size), **kwargs)
         dataset.attrs["str_type"] = py_obj.__class__.__name__.encode("ascii")
         return dataset,()
@@ -385,7 +384,7 @@ def load_list_dataset(h_node,base_type,py_obj_type):
         if h_node.dtype.itemsize > 1 and 'bytes' in h_node.dtype.name:
 
             # string dataset 4.0.x style convert it back to python string
-            content = np.array(content, copy=False, dtype=str).tolist()
+            content = np.asarray(content, dtype=str).tolist()
         else:
 
             # decode bytes representing python string before final conversion
@@ -435,7 +434,7 @@ class ListLikeContainer(PyContainer):
         # if number of items is defined upon group resize content to
         # at least match this amount of subitems
         num_items = h5_attrs.get('num_items',0)
-        super(ListLikeContainer,self).__init__(h5_attrs,base_type,object_type,_content = [nobody_is_my_name] * num_items)
+        super(ListLikeContainer,self).__init__(h5_attrs,base_type,object_type,_content = [_MISSING] * num_items)
 
     def append(self,name,item,h5_attrs):
         # load item index from attributes if known else extract it from name 
@@ -443,15 +442,15 @@ class ListLikeContainer(PyContainer):
         if index is None:
             index_match = self.extract_index.search(name)
             if index_match is None:
-                if item is nobody_is_my_name:
+                if item is _MISSING:
                     # dummy data injected likely by load_nothing, ignore it
                     return
                 raise KeyError("List like item name '{}' not understood".format(name))
             index = int(index_match.group(0))
         # if index exceeds capacity of extend list appropriately
         if len(self._content) <= index:
-            self._content.extend([nobody_is_my_name] * ( index - len(self._content) + 1 ))
-        if self._content[index] is not nobody_is_my_name:
+            self._content.extend([_MISSING] * ( index - len(self._content) + 1 ))
+        if self._content[index] is not _MISSING:
             raise IndexError("Index {} already set".format(index))
         self._content[index] = item
         
@@ -509,13 +508,13 @@ class DictLikeContainer(PyContainer):
             )
         key_index = h5_attrs.get('key_idx',None)
         if key_index is None:
-            if item[1] is nobody_is_my_name:
+            if item[1] is _MISSING:
                 # dummy data injected most likely by load_nothing ignore it
                 return
             raise KeyError("invalid dict item key_index missing")
         if len(self._content) <= key_index:
-            self._content.extend([nobody_is_my_name] * ( key_index - len(self._content) + 1))
-        if self._content[key_index] is not nobody_is_my_name:
+            self._content.extend([_MISSING] * ( key_index - len(self._content) + 1))
+        if self._content[key_index] is not _MISSING:
             raise IndexError("Key index {} already set".format(key_index))
         self._content[key_index] = item
 

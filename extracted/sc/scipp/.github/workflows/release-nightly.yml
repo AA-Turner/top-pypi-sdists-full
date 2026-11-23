@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15-intel, macos-15, windows-2022, ubuntu-24.04-arm]
+        os: [ubuntu-24.04, macos-15-intel, macos-15, windows-2022, ubuntu-24.04-arm, windows-11-arm]
         build: [cp312, cp313, cp314, cp314t]
         nightly: [true]
     uses: ./.github/workflows/wheel.yml
@@ -34,7 +34,7 @@ jobs:
           curl --silent "https://api.anaconda.org/package/scipp-nightly-wheels/scipp" | jq -r '.releases[] | select(.version | contains("dev")) | .full_name' > dev_wheels.txt
           cat dev_wheels.txt
       - name: Upload wheel to pypi.anaconda.org/scipp-nightly-wheels/simple
-        uses: scientific-python/upload-nightly-action@e76cfec8a4611fd02808a801b0ff5a7d7c1b2d99 # 0.6.4
+        uses: scientific-python/upload-nightly-action@5a74a2a4ec19d7ab8b5317c1cdd356c150d92cd0 # 0.6.6
         with:
           artifacts_path: dist
           anaconda_nightly_upload_organization: scipp-nightly-wheels

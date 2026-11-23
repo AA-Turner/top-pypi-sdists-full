@@ -43,7 +43,7 @@ def interpreter(monkeypatch):
 def _keys():
     return (
         eznec.config_key(None, 600.0),
-        eznec.config_key("razor-2p", 600.0, "nec5"),
+        eznec.config_key("razor2p", 600.0, "nec5"),
         eznec.config_key(None, 600.0, "nec4"),
         nec2c.config_key([], 600.0),
     )
@@ -75,6 +75,7 @@ def test_outside_a_venv_the_key_is_the_one_it_was(interpreter):
             BASE,
             repr(600.0),
             mech.WIRE,
+            mech.ADVISORIES_WIRE,
             "default",
             *mech.junction_rule_identity(),
             # momwire#1893: nothing when no thread variable is set, but the

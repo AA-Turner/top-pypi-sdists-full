@@ -527,6 +527,13 @@ def __getattr__(name: str) -> Any:
         return importlib.import_module(".act.teleop_handle", __name__).TeleopHandle
 
 
+    if name in _CLOUD_NAMES:
+        api = first("sequence_ai.api")
+        if api is not None and name in getattr(api, "__all__", ()):
+            return getattr(api, name)
+        raise AttributeError(needs_cloud(f"sequence_ai.{name}"))
+
+
 
     spec = None if name.startswith("__") else importlib.util.find_spec(f"{__name__}.{name}")
     if name.startswith("__") or (spec is not None and spec.origin is not None):
@@ -534,8 +541,6 @@ def __getattr__(name: str) -> Any:
     api = first("sequence_ai.api")
     if api is not None and name in getattr(api, "__all__", ()):
         return getattr(api, name)
-    if name in _CLOUD_NAMES:
-        raise AttributeError(needs_cloud(f"sequence_ai.{name}"))
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

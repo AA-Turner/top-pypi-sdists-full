@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: json-logging
-Version: 1.6.0
+Version: 1.7.0
 Summary: JSON Python Logging
-Home-page: https://github.com/thangbn/json-logging
-Author: Bob T., Udit Agrawal
-Maintainer: Udit Agrawal
+Home-page: https://github.com/bobbui/json-logging-python
+Author: Bob Bui, Udit Agrawal, Srinivas Chippagiri
+Maintainer: Udit Agrawal, Srinivas Chippagiri
 License: Apache License 2.0
 Keywords: json,elastic,python,python3,python2,logging,logging-library,json,elasticsearch,elk,elk-stack,logstash,kibana
 Platform: any

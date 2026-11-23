@@ -3,14 +3,13 @@ mod http_transport;
 use http_transport::IdListHttpTransport;
 #[path = "snapshot_http.rs"]
 mod snapshot_http;
+use super::SharedInitialBaseCache;
 use super::id_list_load_timing::{self, Phase};
 use super::id_list_updates::id_list_range_start;
-use super::statsig_shared_id_lists_adapter::PublishingListener;
 use super::{
     IdList, IdListManifest, IdListManifestEntry, IdListMetadata, IdListUpdateBatch,
     PreparedIdListUpdate,
 };
-use super::{SharedInitialBaseCache, UpdateMode};
 use crate::id_lists_adapter::{
     IdListPublicationMode, IdListUpdate, IdListsAdapter, IdListsUpdateListener,
 };
@@ -62,9 +61,8 @@ tokio::task_local! {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum RefreshTrigger {
-    PrivateInitialize,
-    SharedInitialize,
+enum RefreshTrigger {
+    Initialize,
     Background,
 }
 
@@ -77,7 +75,6 @@ struct AdapterShutdown {
 
 #[derive(Clone)]
 enum HttpIdListsListener {
-    Publisher(Arc<PublishingListener>),
     Store(Arc<SpecStore>),
     External(Arc<dyn IdListsUpdateListener>),
 }
@@ -92,7 +89,6 @@ impl HttpIdListsListener {
     fn as_ref(&self) -> &dyn IdListsUpdateListener {
         match self {
             Self::Store(store) => store.as_ref(),
-            Self::Publisher(publisher) => publisher.as_ref(),
             Self::External(listener) => listener.as_ref(),
         }
     }
@@ -104,7 +100,6 @@ impl HttpIdListsListener {
     ) -> Result<(), StatsigErr> {
         match self {
             Self::Store(store) => store.publish_prepared_id_lists(batch, eager_downloads),
-            Self::Publisher(publisher) => publisher.publish_prepared_id_lists(batch),
             Self::External(listener) => {
                 batch.publish_to_listener(listener.as_ref(), eager_downloads)
             }
@@ -118,8 +113,7 @@ pub struct StatsigHttpIdListsAdapter {
     initial_base_cache: Option<Arc<SharedInitialBaseCache>>,
     listener: RwLock<Option<HttpIdListsListener>>,
     pub(crate) membership_resolver: OnceLock<Weak<RemoteIdListResolver>>,
-    pub(super) membership_publisher: Option<Arc<PublishingListener>>,
-    pub(super) refresh_gate: Arc<tokio::sync::Mutex<()>>,
+    refresh_gate: Arc<tokio::sync::Mutex<()>>,
     transport: IdListHttpTransport,
     sync_interval_duration: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
@@ -137,7 +131,7 @@ fn publication_stopped() -> StatsigErr {
 }
 
 impl StatsigHttpIdListsAdapter {
-    pub(super) fn partial_refresh_enabled(options: &StatsigOptions) -> bool {
+    fn partial_refresh_enabled(options: &StatsigOptions) -> bool {
         if options.lazy_load_id_lists == Some(true) {
             return false;
         }
@@ -152,36 +146,6 @@ impl StatsigHttpIdListsAdapter {
 
     #[must_use]
     pub fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
-        Self::with_partial_refresh(sdk_key, options, Self::partial_refresh_enabled(options))
-    }
-
-    pub(crate) fn new_with_store(
-        sdk_key: &str,
-        options: &StatsigOptions,
-        store: Arc<SpecStore>,
-    ) -> Self {
-        let mut adapter = Self::new(sdk_key, options);
-        if let Some(lazy) = &mut adapter.lazy_id_lists {
-            let env = std::env::var_os("STATSIG_PARALLEL_LAZY_ID_LIST_BUILDS");
-            if parallel_lazy_builds_enabled(options, env.as_deref()) {
-                lazy.build_permits =
-                    Some(Arc::new(Semaphore::new(PRIVATE_INDEX_BUILD_CONCURRENCY)));
-            }
-        }
-        *adapter.listener.get_mut() = Some(HttpIdListsListener::Store(store));
-        adapter
-    }
-
-    pub(crate) fn with_initial_base_cache(mut self, cache: Option<SharedInitialBaseCache>) -> Self {
-        self.initial_base_cache = cache.map(Arc::new);
-        self
-    }
-
-    pub(super) fn with_partial_refresh(
-        sdk_key: &str,
-        options: &StatsigOptions,
-        partial_refresh: bool,
-    ) -> Self {
         let output_policy = crate::output_policy::OutputPolicy::from_options(Some(options));
         let _output_scope = output_policy.enter();
         let sync_interval_duration = Duration::from_millis(u64::from(
@@ -195,11 +159,10 @@ impl StatsigHttpIdListsAdapter {
 
         Self {
             output_policy,
-            partial_refresh,
+            partial_refresh: Self::partial_refresh_enabled(options),
             initial_base_cache: None,
             listener: RwLock::new(None),
             membership_resolver: OnceLock::new(),
-            membership_publisher: None,
             refresh_gate: Default::default(),
             transport: IdListHttpTransport::new(sdk_key, options, ops_stats.clone()),
             sync_interval_duration,
@@ -217,6 +180,26 @@ impl StatsigHttpIdListsAdapter {
         }
     }
 
+    pub(crate) fn new_with_store(
+        sdk_key: &str,
+        options: &StatsigOptions,
+        store: Arc<SpecStore>,
+    ) -> Self {
+        let mut adapter = Self::new(sdk_key, options);
+        if let Some(lazy) = &mut adapter.lazy_id_lists {
+            let env = std::env::var_os("STATSIG_PARALLEL_LAZY_ID_LIST_BUILDS");
+            if parallel_lazy_builds_enabled(options, env.as_deref()) {
+                lazy.build_permits =
+                    Some(Arc::new(Semaphore::new(PRIVATE_INDEX_BUILD_CONCURRENCY)));
+            }
+        }
+        adapter.initial_base_cache =
+            SharedInitialBaseCache::from_options(sdk_key, options, &adapter.ops_stats)
+                .map(Arc::new);
+        *adapter.listener.get_mut() = Some(HttpIdListsListener::Store(store));
+        adapter
+    }
+
     pub(crate) fn network(&self) -> Arc<NetworkClient> {
         Arc::clone(&self.transport.network)
     }
@@ -227,7 +210,7 @@ impl StatsigHttpIdListsAdapter {
         drop(self.shutdown.handoff.lock());
     }
 
-    pub(super) fn signal_shutdown(&self) {
+    fn signal_shutdown(&self) {
         let _output_scope = self.output_policy.enter();
         self.transport.network.shutdown();
         self.shutdown.notify.notify_waiters();
@@ -243,14 +226,7 @@ impl StatsigHttpIdListsAdapter {
             .set_network_provider_for_test(provider);
     }
 
-    pub(super) fn set_publisher(&self, publisher: Arc<PublishingListener>) {
-        let _old = self
-            .listener
-            .write()
-            .replace(HttpIdListsListener::Publisher(publisher));
-    }
-
-    pub(crate) fn set_listener(&self, listener: Arc<dyn IdListsUpdateListener>) {
+    fn set_listener(&self, listener: Arc<dyn IdListsUpdateListener>) {
         let _old = self
             .listener
             .write()
@@ -293,7 +269,7 @@ impl StatsigHttpIdListsAdapter {
         }
     }
 
-    pub(super) async fn refresh(&self, trigger: RefreshTrigger) -> Result<(), StatsigErr> {
+    async fn refresh(&self, trigger: RefreshTrigger) -> Result<(), StatsigErr> {
         self.refresh_with_listener(trigger, None).await
     }
 
@@ -343,7 +319,7 @@ impl StatsigHttpIdListsAdapter {
 
     #[cfg(test)]
     async fn sync_id_lists(&self) -> Result<(), StatsigErr> {
-        self.refresh(RefreshTrigger::PrivateInitialize).await
+        self.refresh(RefreshTrigger::Initialize).await
     }
 
     async fn sync_id_lists_with_trigger(
@@ -371,15 +347,17 @@ impl StatsigHttpIdListsAdapter {
         let new_manifest = self
             .transport
             .fetch_id_list_manifests_from_network(background)
-            .await?;
+            .await;
         if let Some(resolver) = self.membership_resolver.get().and_then(Weak::upgrade) {
             let _handoff = self.shutdown.handoff.lock();
             self.ensure_running()?;
-            resolver.observe_manifest(&new_manifest);
+            // Shared eager workers used to trust revisions for the lifetime of the catalog.
+            let shared_eager = self.initial_base_cache.is_some() && self.lazy_id_lists.is_none();
+            let max_age = shared_eager
+                .then(|| (self.sync_interval_duration * 3).max(Duration::from_secs(180)));
+            resolver.observe_manifest_poll(new_manifest.as_ref().ok(), max_age);
         }
-        if let Some(publisher) = &self.membership_publisher {
-            publisher.stage_manifest_revisions(&new_manifest);
-        }
+        let new_manifest = new_manifest?;
         self.transport.add_process_start_marker(
             KeyType::GetIDListSources,
             Some(new_manifest.len()),
@@ -417,7 +395,7 @@ impl StatsigHttpIdListsAdapter {
                     successful_downloads,
                 )
                 .await?;
-            let eager_downloads = (trigger == RefreshTrigger::PrivateInitialize
+            let eager_downloads = (trigger == RefreshTrigger::Initialize
                 && *successful_downloads > 0
                 && listener.as_ref().uses_parallel_id_list_init())
             .then_some(*successful_downloads);
@@ -713,8 +691,9 @@ impl StatsigHttpIdListsAdapter {
             return Ok((job.name, download.prepare(job.metadata)));
         };
         let body = download.prepare(job.metadata.clone());
+        let manifest_size = job.metadata.size;
         match self
-            .run_cache_task(cache, build, move |cache| body.offer(cache))
+            .run_cache_task(cache, build, move |cache| body.offer(cache, manifest_size))
             .await
         {
             Ok(body) => Ok((job.name, body)),
@@ -772,8 +751,6 @@ impl StatsigHttpIdListsAdapter {
         let offload =
             blocking_listener || eager_downloads.is_some() || self.initial_base_cache.is_some();
         let stopped = self.transport.network.shutdown_flag();
-        // Keep the elected listener (and its lease) through installation, even if
-        // the refresh future is cancelled while a blocking publication is running.
         let publish = move |stopped: &AtomicBool| {
             id_list_load_timing::measure(Phase::ParsePublish, || {
                 if stopped.load(Ordering::SeqCst) {
@@ -1216,7 +1193,7 @@ impl MaterializedIdList {
         }
     }
 
-    fn offer(self, cache: &SharedInitialBaseCache) -> Self {
+    fn offer(self, cache: &SharedInitialBaseCache, manifest_size: u64) -> Self {
         if let PreparedIdListUpdate::Raw(raw) = &self.update {
             if self.range.end > raw.new_metadata.size
                 || !raw
@@ -1227,8 +1204,8 @@ impl MaterializedIdList {
                 return self;
             }
         }
-        let list = IdList::build(None, self.update, UpdateMode::Private(cache.encoding));
-        Self::base(cache.offer(list), self.downloaded)
+        let list = IdList::build(None, self.update, cache.encoding);
+        Self::base(cache.offer_prefix(list, manifest_size), self.downloaded)
     }
 }
 
@@ -1403,7 +1380,7 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
         listener: Arc<dyn IdListsUpdateListener + Send + Sync>,
     ) -> Result<(), StatsigErr> {
         self.output_policy
-            .scope(self.refresh_with_listener(RefreshTrigger::PrivateInitialize, Some(listener)))
+            .scope(self.refresh_with_listener(RefreshTrigger::Initialize, Some(listener)))
             .await
     }
 

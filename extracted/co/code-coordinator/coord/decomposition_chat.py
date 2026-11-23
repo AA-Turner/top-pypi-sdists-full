@@ -1550,22 +1550,23 @@ def _repoint_queued_dependents_at_split(
             )
 
 
-def _original_milestone_title(repo: "Repo", issue_number: int) -> str | None:
-    """The milestone title *issue_number* already carries, or ``None``.
+def _original_milestone_title(issue_data: dict) -> str | None:
+    """The milestone title *issue_data* already carries, or ``None``.
 
     #4064: a split's children (and its tracker epic, when one is filed)
     must land on the SAME milestone as the issue being split — otherwise
     they're invisible in the Plans panel and ``coord milestone
     write-order`` refuses them outright (it requires every node to share
-    one milestone). :func:`coord.github_ops.get_issue`'s own ``milestone``
-    field is already ``None``/``{"number": ..., "title": ...}`` — the exact
-    shape ``coord milestone order`` resolves a tracking issue's milestone
-    from — so this re-fetches through that one answer rather than deriving
-    a second notion of "this issue's milestone" (#2096).
+    one milestone). *issue_data* is :func:`coord.github_ops.get_issue`'s
+    own response — its ``milestone`` field is already
+    ``None``/``{"number": ..., "title": ...}``, the exact shape ``coord
+    milestone order`` resolves a tracking issue's milestone from, so this
+    reads through that one answer rather than deriving a second notion of
+    "this issue's milestone" (#2096). Takes the caller's own already-
+    fetched issue dict rather than re-fetching by number (#4077 review) —
+    every call site already has one on hand by the time it needs this.
     """
-    from coord import github_ops  # noqa: PLC0415
-
-    milestone = github_ops.get_issue(repo.github, issue_number).get("milestone")
+    milestone = issue_data.get("milestone")
     if isinstance(milestone, dict):
         title = milestone.get("title")
         if title:
@@ -1768,18 +1769,58 @@ def _splice_split_into_parent_epic(
         )
 
 
+#: Matches the one fixed phrase :func:`file_and_queue_split_proposal`'s own
+#: close comment always contains — `f"Superseded by #{epic_number} — split
+#: into {len(proposal.chunks)} child issue(s) per the {origin}."` — as a
+#: single anchored sequence rather than two substrings matched
+#: independently anywhere in the body, so an unrelated comment that merely
+#: happens to contain both words (e.g. "Superseded by #900 — I'd rather
+#: this were split into three") can never false-positive this guard
+#: (#2096, #4077).
+_SUPERSEDED_COMMENT_RE = re.compile(r"Superseded by #\d+ — split into ")
+
+
+def _already_has_superseded_comment(repo: "Repo", issue_number: int) -> bool:
+    """True when *issue_number* already carries the "Superseded by #N —
+    split into" comment :func:`file_and_queue_split_proposal` posts on the
+    original it closes (#4077).
+
+    Best-effort, mirroring :func:`find_filed_split_epic`'s own "the issue
+    list itself cannot be fetched" fallback: a transient failure fetching
+    comments must never block a legitimate split, so this reports ``False``
+    (same as "no such comment found") rather than letting the fetch
+    failure propagate out of a guard that is only ever a belt-and-braces
+    extra check, never the sole gate.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    try:
+        comments = github_ops.get_issue_comments(repo.github, issue_number)
+    except Exception:  # noqa: BLE001 — best-effort guard, not a precondition
+        return False
+    return any(
+        _SUPERSEDED_COMMENT_RE.search(comment.get("body") or "")
+        for comment in comments
+    )
+
+
 def file_and_queue_split_proposal(
     *,
     proposal: "SplitProposal",
     verification: "SplitVerification",
     repo: "Repo",
     origin: str = "preflight size-triage review",
-) -> int:
+) -> int | None:
     """File *proposal*'s chunks as real child issues and queue them (#4064).
 
     *origin* names what proposed the split; it is quoted in the epic body
     (when a new tracker is filed) and in the comment closing the
     superseded original.
+
+    Returns ``None``, filing nothing, when a belt-and-braces re-read of the
+    original right here finds it already superseded — see the "Idempotency"
+    paragraph below. Every other documented outcome below still returns the
+    real epic number.
 
     Called only after :func:`coord.preflight_size.verify_split_proposal` has
     returned ``ok=True`` for *verification* — this function trusts
@@ -1795,27 +1836,40 @@ def file_and_queue_split_proposal(
     them vanish from the Plans panel / ``coord milestone write-order``'s
     one-shared-milestone requirement) and look for an open epic that
     already parents the original (:func:`_find_parent_epic`); file each
-    child in ``proposal.chunks`` order on that milestone; either splice the
-    remapped work order into that parent epic
+    child in ``proposal.chunks`` order on that milestone, its body built by
+    :func:`coord.preflight_size.build_slice_child_body` (a short header
+    naming this slice's own scope and every sibling's, followed by the
+    ORIGINAL's complete body, verbatim — #4081, never a one-line summary)
+    and then re-written once every child exists so the header's sibling
+    placeholders resolve to their real issue numbers
+    (:func:`coord.preflight_size.substitute_slice_tokens`); either splice
+    the remapped work order into that parent epic
     (:func:`_splice_split_into_parent_epic`) or, when the original has no
     parent, file a brand-new tracker epic and splice into THAT instead
     (never both — #4064's whole point is one parent, not two); queue each
-    child (confirming every queue write with a readback — an unconfirmed
-    queue insert is not a queued child); re-point every ALREADY-queued
-    entry whose ``after=`` names the original onto the split's sink
-    children (:func:`_repoint_queued_dependents_at_split`, #3984 —
-    otherwise ``drive_queue._resolve_prereqs``'s ``live_prereq_terminal``
-    recovery reads the original's close as "pre-req satisfied" and
-    launches every dependent before any child has landed); then close the
-    original issue pointing at the new epic — forcing past the "open
-    children" guard (the original's own body is exactly the shape expected
-    to trip it once it already carries a ``## Sub-issues``/``## Work
-    order`` block, e.g. from a prior triage pass) and confirming the close
-    itself with a readback, since `close_issue()` returning without
-    raising only proves the close *request* was issued, not that GitHub
-    actually ended up with the issue closed (#2096). Returns the epic's
-    issue number — the real parent's, when one was spliced into, else the
-    freshly filed tracker's.
+    child, its own ``after=`` the union of its proposal-declared
+    predecessors with whatever the ORIGINAL issue's own drive-queue row
+    already declared (#4081 — a root chunk, e.g. the cross-backend split's
+    seam, inherits the original's own prereqs so nothing in the split can
+    launch before the original itself could have; mirrors
+    `coord.milestone_order._splice_replace_node`'s identical "a node with
+    no declared `after` inherits the node it replaced" rule for the epic
+    body one line below) — confirming every queue write with a readback,
+    since an unconfirmed queue insert is not a queued child; re-point every
+    ALREADY-queued entry whose ``after=`` names the original onto the
+    split's sink children (:func:`_repoint_queued_dependents_at_split`,
+    #3984 — otherwise ``drive_queue._resolve_prereqs``'s
+    ``live_prereq_terminal`` recovery reads the original's close as
+    "pre-req satisfied" and launches every dependent before any child has
+    landed); then close the original issue pointing at the new epic —
+    forcing past the "open children" guard (the original's own body is
+    exactly the shape expected to trip it once it already carries a ``##
+    Sub-issues``/``## Work order`` block, e.g. from a prior triage pass)
+    and confirming the close itself with a readback, since `close_issue()`
+    returning without raising only proves the close *request* was issued,
+    not that GitHub actually ended up with the issue closed (#2096).
+    Returns the epic's issue number — the real parent's, when one was
+    spliced into, else the freshly filed tracker's.
 
     A failure partway through (a `gh` call failing, a queue write or close
     that doesn't read back) is allowed to raise — by that point real
@@ -1823,6 +1877,27 @@ def file_and_queue_split_proposal(
     the original" left to fall back to; the caller's own abort-on-rejection
     path is for *before* this function is ever called, when
     ``verification.ok`` is still ``False``.
+
+    **Idempotency (#4077):** before touching anything, re-reads *proposal*'s
+    own original issue and refuses — logging and returning ``None``,
+    filing nothing — when it is already closed, or already carries the
+    literal ``"Superseded by #N — split into"`` comment the close below
+    writes. This is a best-effort, SEPARATE, later read than whatever
+    check a caller made first (:func:`find_filed_split_epic` in
+    :func:`auto_split_needs_decomposition` / `coord.board_doctor_policy`'s
+    decomposition act tier) — two attempts for the same original close
+    enough together that neither has filed anything yet can both pass
+    this re-read too, so it is a backstop for an already-superseded
+    original reopened or otherwise re-triggered later, NOT the primary
+    defense against two overlapping deliveries of the SAME work
+    assignment's transition. That primary defense is
+    :func:`coord.state.claim_needs_decomposition_split` — an atomic DB-
+    level claim taken in `coord.notify._capture_needs_decomposition_split`
+    BEFORE either delivery ever reaches this function at all, so the
+    loser never calls it. `coord.dispatch`'s two inline call sites have no
+    such upstream claim (they are not keyed on a work assignment id, so
+    there is nothing to claim against) — this re-read is their only
+    protection, and it is what they get: best-effort, not atomic.
     """
     from coord import github_ops
     from coord.milestone_order import (
@@ -1832,11 +1907,29 @@ def file_and_queue_split_proposal(
         render_sub_issues,
         replace_sub_issues_section,
     )
+    from coord.preflight_size import build_slice_child_body, substitute_slice_tokens
     from coord.state import enqueue_drive_queue, get_drive_queue_entry
+
+    original = github_ops.get_issue(repo.github, proposal.issue_number)
+    if str(original.get("state") or "").upper() == "CLOSED":
+        _log.warning(
+            "file_and_queue_split_proposal: %s#%s is already closed — "
+            "refusing to file a second split for it",
+            repo.name, proposal.issue_number,
+        )
+        return None
+    if _already_has_superseded_comment(repo, proposal.issue_number):
+        _log.warning(
+            "file_and_queue_split_proposal: %s#%s already carries a "
+            "superseded-by-split comment — refusing to file a second "
+            "split for it",
+            repo.name, proposal.issue_number,
+        )
+        return None
 
     assert verification.work_order is not None  # guaranteed by ok=True
 
-    milestone_title = _original_milestone_title(repo, proposal.issue_number)
+    milestone_title = _original_milestone_title(original)
     parent = _find_parent_epic(repo, proposal.issue_number)
 
     split_marker_prefix = f"Split from #{proposal.issue_number} by the {origin}."
@@ -1870,15 +1963,42 @@ def file_and_queue_split_proposal(
         )
         epic_number = epic["number"]
 
+    # #4081: the parent's own body — every child below carries this
+    # verbatim, never a one-line summary.
+    parent_body = original.get("body")
+
     position_to_real: dict[int, int] = {}
     for position, chunk in enumerate(proposal.chunks, start=1):
-        files_block = "\n".join(f"- {f}" for f in chunk.files_likely)
-        child_body = f"{chunk.scope}\n\n## Files\n{files_block}\n"
+        child_body = build_slice_child_body(
+            parent_issue_number=proposal.issue_number,
+            parent_body=parent_body,
+            position=position,
+            chunks=proposal.chunks,
+        )
         child = github_ops.create_issue(
             repo.github, title=chunk.title, body=child_body,
             milestone=milestone_title,
         )
         position_to_real[position] = child["number"]
+
+    # Every child body just filed above named its siblings with a
+    # placeholder token (no real issue number existed for any of them
+    # until the loop above finished) — now that every one does, patch
+    # each child's body in place so a reader sees real sibling issue
+    # numbers, not placeholder tokens.
+    for position in position_to_real:
+        resolved_body = substitute_slice_tokens(
+            build_slice_child_body(
+                parent_issue_number=proposal.issue_number,
+                parent_body=parent_body,
+                position=position,
+                chunks=proposal.chunks,
+            ),
+            position_to_real,
+        )
+        github_ops.update_issue_body(
+            repo.github, position_to_real[position], resolved_body,
+        )
 
     remapped_nodes = tuple(
         WorkOrderNode(
@@ -1904,9 +2024,29 @@ def file_and_queue_split_proposal(
             replace_sub_issues_section(epic_body, new_block),
         )
 
+    # #4081: whatever the ORIGINAL issue's own drive-queue row already
+    # declared as its own prereq — same "root inherits the node it
+    # replaced" rule `coord.milestone_order._splice_replace_node` applies
+    # to the epic body just above, kept consistent here so the queue rows
+    # never disagree with what the epic body now says (#2096, one
+    # question one answer): a node this split gives NO declared `after`
+    # (a root — e.g. the cross-backend split's seam) inherits the
+    # original's own prereq instead of launching unconditionally; a node
+    # that DOES declare one (e.g. a backend child chained after the seam)
+    # keeps only that — it is already ordered behind the root that
+    # inherited the original's prereq, so nothing here can launch earlier
+    # than the original itself could have.
+    original_queue_entry = get_drive_queue_entry(repo.name, proposal.issue_number)
+    inherited_after: tuple[str, ...] = tuple(
+        str(a) for a in (original_queue_entry.get("after_json") or ())
+    ) if original_queue_entry is not None else ()
+
     for node in remapped_nodes:
-        after_keys = [f"{repo.name}#{a}" for a in node.after] or None
-        enqueue_drive_queue(repo.name, node.issue_number, after=after_keys)
+        if node.after:
+            after_keys = [f"{repo.name}#{a}" for a in node.after]
+        else:
+            after_keys = list(inherited_after)
+        enqueue_drive_queue(repo.name, node.issue_number, after=after_keys or None)
         if get_drive_queue_entry(repo.name, node.issue_number) is None:
             raise RuntimeError(
                 f"queued child #{node.issue_number} in {repo.name!r} but it "
@@ -2126,6 +2266,14 @@ def auto_split_needs_decomposition(
     proposal fails the verification gate — a broken epic is never filed.
     A failure *inside* the filer propagates: by then real issues exist on
     GitHub.
+
+    **Idempotent across repeated calls for the same work leg (#4077):**
+    when an epic for *issue_number*'s split already exists
+    (:func:`find_filed_split_epic`), this returns ITS number straight away
+    and files nothing new — a duplicate transition delivery for the same
+    terminal assignment (the observed cause of a #4077-style double split)
+    costs one extra read, not a second tracker and a second set of
+    children.
     """
     text = final_message or ""
     if not _SIZE_TRIAGE_VERDICT_RE.search(text):
@@ -2140,6 +2288,29 @@ def auto_split_needs_decomposition(
     if str(issue_data.get("state") or "").upper() == "CLOSED":
         return None
     issue_title = issue_data.get("title") or f"issue #{issue_number}"
+
+    # #4077: claim before filing. A replayed/duplicate transition for the
+    # SAME terminal work leg can call this function a second time before
+    # the first attempt's own close of the original has even started —
+    # the closed-check above alone cannot catch that, since both calls
+    # still read the original as open. `find_filed_split_epic` is the
+    # existing answer to "did an attempt already get far enough to start
+    # this split" (`coord.board_doctor_policy`'s decomposition act tier
+    # already relies on it for the identical race before ever calling
+    # `consume_split_verdict` — this was the one caller that didn't).
+    # `file_and_queue_split_proposal`'s own belt-and-braces re-read is the
+    # backstop for the window this check cannot close either (two calls
+    # landing close enough together that neither epic exists yet when
+    # both check); this one just avoids spending that second attempt at
+    # all in the common case where the first has already filed something.
+    existing_epic = find_filed_split_epic(repo, issue_number)
+    if existing_epic is not None:
+        _log.info(
+            "auto_split_needs_decomposition: %s#%s already has a filed "
+            "split epic #%s — not filing a second one",
+            repo_name, issue_number, existing_epic,
+        )
+        return existing_epic
 
     try:
         epic_number = consume_split_verdict(

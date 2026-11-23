@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from apm_cli.agent_plugins.errors import enforce_agent_plugin_deployment_boundary
-from apm_cli.core.remediation import CLAUDE_NATIVE_SWITCH_LOOSE_HOOKS
+from apm_cli.core.remediation import claude_native_switch_loose_hooks
 
 from .deployed_paths import deployed_path_entry as _deployed_path_entry
 from .deployed_paths import destination_tree_lines as _destination_tree_lines
@@ -24,9 +24,11 @@ from .deployed_paths import log_hook_display_payloads as _log_hook_display_paylo
 from .deployed_paths import skill_summary_paths as _skill_summary_paths
 from .deployment_plan import PackageDeploymentPlan, prepare_package_deployment
 from .exec_gate import plugin_bin_deployable, resolve_bin_skip
+from .local_bundle_agents import deploy_bundle_codex_agent as _deploy_bundle_codex_agent
 from .local_bundle_paths import bundle_deploy_relative_path as _bundle_rel
 from .local_bundle_paths import bundle_deploy_skip_warning as _bundle_skip_warning
 from .local_bundle_paths import bundle_pack_files as _bundle_pack_files
+from .local_bundle_paths import bundle_render_format_id as _bundle_render_format
 from .local_bundle_paths import bundle_slug_validation_error as _bundle_slug_error
 from .local_bundle_paths import known_bundle_deploy_prefixes as _known_bundle_prefixes
 from .local_bundle_paths import target_bundle_deploy_prefixes as _target_bundle_prefixes
@@ -119,6 +121,7 @@ def _check_native_claude_transition(
     project_root: Path,
     targets: list[Any],
     package: str,
+    flag: str = "",
 ) -> None:
     """Refuse native activation over retained or unreadable loose hook state."""
     from apm_cli.claude_plugins.admission import ClaudeNativePluginError
@@ -135,9 +138,10 @@ def _check_native_claude_transition(
         failed = ", ".join(reconcile_stats.get("failed_paths", []))
         recovery = f"Repair unreadable hook settings or ownership. Inspect: {failed}"
         if not reconcile_stats.get("errors"):
-            recovery = CLAUDE_NATIVE_SWITCH_LOOSE_HOOKS.bind(package=package).sentence()
+            switch = claude_native_switch_loose_hooks(user_scope=bool(flag))
+            recovery = switch.bind(package=package).sentence()
         raise ClaudeNativePluginError(
-            f"Cannot switch {package} to native Claude. Hook settings were preserved. {recovery}"
+            f"Cannot switch {package} to a native plugin. Hook settings were preserved. {recovery}"
         )
 
 
@@ -243,6 +247,7 @@ def integrate_package_primitives(  # noqa: PLR0913
         logger=logger,
         scope=scope,
         skill_subset=skill_subset,
+        skill_pairing=skill_pairing,
         ctx=ctx,
         policy=policy,
         is_first_party=is_first_party,
@@ -291,7 +296,7 @@ def integrate_package_primitives(  # noqa: PLR0913
 
     codex_native = deployment_plan.codex_native
     native_claude_plugin = deployment_plan.claude_native
-    native_target_names = {native_claude_plugin.target_name} if native_claude_plugin else set()
+    native_target_names = native_claude_plugin.harnesses if native_claude_plugin else set()
     # Compatibility-only Codex data is opaque to every loose target adapter.
     projection_targets = deployment_plan.projection_targets
     source_plan = deployment_plan.source_plan
@@ -306,12 +311,8 @@ def integrate_package_primitives(  # noqa: PLR0913
     ):
         return result
 
-    # A natively registered Agent Plugin stays opaque: Copilot loads the whole
-    # unit live from apm_modules, so decomposing its skills or MCP servers here
-    # would double-load them. The registrar owns this package instead. The
-    # short-circuit fires only AFTER target narrowing (so a dependency that
-    # excludes copilot is not registered) and AFTER the executable trust gate
-    # (so an Agent Plugin's MCP servers / bin cannot bypass a default-deny).
+    # A native Agent Plugin stays opaque (Copilot loads it whole from .agents/plugins); this
+    # fires only AFTER target narrowing and AFTER the executable trust gate.
     from apm_cli.copilot_plugins.capability import admits_native_plugin
     from apm_cli.install.native_plugin_admission import finalize_native_plugin
 
@@ -379,7 +380,7 @@ def integrate_package_primitives(  # noqa: PLR0913
             package_info,
             project_root,
             source_plan,
-            user_scope=scope is InstallScope.USER,
+            user_scope=scope is InstallScope.USER or native_claude_user_scope,
             retiring_targets=frozenset(target.name for target in target_selection.excluded_targets),
         )
 
@@ -406,6 +407,7 @@ def integrate_package_primitives(  # noqa: PLR0913
             project_root,
             [target for target in targets if target.name in native_target_names],
             package_name,
+            " --global" if scope is InstallScope.USER else "",
         )
         if not projection_targets:
             from apm_cli.claude_plugins.admission import queue_native_claude
@@ -443,6 +445,17 @@ def integrate_package_primitives(  # noqa: PLR0913
                     reconcile_package_targets(package_info, project_root, targets),
                     "Could not fully remove hooks the executables gate no longer deploys",
                 )
+            from apm_cli.install.withheld_hooks import announce_withheld_hook_files
+
+            announce_withheld_hook_files(
+                package_name,
+                package_info,
+                project_root,
+                targets,
+                managed_files,
+                logger,
+                user_scope=scope is InstallScope.USER,
+            )
             continue
         # Executable approval gate: skip canvas if not approved.
         # First-party (is_first_party=True) always deploys.
@@ -498,7 +511,7 @@ def integrate_package_primitives(  # noqa: PLR0913
             # Sibling integrators don't accept this kwarg, so include it only
             # for hooks.
             if _prim_name == "hooks":
-                _call_kwargs["user_scope"] = scope is InstallScope.USER
+                _call_kwargs["user_scope"] = scope is InstallScope.USER or native_claude_user_scope
                 _call_kwargs["dep_targets_active"] = dep_targets_active
                 _call_kwargs["allowed_targets"] = allowed_dep_targets
                 # Mirror retiring_targets (#3129) so a fallback preflight isn't
@@ -907,47 +920,31 @@ def integrate_local_bundle(
     slug = alias or bundle_info.package_id
     _known_deploy_prefixes = _known_bundle_prefixes()
 
-    # Security + feature gate: canvas extensions are executable Node bundles
-    # (``extension.mjs``).  A local / offline bundle copies its files
-    # verbatim WITHOUT routing through ``CanvasIntegrator``, so the
-    # experimental feature flag and the allowExecutables gate must be
-    # checked explicitly here.  When the canvas feature flag is OFF, drop
-    # paths silently (no-op; canvas type does not exist yet).  When ON, the
-    # trust owner approves canvas for the exact bundle content (an explicit
-    # gate-disabled map approves it; a missing map approves nothing).
-    from ..core.experimental import is_enabled
-    from ..integration.canvas_integrator import is_canvas_bundle_path
-    from ..security.executables import EXEC_TYPE_CANVAS, EXEC_TYPE_HOOKS, package_type_approved
+    # Canvas extensions are executable: gated and retired like hooks and MCP.
+    from ..security.executables import EXEC_TYPE_HOOKS, package_type_approved
+    from .local_bundle_canvas import gate_bundle_canvas
 
     _bundle_keys = () if approval_key is None else (approval_key,)
-    _canvas_enabled = is_enabled("canvas", create_config=create_config)
-    _canvas_approved_bundle = _canvas_enabled and package_type_approved(
-        allow_executables, _bundle_keys, EXEC_TYPE_CANVAS
-    )
     _hooks_approved_bundle = package_type_approved(allow_executables, _bundle_keys, EXEC_TYPE_HOOKS)
-
-    if not (_canvas_enabled and _canvas_approved_bundle):
-        _blocked = sorted(r for r in pack_files if is_canvas_bundle_path(r))
-        if _blocked:
-            for _r in _blocked:
-                pack_files.pop(_r, None)
-            if _canvas_enabled:
-                # Canvas feature on but not approved: block and surface message.
-                skipped += len(_blocked)
-                from ..security.executables import local_bundle_approval_hint
-
-                _msg = (
-                    f"Blocked {len(_blocked)} canvas extension file(s) from bundle "
-                    f"'{slug}': canvas extensions are executable extension.mjs code "
-                    "and are not approved for this exact bundle content. "
-                    + local_bundle_approval_hint(
-                        str(approval_key), "canvas", user_scope=scope is InstallScope.USER
-                    )
-                )
-                if diagnostics is not None:
-                    diagnostics.warn(message=_msg, package=str(slug))
-                elif logger is not None:
-                    logger.warning(_msg)
+    _canvas_ok, _canvas_blocked = gate_bundle_canvas(
+        pack_files,
+        project_root,
+        targets=targets,
+        slug=str(slug),
+        approval_key=approval_key,
+        allow_executables=allow_executables,
+        create_config=create_config,
+        scope=scope,
+        dry_run=dry_run,
+        report=lambda message: (
+            diagnostics.warn(message=message, package=str(slug))
+            if diagnostics is not None
+            else logger.warning(message)
+            if logger is not None
+            else None
+        ),
+    )
+    skipped += _canvas_blocked
 
     if logger:
         logger.verbose_detail(
@@ -1009,7 +1006,7 @@ def integrate_local_bundle(
                 _known_deploy_prefixes,
                 target=target,
                 hooks_approved=_hooks_approved_bundle,
-                canvas_approved=_canvas_enabled and _canvas_approved_bundle,
+                canvas_approved=_canvas_ok,
             )
             if _deploy_rel is None:
                 if _skip_warning := _bundle_skip_warning(
@@ -1018,7 +1015,7 @@ def integrate_local_bundle(
                     _known_deploy_prefixes,
                     target=target,
                     hooks_approved=_hooks_approved_bundle,
-                    canvas_approved=_canvas_enabled and _canvas_approved_bundle,
+                    canvas_approved=_canvas_ok,
                 ):
                     if diagnostics is not None:
                         diagnostics.warn(message=_skip_warning, package=str(slug))
@@ -1088,6 +1085,28 @@ def integrate_local_bundle(
             except ValueError:
                 record = dest.as_posix()
 
+            if _bundle_render_format(  # rendered (Codex TOML), never copied (#3714)
+                _rel_norm, _allowed_deploy_prefixes, _known_deploy_prefixes, target=target
+            ):
+                skipped += _deploy_bundle_codex_agent(
+                    src,
+                    dest,
+                    rel_path=_rel_norm,
+                    record=record,
+                    collision_roots=(project_root, deploy_root),
+                    expected_hash=expected_hash,
+                    target_name=target.name,
+                    slug=str(slug),
+                    force=force,
+                    dry_run=dry_run,
+                    diagnostics=diagnostics,
+                    logger=logger,
+                    deployed_files=deployed_files,
+                    deployed_hashes=deployed_hashes,
+                    written_files=written_files,
+                )
+                continue
+
             normalized_text = _normalized_bundle_text(src)
             if normalized_text is None:
                 desired_hash = expected_hash
@@ -1132,6 +1151,11 @@ def integrate_local_bundle(
                 logger.verbose_detail(
                     f"[dry-run] would deploy {record}" if dry_run else f"deployed {record}"
                 )
+
+    if _canvas_ok and not dry_run:
+        from .local_bundle_canvas import record_bundle_canvas
+
+        record_bundle_canvas(project_root, targets, str(slug), approval_key, deployed_files)
 
     from .local_bundle_hooks import integrate_local_bundle_hooks
 

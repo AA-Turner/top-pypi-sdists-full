@@ -199,15 +199,18 @@ def _stable_model(model: ast.ClassDef, context: PythonFileContext, provenance: R
 
 def _stable_model_read(read: ast.Name, context: PythonFileContext) -> bool:
     parent = context.parents.get(read)
-    if isinstance(parent, ast.Call) and parent.func is read:
-        return True
-    if isinstance(parent, (ast.arg, ast.AnnAssign)) and parent.annotation is read:
-        return True
-    if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.returns is read:
-        return True
-    if isinstance(parent, ast.Attribute) and parent.value is read and parent.attr in _MODEL_CALLS:
-        call = context.parents.get(parent)
-        return isinstance(call, ast.Call) and call.func is parent
+    match parent:
+        case ast.Call() if parent.func is read:
+            return True
+        case ast.arg() | ast.AnnAssign() if parent.annotation is read:
+            return True
+        case ast.FunctionDef() | ast.AsyncFunctionDef() if parent.returns is read:
+            return True
+        case ast.Attribute() if parent.value is read and parent.attr in _MODEL_CALLS:
+            call = context.parents.get(parent)
+            return isinstance(call, ast.Call) and call.func is parent
+        case _:
+            pass
     return False
 
 
@@ -259,18 +262,18 @@ def _returned_literal(validator: ast.FunctionDef) -> _Returned | None:
     if len(body) != 1 or not isinstance(body[0], ast.Return):
         return None
     value = body[0].value
-    if isinstance(value, ast.Constant) and (
-        value.value is None or isinstance(value.value, (str, bytes, int, float, complex, bool))
-    ):
-        return _Returned(value, value.value)
-    if (
-        isinstance(value, ast.UnaryOp)
-        and isinstance(value.op, (ast.USub, ast.UAdd))
-        and isinstance(value.operand, ast.Constant)
-        and isinstance(value.operand.value, (int, float, complex))
-    ):
-        number = value.operand.value
-        return _Returned(value, -number if isinstance(value.op, ast.USub) else +number)
+    match value:
+        case ast.Constant() if value.value is None or isinstance(value.value, (str, bytes, int, float, complex, bool)):
+            return _Returned(value, value.value)
+        case ast.UnaryOp() if (
+            isinstance(value.op, (ast.USub, ast.UAdd))
+            and isinstance(value.operand, ast.Constant)
+            and isinstance(value.operand.value, (int, float, complex))
+        ):
+            number = value.operand.value
+            return _Returned(value, -number if isinstance(value.op, ast.USub) else +number)
+        case _:
+            pass
     return None
 
 

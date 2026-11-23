@@ -1,4 +1,3 @@
-# Generated from the eager source registry; use maintain rules sync to update.
 from __future__ import annotations
 
 from sarj_rule_contracts import RuleId
@@ -8,6 +7,78 @@ from sarj_python_lint.rule_metadata import RuleDescriptor
 
 SCHEMA_VERSION = 1
 DESCRIPTORS: tuple[RuleDescriptor, ...] = (
+    RuleDescriptor(
+        rule_id=RuleId("server-proxied-file-upload"),
+        module="sarj_python_lint.rules.server_proxied_file_upload",
+        class_name="ServerProxiedFileUpload",
+        code="SARJ593",
+        description="Accept file uploads through short-lived pre-signed object-storage URLs instead of API request bodies",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("inline-single-use-local"),
+        module="sarj_python_lint.rules.inline_single_use_local",
+        class_name="InlineSingleUseLocal",
+        code="SARJ592",
+        description="Inline a local that only feeds the immediately following statement.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-result-over-nullable-exception"),
+        module="sarj_python_lint.rules.prefer_result_over_nullable_exception",
+        class_name="PreferResultOverNullableException",
+        code="SARJ591",
+        description="Return a tagged Success | Failure outcome instead of a nullable exception value.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-next-over-search-loop"),
+        module="sarj_python_lint.rules.prefer_next_over_search_loop",
+        class_name="PreferNextOverSearchLoop",
+        code="SARJ590",
+        description="Replace a first-match search loop with next() over a generator expression.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-walrus-none-guard"),
+        module="sarj_python_lint.rules.prefer_walrus_none_guard",
+        class_name="PreferWalrusNoneGuard",
+        code="SARJ589",
+        description="Bind a compact synchronous lookup in its immediately following terminal None guard.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("exit-stack-requires-lifecycle-owner"),
+        module="sarj_python_lint.rules.exit_stack_requires_lifecycle_owner",
+        class_name="ExitStackRequiresLifecycleOwner",
+        code="SARJ588",
+        description="Own exit stacks only where resource lifetime is handed to the caller or the process root.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("pytest-test-size-budget"),
+        module="sarj_python_lint.rules.pytest_test_size_budget",
+        class_name="PytestTestSizeBudget",
+        code="SARJ587",
+        description="Keep collected pytest tests within 15 statements, without branches or verifying loops.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-named-literal-alias"),
+        module="sarj_python_lint.rules.prefer_named_literal_alias",
+        class_name="PreferNamedLiteralAlias",
+        code="SARJ586",
+        description="Name multi-member Literal annotations with a reusable type alias.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
     RuleDescriptor(
         rule_id=RuleId("prefer-exception-propagation"),
         module="sarj_python_lint.rules.prefer_exception_propagation",
@@ -922,7 +993,7 @@ DESCRIPTORS: tuple[RuleDescriptor, ...] = (
         module="sarj_python_lint.rules.excessive_commentary",
         class_name="ExcessiveCommentary",
         code="SARJ434",
-        description="Keep necessary comments within two lines and 40 words; delete redundant narration.",
+        description="Production code carries no ordinary comments; express intent in names, types and code.",
         aliases=(),
         enabled_by_default=True,
     ),

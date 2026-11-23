@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.816
+Version: 1.13.848
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
-Requires-Dist: abxbus==2.5.93
-Requires-Dist: abxpkg==1.13.102
+Requires-Dist: abxbus==2.5.96
+Requires-Dist: abxpkg==1.13.105
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: psutil!=7.2.2,>=7.2.1
@@ -91,7 +91,12 @@ Hooks run with:
 - **Crawl hook output** = `CRAWL_DIR/<plugin>/...`
 - **Other plugin outputs** can be read via `../<other-plugin>/...` from your own output dir
 
-Git captures acquire a fresh shallow repository, all branch tips, and recursive
+Snapshot hooks may receive `CACHE_CANDIDATES`, a JSON list of records with
+`url`, `snapdir` (relative to `DATA_DIR`), and `created_at`. ArchiveBox provides
+sealed captures from the same owner, persona and visibility, preferring exact
+URLs and including nearby paths. Hints may be absent, stale or incomplete.
+
+On a cache miss, Git captures acquire a fresh shallow repository, all branch tips, and recursive
 submodules in `TMP_DIR/git/<hash of SNAP_DIR>/repo` before replacing the saved
 checkout. A failed acquisition preserves previous output. A local OS lock is
 inherited by Git processes so an interrupted hook cannot leave a live child whose
@@ -111,6 +116,7 @@ not import or require `archivebox` or `abx-dl`.
 | `commands` | Command name → `[relative executable, ...arguments]`; JSON input/output follows the command's contract. |
 | `output_str_type` | `"path"` (default) or `"text"`; text results never identify output files. `default_output_path` identifies their saved artifact. |
 | `default_output_path` | Saved filename relative to the plugin output directory. |
+| `crawler_output_paths` | Exact plugin-relative `.html`/`.htm` files suitable for inexpensive crawler access; omitted means none. Hosts may allow identified crawlers to read only these stored bytes after normal authorization, without previews, rewrites, directory scans, or generated exports. This declaration does not grant access to private captures. |
 | `archive_result_aliases` | List of historical ArchiveResult plugin names owned by this plugin. |
 | `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name` | Card group (`html`, `article_text`, `images`, `embedded_media`, `metadata`, `other`), integer order, and label. |
 | `snapshot_thumbnail_cards` | List of `{archive_result_name, order}` entries selecting existing card templates for list/grid previews. |
@@ -142,6 +148,64 @@ authorized records, request handling, and collection CLI command arguments.
 `host.capture_context(request, *, snapshot_id=None, crawl_id=None)` requires
 exactly one ID and checks access before returning `output_dirs` and `tmp_dir`.
 Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
+Collection UIs can stream `host.collection_records(request, after=None, limit=512)`
+(primary-key pages of domain, parent domain, size and archived favicon metadata) and
+`host.outlink_records(request, after=None, limit=32)` (capture directories and saved
+`<plugin>/urls.jsonl` paths), or read `host.domain_records(request, cursor=None, limit=16)`,
+`host.snapshot_records(request, domain=..., after=None, limit=16)`,
+`host.resolve_snapshot_urls(request, urls)`, and
+`host.process_records(request, after=None, ids=(), limit=128)`, and
+`host.group_domains(request, hosts)` (up to 512 names, offline public suffix list). These require a collection
+administrator. Domain pages return registered names, scopes, counts, and an opaque
+cursor; snapshot pages return capture IDs, URLs, domains, output directories,
+parent/child domains, and a primary-key cursor. URL resolution accepts at most 256
+targets. Process pages contain current-machine lifecycle rows, crawl/snapshot/plugin
+relationships, recorded interface/local/public IPs, a cursor, and at most 16
+capture directories. Up to 128 tracked IDs refresh completed process metadata.
+The host owns database queries and domain grouping;
+plugins own routes, bounded artifact reads, OS sampling, and rendering.
+
+`networkgraph` registers `/admin/graph/` and uses the vendored Three.js-based
+3d-force-graph 1.80.2 bundle. Metadata streams in 512-row primary-key pages. The
+overview reads saved outlinks from the newest 50,000 captures, in 32-capture
+pages with a 64 KiB read budget per capture. Other captures are available from
+domain selection and expansion. Targets
+are grouped with captured sites by domain. Missing or malformed artifacts leave
+discovery relationships available. Weighted PageRank, Louvain link communities,
+and d3 layout run in a browser worker using vendored libraries. Unlinked sites
+are omitted from the canvas when there are more than 200, but remain searchable.
+W3C, Schema.org, Open Graph and WordPress metadata domains are excluded from nodes and edges.
+XFN profile URLs and Creative Commons license deeds, legal code and badges are
+also excluded from graph relationships. Other pages on those sites remain eligible.
+The graph skips script, stylesheet, and font assets, along with shared CDN
+endpoints, Bootstrap homepage references, and Disqus widget links.
+Nodes use recorded favicons, logarithmic snapshot counts and PageRank. The
+canvas draws up to 850 domains and 1,700 links, prioritizing the selected
+neighborhood. The 3D view lays out
+communities and their members in depth. Dragging a node pulls on springs along
+its links. Nearby nodes sway and settle into new positions for the session.
+Incoming and outgoing links use distinct colors and the same springs. Wheel
+zoom follows the cursor. Hide removes a node and its links until reload.
+Domain selection lazily loads capture details. Neither loading nor layout requires new backend workers,
+models, indexes or hooks.
+`bandwidth` registers `/admin/bandwidth/` and samples network I/O while the
+dashboard polls. It associates runner hook processes and their descendants with
+socket counters from macOS `nettop` or Linux TCP socket diagnostics. Plugins can
+also supply exact completed download bytes by implementing
+`completed_downloads(stderr) -> list[tuple[hostname, bytes]]` in their presentation
+module. The panel reads bounded tails of recent completed process logs and
+uses these measurements for history in place of socket byte deltas from the
+same plugin. Recorded DNS
+observations label peers when they identify a single site. Ambiguous traffic remains
+in an unattributed total. Site cards use archived favicons and show 24-hour
+download history, rolling download totals, minimum observed RTT, and hit
+estimates based on observed connections. History is retained in the browser
+tab. Short connections can be missed by socket polling. Interface cards use
+separate host interface counters for devices used by observed flows. Recorded
+ArchiveResult sizes supply disk totals, and foreground CPU totals exclude
+background hooks. Both plugins contribute cards through the generic admin slots.
+Neither plugin has capture hooks,
+background services, models, or migrations. Both stop polling in hidden tabs.
 
 | Function | Return value |
 | --- | --- |
@@ -150,12 +214,50 @@ Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 | `get_api_routers(host)` | `(prefix, ninja.Router)` pairs. |
 | `get_cli_commands(host)` | Native Click commands mounted at `archivebox plugin <plugin> <command>`. |
 | `get_services(host, config)` | Service dictionaries described below. |
+| `register_eventbus(bus, config)` | `None`; register handlers, services or middleware on the supplied native `abxbus.EventBus`. |
 | `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
 
 `app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique
 label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
+ArchiveBox exposes its resolved process configuration through Django's
+`settings.CONFIG`; apps can pass `settings.CONFIG.model_dump(mode="json")` to
+`load_config(global_config=...)` in `ready()` without importing ArchiveBox.
+Apps must check their own enable flag before loading optional dependencies or
+registering external integrations. Declare `x-scope: server` on a plugin's
+`<NAME>_ENABLED` property for machine/collection ownership: its settings appear
+only in Machine settings, cannot be overridden by personas/crawls, and remain
+independent of the crawl's `PLUGINS` selection.
+The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
+opt-in Django error reporting and logging; it is disabled and has no DSN by default.
+
+An `AppConfig` may implement `render_page_head(self, request, config) -> str`.
+ArchiveBox calls it in admin/public UI heads with request-scoped machine settings
+(or current machine settings when `request` is `None`). Return `""` when disabled,
+otherwise safe Django-rendered HTML; use `json_script` for browser settings.
+Failures are logged per app and omitted without breaking the page. Archived
+content is unchanged.
+
+An `AppConfig` may implement synchronous `shutdown() -> None` to flush or close
+resources during HTTP worker shutdown. It runs off the event loop; failures are
+logged without skipping other apps. Disabled apps must keep cleanup a no-op.
+
+An `app_module` may export synchronous `register_eventbus(bus, config) -> None`
+to attach native `bus.on(...)` handlers, services or `bus.middlewares`. ArchiveBox
+calls it once before dispatch on each crawl, binary-resolution and install bus,
+using the operation's resolved config, including applicable crawl/persona and
+runner overrides. Every application plugin is offered the bus; **the plugin
+owns enable checks** and must check before importing optional dependencies.
+Use `load_config(..., global_config=config, environ={})` to preserve host-resolved
+settings. Registration errors fail the operation; the host owns bus teardown.
+Process-wide initialization must tolerate multiple bus registrations.
+
+ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` registers
+apps immediately; crawl runners defer registration until their config is loaded.
+Standalone abx-dl does not call these application hooks. No separate EventBus
+metadata is needed beyond `app_module`. See the [Sentry app](abx_plugins/plugins/sentry/app.py)
+for an opt-in example; plugins must not import ArchiveBox or abx-dl.
 
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
@@ -172,10 +274,59 @@ Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 
 `templates/<slot>.html` contributes UI through `{% plugin_ui slot %}`;
 `{% plugin_ui plugin slot %}` selects one plugin. Collection slots: `navigation`,
-`add`, `importers_actions`, `importer_sessions`, `snapshot_head`.
+`add`, `importers_actions`, `importer_sessions`, `snapshot_head`,
+`admin_archive_results_cards`, `admin_environment_cards`.
 Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
 Templates and `template_context` receive the existing context, including Django
 models and `request` when supplied by the view.
+
+### Candidate-scoped search
+
+A search provider registers `search` and `flush` in `config.json > commands`.
+It can also register `"search_candidates": ["search.py", "search_candidates"]`
+to evaluate content predicates against an authorized page of snapshot IDs.
+Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
+and lexical candidate paths beneath that directory. The scanner opens each path
+component relative to the trusted root and rejects symlinks and parent references.
+
+An indexed provider's optional `app_module.search_word_hits(word, *, environ, timeout)`
+can return a bounded, ranked iterable of confirmed snapshot IDs for a lowercase
+word. This avoids launching a command for a single cheap index lookup. It must
+honor the supplied timeout, use the resolved environment, and require no archive
+file reads. Missing IDs are unknown. Hosts check permissions, scope and the full
+Boolean expression before displaying any hit. Providers without this adapter use
+the standalone commands.
+
+Input is one JSON object on stdin. A provider flushes at most one JSON object per
+candidate to stdout, in the order evidence becomes available. It may omit
+unresolved candidates. Each operand in a request must have a unique key.
+
+```json
+{"candidates":[{"id":"snap-1","path":"/archive/snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
+```
+
+```json
+{"id":"snap-1","matches":{"t0":true},"scores":{},"usage":{"entries":2,"files":1,"bytes":320}}
+```
+
+- `word` requests the provider's term search. `literal` requests a contiguous
+  substring. `deep` requests a literal in archived files from a `search_scan`
+  provider. Each operand determines its own case mode. An uppercase letter in
+  its value requires matching case. Only original text can establish such a
+  match when a provider's token index discards case.
+- `matches` contains confirmed booleans keyed by the request's opaque term
+  keys. Omit a key or candidate when it is unsupported, unindexed, unreadable,
+  capped or otherwise unresolved. A negative requires complete evidence.
+  Optional `scores` rank confirmed matches, with larger finite values first.
+- Hosts supply candidate IDs and trusted absolute snapshot directories.
+  Indexed providers can omit use of paths. Each page admits up to 64 candidates
+  and 128 terms. Limits apply across the page. The shared command caps work at
+  8 seconds, 96 file attempts, 512 directory entries, 4 MiB of source bytes
+  and 512 KiB per file. `usage` gives the increment for each emitted row so
+  callers can charge subsequent pages against one query budget. Hosts also
+  enforce a subprocess timeout for blocked filesystem or network reads.
+
+Connected clients may send `"streaming": true` to continue beyond the preview limits. The bundled file and SQLite scanners keep a cursor and match across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
 
 ### Configuration field templates
 

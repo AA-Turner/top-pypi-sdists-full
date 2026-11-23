@@ -10,7 +10,8 @@ https://gitlab.com/keatontaylor/alexapy
 
 EXCEPTION_TEMPLATE = "An exception of type {0} occurred. Arguments:\n{1!r}"
 
-CALL_VERSION = "2.2.556530.0"
+LOGIN_APP_VERSION = "2.2.556530.0"
+CALL_VERSION = LOGIN_APP_VERSION  # Compatibility alias
 APP_NAME = "Alexa Media Player"
 
 # Cookie persistence format used by alexapy.
@@ -42,8 +43,8 @@ ALEXA_API_BASE = {
     ".co.nz": ALEXA_API_FE,
 }
 
-# UA used for REST API calls that should look like a modern mobile client
-API_USER_AGENT = (
+# Historical notifications identity retained for callers importing API_USER_AGENT.
+ANDROID_NOTIFICATIONS_USER_AGENT = (
     "Mozilla/5.0 (Linux; Android 10) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/83.0.4103.101 Mobile Safari/537.36"
@@ -56,10 +57,23 @@ DEFAULT_ACCEPT_LANGUAGE = "en-US"
 # Centralize default locale for other operations
 DEFAULT_LOCALE = "en-US"
 
-# Retain existing constants (USER_AGENT, etc.) as other code still relies on it.
-# These can be removed once all legacy code has been updated to utilize
-# the new REST-style constants.
-USER_AGENT = f"AmazonWebView/Amazon Alexa/{CALL_VERSION}/iOS/16.6/iPhone"
+LOGIN_WEBVIEW_USER_AGENT = (
+    f"AmazonWebView/Amazon Alexa/{LOGIN_APP_VERSION}/iOS/16.6/iPhone"
+)
+LOGIN_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5_1 like Mac OS X) "
+    "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 "
+    "PitanguiBridge/2.2.345247.0-[HARDWARE=iPhone10_4][SOFTWARE=13.5.1]"
+)
+PITANGUI_API_USER_AGENT = (
+    "AppleWebKit PitanguiBridge/2.2.785556.0-"
+    "[HARDWARE=iPhone19_7][SOFTWARE=27.2.1][DEVICE=iPhone]"
+)
+
+# Preserve the values exposed to existing importers.
+USER_AGENT = LOGIN_WEBVIEW_USER_AGENT
+API_USER_AGENT = ANDROID_NOTIFICATIONS_USER_AGENT
+
 LOCALE_KEY = {
     ".de": "de_DE",
     ".com.au": "en_AU",

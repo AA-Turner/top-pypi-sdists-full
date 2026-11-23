@@ -29,7 +29,7 @@ import secrets
 import time
 import uuid
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, NoReturn, cast
@@ -46,6 +46,7 @@ from google.protobuf.struct_pb2 import Value
 from pydantic import AnyUrl
 from pydantic import BaseModel as PydanticBaseModel
 
+from adcp._unset import UNSET as _UNSET
 from adcp.server.idempotency.backends import MemoryBackend as MemoryBackend
 from adcp.server.idempotency.webhook_dedup import WebhookDedupStore as WebhookDedupStore
 from adcp.signing.jwks import SSRFValidationError, resolve_and_validate_host
@@ -1096,13 +1097,47 @@ def generate_webhook_challenge_value() -> str:
     return f"wch_{secrets.token_urlsafe(32)}"
 
 
-def create_webhook_challenge_payload(
+def _check_challenge_fields_passed_together(
+    func_name: str,
+    *,
+    seller_agent_url: Any,
+    event_types: Any,
+) -> None:
+    """Reject a call that omits only one of the AdCP 3.2 challenge fields.
+
+    Passing both opts into the 3.2 challenge; omitting both is the
+    deprecated 9.x call shape. Omitting one is neither, so fail the way a
+    missing required argument does instead of guessing. Only omission counts:
+    an explicit ``None`` is a passed value and fails in the 3.2 path.
+    """
+
+    if (seller_agent_url is _UNSET) != (event_types is _UNSET):
+        missing = "seller_agent_url" if seller_agent_url is _UNSET else "event_types"
+        raise TypeError(
+            f"{func_name}() requires seller_agent_url and event_types together; "
+            f"{missing} is missing"
+        )
+
+
+def _warn_missing_challenge_fields(func_name: str, *, stacklevel: int, extra: str = "") -> None:
+    warnings.warn(
+        f"{func_name}() called without seller_agent_url and event_types. The "
+        "challenge omits seller_agent_url, delivery_auth and event_types, which "
+        "the AdCP 3.2 webhook-challenge schema requires. Pass "
+        "seller_agent_url=<your seller agent URL> and event_types=<the "
+        f"subscription's event types>; both become required in adcp 10.0.{extra}",
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
+
+def _legacy_webhook_challenge_payload(
     *,
     account_id: str,
     subscriber_id: str,
-    challenge: str | None = None,
-) -> dict[str, str]:
-    """Build the durable ``notification_configs[]`` challenge payload."""
+    challenge: str | None,
+) -> dict[str, Any]:
+    """Build the pre-3.2 four-field challenge exactly as adcp 9.6 did."""
 
     if not isinstance(account_id, str) or not account_id:
         raise ValueError("account_id must be a non-empty string")
@@ -1117,6 +1152,109 @@ def create_webhook_challenge_payload(
         "account_id": account_id,
         "subscriber_id": subscriber_id,
     }
+
+
+def create_webhook_challenge_payload(
+    *,
+    account_id: str,
+    subscriber_id: str,
+    seller_agent_url: str = _UNSET,
+    event_types: Sequence[str] = _UNSET,
+    authentication: AdCPBaseModel | Mapping[str, Any] | None = None,
+    challenge: str | None = None,
+) -> dict[str, Any]:
+    """Build the durable ``notification_configs[]`` challenge payload.
+
+    Pass ``seller_agent_url`` and ``event_types`` to build the AdCP 3.2
+    challenge, which is validated against the bundled schema and binds
+    ``delivery_auth`` (``authentication`` for deprecated Bearer/HMAC
+    configs). Omitting both is deprecated: it emits a
+    :class:`DeprecationWarning` and returns the four-field challenge adcp 9.6
+    built. Both arguments become required in adcp 10.0.
+    """
+
+    _check_challenge_fields_passed_together(
+        "create_webhook_challenge_payload",
+        seller_agent_url=seller_agent_url,
+        event_types=event_types,
+    )
+    if seller_agent_url is _UNSET:
+        if authentication is not None:
+            raise TypeError(
+                "create_webhook_challenge_payload() binds authentication only into "
+                "the AdCP 3.2 challenge; pass seller_agent_url and event_types too"
+            )
+        _warn_missing_challenge_fields("create_webhook_challenge_payload", stacklevel=3)
+        return _legacy_webhook_challenge_payload(
+            account_id=account_id,
+            subscriber_id=subscriber_id,
+            challenge=challenge,
+        )
+    return _build_webhook_challenge_payload(
+        account_id=account_id,
+        subscriber_id=subscriber_id,
+        seller_agent_url=seller_agent_url,
+        event_types=event_types,
+        authentication=authentication,
+        challenge=challenge,
+    )
+
+
+def _build_webhook_challenge_payload(
+    *,
+    account_id: str,
+    subscriber_id: str,
+    seller_agent_url: str,
+    event_types: Sequence[str],
+    authentication: AdCPBaseModel | Mapping[str, Any] | None = None,
+    challenge: str | None = None,
+) -> dict[str, Any]:
+    """Build and schema-validate the AdCP 3.2 challenge payload."""
+
+    if not isinstance(account_id, str) or not account_id:
+        raise ValueError("account_id must be a non-empty string")
+    if not isinstance(subscriber_id, str) or not subscriber_id:
+        raise ValueError("subscriber_id must be a non-empty string")
+    challenge_value = generate_webhook_challenge_value() if challenge is None else challenge
+    if not isinstance(challenge_value, str) or not challenge_value:
+        raise ValueError("challenge must be a non-empty string")
+    delivery_auth: dict[str, str] = {"mode": "rfc9421"}
+    if authentication is not None:
+        auth_config = _authentication_to_config(authentication)
+        schemes = auth_config.get("schemes")
+        if not isinstance(schemes, (list, tuple)) or len(schemes) != 1:
+            raise ValueError("authentication.schemes must contain exactly one scheme")
+        mode = str(getattr(schemes[0], "value", schemes[0]))
+        if mode not in ("Bearer", "HMAC-SHA256"):
+            raise ValueError(f"unsupported legacy authentication scheme {mode!r}")
+        credentials = auth_config.get("credentials")
+        if not isinstance(credentials, str) or len(credentials) < 32:
+            raise ValueError(
+                f"authentication.schemes={[mode]!r} requires credentials of at least 32 characters"
+            )
+        _warn_auth_deprecation_once()
+        delivery_auth = {
+            "mode": mode,
+            "credential_fingerprint": hashlib.sha256(credentials.encode("utf-8")).hexdigest(),
+        }
+    payload: dict[str, Any] = {
+        "type": "webhook.challenge",
+        "challenge": challenge_value,
+        "account_id": account_id,
+        "subscriber_id": subscriber_id,
+        "seller_agent_url": seller_agent_url,
+        "delivery_auth": delivery_auth,
+        "event_types": list(event_types),
+    }
+    from adcp.validation.schema_loader import get_named_validator
+
+    validator = get_named_validator("core/webhook-challenge.json")
+    if validator is None:
+        raise RuntimeError("bundled webhook challenge schema is unavailable")
+    error = next(validator.iter_errors(payload), None)
+    if error is not None:
+        raise ValueError(f"webhook challenge payload failed schema validation ({error.validator})")
+    return payload
 
 
 def validate_webhook_challenge_response(
@@ -1347,7 +1485,7 @@ async def _send_legacy_webhook_challenge(
     *,
     url: str,
     authentication: Mapping[str, Any],
-    payload: dict[str, str],
+    payload: dict[str, Any],
     timeout_seconds: float | None,
     policy: WebhookDestinationPolicy,
     extra_headers: Mapping[str, str] | None,
@@ -1416,7 +1554,7 @@ async def _send_sender_webhook_challenge(
     *,
     url: str,
     sender: WebhookSender,
-    payload: dict[str, str],
+    payload: dict[str, Any],
     timeout_seconds: float | None,
     policy: WebhookDestinationPolicy,
     extra_headers: Mapping[str, str] | None,
@@ -1476,6 +1614,8 @@ async def challenge_webhook_destination(
     url: str | AnyUrl,
     account_id: str,
     subscriber_id: str,
+    seller_agent_url: str = _UNSET,
+    event_types: Sequence[str] = _UNSET,
     sender: WebhookSender | None = None,
     authentication: AdCPBaseModel | Mapping[str, Any] | None = None,
     challenge: str | None = None,
@@ -1490,12 +1630,193 @@ async def challenge_webhook_destination(
     ``sync_accounts.accounts[].notification_configs[]`` entry. Inactive
     configs can be persisted without calling this helper.
 
-    ``authentication`` follows the durable config's legacy auth selector:
-    when present, the challenge is sent with Bearer or HMAC-SHA256. When
-    omitted, pass an RFC 9421 :class:`WebhookSender`; the helper uses that
-    sender's webhook-signing key and the SDK-managed pinned transport.
+    Pass ``seller_agent_url``, ``event_types`` and an RFC 9421 ``sender`` to
+    send the AdCP 3.2 challenge. ``authentication`` then describes the
+    durable config's deprecated Bearer or HMAC-SHA256 delivery mode; the
+    challenge itself is always signed by the RFC 9421 ``sender`` and uses the
+    SDK-managed pinned transport.
+
+    Omitting ``seller_agent_url`` and ``event_types`` is deprecated and keeps
+    the adcp 9.6 behaviour with a :class:`DeprecationWarning`: the four-field
+    challenge is signed by ``sender``, or, when only ``authentication`` is
+    passed, sent with legacy Bearer or HMAC-SHA256 delivery authentication
+    (a second :class:`DeprecationWarning`). adcp 10.0 requires
+    ``seller_agent_url``, ``event_types`` and an RFC 9421 ``sender``.
     """
 
+    _check_challenge_fields_passed_together(
+        "challenge_webhook_destination",
+        seller_agent_url=seller_agent_url,
+        event_types=event_types,
+    )
+    if seller_agent_url is _UNSET:
+        return await _challenge_webhook_destination_v9_6(
+            url=url,
+            account_id=account_id,
+            subscriber_id=subscriber_id,
+            sender=sender,
+            authentication=authentication,
+            challenge=challenge,
+            timeout_seconds=timeout_seconds,
+            policy=policy,
+            field=field,
+            extra_headers=extra_headers,
+        )
+
+    error_url = str(url) if isinstance(url, (str, AnyUrl)) else None
+    sender_owns_client = bool(getattr(cast(Any, sender), "_owns_client", False))
+    sender_transport_hooks = tuple(getattr(cast(Any, sender), "_transport_hooks", ()))
+    if sender is not None and not sender_owns_client:
+        raise WebhookChallengeError(
+            "proof-of-control requires a WebhookSender constructed without client=",
+            reason="unsafe_sender_client",
+            field=field,
+            url=error_url,
+        )
+    if sender is not None and sender_transport_hooks:
+        raise WebhookChallengeError(
+            "proof-of-control does not support sender transport_hooks",
+            reason="unsupported_sender_hooks",
+            field=field,
+            url=error_url,
+        )
+    if sender is not None and not sender.signs_with_rfc9421:
+        raise WebhookChallengeError(
+            "proof-of-control requires an RFC 9421 WebhookSender",
+            reason="sender_auth_mode_mismatch",
+            field=field,
+            url=error_url,
+            suggestion="Use WebhookSender.from_jwk(...) to sign the challenge.",
+        )
+    if sender is None:
+        raise WebhookChallengeError(
+            "webhook challenge requires an RFC 9421 sender",
+            reason="sender_required",
+            field=field,
+            url=error_url,
+            suggestion="Pass the seller's RFC 9421 WebhookSender.",
+        )
+    try:
+        destination = validate_webhook_destination_url(url, policy=policy, field=field)
+        payload = _build_webhook_challenge_payload(
+            account_id=account_id,
+            subscriber_id=subscriber_id,
+            seller_agent_url=seller_agent_url,
+            event_types=event_types,
+            authentication=authentication,
+            challenge=challenge,
+        )
+    except WebhookDestinationValidationError as exc:
+        raise WebhookChallengeError(
+            str(exc),
+            reason=exc.reason,
+            field=exc.field,
+            url=exc.url,
+            suggestion=exc.suggestion,
+        ) from exc
+    except ValueError as exc:
+        raise WebhookChallengeError(
+            f"webhook challenge configuration is invalid: {exc}",
+            reason="invalid_configuration",
+            field=field,
+            url=error_url,
+        ) from exc
+    challenge_value = payload["challenge"]
+
+    try:
+        effective_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else float(getattr(cast(Any, sender), "_timeout", _DEFAULT_TIMEOUT_SECONDS))
+        )
+        response = await _send_sender_webhook_challenge(
+            url=destination.effective_url,
+            sender=sender,
+            payload=payload,
+            timeout_seconds=effective_timeout,
+            policy=destination.policy,
+            extra_headers=extra_headers,
+        )
+        status_code = response.status_code
+        response_headers = dict(response.headers)
+        response_body = response.content
+    except httpx.TimeoutException as exc:
+        raise WebhookChallengeError(
+            "webhook challenge timed out",
+            reason="timeout",
+            field=field,
+            url=destination.original_url,
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise WebhookChallengeError(
+            f"webhook challenge request failed: {exc}",
+            reason="request_failed",
+            field=field,
+            url=destination.original_url,
+        ) from exc
+    except ValueError as exc:
+        raise WebhookChallengeError(
+            f"webhook challenge configuration is invalid: {exc}",
+            reason="invalid_configuration",
+            field=field,
+            url=destination.original_url,
+        ) from exc
+
+    if not 200 <= status_code < 300:
+        raise WebhookChallengeError(
+            f"webhook challenge failed with HTTP {status_code}",
+            reason="http_status",
+            field=field,
+            url=destination.original_url,
+            status_code=status_code,
+        )
+
+    echoed_field = validate_webhook_challenge_response(
+        response_body,
+        challenge=challenge_value,
+        field=field,
+        url=destination.original_url,
+    )
+    return WebhookChallengeResult(
+        challenge=challenge_value,
+        echoed_field=echoed_field,
+        destination=destination,
+        status_code=status_code,
+        response_headers=response_headers,
+        response_body=response_body,
+    )
+
+
+async def _challenge_webhook_destination_v9_6(
+    *,
+    url: str | AnyUrl,
+    account_id: str,
+    subscriber_id: str,
+    sender: WebhookSender | None,
+    authentication: AdCPBaseModel | Mapping[str, Any] | None,
+    challenge: str | None,
+    timeout_seconds: float | None,
+    policy: WebhookDestinationPolicy | None,
+    field: str | None,
+    extra_headers: Mapping[str, str] | None,
+) -> WebhookChallengeResult:
+    """adcp 9.6 ``challenge_webhook_destination`` behaviour, kept for 9.x callers.
+
+    Reached only when the caller omits ``seller_agent_url`` and
+    ``event_types``. This is the 9.6.2 implementation plus deprecation
+    warnings; remove it in 10.0, when those arguments become required.
+    """
+
+    # Frames: warn helper -> this coroutine -> challenge_webhook_destination -> caller.
+    _warn_missing_challenge_fields(
+        "challenge_webhook_destination",
+        stacklevel=4,
+        extra=(
+            " Passing them sends the AdCP 3.2 challenge, which must be signed by "
+            "an RFC 9421 sender=WebhookSender.from_jwk(...); keep passing "
+            "authentication=config.authentication for Bearer/HMAC configs."
+        ),
+    )
     error_url = str(url) if isinstance(url, (str, AnyUrl)) else None
     if sender is not None and authentication is not None:
         raise WebhookChallengeError(
@@ -1503,6 +1824,10 @@ async def challenge_webhook_destination(
             reason="ambiguous_auth_mode",
             field=field,
             url=error_url,
+            suggestion=(
+                "To bind authentication into an RFC 9421-signed challenge, also pass "
+                "seller_agent_url and event_types."
+            ),
         )
     sender_owns_client = bool(getattr(cast(Any, sender), "_owns_client", False))
     sender_transport_hooks = tuple(getattr(cast(Any, sender), "_transport_hooks", ()))
@@ -1543,7 +1868,7 @@ async def challenge_webhook_destination(
         )
     try:
         destination = validate_webhook_destination_url(url, policy=policy, field=field)
-        payload = create_webhook_challenge_payload(
+        payload = _legacy_webhook_challenge_payload(
             account_id=account_id,
             subscriber_id=subscriber_id,
             challenge=challenge,
@@ -1564,6 +1889,17 @@ async def challenge_webhook_destination(
             url=error_url,
         ) from exc
     challenge_value = payload["challenge"]
+    if sender is None:
+        # Frames: warnings.warn -> this coroutine -> challenge_webhook_destination -> caller.
+        warnings.warn(
+            "challenge_webhook_destination() called with authentication= and no "
+            "sender=; sending the proof-of-control challenge with legacy Bearer or "
+            "HMAC-SHA256 delivery authentication. adcp 10.0 signs every challenge "
+            "with RFC 9421: pass sender=WebhookSender.from_jwk(...) together with "
+            "authentication=config.authentication, seller_agent_url and event_types.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
     try:
         if sender is not None:
@@ -1580,9 +1916,6 @@ async def challenge_webhook_destination(
                 policy=destination.policy,
                 extra_headers=extra_headers,
             )
-            status_code = response.status_code
-            response_headers = dict(response.headers)
-            response_body = response.content
         else:
             auth_config = _authentication_to_config(cast(Any, authentication))
             response = await _send_legacy_webhook_challenge(
@@ -1593,9 +1926,9 @@ async def challenge_webhook_destination(
                 timeout_seconds=timeout_seconds,
                 policy=destination.policy,
             )
-            status_code = response.status_code
-            response_headers = dict(response.headers)
-            response_body = response.content
+        status_code = response.status_code
+        response_headers = dict(response.headers)
+        response_body = response.content
     except httpx.TimeoutException as exc:
         raise WebhookChallengeError(
             "webhook challenge timed out",

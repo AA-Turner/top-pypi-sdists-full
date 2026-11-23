@@ -1,5 +1,6 @@
 import json
 
+import httpx
 import pytest
 import requests
 from werkzeug.test import Client
@@ -56,6 +57,28 @@ def test_empty_wsgi_response_encoding(headers, expected):
     assert (response.status_code, response.content, response.encoding) == (204, b"", expected)
 
 
+def _empty_wsgi_app(environ, start_response):
+    start_response("204 No Content", [])
+    return []
+
+
+@pytest.mark.parametrize(
+    ("send", "expected"),
+    [
+        (
+            lambda: httpx.Client(transport=httpx.WSGITransport(app=_empty_wsgi_app)).get(
+                "http://127.0.0.1/items?q=v&q=w"
+            ),
+            "http://127.0.0.1/items?q=v&q=w",
+        ),
+        (lambda: Client(_empty_wsgi_app).get("/items?q=v&q=w"), "http://localhost/items?q=v&q=w"),
+    ],
+    ids=["httpx", "wsgi"],
+)
+def test_converted_request_keeps_query_as_sent(send, expected):
+    assert Response.from_any(send()).request.url == expected
+
+
 def test_wsgi_response_encoding(response_factory):
     raw = response_factory.wsgi(content="café".encode("latin-1"), content_type="text/plain; charset=latin-1")
     response = Response.from_wsgi(raw)
@@ -74,7 +97,7 @@ def test_wsgi_response_encoding(response_factory):
 )
 def test_text_lossy_never_raises(response_factory, content, charset, expected):
     raw = response_factory.requests(content=content, content_type=f"text/plain; charset={charset}")
-    # Derive `encoding` from headers exactly like requests' adapter does for real responses.
+    # Derive `encoding` from headers as the requests adapter does for real responses.
     raw.encoding = requests.utils.get_encoding_from_headers(raw.headers)
     response = Response.from_requests(raw, verify=False)
     assert response.encoding == charset

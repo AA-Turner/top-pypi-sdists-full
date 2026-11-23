@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from queue import Queue
 
+import pytest
 from flask import jsonify, request
 
 from schemathesis.cli.commands.run.handlers.crashes import (
@@ -69,8 +70,7 @@ def test_passing_scenario_does_not_delete_failing_crash(case_factory, response_f
 
     _drive(queue, crashes_dir)
 
-    files = [f for f in crashes_dir.iterdir() if f.name != MANIFEST_FILENAME]
-    assert len(files) == 1
+    assert len(_crash_files(crashes_dir)) == 1
 
 
 def test_fuzz_crash_records_real_operation_not_phase_label(case_factory, response_factory, tmp_path):
@@ -81,12 +81,13 @@ def test_fuzz_crash_records_real_operation_not_phase_label(case_factory, respons
 
     _drive(queue, crashes_dir)
 
-    crash = json.loads(next(f for f in crashes_dir.iterdir() if f.name != MANIFEST_FILENAME).read_text())
+    (crash_file,) = _crash_files(crashes_dir)
+    crash = json.loads(crash_file.read_text())
     assert crash["operation"] == "GET /users"
 
 
 def test_passing_operation_removes_only_stale_crash(case_factory, response_factory, tmp_path):
-    # Cross-run healing still works: an operation that passed and never failed this run has its stale crash dropped.
+    # An operation that passed and never failed this run drops its stale crash from an earlier run.
     crashes_dir = tmp_path / "crashes"
     writer_queue: Queue = Queue()
     writer_queue.put(
@@ -94,20 +95,39 @@ def test_passing_operation_removes_only_stale_crash(case_factory, response_facto
     )
     writer_queue.put(None)
     _drive(writer_queue, crashes_dir)
-    assert [f for f in crashes_dir.iterdir() if f.name != MANIFEST_FILENAME]
+    assert _crash_files(crashes_dir)
 
     heal_queue: Queue = Queue()
     heal_queue.put(_Process(recorder=_passing_recorder(case_factory, label="GET /users"), success=True))
     heal_queue.put(None)
     _drive(heal_queue, crashes_dir)
 
-    assert not [f for f in crashes_dir.iterdir() if f.name != MANIFEST_FILENAME]
+    assert not _crash_files(crashes_dir)
 
 
 def _crash_files(directory: Path) -> list[Path]:
     if not directory.exists():
         return []
-    return [path for path in directory.iterdir() if path.suffix == ".json" and path.name != MANIFEST_FILENAME]
+    return [path for path in directory.rglob("*.json") if path.name != MANIFEST_FILENAME]
+
+
+@pytest.mark.parametrize("same_schema", [True, False], ids=["same-schema", "another-schema"])
+def test_run_moves_crash_files_of_older_versions_into_its_schema_directory(cli, ctx, tmp_path, same_schema):
+    schema_url = ctx.openapi.apps.failure().schema_url
+    cli.run(schema_url, "--max-examples=1", "--phases=fuzzing")
+    crashes = crash_cache_dir(tmp_path)
+    (schema_directory,) = [path for path in crashes.iterdir() if path.is_dir()]
+    # Older versions kept crash files directly in the crashes directory.
+    for path in schema_directory.iterdir():
+        path.rename(crashes / path.name)
+    schema_directory.rmdir()
+    flat = sorted(path.name for path in crashes.glob("*.json"))
+
+    cli.run(
+        schema_url if same_schema else ctx.openapi.apps.success().schema_url, "--max-examples=1", "--phases=fuzzing"
+    )
+
+    assert sorted(path.name for path in crashes.glob("*.json")) == ([] if same_schema else flat)
 
 
 def test_crash_file_written_on_failure(cli, ctx, tmp_path):
@@ -182,43 +202,41 @@ def test_no_crash_file_on_success(cli, ctx, tmp_path):
     assert not _crash_files(crash_cache_dir(tmp_path))
 
 
-def test_crash_file_sanitizes_url_and_response_headers(cli, ctx, tmp_path):
+LEAK_PARAMETERS = [
+    {"name": "api_key", "in": "query", "required": True, "schema": {"type": "string", "example": "SECRETVALUE"}}
+]
+
+
+def test_crash_file_sanitizes_url_headers_and_typed_values(cli, ctx, tmp_path):
     app, _ = ctx.openapi.make_flask_app(
-        {
-            "/leak": {
-                "get": {
-                    "parameters": [{"name": "api_key", "in": "query", "required": True, "schema": {"type": "string"}}],
-                    "responses": {"500": {"description": "Error"}},
-                }
-            }
-        }
+        {"/leak": {"get": {"parameters": LEAK_PARAMETERS, "responses": {"500": {"description": "Error"}}}}}
     )
 
     @app.route("/leak")
     def leak():
         return jsonify({"error": "boom"}), 500, {"Authorization": "super-secret-token"}
 
-    cli.run_openapi_app(app, "--max-examples=1", config={"parameters": {"api_key": "SECRETVALUE"}})
+    cli.run_openapi_app(
+        app,
+        "--max-examples=1",
+        "--phases=coverage",
+        "--mode=positive",
+        config={"parameters": {"api_key": "SECRETVALUE"}},
+    )
 
     crash = json.loads(_crash_files(crash_cache_dir(tmp_path))[0].read_text())
     step = crash["sequence"][0]
     assert "super-secret-token" not in json.dumps(crash)
-    assert "SECRETVALUE" not in step["url"], step["url"]
+    assert "SECRETVALUE" not in json.dumps(crash)
     assert "%5BFiltered%5D" in step["url"] or "[Filtered]" in step["url"], step["url"]
     assert step["response"]["headers"].get("authorization") == "[Filtered]"
+    assert step["meta"]["raw_containers"] == {"QUERY": {"api_key": "[Filtered]"}}
 
 
 def test_crash_file_respects_disabled_sanitization(cli, ctx, tmp_path):
     # Crash files follow the output.sanitization rules; disabling sanitization persists raw values.
     app, _ = ctx.openapi.make_flask_app(
-        {
-            "/leak": {
-                "get": {
-                    "parameters": [{"name": "api_key", "in": "query", "required": True, "schema": {"type": "string"}}],
-                    "responses": {"500": {"description": "Error"}},
-                }
-            }
-        }
+        {"/leak": {"get": {"parameters": LEAK_PARAMETERS, "responses": {"500": {"description": "Error"}}}}}
     )
 
     @app.route("/leak")
@@ -228,11 +246,14 @@ def test_crash_file_respects_disabled_sanitization(cli, ctx, tmp_path):
     cli.run_openapi_app(
         app,
         "--max-examples=1",
+        "--phases=coverage",
+        "--mode=positive",
         config={"parameters": {"api_key": "SECRETVALUE"}, "output": {"sanitization": {"enabled": False}}},
     )
 
-    crash = json.loads(_crash_files(crash_cache_dir(tmp_path))[0].read_text())
-    assert "SECRETVALUE" in crash["sequence"][0]["url"]
+    step = json.loads(_crash_files(crash_cache_dir(tmp_path))[0].read_text())["sequence"][0]
+    assert "SECRETVALUE" in step["url"]
+    assert step["meta"]["raw_containers"] == {"QUERY": {"api_key": "SECRETVALUE"}}
 
 
 def test_crash_file_stores_structured_case(cli, ctx, tmp_path):
@@ -264,7 +285,8 @@ def test_crash_file_stores_structured_case(cli, ctx, tmp_path):
             return jsonify({"error": "boom"}), 500
         return jsonify({}), 200
 
-    cli.run_openapi_app(app, "--max-examples=5", "--phases=fuzzing")
+    # One check, so the run writes one crash file
+    cli.run_openapi_app(app, "--max-examples=5", "--phases=fuzzing", "--checks=not_a_server_error")
 
     crash = json.loads(_crash_files(crash_cache_dir(tmp_path))[0].read_text())
     step = crash["sequence"][0]

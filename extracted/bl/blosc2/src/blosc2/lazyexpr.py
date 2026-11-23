@@ -61,7 +61,6 @@ from .expression_evaluator import (
     binary_result_dtype,
     compute_typed_prefilter,
     compute_typed_reduction,
-    typed_evaluator_enabled,
 )
 from .expression_graph import (
     _NUMPY_VALUE_PROMOTION,
@@ -198,7 +197,6 @@ def _prepare_chunk_schedule(expression, operands, optimization, policy, state):
         cache_key = (
             expression,
             optimization,
-            typed_evaluator_enabled(),
             tuple(policy.items()),
             tuple((name, value.dtype, value.shape) for name, value in sorted(operands.items())),
         )
@@ -215,7 +213,7 @@ def _prepare_chunk_schedule(expression, operands, optimization, policy, state):
             else False
         )
         plan, arrays, _ = lower_native_graph(stub, jit=graph_jit, allow_output=True)
-        if typed_evaluator_enabled() and not native_weak_scalars_eligible(plan, expression, operands):
+        if not native_weak_scalars_eligible(plan, expression, operands):
             return None
     except (NotImplementedError, ValueError, TypeError):
         return None
@@ -274,7 +272,6 @@ def evaluate_chunk(expression, local_dict=None, **kwargs):
             state is not None
             and graph.arithmetic
             and optimization == "moderate"
-            and typed_evaluator_enabled()
             and policy["jit"] is None
             and policy["jit_backend"] is None
             and policy["math_backend"] is None
@@ -426,6 +423,121 @@ def _restore_code_unit_shuffle(cparams: blosc2.CParams, dtype) -> None:
     for i, filt in enumerate(cparams.filters):
         if filt == blosc2.Filter.SHUFFLE and cparams.filters_meta[i] == 0:
             cparams.filters_meta[i] = 4
+
+
+_INITIAL_COMPUTE_CODEC = blosc2.cparams_dflts["codec"]
+_INITIAL_COMPUTE_CLEVEL = blosc2.cparams_dflts["clevel"]
+_INITIAL_COMPUTE_FILTERS = blosc2.cparams_dflts["filters"]
+_INITIAL_COMPUTE_FILTER_VALUES = tuple(_INITIAL_COMPUTE_FILTERS)
+_INITIAL_COMPUTE_ACTIVE_FILTERS = tuple(
+    f for f in _INITIAL_COMPUTE_FILTER_VALUES if f != blosc2.Filter.NOFILTER
+)
+_INHERITABLE_COMPUTE_CODECS = frozenset(
+    {
+        blosc2.Codec.BLOSCLZ,
+        blosc2.Codec.LZ4,
+        blosc2.Codec.LZ4HC,
+        blosc2.Codec.ZLIB,
+        blosc2.Codec.ZSTD,
+    }
+)
+_INHERITABLE_COMPUTE_FILTERS = frozenset(
+    {
+        blosc2.Filter.SHUFFLE,
+        blosc2.Filter.BITSHUFFLE,
+        blosc2.Filter.DELTA,
+        blosc2.Filter.BYTEDELTA,
+    }
+)
+
+
+def _collect_compute_ndarrays(values, ndarrays, seen):
+    """Collect underlying NDArray operands; return False if any non-NDArray array is present."""
+    for value in values:
+        if value is None or isinstance(value, (bool, int, float, complex, str, bytes, np.generic)):
+            continue
+        obj_id = id(value)
+        if obj_id in seen:
+            continue
+        seen.add(obj_id)
+        if isinstance(value, blosc2.NDArray):
+            ndarrays.append(value)
+        elif isinstance(value, LazyExpr):
+            if not _collect_compute_ndarrays(value.operands.values(), ndarrays, seen):
+                return False
+        elif isinstance(value, LazyUDF):
+            if not _collect_compute_ndarrays(value.inputs, ndarrays, seen):
+                return False
+        elif isinstance(value, LazyArray) and hasattr(value, "inputs") and isinstance(value.inputs, dict):
+            if not _collect_compute_ndarrays(value.inputs.values(), ndarrays, seen):
+                return False
+        else:
+            return False
+    return True
+
+
+def inherited_operand_cparams(operands, output_dtype):
+    """Return safe ``(codec, clevel, filters)`` inherited from uniform NDArray operands.
+
+    Returns ``None`` when defaults should apply: global ``blosc2.cparams_dflts``
+    were customized, the output dtype is non-numeric or differs in kind from an
+    operand, operands are non-uniform or include non-NDArray arrays, or any
+    operand uses ``clevel == 0``, dictionaries, or a lossy/non-standard codec
+    or filter.
+    """
+    if output_dtype is None:
+        return None
+    output_dtype = np.dtype(output_dtype)
+    if output_dtype.kind not in "iufc":
+        return None
+    global_filters = blosc2.cparams_dflts["filters"]
+    if (
+        blosc2.cparams_dflts["codec"] != _INITIAL_COMPUTE_CODEC
+        or blosc2.cparams_dflts["clevel"] != _INITIAL_COMPUTE_CLEVEL
+        or global_filters is not _INITIAL_COMPUTE_FILTERS
+        or tuple(global_filters) != _INITIAL_COMPUTE_FILTER_VALUES
+    ):
+        return None
+    ndarrays = []
+    if not _collect_compute_ndarrays(operands, ndarrays, set()) or not ndarrays:
+        return None
+    common = None
+    for arr in ndarrays:
+        if arr.dtype.kind != output_dtype.kind:
+            return None
+        cp = arr.cparams
+        if cp.clevel <= 0 or cp.use_dict or cp.codec not in _INHERITABLE_COMPUTE_CODECS:
+            return None
+        active_filters = tuple(f for f in cp.filters if f != blosc2.Filter.NOFILTER)
+        if not all(f in _INHERITABLE_COMPUTE_FILTERS for f in active_filters):
+            return None
+        candidate = (cp.codec, cp.clevel, active_filters)
+        if common is None:
+            common = candidate
+        elif candidate != common:
+            return None
+    if common == (_INITIAL_COMPUTE_CODEC, _INITIAL_COMPUTE_CLEVEL, _INITIAL_COMPUTE_ACTIVE_FILTERS):
+        return None
+    codec, clevel, active_filters = common
+    return {"codec": codec, "clevel": clevel, "filters": list(active_filters)}
+
+
+def _resolve_lazyudf_cparams(self_kwargs, call_kwargs, inputs, dtype):
+    has_explicit = self_kwargs.get("cparams") is not None or call_kwargs.get("cparams") is not None
+    merged = self_kwargs.get("cparams") or {}
+    merged = asdict(merged) if isinstance(merged, blosc2.CParams) else dict(merged)
+    override = call_kwargs.get("cparams") or {}
+    override = asdict(override) if isinstance(override, blosc2.CParams) else override
+    merged.update(override)
+    if merged:
+        # Only when something was actually asked for: passing an empty dict
+        # still materializes CParams' defaults, whose all-zero filters_meta
+        # overrides the dtype-aware shuffle width (4 for <U, the UCS4 code
+        # unit) that the container would otherwise pick for itself.
+        return merged
+    if not has_explicit and self_kwargs.get("out") is None and call_kwargs.get("out") is None:
+        return inherited_operand_cparams(inputs, dtype)
+    return None
 
 
 def _has_constructor_call(expression: str, constructor: str) -> bool:
@@ -700,6 +812,14 @@ class LazyArray(ABC, blosc2.Operand):
         kwargs: Any, optional
             Keyword arguments that are supported by the :func:`empty` constructor.
             These arguments will be set in the resulting :ref:`NDArray`.
+            When ``cparams`` is omitted (and global ``blosc2.cparams_dflts``
+            codec/clevel/filters are unchanged), numeric outputs whose
+            ``NDArray`` operands all share the same ``dtype.kind`` and a
+            uniform lossless ``(codec, clevel, filters)`` setting (with
+            ``clevel > 0`` and ``use_dict=False``) inherit that
+            ``(codec, clevel, filters)`` triple; other parameters such as
+            ``typesize``, ``blocksize``, ``filters_meta``, and ``nthreads``
+            are chosen for the output array.
             Additionally, the following special kwargs are supported:
 
             - ``eval_kwargs`` (dict): for :ref:`LazyExpr`, override the expression
@@ -2075,12 +2195,7 @@ def fast_eval(  # noqa: C901
         isinstance(value, blosc2.NDArray | np.ndarray) and value.dtype.kind in "SU"
         for value in operands.values()
     )
-    typed_expression = (
-        not is_dsl
-        and isinstance(expression, str)
-        and not string_operands
-        and (typed_evaluator_enabled() or _NUMPY_VALUE_PROMOTION)
-    )
+    typed_expression = not is_dsl and isinstance(expression, str) and not string_operands
     if typed_expression:
         # This route may use typed artifacts or explicit NumPy fallback, never
         # the uniform-output-dtype expression compiler.
@@ -2160,7 +2275,6 @@ def fast_eval(  # noqa: C901
         and try_miniexpr
         and not eval_kwargs
         and not _in_place
-        and fp_accuracy == blosc2.FPAccuracy.DEFAULT
         and (where is None or len(where) == 2)
     ):
         typed_source = f"where({expression}, _where_x, _where_y)" if where is not None else expression
@@ -2172,6 +2286,7 @@ def fast_eval(  # noqa: C901
             out=out,
             jit=jit,
             jit_backend=jit_backend,
+            fp_accuracy=fp_accuracy,
             options={**kwargs, "chunks": chunks, "blocks": blocks},
             candidate_blocks=candidate_blocks,
             prune_chunks=prune_chunks,
@@ -3226,16 +3341,6 @@ def reduce_slices(  # noqa: C901
     :ref:`NDArray` or np.ndarray
         The resulting output array.
     """
-    global try_miniexpr
-
-    # Use a local copy so we don't modify the global
-    use_miniexpr = try_miniexpr and not (typed_evaluator_enabled() or _NUMPY_VALUE_PROMOTION)
-
-    if blosc2.IS_WASM:
-        # Reduction miniexpr on wasm is currently unstable for scalar reductions (axis=None).
-        # Keep wasm reduction evaluation on the regular chunked path until stabilized.
-        use_miniexpr = False
-
     out = kwargs.pop("_output", None)
     res_out_ = None  # temporary required to store max/min for argmax/argmin
     eval_kwargs: dict = kwargs.pop("_eval_kwargs", {})
@@ -3315,7 +3420,6 @@ def reduce_slices(  # noqa: C901
     all_ndarray = False
     any_persisted = False
     chunks = None
-    blocks = None
     if blosc2_arrs:  # fast path only relevant if there are blosc2 arrays
         operand = max(blosc2_arrs, key=lambda x: len(x.shape))
 
@@ -3328,7 +3432,6 @@ def reduce_slices(  # noqa: C901
         iter_disk = False
         if fast_path:
             chunks = operand.chunks
-            blocks = operand.blocks
             # Check that all operands are NDArray for fast path
             all_ndarray = all(
                 isinstance(value, blosc2.NDArray) and value.shape != () for value in operands.values()
@@ -3363,8 +3466,7 @@ def reduce_slices(  # noqa: C901
         del temp
 
     if (
-        typed_evaluator_enabled()
-        and try_miniexpr
+        try_miniexpr
         and isinstance(expression, str)
         and not _is_dsl_kernel_expression(expression)
         and fast_path
@@ -3375,7 +3477,6 @@ def reduce_slices(  # noqa: C901
         and not np.any(mask_slice)
         and not eval_kwargs
         and "initial" not in reduce_args
-        and fp_accuracy == blosc2.FPAccuracy.DEFAULT
         and (where is None or len(where) == 2)
     ):
         typed_source = f"where({expression}, _where_x, _where_y)" if where is not None else expression
@@ -3385,132 +3486,10 @@ def reduce_slices(  # noqa: C901
             reduce_op=reduce_op,
             reduce_op_str=reduce_op_str,
             explicit_dtype=reduce_args.get("dtype"),
+            fp_accuracy=fp_accuracy,
             optimization=optimization,
         )
         if result is not None:
-            return result
-
-    # miniexpr reduction path only supported for some cases so far
-    if not (fast_path and all_ndarray and reduced_shape == () and _slice == ()):
-        use_miniexpr = False
-
-    # Some reductions are not supported yet in miniexpr
-    if reduce_op in (ReduceOp.ARGMAX, ReduceOp.ARGMIN, ReduceOp.CUMULATIVE_PROD, ReduceOp.CUMULATIVE_SUM):
-        use_miniexpr = False
-
-    # Check whether we can use miniexpr
-    if use_miniexpr and isinstance(expression, str):
-        if _miniexpr_integer_atan2(expression, operands):
-            use_miniexpr = False
-        tree = _parse_expression(expression)
-        if _miniexpr_inexact_int_literal(expression) or (
-            tree is not None and any(isinstance(node, ast.Compare) for node in ast.walk(tree))
-        ):
-            # Legacy scalar reductions type intermediate conditions using the
-            # accumulator dtype, losing float32 rounding and int64 precision.
-            # The chunk evaluator retains the condition's own NumPy semantics.
-            use_miniexpr = False
-        has_complex = any(
-            isinstance(op, blosc2.NDArray) and blosc2.isdtype(op.dtype, "complex floating")
-            for op in operands.values()
-        )
-        if has_complex and any(tok in expression for tok in ("!=", "==", "<=", ">=", "<", ">")):
-            use_miniexpr = False
-        if where is not None and len(where) != 2:
-            use_miniexpr = False
-
-    if use_miniexpr:
-        cparams = kwargs.pop("cparams", None)
-        if cparams is None:
-            # Experiments say that not splitting is best (at least on Apple Silicon M4 Pro)
-            cparams = blosc2.CParams(splitmode=blosc2.SplitMode.NEVER_SPLIT)
-            _restore_code_unit_shuffle(cparams, dtype)
-        # Create a fake NDArray just to drive the miniexpr evaluation (values won't be used)
-        res_eval = blosc2.uninit(shape, dtype, chunks=chunks, blocks=blocks, cparams=cparams, **kwargs)
-        # Compute the number of blocks in the result
-        nblocks = res_eval.schunk.nbytes // res_eval.blocksize
-        # Initialize aux_reduc based on the reduction operation
-        # Padding blocks won't be written, so initial values matter for the final reduction
-        if reduce_op in {ReduceOp.SUM, ReduceOp.ANY, ReduceOp.CUMULATIVE_SUM}:
-            aux_reduc = np.zeros(nblocks, dtype=dtype)
-        elif reduce_op in {ReduceOp.PROD, ReduceOp.ALL, ReduceOp.CUMULATIVE_PROD}:
-            aux_reduc = np.ones(nblocks, dtype=dtype)
-        elif reduce_op == ReduceOp.MIN:
-            # Bool is not an np.integer, and -inf/inf would both be True
-            if dtype == np.bool_:
-                aux_reduc = np.ones(nblocks, dtype=dtype)
-            elif np.issubdtype(dtype, np.integer):
-                aux_reduc = np.full(nblocks, np.iinfo(dtype).max, dtype=dtype)
-            else:
-                aux_reduc = np.full(nblocks, np.inf, dtype=dtype)
-        elif reduce_op == ReduceOp.MAX:
-            if dtype == np.bool_:
-                aux_reduc = np.zeros(nblocks, dtype=dtype)
-            elif np.issubdtype(dtype, np.integer):
-                aux_reduc = np.full(nblocks, np.iinfo(dtype).min, dtype=dtype)
-            else:
-                aux_reduc = np.full(nblocks, -np.inf, dtype=dtype)
-        else:
-            # For other operations, zeros should be safe
-            aux_reduc = np.zeros(nblocks, dtype=dtype)
-        prefilter_set = False
-        expression_miniexpr = None
-        try:
-            if where is not None:
-                expression_miniexpr = f"{reduce_op_str}(where({expression}, _where_x, _where_y))"
-            else:
-                expression_miniexpr = f"{reduce_op_str}({expression})"
-            # Keep reductions as native scalar expressions. A DSL return
-            # broadcasts a reduced value across the output block, whereas this
-            # prefilter supplies only one accumulator slot per block. Explicit
-            # JIT_ON also auto-lifts plain expressions in the native compiler,
-            # so use the scalar interpreter until reduction JIT has a separate
-            # output-cardinality contract.
-            res_eval._set_pref_expr(expression_miniexpr, operands, fp_accuracy, aux_reduc, jit=False)
-            prefilter_set = True
-            # print("expr->miniexpr:", expression, reduce_op, fp_accuracy)
-            # Data won't even try to be compressed, so buffers can be unitialized and reused
-            data = np.empty(res_eval.schunk.chunksize, dtype=np.uint8)
-            chunk_data = np.empty(res_eval.schunk.chunksize + blosc2.MAX_OVERHEAD, dtype=np.uint8)
-            # Exercise prefilter for each chunk
-            # The prefilter reads the operands' super-chunks from C, outside their methods
-            operand_locks = blosc2.blosc2_ext.HandleLocks(operands.values())
-            for nchunk in range(res_eval.schunk.nchunks):
-                with operand_locks:
-                    res_eval.schunk._prefilter_data(nchunk, data, chunk_data)
-        except Exception as e:
-            if blosc2.jit_config.execution_options()["math_backend"] is not None:
-                raise
-            if callable(expression) and _is_dsl_kernel_expression(expression):
-                reason = "miniexpr compilation or execution failed for this DSL kernel."
-                backend_error = str(e)
-                parse_hint = None
-                if isinstance(expression_miniexpr, str):
-                    parse_hint = _format_dsl_parse_error_hint(expression_miniexpr, backend_error)
-                reason = f"{reason}\nBackend error: {backend_error}"
-                if parse_hint is not None:
-                    reason = f"{reason}\n{parse_hint}"
-                raise RuntimeError(_dsl_miniexpr_required_message(reason)) from e
-            if prefilter_set:
-                raise
-            use_miniexpr = False
-        finally:
-            if prefilter_set:
-                res_eval.schunk.remove_prefilter("miniexpr")
-
-        if not use_miniexpr:
-            # If miniexpr failed, fallback to regular evaluation
-            # (continue to the manual chunked evaluation below)
-            pass
-        else:
-            if reduce_op in {ReduceOp.ANY, ReduceOp.ALL}:
-                result = reduce_op.value(aux_reduc, **reduce_args)
-            else:
-                # The accumulator is always 1-D (one slot per output block).
-                # The original axis may refer to dimensions that no longer
-                # exist after per-block reduction.  Use axis=0 to combine
-                # all block results.
-                result = reduce_op.value.reduce(aux_reduc, axis=0)
             return result
 
     # Iterate over the operands and get the chunks
@@ -3715,16 +3694,13 @@ def reduce_slices(  # noqa: C901
 
     if reduced_shape == ():
         # convert_none_out() may allocate shape (1,) as an internal buffer for scalar reductions.
-        # Collapse it to a numpy scalar while handling both 0-d and 1-d singleton arrays.
-        if isinstance(out, np.ndarray):
-            out = out[()] if out.ndim == 0 else out[0]
-        else:
-            out = out[()]
+        # Full reductions return a zero-dimensional array, not a NumPy scalar.
+        out = np.asarray(out).reshape(())
     final_mask = tuple(np.where(mask_slice)[0])
     if np.any(mask_slice):  # remove dummy dims
         out = np.squeeze(out, axis=final_mask)
     # Check if the output array needs to be converted into a blosc2.NDArray
-    if kwargs != {} and not np.isscalar(out):
+    if kwargs != {} and np.ndim(out) > 0:
         out = blosc2.asarray(out, **kwargs)
     return out
 
@@ -4094,10 +4070,9 @@ def check_dtype(op, value1, value2):
     if op == "/" and v1_dtype == np.int32 and v2_dtype == np.int32:
         return blosc2.float32
 
-    if typed_evaluator_enabled():
-        result = binary_result_dtype(op, value1, value2)
-        if result is not None:
-            return result
+    result = binary_result_dtype(op, value1, value2)
+    if result is not None:
+        return result
 
     if op == "/" and np.issubdtype(v1_dtype, np.integer) and np.issubdtype(v2_dtype, np.integer):
         return blosc2.float64
@@ -4749,7 +4724,7 @@ class LazyExpr(LazyArray):
                 axis=axis, dtype=np.int64, fp_accuracy=fp_accuracy, **execution_kwargs
             )
         )
-        if np.isscalar(num_elements) and num_elements == 0:
+        if np.ndim(num_elements) == 0 and num_elements == 0:
             raise ValueError("mean of an empty array is not defined")
         out = total_sum / num_elements
         # NumPy's dtype for a floating `dtype` or input: NumPy 1.x makes a float32 scalar over a
@@ -4758,11 +4733,13 @@ class LazyExpr(LazyArray):
         mean_dtype = np.dtype(self.dtype if dtype is None else dtype)
         if mean_dtype.kind in "fc" and isinstance(out, (np.ndarray, np.generic)):
             out = out.astype(mean_dtype, copy=False)
+        if np.isscalar(out):
+            out = np.asarray(out)
         out2 = kwargs.pop("out", None)
         if out2 is not None:
             out2[:] = out
             return out2
-        if kwargs != {} and not np.isscalar(out):
+        if kwargs != {} and np.ndim(out) > 0:
             out = blosc2.asarray(out, **kwargs)
         return out
 
@@ -4795,9 +4772,33 @@ class LazyExpr(LazyArray):
         execution_kwargs = blosc2.jit_config.pop_execution_options(kwargs)
         where = self._normalize_where(where)
         item = kwargs.pop("item", ())
-        if item == () and axis is None and where is None and self._can_full_var(dtype):
+        from .native_graph import compute_prefilter_moments_if_eligible
+
+        self.__dict__.pop("_native_execution_report", None)
+        out = (
+            compute_prefilter_moments_if_eligible(
+                self,
+                axis=axis,
+                dtype=dtype,
+                ddof=ddof,
+                keepdims=keepdims,
+                stddev=finish is not None,
+                fp_accuracy=fp_accuracy,
+                execution_kwargs=execution_kwargs,
+            )
+            if item == () and where is None
+            else None
+        )
+        native_moments = out is not None
+        if (
+            not native_moments
+            and item == ()
+            and axis is None
+            and where is None
+            and self._can_full_var(dtype)
+        ):
             out = self._full_var(dtype, keepdims, fp_accuracy, execution_kwargs)
-        else:
+        elif not native_moments:
             if item == ():  # fast path
                 mean_value = self.mean(
                     axis=axis,
@@ -4829,7 +4830,7 @@ class LazyExpr(LazyArray):
                 fp_accuracy=fp_accuracy,
                 **execution_kwargs,
             )
-        if ddof != 0:
+        if ddof != 0 and not native_moments:
             num_elements = (
                 self.get_num_elements(axis, item, fp_accuracy=fp_accuracy, **execution_kwargs)
                 if where is None
@@ -4840,13 +4841,15 @@ class LazyExpr(LazyArray):
             # Keep the dtype of the variance: with NumPy 1.x, a float32 scalar times a Python int
             # becomes float64, and so does a float32 array times an int above 65535
             out = (out * num_elements / (num_elements - ddof)).astype(np.asarray(out).dtype, copy=False)
-        if finish is not None:
+        if finish is not None and not native_moments:
             out = finish(out)
+        if np.isscalar(out):
+            out = np.asarray(out)
         out2 = kwargs.pop("out", None)
         if out2 is not None:
             out2[:] = out
             return out2
-        if kwargs != {} and not np.isscalar(out):
+        if kwargs != {} and np.ndim(out) > 0:
             out = blosc2.asarray(out, **kwargs)
         return out
 
@@ -5378,7 +5381,7 @@ class LazyExpr(LazyArray):
         return indexing.explain_query(self)
 
     @expression_method
-    @blosc2.jit_config.math_execution
+    @blosc2.jit_config.scope_compute_options("math_backend")
     def compute(  # noqa: C901 -- native-first/strict dispatch plus legacy output policies
         self,
         item=(),
@@ -5391,6 +5394,15 @@ class LazyExpr(LazyArray):
         **kwargs,
     ) -> blosc2.NDArray:
         self.__dict__.pop("_native_execution_report", None)
+        if (
+            kwargs.get("cparams") is None
+            and kwargs.get("out") is None
+            and not kwargs.get("_reduce_args")
+            and not kwargs.get("_getitem")
+        ):
+            inherited = inherited_operand_cparams(self.operands.values(), self.dtype)
+            if inherited is not None:
+                kwargs["cparams"] = inherited
         if "ne_args" in kwargs:
             if "eval_kwargs" in kwargs:
                 raise TypeError("Pass only one of 'eval_kwargs' and the legacy 'ne_args' alias")
@@ -5410,6 +5422,7 @@ class LazyExpr(LazyArray):
             from .native_graph import (
                 compute_native_graph,
                 compute_native_prefilter_if_eligible,
+                compute_prefilter_argreduce_if_eligible,
                 compute_resident_if_eligible,
                 prepare_native_first,
             )
@@ -5424,6 +5437,17 @@ class LazyExpr(LazyArray):
             native_accuracy = fp_accuracy
             if native_accuracy is None and policy["fp_accuracy"] != blosc2.FPAccuracy.DEFAULT:
                 native_accuracy = policy["fp_accuracy"]
+
+            arg_reduction = compute_prefilter_argreduce_if_eligible(
+                self,
+                item,
+                jit=native_jit,
+                jit_backend=native_backend,
+                fp_accuracy=native_accuracy,
+                options=kwargs,
+            )
+            if arg_reduction is not None:
+                return arg_reduction
 
             resident = (
                 compute_resident_if_eligible(
@@ -5497,6 +5521,8 @@ class LazyExpr(LazyArray):
         if hasattr(self, "_order"):
             kwargs["_order"] = self._order
         result = self._compute_expr(item, kwargs)
+        if "_reduce_args" in kwargs and np.isscalar(result):
+            result = np.asarray(result)
         if "_order" in kwargs and "_indices" not in kwargs:
             # We still need to apply the index in result
             x = self._where_args["_where_x"]
@@ -5732,8 +5758,11 @@ class LazyExpr(LazyArray):
                         and not re.search(r"\bcopy\s*\(", expression)
                     ):
                         try:
-                            from .graph_plan import NativeGraph
-                            from .native_graph import native_weak_scalars_eligible, prepare_resident
+                            from .native_graph import (
+                                lower_native_graph,
+                                native_weak_scalars_eligible,
+                                prepare_resident,
+                            )
 
                             # The reviewed arithmetic subset can get metadata from its execution plan.
                             inputs = result.operands
@@ -5743,12 +5772,7 @@ class LazyExpr(LazyArray):
                                 _, plan, schedule = resident
                                 info = {"dtype": plan.inferred_dtype, "shape": resident[0][2]}
                             else:
-                                plan = NativeGraph.from_expression(
-                                    result.expression,
-                                    {name: value.dtype.name for name, value in inputs.items()},
-                                    jit=native_jit,
-                                )
-                                plan._frontend = "native-expression"
+                                plan, inputs, _ = lower_native_graph(result, jit=native_jit)
                                 if not native_weak_scalars_eligible(plan, result.expression, inputs):
                                     raise NotImplementedError(
                                         "Checked scalar metadata requires legacy preparation"
@@ -6154,21 +6178,9 @@ class LazyUDF(LazyArray):
         aux_kwargs = copy.deepcopy(self.kwargs)
 
         # Update is not recursive
-        aux_cparams = aux_kwargs.get("cparams", {})
-        if isinstance(aux_cparams, blosc2.CParams):
-            # Convert to dictionary
-            aux_cparams = asdict(aux_cparams)
-        cparams = kwargs.get("cparams", {})
-        if isinstance(cparams, blosc2.CParams):
-            # Convert to dictionary
-            cparams = asdict(cparams)
-        aux_cparams.update(cparams)
-        if aux_cparams:
-            # Only when something was actually asked for: passing an empty dict
-            # still materializes CParams' defaults, whose all-zero filters_meta
-            # overrides the dtype-aware shuffle width (4 for <U, the UCS4 code
-            # unit) that the container would otherwise pick for itself.
-            aux_kwargs["cparams"] = aux_cparams
+        resolved_cparams = _resolve_lazyudf_cparams(aux_kwargs, kwargs, self.inputs, self.dtype)
+        if resolved_cparams is not None:
+            aux_kwargs["cparams"] = resolved_cparams
 
         aux_dparams = aux_kwargs.get("dparams", {})
         if isinstance(aux_dparams, blosc2.DParams):
@@ -6870,7 +6882,7 @@ def _prepare_cached_evaluate(expression, local_dict, global_dict, optimization="
             cached=recipe.resident if recipe is not None else None,
             optimization=optimization,
         )
-        if not _NUMPY_VALUE_PROMOTION and policy["fp_accuracy"] == blosc2.FPAccuracy.DEFAULT
+        if not _NUMPY_VALUE_PROMOTION
         else None
     )
     if resident is not None and (recipe is None or resident is not recipe.resident):
@@ -6974,14 +6986,17 @@ def _array_owner(value):
 
 
 @remember_evaluation
-@blosc2.jit_config.math_execution
+@blosc2.jit_config.scope_compute_options("jit", "jit_backend", "math_backend", "fp_accuracy")
 def evaluate(
     ex: str,
     local_dict: dict | None = None,
     global_dict: dict | None = None,
     out: blosc2.Array = None,
     *,
+    jit: bool | None = None,
+    jit_backend: str | None = None,
     math_backend: str | None = None,
+    fp_accuracy: blosc2.FPAccuracy | None = None,
     **kwargs: Any,
 ) -> blosc2.Array:
     """
@@ -7035,13 +7050,9 @@ def evaluate(
     out: blosc2.Array, optional
         The output array where the result will be stored. If not provided,
         a new NumPy array will be created and returned.
-    math_backend: str, optional
-        Math library: ``"system"``, ``"sleef"`` or ``"accelerate"``. None inherits
-        the current Python/native defaults. Explicit choices override the native
-        environment default and require a build supporting the requested library.
-        Accelerate is macOS-only. Calls requiring its vector math retain tiled
-        interpretation; arithmetic and safely lowered powers can use JIT.
-        Prepared plans are cached separately for each policy.
+    jit, jit_backend, math_backend, fp_accuracy : optional
+        Per-call overrides for :ref:`JITOptions`. ``None`` inherits the current
+        settings. Unsupported expressions can still fall back to NumPy.
     kwargs: Any, optional
         Accepted options are ``order``, ``casting`` and ``optimization``.
         ``optimization`` defaults to ``"aggressive"``, matching NumExpr's default.

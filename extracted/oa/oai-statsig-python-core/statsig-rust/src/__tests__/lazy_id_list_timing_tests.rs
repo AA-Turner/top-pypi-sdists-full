@@ -280,10 +280,11 @@ impl crate::ObservabilityClient for BlockingObserver {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn lazy_load_batch_reports_publication_failure() {
     let observer = crate::__tests__::mock_observability_client::observer();
-    let (statsig, _provider) = tests::setup_lazy_config_test_with_observer(
-        Duration::ZERO,
-        Some(Arc::downgrade(&observer)),
-    )
+    let (statsig, _provider) = tests::setup_lazy_config_test_with_options(StatsigOptions {
+        enable_id_list_elias_fano: Some(false),
+        observability_client: Some(Arc::downgrade(&observer)),
+        ..Default::default()
+    })
     .await;
     let mut events = statsig.ops_stats.subscribe_for_test();
     statsig

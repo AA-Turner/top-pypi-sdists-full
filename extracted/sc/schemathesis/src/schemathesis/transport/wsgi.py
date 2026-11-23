@@ -9,6 +9,7 @@ from urllib.parse import urlsplit, urlunsplit
 from typing_extensions import override
 
 from schemathesis.core import Body, NotSet, media_types
+from schemathesis.core.app_output import inside_application
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import to_wire_text
@@ -84,15 +85,14 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
             media_type, serializer = self._resolve_serializer(media_type)
 
         extra: dict[str, Any]
-        # Handle serialization. A body the caller passes replaces the generated one, so that one is not serialized.
+        # A body the caller passes replaces the generated one, which then goes unserialized.
         if serializer is not None and not replaces_body(kwargs):
             context = SerializationContext(case=case)
             extra = serializer(context, case.operation.schema.prepare_request_body(case))
         else:
             extra = {}
 
-        # Set content type for payload. A raw multipart payload is sent verbatim and carries no
-        # boundary, so declaring it as multipart would make it unparsable for the application.
+        # A raw multipart payload has no boundary, so declaring it multipart would make it unparsable.
         if media_type and not isinstance(case.body, NotSet) and not _is_raw_multipart(media_type, extra.get("data")):
             final_headers.setdefault("Content-Type", media_type)
 
@@ -122,6 +122,16 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         case: Case,
         *,
         session: werkzeug.Client | requests.Session | None = None,
+        **kwargs: Any,
+    ) -> Response:
+        with inside_application():
+            return self._send(case, session=session, **kwargs)
+
+    def _send(
+        self,
+        case: Case,
+        *,
+        session: werkzeug.Client | requests.Session | None,
         **kwargs: Any,
     ) -> Response:
         import requests
@@ -154,6 +164,7 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
             data["headers"].update(_auth_headers(case, auth, data))
 
         client = session or wsgi.get_client(application)
+        raise_app_exceptions = case.operation.schema.raise_app_exceptions
         cookies = prepare_cookies({**(serialize_cookies(case) or {}), **(cookies or {})})
 
         config = case.operation.schema.config
@@ -165,10 +176,17 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
             ratelimit(rate_limit, config.base_url),
         ):
             started_at = Instant()
-            response = client.open(**data)
+            try:
+                response = client.open(**data)
+            except Exception as exc:
+                if raise_app_exceptions:
+                    raise
+                # A server would answer with an error; the application left that to its caller
+                captured.exception = exc
+                response = wsgi.get_client(_internal_server_error).open(**data)
             elapsed = started_at.elapsed
 
-        if captured.exception is not None:
+        if captured.exception is not None and raise_app_exceptions:
             raise captured.exception
 
         requests_kwargs = REQUESTS_TRANSPORT.serialize_case(
@@ -210,7 +228,15 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
             verify=False,
             stream_cut_short=stream_cut_short,
             _override=Override.from_send_kwargs(kwargs),
+            _explicit_auth=kwargs.get("auth") is not None
+            or (auth is not None and "Authorization" not in excluded_headers),
+            app_exception=captured.exception,
         )
+
+
+def _internal_server_error(environ: dict[str, object], start_response: Callable[..., object]) -> list[bytes]:
+    start_response("500 INTERNAL SERVER ERROR", [("Content-Type", "text/plain")])
+    return [b"Internal Server Error"]
 
 
 class _CapturedServerException:
@@ -252,7 +278,7 @@ def _capture_server_exception(application: object) -> Generator[_CapturedServerE
 
 @contextmanager
 def cookie_handler(client: werkzeug.Client, cookies: dict[str, Any] | None) -> Generator[None, None, None]:
-    """Set cookies required for a call."""
+    """Set `cookies` on the client for one call, deleting them afterwards."""
     if not cookies:
         yield
     else:
@@ -285,17 +311,17 @@ def _to_werkzeug_parts(files: list | None, data: dict[str, Any] | None) -> dict[
         if filename is None and content_type is None and not isinstance(content, (bytes, Binary)):
             parts.setdefault(name, []).append(content)
         else:
-            # Only a file-like part keeps its bytes intact and can carry a filename
-            storage = FileStorage(BytesIO(serialize_binary(content)), filename, name, content_type)
+            # Only a file-like part keeps its bytes and filename; receivers read a part with no type as text
+            storage = FileStorage(BytesIO(serialize_binary(content)), filename, name, content_type or "text/plain")
             parts.setdefault(name, []).append(storage)
     return parts
 
 
-def _serialize_non_object_multipart(value: Body) -> dict[str, Any]:
-    # A raw payload is sent verbatim; other values are wrapped into a single part
+def _serialize_non_object_multipart(ctx: SerializationContext, value: Body) -> dict[str, Any]:
+    # A raw payload is sent verbatim; other values are encoded into parts
     if value is None or isinstance(value, (str, bytes)):
         return {"data": value}
-    raw_data, content_type = encode_non_object_multipart(value)
+    raw_data, content_type = encode_non_object_multipart(ctx, value)
     return {"data": raw_data, "content_type": content_type}
 
 
@@ -303,7 +329,7 @@ def _serialize_non_object_multipart(value: Body) -> dict[str, Any]:
 def multipart_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
     if isinstance(value, dict):
         return _serialize_multipart_parts(ctx, value)
-    return _serialize_non_object_multipart(value)
+    return _serialize_non_object_multipart(ctx, value)
 
 
 def _serialize_multipart_parts(ctx: SerializationContext, value: dict[str, Any]) -> dict[str, Any]:

@@ -21,7 +21,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from bitfab.mock_override import MockOverrideCtx, SpanNodeMeta
-from bitfab.sandbox import Sandbox, SandboxStartCtx, recorded_state
+from bitfab.sandbox import Sandbox, SandboxStartCtx, recorded_state, sandbox_now
 
 GITHUB_SANDBOX_NAME = "GitHub"
 API_URL = "https://api.github.com"
@@ -35,6 +35,7 @@ REF_READ_TIMEOUT_SECONDS = 10.0
 EXPLICIT_REF_READ_TIMEOUT_SECONDS = 60.0
 UPSTREAM_TIMEOUT_SECONDS = 300.0
 FIRST_REPLAY_PULL = 1_000_000
+FIRST_REPLAY_ID = 9_000_000_000
 SEARCH_MAX_FILE_BYTES = 384 * 1024
 DIFF_MAX_BLOB_BYTES = 256 * 1024
 JSON_TYPE = "application/json; charset=utf-8"
@@ -45,6 +46,13 @@ ARCHIVE_SUFFIXES = {"tarball": "tar.gz", "zipball": "zip"}
 KEPT_HEADERS = ("Content-Type", "Link")
 ANCESTOR_STATUSES = ("ahead", "identical")
 REPLAY_PERSON = {"name": "Bitfab replay", "email": "replay@sandbox.invalid"}
+REPLAY_USER = {"login": "bitfab-replay", "id": 0, "type": "Bot"}
+PULL_FEEDBACK = {"comments": "reviewComments", "reviews": "reviews"}
+REVIEW_STATES = {
+    "APPROVE": "APPROVED",
+    "REQUEST_CHANGES": "CHANGES_REQUESTED",
+    "COMMENT": "COMMENTED",
+}
 SHORT_SHA = re.compile(r"^[0-9a-f]{7,40}$")
 REPO_PATH = re.compile(r"^/repos/(?P<owner>[^/]+)/(?P<name>[^/]+)(?P<rest>/.*)?$")
 TOKEN_PATH = re.compile(r"^/app/installations/[^/]+/access_tokens$")
@@ -70,6 +78,7 @@ class GitHubRequest:
     method: str
     query: dict[str, Any]
     body: Any
+    accept: str = JSON_ACCEPT
 
     @property
     def name(self) -> str:
@@ -81,7 +90,8 @@ class GitHubRequest:
 
 
 def now_iso() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    moment = sandbox_now() or datetime.datetime.now(datetime.timezone.utc)
+    return moment.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_time(value: str) -> datetime.datetime:
@@ -276,6 +286,13 @@ def empty_writes() -> dict[str, Any]:
         "deletedBranches": {},
         "pulls": {},
         "nextPull": FIRST_REPLAY_PULL,
+        "comments": {},
+        "commentEdits": {},
+        "reviews": {},
+        "reviewComments": {},
+        "statuses": {},
+        "checkRuns": {},
+        "nextId": FIRST_REPLAY_ID,
     }
 
 
@@ -1220,9 +1237,11 @@ def _read_refs(
     return _result(200, matching, "ref-list-at-trace-time")
 
 
-def _created_by_trace_time(state: dict[str, Any], item: Any) -> bool:
+def _created_by_trace_time(
+    state: dict[str, Any], item: Any, field: str = "created_at"
+) -> bool:
     captured = state.get("capturedAt")
-    created = item.get("created_at") if isinstance(item, dict) else None
+    created = item.get(field) if isinstance(item, dict) else None
     if not captured or not created:
         return True
     return parse_time(created) <= parse_time(captured)
@@ -1242,16 +1261,262 @@ def _read_pull_or_issue_list(req: GitHubRequest, kind: str) -> dict[str, Any]:
     return _result(200, items, "outside-git-approximate", source)
 
 
+def _next_id(state: dict[str, Any]) -> int:
+    writes = _writes(state)
+    found = int(writes["nextId"])
+    writes["nextId"] = found + 1
+    return found
+
+
+def _kept(state: dict[str, Any], group: str, repo: str, key: str) -> list[Any]:
+    return list((_writes(state)[group].get(repo) or {}).get(key) or [])
+
+
+def _keep(state: dict[str, Any], group: str, repo: str, key: str, item: Any) -> None:
+    _writes(state)[group].setdefault(repo, {}).setdefault(key, []).append(item)
+
+
+def _with_edits(state: dict[str, Any], repo: str, item: Any) -> Any:
+    if not isinstance(item, dict):
+        return item
+    edit = (_writes(state)["commentEdits"].get(repo) or {}).get(str(item.get("id")))
+    return item if edit is None else {**item, **edit}
+
+
+def _feedback_group(kind: str, sub: str) -> str | None:
+    if kind == "issues" and sub == "/comments":
+        return "comments"
+    if kind == "pulls":
+        return PULL_FEEDBACK.get(sub.lstrip("/"))
+    return None
+
+
+def _read_feedback(
+    req: GitHubRequest, kind: str, number: str, group: str, own_pull: bool
+) -> dict[str, Any]:
+    kept = _kept(req.state, group, req.name, number)
+    if own_pull:
+        return _result(200, _page(req.query, kept), "replay-writes")
+    query = f"?{_query_string(req.query)}" if req.query else ""
+    sub = "comments" if group != "reviews" else "reviews"
+    status, headers, raw, source = _fetch(
+        req.upstream, req.name, f"{req.base}/{kind}/{number}/{sub}{query}", keep=False
+    )
+    if status != 200:
+        return _forwarded(status, headers, raw, "outside-git-approximate", source)
+    listed = json.loads(raw)
+    real = [
+        _with_edits(req.state, req.name, item)
+        for item in listed
+        if _created_by_trace_time(req.state, item)
+        or str(item.get("id"))
+        in (_writes(req.state)["commentEdits"].get(req.name) or {})
+    ]
+    shown = real + kept if _shows_kept(headers, listed, req.query) else real
+    return _result(200, shown, "outside-git-approximate", source, headers)
+
+
+def _is_last_page(headers: dict[str, str]) -> bool:
+    return 'rel="next"' not in (headers.get("Link") or "")
+
+
+def _is_first_page(query: dict[str, Any]) -> bool:
+    return int(_query_value(query, "page") or "1") <= 1
+
+
+def _shows_kept(
+    headers: dict[str, str], listed: list[Any], query: dict[str, Any]
+) -> bool:
+    return _is_last_page(headers) and (bool(listed) or _is_first_page(query))
+
+
+def _real_for_commit(
+    req: GitHubRequest, sha: str, sub: str
+) -> tuple[int, dict[str, str], bytes, str] | None:
+    if sha in _writes(req.state)["commits"]:
+        return None
+    query = f"?{_query_string(req.query)}" if req.query else ""
+    return _fetch(
+        req.upstream, req.name, f"{req.base}/commits/{sha}/{sub}{query}", keep=False
+    )
+
+
+def _read_statuses(req: GitHubRequest, ref: str) -> dict[str, Any]:
+    sha, treatment = _commit_for(req, ref)
+    if sha is None:
+        return _sha_not_found(treatment, ref)
+    kept = list(reversed(_kept(req.state, "statuses", req.name, sha)))
+    fetched = _real_for_commit(req, sha, "statuses")
+    if fetched is None:
+        return _result(200, _page(req.query, kept), "replay-writes")
+    status, headers, raw, source = fetched
+    if status != 200:
+        return _forwarded(status, headers, raw, "outside-git-approximate", source)
+    listed = json.loads(raw)
+    real = [i for i in listed if _created_by_trace_time(req.state, i)]
+    shown = kept + real if _shows_kept(headers, listed, req.query) else real
+    return _result(200, shown, "outside-git-approximate", source, headers)
+
+
+def _latest_per_context(statuses: list[Any]) -> list[Any]:
+    latest: dict[Any, Any] = {}
+    for status in statuses:
+        latest.setdefault(status.get("context"), status)
+    return list(latest.values())
+
+
+def _combined_state(statuses: list[Any]) -> str:
+    states = [status.get("state") for status in statuses]
+    if any(state in ("error", "failure") for state in states):
+        return "failure"
+    if not states or "pending" in states:
+        return "pending"
+    return "success"
+
+
+def _read_combined_status(req: GitHubRequest, ref: str) -> dict[str, Any]:
+    sha, treatment = _commit_for(req, ref)
+    if sha is None:
+        return _sha_not_found(treatment, ref)
+    kept = list(reversed(_kept(req.state, "statuses", req.name, sha)))
+    fetched = _real_for_commit(req, sha, "status")
+    if fetched is None:
+        status, headers, source = 200, {}, "sandbox"
+        body: dict[str, Any] = {
+            "sha": sha,
+            "statuses": [],
+            "total_count": 0,
+            "commit_url": f"{API_URL}{req.base}/commits/{sha}",
+            "url": f"{API_URL}{req.base}/commits/{sha}/status",
+        }
+    else:
+        status, headers, raw, source = fetched
+        if status != 200:
+            return _forwarded(status, headers, raw, "outside-git-approximate", source)
+        body = json.loads(raw)
+    listed = list(body.get("statuses") or [])
+    real = [s for s in listed if _created_by_trace_time(req.state, s)]
+    merged = _latest_per_context(kept + real)
+    shown = (
+        merged if _shows_kept(headers, listed, req.query) else _latest_per_context(real)
+    )
+    complete = _is_last_page(headers) and _is_first_page(req.query)
+    elsewhere = (
+        [{"state": body["state"]}]
+        if not complete and isinstance(body.get("state"), str)
+        else []
+    )
+    earlier = int(body.get("total_count") or len(listed)) - len(listed)
+    answer = {
+        **body,
+        "state": _combined_state(merged + elsewhere),
+        "statuses": shown,
+        "total_count": earlier + len(merged),
+    }
+    treatment = "replay-writes" if fetched is None else "outside-git-approximate"
+    return _result(200, answer, treatment, source, headers)
+
+
+def _kept_check_runs(req: GitHubRequest, sha: str) -> list[dict[str, Any]]:
+    wanted_name = _query_value(req.query, "check_name")
+    wanted_status = _query_value(req.query, "status")
+    found = [
+        check
+        for check in reversed(_kept(req.state, "checkRuns", req.name, sha))
+        if (wanted_name is None or check.get("name") == wanted_name)
+        and (wanted_status is None or check.get("status") == wanted_status)
+    ]
+    if _query_value(req.query, "filter") == "all":
+        return found
+    latest: dict[Any, dict[str, Any]] = {}
+    for check in found:
+        latest.setdefault(check.get("name"), check)
+    return list(latest.values())
+
+
+def _read_check_runs(req: GitHubRequest, ref: str) -> dict[str, Any]:
+    sha, treatment = _commit_for(req, ref)
+    if sha is None:
+        return _sha_not_found(treatment, ref)
+    kept = _kept_check_runs(req, sha)
+    fetched = _real_for_commit(req, sha, "check-runs")
+    if fetched is None:
+        rows = _page(req.query, kept)
+        return _result(
+            200, {"total_count": len(kept), "check_runs": rows}, "replay-writes"
+        )
+    status, headers, raw, source = fetched
+    if status != 200:
+        return _forwarded(status, headers, raw, "outside-git-approximate", source)
+    body = json.loads(raw)
+    listed = list(body.get("check_runs") or [])
+    replaced = (
+        set()
+        if _query_value(req.query, "filter") == "all"
+        else {check.get("name") for check in kept}
+    )
+    real = [
+        check
+        for check in listed
+        if _created_by_trace_time(req.state, check, "started_at")
+        and check.get("name") not in replaced
+    ]
+    rows = kept + real if _shows_kept(headers, listed, req.query) else real
+    total = int(body.get("total_count") or len(listed)) - len(listed) + len(real)
+    answer = {**body, "total_count": total + len(kept), "check_runs": rows}
+    return _result(200, answer, "outside-git-approximate", source, headers)
+
+
+def _read_check_run(req: GitHubRequest, check_id: str) -> dict[str, Any]:
+    for checks in (_writes(req.state)["checkRuns"].get(req.name) or {}).values():
+        for check in checks:
+            if str(check["id"]) == check_id:
+                return _result(200, check, "replay-writes")
+    status, headers, raw, source = _fetch(
+        req.upstream, req.name, f"{req.base}/check-runs/{check_id}", keep=False
+    )
+    return _forwarded(status, headers, raw, "outside-git-approximate", source)
+
+
 def _read_pull_or_issue(
     req: GitHubRequest, kind: str, number: str, sub: str | None
 ) -> dict[str, Any]:
     own = (_writes(req.state)["pulls"].get(req.name) or {}).get(number)
+    group = _feedback_group(kind, sub or "")
+    if group is not None:
+        return _read_feedback(req, kind, number, group, own is not None)
     if own is not None and not sub:
         return _result(200, own, "replay-writes")
     status, headers, raw, source = _fetch(
-        req.upstream, req.name, f"{req.base}/{kind}/{number}{sub or ''}", keep=False
+        req.upstream,
+        req.name,
+        f"{req.base}/{kind}/{number}{sub or ''}",
+        keep=False,
+        accept=req.accept,
     )
     return _forwarded(status, headers, raw, "outside-git-approximate", source)
+
+
+def _own_comment(state: dict[str, Any], repo: str, comment_id: str) -> Any:
+    for group in ("comments", "reviewComments"):
+        for items in (_writes(state)[group].get(repo) or {}).values():
+            for item in items:
+                if str(item.get("id")) == comment_id:
+                    return item
+    return None
+
+
+def _read_issue_comment(req: GitHubRequest, comment_id: str) -> dict[str, Any]:
+    own = _own_comment(req.state, req.name, comment_id)
+    if own is not None:
+        return _result(200, own, "replay-writes")
+    status, headers, raw, source = _fetch(
+        req.upstream, req.name, f"{req.base}/issues/comments/{comment_id}", keep=False
+    )
+    if status != 200:
+        return _forwarded(status, headers, raw, "outside-git-approximate", source)
+    found = _with_edits(req.state, req.name, json.loads(raw))
+    return _result(200, found, "outside-git-approximate", source)
 
 
 READS: tuple[tuple[str, Callable[..., dict[str, Any]]], ...] = (
@@ -1262,6 +1527,9 @@ READS: tuple[tuple[str, Callable[..., dict[str, Any]]], ...] = (
     (r"^/git/blobs/(?P<sha>[0-9a-f]{40})$", _read_blob),
     (r"^/git/commits/(?P<sha>[0-9a-f]{7,40})$", _read_git_commit),
     (r"^/commits/(?P<sha>.+?)/branches-where-head$", _read_branches_where_head),
+    (r"^/commits/(?P<ref>.+?)/statuses$", _read_statuses),
+    (r"^/commits/(?P<ref>.+?)/status$", _read_combined_status),
+    (r"^/commits/(?P<ref>.+?)/check-runs$", _read_check_runs),
     (r"^/commits/(?P<ref>.+)$", _read_commit),
     (r"^/commits$", _read_history),
     (r"^/compare/(?P<base>.+?)\.\.\.(?P<head>.+)$", _read_compare),
@@ -1278,6 +1546,8 @@ READS: tuple[tuple[str, Callable[..., dict[str, Any]]], ...] = (
         r"^/(?P<kind>pulls|issues)/(?P<number>\d+)(?P<sub>/(?:files|commits|comments|reviews|events|timeline))?$",
         _read_pull_or_issue,
     ),
+    (r"^/issues/comments/(?P<comment_id>\d+)$", _read_issue_comment),
+    (r"^/check-runs/(?P<check_id>\d+)$", _read_check_run),
 )
 
 
@@ -1492,6 +1762,204 @@ def _write_pull(req: GitHubRequest) -> dict[str, Any]:
     return _result(201, pull, "replay-writes")
 
 
+def _comment(
+    req: GitHubRequest, kind: str, number: str, extra: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    comment_id = _next_id(req.state)
+    created = now_iso()
+    page = "pull" if kind == "pulls" else "issues"
+    return {
+        "id": comment_id,
+        "body": str(req.body.get("body") or ""),
+        "user": REPLAY_USER,
+        "created_at": created,
+        "updated_at": created,
+        "html_url": f"{GIT_URL}/{req.name}/{page}/{number}#issuecomment-{comment_id}",
+        **(extra or {}),
+    }
+
+
+def _issue_exists(req: GitHubRequest, number: str) -> bool:
+    if number in (_writes(req.state)["pulls"].get(req.name) or {}):
+        return True
+    status, _, _, _ = _fetch(
+        req.upstream, req.name, f"{req.base}/issues/{number}", keep=True
+    )
+    return status == 200
+
+
+def _no_issue(number: str) -> dict[str, Any]:
+    return _not_found("replay-writes", f"Issue or pull request {number} not found")
+
+
+def _write_issue_comment(req: GitHubRequest, number: str) -> dict[str, Any]:
+    if not req.body.get("body"):
+        return _result(
+            422, {"message": "Validation Failed: body is missing"}, "replay-writes"
+        )
+    if not _issue_exists(req, number):
+        return _no_issue(number)
+    comment = _comment(
+        req,
+        "issues",
+        number,
+        {"issue_url": f"{API_URL}{req.base}/issues/{number}"},
+    )
+    _keep(req.state, "comments", req.name, number, comment)
+    return _result(201, comment, "replay-writes")
+
+
+def _review_comment(
+    req: GitHubRequest, number: str, raw: dict[str, Any]
+) -> dict[str, Any]:
+    head = ((_writes(req.state)["pulls"].get(req.name) or {}).get(number) or {}).get(
+        "head"
+    )
+    comment_id = _next_id(req.state)
+    created = now_iso()
+    return {
+        "id": comment_id,
+        "pull_request_review_id": raw.get("pull_request_review_id"),
+        "body": str(raw.get("body") or ""),
+        "path": raw.get("path"),
+        "line": raw.get("line"),
+        "side": raw.get("side") or "RIGHT",
+        "start_line": raw.get("start_line"),
+        "commit_id": raw.get("commit_id") or (head or {}).get("sha"),
+        "in_reply_to_id": raw.get("in_reply_to"),
+        "user": REPLAY_USER,
+        "created_at": created,
+        "updated_at": created,
+        "html_url": f"{GIT_URL}/{req.name}/pull/{number}#discussion_r{comment_id}",
+    }
+
+
+def _write_review_comment(req: GitHubRequest, number: str) -> dict[str, Any]:
+    if not req.body.get("body"):
+        return _result(
+            422, {"message": "Validation Failed: body is missing"}, "replay-writes"
+        )
+    if not _issue_exists(req, number):
+        return _no_issue(number)
+    comment = _review_comment(req, number, req.body)
+    _keep(req.state, "reviewComments", req.name, number, comment)
+    return _result(201, comment, "replay-writes")
+
+
+def _write_review(req: GitHubRequest, number: str) -> dict[str, Any]:
+    if not _issue_exists(req, number):
+        return _no_issue(number)
+    event = str(req.body.get("event") or "").upper()
+    review_id = _next_id(req.state)
+    review = {
+        "id": review_id,
+        "body": str(req.body.get("body") or ""),
+        "state": REVIEW_STATES.get(event, "PENDING"),
+        "commit_id": req.body.get("commit_id"),
+        "user": REPLAY_USER,
+        "submitted_at": now_iso() if event in REVIEW_STATES else None,
+        "html_url": f"{GIT_URL}/{req.name}/pull/{number}#pullrequestreview-{review_id}",
+    }
+    for raw in req.body.get("comments") or []:
+        if isinstance(raw, dict):
+            inline = {
+                "commit_id": req.body.get("commit_id"),
+                **raw,
+                "pull_request_review_id": review_id,
+            }
+            _keep(
+                req.state,
+                "reviewComments",
+                req.name,
+                number,
+                _review_comment(req, number, inline),
+            )
+    _keep(req.state, "reviews", req.name, number, review)
+    return _result(200, review, "replay-writes")
+
+
+def _write_comment_edit(req: GitHubRequest, comment_id: str) -> dict[str, Any]:
+    if "body" not in req.body:
+        return _result(
+            422, {"message": "Validation Failed: body is missing"}, "replay-writes"
+        )
+    edit = {"body": str(req.body["body"]), "updated_at": now_iso()}
+    own = _own_comment(req.state, req.name, comment_id)
+    if own is not None:
+        own.update(edit)
+        return _result(200, own, "replay-writes")
+    status, _, raw, _ = _fetch(
+        req.upstream, req.name, f"{req.base}/issues/comments/{comment_id}", keep=True
+    )
+    if status != 200:
+        return _not_found("replay-writes", f"Comment {comment_id} not found")
+    _writes(req.state)["commentEdits"].setdefault(req.name, {})[comment_id] = edit
+    return _result(200, {**json.loads(raw), **edit}, "replay-writes")
+
+
+def _write_status(req: GitHubRequest, sha: str) -> dict[str, Any]:
+    if req.body.get("state") not in ("error", "failure", "pending", "success"):
+        return _result(
+            422, {"message": "Validation Failed: state is invalid"}, "replay-writes"
+        )
+    status = {
+        "id": _next_id(req.state),
+        "state": req.body["state"],
+        "context": req.body.get("context") or "default",
+        "description": req.body.get("description"),
+        "target_url": req.body.get("target_url"),
+        "creator": REPLAY_USER,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    _keep(req.state, "statuses", req.name, sha, status)
+    return _result(201, status, "replay-writes")
+
+
+def _write_check_run(req: GitHubRequest) -> dict[str, Any]:
+    if not req.body.get("name") or not req.body.get("head_sha"):
+        return _result(
+            422,
+            {"message": "Validation Failed: name and head_sha are required"},
+            "replay-writes",
+        )
+    check_id = _next_id(req.state)
+    check = {
+        "id": check_id,
+        "name": req.body["name"],
+        "head_sha": req.body["head_sha"],
+        "status": req.body.get("status") or "queued",
+        "conclusion": req.body.get("conclusion"),
+        "output": req.body.get("output"),
+        "started_at": now_iso(),
+        "completed_at": req.body.get("completed_at"),
+        "html_url": f"{GIT_URL}/{req.name}/runs/{check_id}",
+    }
+    _keep(req.state, "checkRuns", req.name, str(req.body["head_sha"]), check)
+    return _result(201, check, "replay-writes")
+
+
+def _write_check_run_update(req: GitHubRequest, check_id: str) -> dict[str, Any]:
+    for checks in (_writes(req.state)["checkRuns"].get(req.name) or {}).values():
+        for check in checks:
+            if str(check["id"]) == check_id:
+                check.update(
+                    {
+                        key: req.body[key]
+                        for key in (
+                            "status",
+                            "conclusion",
+                            "output",
+                            "completed_at",
+                            "name",
+                        )
+                        if key in req.body
+                    }
+                )
+                return _result(200, check, "replay-writes")
+    return _refused(f"check run {check_id} was not created in this replay")
+
+
 WRITES: tuple[tuple[str, str, Callable[..., dict[str, Any]]], ...] = (
     ("POST", r"^/git/refs$", _write_create_ref),
     ("PATCH", r"^/git/refs/heads/(?P<ref>.+)$", _write_move_ref),
@@ -1502,6 +1970,13 @@ WRITES: tuple[tuple[str, str, Callable[..., dict[str, Any]]], ...] = (
     ("PUT", r"^/contents/(?P<path>.+)$", _write_file),
     ("DELETE", r"^/contents/(?P<path>.+)$", _write_file),
     ("POST", r"^/pulls$", _write_pull),
+    ("POST", r"^/issues/(?P<number>\d+)/comments$", _write_issue_comment),
+    ("PATCH", r"^/issues/comments/(?P<comment_id>\d+)$", _write_comment_edit),
+    ("POST", r"^/pulls/(?P<number>\d+)/comments$", _write_review_comment),
+    ("POST", r"^/pulls/(?P<number>\d+)/reviews$", _write_review),
+    ("POST", r"^/statuses/(?P<sha>[0-9a-f]{40})$", _write_status),
+    ("POST", r"^/check-runs$", _write_check_run),
+    ("PATCH", r"^/check-runs/(?P<check_id>\d+)$", _write_check_run_update),
 )
 
 
@@ -1683,6 +2158,7 @@ def _route_repo(
     found: re.Match[str],
     query: dict[str, Any],
     body: Any,
+    accept: str | None = None,
 ) -> dict[str, Any]:
     name = f"{found.group('owner')}/{found.group('name')}"
     if not state["repos"]:
@@ -1692,7 +2168,13 @@ def _route_repo(
         return _not_in_snapshot(name)
     rest = found.group("rest") or ""
     req = GitHubRequest(
-        state, upstream, repo, method, query, body if isinstance(body, dict) else {}
+        state,
+        upstream,
+        repo,
+        method,
+        query,
+        body if isinstance(body, dict) else {},
+        accept or JSON_ACCEPT,
     )
     if method == "GET":
         for pattern, read in READS:
@@ -1723,7 +2205,16 @@ def answer_github_request(
         return _refused(
             f"{method} {path} is not a repo endpoint, code search, or an installation token"
         )
-    return _route_repo(state, upstream, method, found, query, body)
+    return _route_repo(
+        state, upstream, method, found, query, body, params.get("accept")
+    )
+
+
+GITHUB_READ_VERBS = frozenset({"GET", "HEAD"})
+
+
+def is_github_write(call: MockOverrideCtx) -> bool:
+    return str(call.kwargs.get("method") or "GET").upper() not in GITHUB_READ_VERBS
 
 
 def answer_github_call(
@@ -1786,6 +2277,7 @@ def github_sandbox(
         name=GITHUB_SANDBOX_NAME,
         match=is_github_call,
         handle=lambda state, call: answer_github_call(state, call, upstream),
+        is_write=is_github_write,
         start=lambda ctx: state_from_snapshot(chosen(ctx)),
         integration="github",
         load=lambda _ctx, value: state_from_snapshot(value),

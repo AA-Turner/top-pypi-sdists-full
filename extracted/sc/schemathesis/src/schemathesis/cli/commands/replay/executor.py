@@ -13,6 +13,7 @@ from schemathesis.core.media_types import is_json
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import UNRESOLVABLE, iter_decoded_pointer_segments
+from schemathesis.core.transport import status_label
 from schemathesis.reporting.crashes import CrashCheck, CrashFile, CrashLink, CrashStep
 
 if TYPE_CHECKING:
@@ -279,7 +280,7 @@ def _replay_sequence(
         try:
             case = _build_case(step_operation, step)
         except Exception:
-            # The recorded data (typically `meta`) can't be decoded - a corrupt file or a different version.
+            # Undecodable recorded data, typically `meta`: a corrupt file or a different version.
             return _errored_outcome(
                 f"step {index + 1}: incompatible or corrupted crash data",
                 elapsed=instant.elapsed_ms,
@@ -332,8 +333,8 @@ def _replay_sequence(
         ):
             rejected = RejectedStep(
                 number=index + 1,
-                status=status_label(schema, response.status_code),
-                recorded_status=status_label(schema, step.response_status),
+                status=status_label(response.status_code, schema.status_name_for_code),
+                recorded_status=status_label(step.response_status, schema.status_name_for_code),
             )
 
         for parameter in _masked_parameters(step, replacement):
@@ -344,7 +345,7 @@ def _replay_sequence(
         recorder.record_case(parent_id=parent_id, case=case)
         recorder.record_response(case_id=case.id, response=response)
 
-        # Built from the headers this step actually sent, the same way a run reports its failures.
+        # Built from the headers this step sent, as a run reports its failures.
         curl = case.as_reproduction_command(
             headers=recorder.find_request_headers(case_id=case.id), verify=response.verify
         )
@@ -389,8 +390,7 @@ def _checked_index(sequence: list[CrashStep]) -> int:
     """The step the recorded checks ran on."""
     terminal = sequence[-1]
     parent = terminal.parent_index
-    # Sent as another identity than its parent without a link: a peer's request a check sent from the parent,
-    # so the checks run on the parent and send it again.
+    # Another identity and no link: a check sent this peer request from the parent, so checks run on the parent again.
     if (
         terminal.link is None
         and parent is not None
@@ -580,6 +580,9 @@ def _is_masked(value: object, replacement: str) -> bool:
 
 def _masked_parameters(step: CrashStep, replacement: str) -> list[tuple[ParameterLocation, str]]:
     """Sent parameters whose whole value was masked; the current credentials may replace them."""
+    # The recorded `Cookie` header masks each sensitive cookie on its own, including ones sent via `-H`
+    recorded_cookie = next((value for name, value in step.request_headers.items() if name.lower() == "cookie"), "")
+    cookies = {**_cookie_values(recorded_cookie), **step.cookies}
     return [
         *(
             (ParameterLocation.HEADER, name)
@@ -587,8 +590,18 @@ def _masked_parameters(step: CrashStep, replacement: str) -> list[tuple[Paramete
             if _is_masked(value, replacement)
         ),
         *((ParameterLocation.QUERY, name) for name, value in step.query.items() if _is_masked(value, replacement)),
-        *((ParameterLocation.COOKIE, name) for name, value in step.cookies.items() if _is_masked(value, replacement)),
+        *((ParameterLocation.COOKIE, name) for name, value in cookies.items() if _is_masked(value, replacement)),
     ]
+
+
+def _cookie_values(header: str) -> dict[str, str]:
+    """Cookies of a `Cookie` header by name; the first of repeated names wins."""
+    values: dict[str, str] = {}
+    for pair in header.split(";"):
+        name, separator, value = pair.partition("=")
+        if separator:
+            values.setdefault(name.strip(), value.strip())
+    return values
 
 
 def _sent_value(request: requests.PreparedRequest, location: ParameterLocation, name: str) -> str | None:
@@ -597,8 +610,7 @@ def _sent_value(request: requests.PreparedRequest, location: ParameterLocation, 
     if location is ParameterLocation.QUERY:
         values = parse_qs(urlsplit(request.url or "").query, keep_blank_values=True).get(name)
         return values[0] if values else None
-    pairs = (pair.split("=", 1) for pair in request.headers.get("Cookie", "").split(";"))
-    return next((pair[1].strip() for pair in pairs if len(pair) == 2 and pair[0].strip() == name), None)
+    return _cookie_values(request.headers.get("Cookie", "")).get(name)
 
 
 _LOCATION_LABELS = {
@@ -617,11 +629,6 @@ def _missing_credentials_message(missing: list[tuple[ParameterLocation, str]]) -
     if len(missing) == 1:
         return f"{names} was masked in the crash file; provide it via config, -H, --auth or an auth hook"
     return f"{names} were masked in the crash file; provide them via config, -H, --auth or an auth hook"
-
-
-def status_label(schema: BaseSchema, status_code: int) -> str:
-    name = schema.status_name_for_code(status_code)
-    return name or str(status_code)
 
 
 def _rejected_credentials_message(rejected: RejectedStep, *, steps: int) -> str:
@@ -644,7 +651,11 @@ def _unknown_identity_message(name: str, *, number: int, steps: int) -> str:
 def has_unrestorable_masked_values(crash: CrashFile, replacement: str) -> bool:
     """Whether a stored request has masked values no credential source can replace, so a replay is not faithful."""
     for step in crash.sequence:
-        for container in (step.request_headers, step.case_headers, step.query, step.cookies):
+        # Replay rebuilds these headers instead of sending the recorded values
+        resent_headers = {
+            key: value for key, value in step.request_headers.items() if key.lower() not in _STALE_HEADERS
+        }
+        for container in (resent_headers, step.case_headers, step.query, step.cookies):
             if any(replacement in str(value) and not _is_masked(value, replacement) for value in container.values()):
                 return True
         if any(replacement in str(value) for value in step.path_parameters.values()):

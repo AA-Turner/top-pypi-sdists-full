@@ -6,6 +6,27 @@ from charset_normalizer.api import from_bytes
 from charset_normalizer.models import CharsetMatch, CharsetMatches
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"name\x1cAlice\x1cBob\x1cCarol",
+        b"name\x1dAlice\x1dBob\x1dCarol",
+        b"name\x1eAlice\x1eBob\x1eCarol",
+        b"name\x1fAlice\x1fBob\x1fCarol",
+        # RFC 7464: each UTF-8 JSON text is preceded by RS and followed by LF.
+        b'\x1e{"name":"Alice"}\n\x1e{"name":"Bob"}\n',
+    ],
+)
+@pytest.mark.parametrize("enable_fallback", [False, True])
+def test_ascii_information_separators(payload, enable_fallback):
+    best_guess = from_bytes(payload, enable_fallback=enable_fallback).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == "ascii"
+    assert best_guess.chaos == 0.0
+    assert str(best_guess) == payload.decode("ascii")
+
+
 def test_empty():
     best_guess = from_bytes(b"").best()
 
@@ -186,6 +207,22 @@ def test_obviously_utf8_content(payload):
     ), "Dead-simple UTF-8 detection is wrongly detected!"
 
 
+def test_clean_big5_without_language_evidence():
+    text = "Read this note: 你好 is a greeting. Say it to a friend."
+    match = from_bytes(text.encode("big5")).best()
+    assert match is not None
+    assert str(match) == text
+
+
+def test_noisy_johab_without_language_evidence_keeps_single_byte_candidates():
+    text = (
+        "Le cœur a ses raisons que la raison ne connaît point. "
+        "Être ou ne pas être, telle est la question. Ça alors! "
+    )
+    matches = from_bytes(text.encode("cp1252"))
+    assert str(matches["cp1252"]) == text
+
+
 def test_mb_cutting_chk():
     # This payload should be wrongfully split and the autofix should ran automatically
     # on chunks extraction.
@@ -215,6 +252,24 @@ def test_stateful_multibyte_sampling(encoding, content):
 
     assert best_guess is not None
     assert best_guess.encoding == encoding
+    assert str(best_guess) == content
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "日本語の文章を正しく検出します。" * 400,
+        "我没有埋怨，磋砣的只是一些时间。" * 400,
+    ],
+    ids=["japanese", "chinese"],
+)
+def test_utf7_sig_stateful_sampling(content):
+    payload = ("\ufeff" + content).encode("utf_7")
+    best_guess = from_bytes(payload).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == "utf_7"
+    assert best_guess.bom is True
     assert str(best_guess) == content
 
 

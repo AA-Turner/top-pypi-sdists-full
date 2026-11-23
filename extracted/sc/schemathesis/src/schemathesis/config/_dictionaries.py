@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import graphlib
 import math
 import os
 import re
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 from typing import Literal, get_args
 
+from schemathesis.config._env import resolve
 from schemathesis.config._error import ConfigError
 from schemathesis.core.transforms import format_body_path
 
@@ -97,14 +99,35 @@ def _is_valid_graphql_name(name: str) -> bool:
 class DictionaryEntry:
     value: EntryValue
     index: int
+    # Values of other dictionaries in the request that fetched this entry, by dictionary name.
+    origin: dict[str, EntryValue] = field(default_factory=dict)
+
+
+@dataclass(slots=True, frozen=True)
+class OperationSource:
+    """An API operation whose response fills a dictionary before testing starts."""
+
+    # Operation label, e.g. `GET /api/parents`.
+    operation: str
+    # JSON Pointer to the values in the response body; `*` matches every array item.
+    pointer: str
+    # Request parameters keyed by location-prefixed names, e.g. `query.limit`, or GraphQL variables of `query`.
+    # A binding takes one request per value of the bound dictionary.
+    parameters: dict[str, EntryValue | bool | ParameterDictionaryBinding]
+    # GraphQL query document the request sends.
+    query: str | None = None
 
 
 @dataclass(slots=True)
 class DictionaryDefinition:
     name: str
+    # Empty for `from-operation` dictionaries until the setup phase fetches them.
     entries: tuple[DictionaryEntry, ...]
     source_kind: str
     source_path: str | None
+    source: OperationSource | None = None
+    # Dictionaries named in every entry's `origin`, including the origins of those dictionaries.
+    origin: frozenset[str] = frozenset()
 
 
 @dataclass(slots=True, frozen=True)
@@ -134,19 +157,104 @@ def lookup_parameter(parameters: dict[str, object], *, name: str, location: str)
 
 def parse_dictionaries(data: dict, *, base_dir: str | None) -> dict[str, DictionaryDefinition]:
     raw: dict[str, dict] = data.get("dictionaries") or {}
-    return {name: _parse_one_dictionary(name, payload, base_dir=base_dir) for name, payload in raw.items()}
+    definitions = {name: _parse_one_dictionary(name, payload, base_dir=base_dir) for name, payload in raw.items()}
+    _set_origins(definitions)
+    return definitions
+
+
+def _set_origins(definitions: dict[str, DictionaryDefinition]) -> None:
+    dependencies: dict[str, set[str]] = {}
+    for name, definition in definitions.items():
+        dependencies[name] = set()
+        for key, binding in source_bindings(definition).items():
+            require_known_dictionary(f"Dictionary `{name}` parameter `{key}`", binding.dictionary, definitions)
+            dependencies[name].add(binding.dictionary)
+    try:
+        order = list(graphlib.TopologicalSorter(dependencies).static_order())
+    except graphlib.CycleError as exc:
+        cycle = " -> ".join(f"`{name}`" for name in exc.args[1])
+        raise ConfigError(f"Dictionary source parameters form a cycle: {cycle}") from None
+    for name in order:
+        definitions[name].origin = frozenset(
+            ancestor for dependency in dependencies[name] for ancestor in (dependency, *definitions[dependency].origin)
+        )
+
+
+def source_bindings(definition: DictionaryDefinition) -> dict[str, ParameterDictionaryBinding]:
+    """Source parameters that take their values from other dictionaries, by parameter key."""
+    if definition.source is None:
+        return {}
+    return {
+        key: value
+        for key, value in definition.source.parameters.items()
+        if isinstance(value, ParameterDictionaryBinding)
+    }
+
+
+def pair_groups(
+    definitions: Iterable[DictionaryDefinition],
+) -> list[tuple[DictionaryDefinition, tuple[DictionaryDefinition, ...]]]:
+    """Group dictionaries so each leader's entries carry the values of its followers in their `origin`."""
+    unique = list({definition.name: definition for definition in definitions}.values())
+    grouped: set[str] = set()
+    groups = []
+    # The deepest dictionary leads, since its entries remember the most other values.
+    for leader in sorted(unique, key=lambda definition: len(definition.origin), reverse=True):
+        if leader.name in grouped:
+            continue
+        followers = tuple(
+            definition for definition in unique if definition.name in leader.origin and definition.name not in grouped
+        )
+        grouped.update((leader.name, *(follower.name for follower in followers)))
+        groups.append((leader, followers))
+    return groups
 
 
 def _parse_one_dictionary(name: str, payload: dict, *, base_dir: str | None) -> DictionaryDefinition:
     if "values" in payload:
         entries = tuple(DictionaryEntry(value=item, index=index) for index, item in enumerate(payload["values"]))
         return DictionaryDefinition(name=name, entries=entries, source_kind="values", source_path=None)
+    if "from-operation" in payload:
+        return DictionaryDefinition(
+            name=name,
+            entries=(),
+            source_kind="from-operation",
+            source_path=None,
+            source=_parse_operation_source(name, payload),
+        )
     path_str: str = payload["from-file"]
     resolved = _resolve_dictionary_path(path_str, base_dir=base_dir)
     file_entries = _parse_libfuzzer_file(resolved, name=name)
     if not file_entries:
         raise ConfigError(f"Dictionary `{name}` file `{path_str}` contains no entries")
     return DictionaryDefinition(name=name, entries=tuple(file_entries), source_kind="from-file", source_path=resolved)
+
+
+_SOURCE_PARAMETER_LOCATIONS = ("path", "query", "header", "cookie")
+
+
+def _parse_operation_source(name: str, payload: dict) -> OperationSource:
+    query = payload.get("query")
+    parameters: dict[str, EntryValue | bool | ParameterDictionaryBinding] = {}
+    for key, value in payload.get("parameters", {}).items():
+        if query is not None:
+            if not _is_valid_graphql_name(key):
+                raise ConfigError(
+                    f"Dictionary `{name}` parameter `{key}` must be a GraphQL variable name, e.g. `limit` for `$limit`"
+                )
+        else:
+            location, _, parameter = key.partition(".")
+            if location not in _SOURCE_PARAMETER_LOCATIONS or not parameter:
+                raise ConfigError(
+                    f"Dictionary `{name}` parameter `{key}` must start with `path.`, `query.`, `header.` or `cookie.`"
+                )
+        if isinstance(value, dict):
+            parameters[key] = ParameterDictionaryBinding(dictionary=value["dictionary"], probability=1.0)
+        else:
+            parameters[key] = resolve(value)
+    return OperationSource(
+        operation=payload["from-operation"], pointer=payload["pointer"], parameters=parameters, query=query
+    )
 
 
 def _resolve_dictionary_path(path: str, *, base_dir: str | None) -> str:

@@ -14,9 +14,8 @@ class SandboxStoreEntry(TypedDict):
 
     Attributes:
         sandbox: The sandbox's name, such as ``"Gmail"``.
-        state: What the sandbox starts from the next time the trace is
-            replayed: the end state its last replay left, or the seed when it
-            has none.
+        state: The sandbox's state for the trace: for a replay trace, the
+            state its replay saved, or the seed when it has none.
         updatedAt: When it last changed (ISO 8601).
         traceId: The trace this state belongs to, or ``None`` for a seed.
     """
@@ -72,9 +71,10 @@ class SandboxStoresClient:
     Each trace has its own state in a store. A replay run with
     ``sandbox_store=name`` starts each sandbox from the replayed trace's state
     for it, else from the store's seed, else from the trace as usual, and
-    writes each sandbox's end state back for that trace when the item
-    finishes, so the next replay of the same trace sees it. The state never
-    lives on a trace; replay traces are linked to the store they used.
+    saves each sandbox's state to the new replay trace, after each write and
+    when the item finishes. Every replay trace keeps its own state, so
+    two replays of one trace never share state. Replay traces are linked to the store they
+    used.
     """
 
     def __init__(self, http_client: HttpClient) -> None:

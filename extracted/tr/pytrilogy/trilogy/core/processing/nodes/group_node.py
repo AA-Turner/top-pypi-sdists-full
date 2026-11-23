@@ -6,8 +6,8 @@ from trilogy.core.models.build import (
     BuildAggregateWrapper,
     BuildConcept,
     BuildDatasource,
+    BuildGroupingSets,
     BuildOrderBy,
-    nonstandard_grouping_lineage,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.models.execute import QueryDatasource
@@ -92,10 +92,22 @@ class GroupNode(StrategyNode):
             ordering=ordering,
         )
 
+    def grouping_pass(self) -> BuildGroupingSets | None:
+        """The select's ROLLUP/CUBE/GROUPING SETS pass when this group
+        computes one of its aggregates itself: the pass is the group's."""
+        inputs = {c.address for c in self.input_concepts}
+        if any(
+            c.address not in inputs and self.environment.pass_of(c) is not None
+            for c in self.output_concepts
+        ):
+            return self.environment.grouping
+        return None
+
     def _resolve(self) -> QueryDatasource:
         parent_sources: list[QueryDatasource | BuildDatasource] = [
             p.resolve() for p in self.parents
         ]
+        grouping_sets = self.grouping_pass()
 
         grains = check_if_group_required(
             self.output_concepts, parent_sources, self.environment, self.depth
@@ -103,15 +115,19 @@ class GroupNode(StrategyNode):
         target_grain = grains.target
         comp_grain = grains.upstream
         # skip the group when parents already sit at the target grain
-        if not grains.required and (
-            self.force_group is not True
-            or is_identity_group(
-                parent_sources,
-                [],
-                target_grain,
-                self.conditions,
-                self.output_concepts,
-                self.rollup_concepts,
+        if (
+            not grains.required
+            and grouping_sets is None
+            and (
+                self.force_group is not True
+                or is_identity_group(
+                    parent_sources,
+                    [],
+                    target_grain,
+                    self.conditions,
+                    self.output_concepts,
+                    self.rollup_concepts,
+                )
             )
         ):
             source_type = SourceType.SELECT
@@ -189,10 +205,7 @@ class GroupNode(StrategyNode):
         # ROLLUP/CUBE/GROUPING SETS inject NULLs into grouping-key dims on the
         # subtotal rows. Mark those dims, and any dim derived from them,
         # nullable so downstream joins use null-safe semantics.
-        rollup_by_addresses: set[str] = set()
-        for c in self.output_concepts:
-            if (wrapper := nonstandard_grouping_lineage(c)) is not None:
-                rollup_by_addresses.update(b.address for b in wrapper.by)
+        rollup_by_addresses = grouping_sets.keys if grouping_sets else set()
         if rollup_by_addresses:
             from trilogy.core.processing.discovery_utility import (
                 get_upstream_concepts,
@@ -251,6 +264,7 @@ class GroupNode(StrategyNode):
             ordering=self.ordering,
             distinct_counts=self.distinct_counts,
             partial_sources=dict(self.partial_sources),
+            grouping_sets=grouping_sets,
         )
         return base
 

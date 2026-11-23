@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "28.3.5"
+version = "28.5.13"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "typesafe-carla>=0.8.1,<0.9; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
     "pyxodr>=0.1.0",
+    "lxml>=5.0",
     "opencv-python-headless>=4.8",
     "numpy>=1.21",
     "pytest>=9.0.1",
@@ -30,6 +31,7 @@ dependencies = [
     "hydra-core>=1.3.2",
     "omegaconf>=2.3.0",
     "fastapi>=0.115.0",
+    "starlette>=0.37.2",
     "uvicorn[standard]>=0.34.0",
     "jinja2>=3.1.0",
     "python-multipart>=0.0.9",
@@ -83,6 +85,7 @@ hils-setup = [
     "ansible-core>=2.15",
 ]
 pack = ["carla-pack-registry>=0.3.2,<0.4"]
+agent = ["agent-skill-installer>=0.5.0,<0.6"]
 viewer = ["autoware-carla-scenario-rerun[viewer]>=0.3,<0.4"]
 
 [project.scripts]
@@ -98,6 +101,7 @@ scenario-setup = "autoware_carla_scenario.carla_install:main"
 detect-no-3d-model = "autoware_carla_scenario.tools.detect_no_3d_model_lanelets:main"
 viewer = "autoware_carla_scenario.ui:main"
 scenario-editor = "autoware_carla_scenario.editor:main"
+scenario-agent = "autoware_carla_scenario.agent.cli:main"
 scenario-hils = "autoware_carla_scenario.hils.cli:main"
 scenario-t4scene = "autoware_carla_scenario.t4_scene.__main__:main"
 scenario-wosac = "autoware_carla_scenario.wosac.__main__:main"

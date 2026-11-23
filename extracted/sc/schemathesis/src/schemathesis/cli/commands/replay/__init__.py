@@ -10,10 +10,12 @@ import click
 
 from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.core import get_terminal_width
-from schemathesis.cli.options import AUTH, AUTH_WFC, AUTH_WFC_USER, HEADER
+from schemathesis.cli.options import APP, AUTH, AUTH_WFC, AUTH_WFC_USER, HEADER
 from schemathesis.cli.output import make_console, make_progress_bar
 from schemathesis.cli.validation import validate_auth_overlap, validate_wfc_user
 from schemathesis.core import storage
+from schemathesis.core.app_output import hidden_application_output
+from schemathesis.core.output.sanitization import sanitized
 from schemathesis.core.timing import Instant
 
 if TYPE_CHECKING:
@@ -33,6 +35,7 @@ if TYPE_CHECKING:
 @click.option("--url", "base_url", default=None, help="Override base URL for replay.")
 @click.option("--schema-location", default=None, help="Override schema location for loading.")
 @click.option("--keep", is_flag=True, default=False, help="Retain fixed crashes instead of removing them.")
+@click.option(*APP.args, **APP.kwargs)
 @click.option(*HEADER.args, **HEADER.kwargs)
 @click.option(*AUTH.args, **AUTH.kwargs)
 @click.option(*AUTH_WFC.args, **AUTH_WFC.kwargs)
@@ -44,6 +47,7 @@ def replay(
     base_url: str | None,
     schema_location: str | None,
     keep: bool,
+    app: str | None,
     headers: dict[str, str],
     auth: tuple[str, str] | None,
     auth_wfc: str | None,
@@ -52,6 +56,10 @@ def replay(
     """Replay stored crash files."""
     validate_auth_overlap(auth, headers)
     validate_wfc_user(ctx.obj, auth_wfc, auth_wfc_user)
+    if app is not None:
+        ctx.obj.app = app
+    if ctx.obj.app is not None:
+        ctx.with_resource(hidden_application_output())
     # Credentials override every project's config, as in `st run`.
     ctx.obj.projects.override.update(
         headers=headers or None, basic_auth=auth, wfc_auth=auth_wfc, wfc_user=auth_wfc_user
@@ -70,11 +78,14 @@ def replay(
         if target.is_file():
             units = [(target.parent, [target], str(target))]
         elif target.is_dir():
-            files = _crash_files_in(target)
-            if not files:
+            units = [
+                (directory, files, str(directory))
+                for directory in _with_schema_directories(target)
+                if (files := _crash_files_in(directory))
+            ]
+            if not units:
                 click.echo("No crash files found.")
                 return
-            units = [(target, files, str(target))]
         elif not target.suffix:
             found = _find_by_case_id(ctx, path)
             if found is None:
@@ -127,7 +138,7 @@ def _replay_directory(
         replay_crash_file,
     )
     from schemathesis.cli.commands.replay.output import render_replay
-    from schemathesis.reporting.crashes import CrashFile, CrashWriter, load_manifest
+    from schemathesis.reporting.crashes import CrashFile, CrashWriter, load_manifest, recorded_schema_location
 
     crashes: list[CrashFile] = []
     loaded_paths: list[Path] = []
@@ -141,9 +152,10 @@ def _replay_directory(
     crash_files = loaded_paths
 
     manifest = load_manifest(crash_dir)
-    effective_schema_location = schema_location or (manifest.schema_location if manifest is not None else None)
-    # File-based schemas carry no base URL on their operations; fall back to the manifest's recorded base URL
-    # for the actual requests when no --url override is given (the header still flags only an explicit override).
+    effective_schema_location = schema_location or (
+        recorded_schema_location(crash_dir, manifest) if manifest is not None else None
+    )
+    # Without --url, file-based schemas use the manifest's recorded base URL; the header flags only an explicit --url.
     effective_base_url = base_url or (manifest.base_url if manifest is not None else None)
     if not effective_schema_location:
         click.echo("Error: cannot replay without a schema. Pass --schema-location <url-or-path>.", err=True)
@@ -154,7 +166,8 @@ def _replay_directory(
 
     schema = _load_schema(ctx, effective_schema_location)
     if schema is None:
-        click.echo(f"Error: failed to load schema from {effective_schema_location}", err=True)
+        location = sanitized(effective_schema_location, ctx.obj.output.sanitization)
+        click.echo(f"Error: failed to load schema from {location}", err=True)
         return False, True, False
 
     project_config = ctx.obj.projects.get(schema.raw_schema)
@@ -250,17 +263,24 @@ def _merge_by_case(crashes: list[CrashFile], paths: list[Path]) -> list[_ReplayU
 def _all_crash_dirs(ctx: click.Context) -> list[Path]:
     cache_directory = ctx.obj.cache.directory
     if cache_directory is not None:
-        return [cache_directory / "crashes"]
-    if not storage.DEFAULT_ROOT.is_dir():
+        roots = [cache_directory / "crashes"]
+    elif storage.DEFAULT_ROOT.is_dir():
+        roots = sorted(storage.DEFAULT_ROOT.glob("*/cache/crashes"))
+    else:
+        roots = []
+    return [directory for root in roots for directory in _with_schema_directories(root)]
+
+
+def _with_schema_directories(crashes_directory: Path) -> list[Path]:
+    # Crash files sit in one subdirectory per schema location, or directly inside for older versions.
+    if not crashes_directory.is_dir():
         return []
-    return sorted(p for p in storage.DEFAULT_ROOT.glob("*/cache/crashes") if p.is_dir())
+    return [crashes_directory, *sorted(p for p in crashes_directory.iterdir() if p.is_dir())]
 
 
 def _crash_files_in(directory: Path) -> list[Path]:
     from schemathesis.reporting.crashes import MANIFEST_FILENAME
 
-    if not directory.is_dir():
-        return []
     return sorted(f for f in directory.iterdir() if f.suffix == ".json" and f.name != MANIFEST_FILENAME)
 
 
@@ -269,9 +289,12 @@ def _load_schema(ctx: click.Context, location: str) -> BaseSchema | None:
 
     project_config = ctx.obj.projects.get_default()
     try:
-        return load_schema(location, project_config)
+        schema = load_schema(location, project_config)
     except Exception:
         return None
+    # An in-process application that raises fails its checks, as it did in the run that recorded the crash
+    schema.raise_app_exceptions = False
+    return schema
 
 
 def _find_by_case_id(ctx: click.Context, case_id: str) -> tuple[Path, list[Path]] | None:

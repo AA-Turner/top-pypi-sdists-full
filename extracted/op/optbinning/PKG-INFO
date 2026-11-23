@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optbinning
-Version: 1.0.0
+Version: 1.1.0
 Summary: OptBinning: The Python Optimal Binning library
 Author-email: Guillermo Navas-Palencia <g.navas-palencia@gmail.com>
 License-Expression: Apache-2.0
@@ -18,10 +18,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: matplotlib
+Requires-Dist: matplotlib>=3.7
 Requires-Dist: numpy>=1.16.1
 Requires-Dist: ortools>=9.15
 Requires-Dist: pandas
@@ -277,7 +278,7 @@ Print overview information about the options settings, problem statistics, and t
 
 .. code-block:: text
 
-   optbinning (Version 1.0.0)
+   optbinning (Version 1.1.0)
    Copyright (c) 2019-2026 Guillermo Navas-Palencia, Apache License 2.0
 
      Begin options
@@ -445,7 +446,7 @@ and the number of selected variables after the binning process.
 
 .. code-block:: text
 
-   optbinning (Version 1.0.0)
+   optbinning (Version 1.1.0)
    Copyright (c) 2019-2026 Guillermo Navas-Palencia, Apache License 2.0
 
      Begin options

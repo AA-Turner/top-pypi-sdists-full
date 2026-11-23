@@ -90,7 +90,6 @@ class HTTP2EchoClient:
                 login.url.replace("amazon", ""), HTTP2_DEFAULT
             ),
             "scheme": "https",
-            "authorization": f"Bearer {login.access_token}",
         }
         self.open_callback: Callable[[], Coroutine[Any, Any, None]] = open_callback
         self.msg_callback: Callable[[Any], Coroutine[Any, Any, None]] = msg_callback
@@ -168,7 +167,7 @@ class HTTP2EchoClient:
                 self._options["method"],
                 self._http2url,
                 headers={
-                    "authorization": self._options["authorization"],
+                    "authorization": f"Bearer {self._login.access_token}",
                 },
                 # Never time out the overall stream, but bound the gap between
                 # chunks: the server sends keepalive boundaries continuously,
@@ -323,7 +322,7 @@ class HTTP2EchoClient:
         response = await self.client.get(
             url,
             headers={
-                "authorization": self._options["authorization"],
+                "authorization": f"Bearer {self._login.access_token}",
             },
         )
         self._last_ping = datetime.datetime.now()

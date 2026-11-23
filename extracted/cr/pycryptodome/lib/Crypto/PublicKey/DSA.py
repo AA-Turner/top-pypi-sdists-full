@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 __all__ = ["generate", "construct", "DsaKey", "import_key"]
 
@@ -43,6 +43,7 @@ from Crypto.PublicKey import (
     _extract_subject_public_key_info,
 )
 from Crypto.Util._bytes import tobytes
+from Crypto.Util._typing import RNG
 from Crypto.Util.asn1 import (
     DerInteger,
     DerSequence,
@@ -51,7 +52,6 @@ from Crypto.Util.asn1 import (
 if TYPE_CHECKING:
     from Crypto.IO._PBES import ProtParams
 
-RNG = Callable[[int], bytes]
 Int = Union[int, Integer]
 
 #   ; The following ASN.1 types are relevant for DSA
@@ -551,8 +551,10 @@ def construct(
         fmt_error |= ((p - 1) % q) != 0
         fmt_error |= g <= 1 or g >= p
         fmt_error |= pow(g, q, p) != 1
-        # Public key
-        fmt_error |= y <= 0 or y >= p
+        # Public key (NIST SP 800-89, 5.3.1): 2 <= y <= p-2 and y^q = 1 mod p
+        # (y = p-1 fails the second check, as q is odd)
+        fmt_error |= y <= 1 or y >= p
+        fmt_error |= pow(y, q, p) != 1
         if "x" in key_dict:
             x = key_dict["x"]
             fmt_error |= x <= 0 or x >= q
@@ -565,9 +567,9 @@ def construct(
 
 
 # Dss-Parms  ::=  SEQUENCE  {
-#       p       OCTET STRING,
-#       q       OCTET STRING,
-#       g       OCTET STRING
+#       p       INTEGER,
+#       q       INTEGER,
+#       g       INTEGER
 # }
 # DSAPublicKey ::= INTEGER --  public key, y
 
@@ -590,7 +592,7 @@ def _import_subjectPublicKeyInfo(encoded, passphrase, params):
         raise ValueError("Too many DSA parameters")
 
     y = DerInteger().decode(encoded_key).value
-    p, q, g = list(DerSequence().decode(params or emb_params))
+    p, q, g = DerSequence().decode(params or emb_params, nr_elements=3, only_ints_expected=True)
     tup = (y, g, p, q)
     return construct(tup)
 
@@ -607,7 +609,7 @@ def _import_pkcs8(encoded, passphrase, params, max_iteration_count=None, threads
     if k[0] != oid:
         raise ValueError("No PKCS#8 encoded DSA key")
     x = DerInteger().decode(k[1]).value
-    p, q, g = list(DerSequence().decode(k[2]))
+    p, q, g = DerSequence().decode(k[2], nr_elements=3, only_ints_expected=True)
     tup = (pow(g, x, p), g, p, q, x)
     return construct(tup)
 

@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.admin.utils import quote
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -8,19 +9,42 @@ from django.db import transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from wagtail import VERSION as WAGTAIL_VERSION
-from wagtail.models import Locale, Page, PageViewRestriction
+from wagtail.models import Locale, PageViewRestriction
 from wagtail.test.utils import WagtailTestUtils
 
 from tests.testapp.models import (
     NonTranslatableSnippet,
-    TestPage,
     TestSnippet,
-    TestWithTranslationModeDisabledPage,
-    TestWithTranslationModeEnabledPage,
 )
 from wagtail_localize.models import Translation, TranslationSource
 
-from .utils import assert_permission_denied, make_test_page
+from .utils import (
+    assert_permission_denied,
+    get_page_ptr_accessor_name,
+    make_test_page,
+    make_user_translate_but_not_edit,
+)
+
+
+if WAGTAIL_VERSION >= (8, 0):
+    import swapper
+
+    Page = swapper.load_model("wagtailcore", "Page")
+else:
+    from wagtail.models import Page
+
+if settings.USE_CUSTOM_PAGE_MODEL:
+    from tests.testapp.testpages_custombasepage.models import (
+        TestPage,
+        TestWithTranslationModeDisabledPage,
+        TestWithTranslationModeEnabledPage,
+    )
+else:
+    from tests.testapp.testpages_default.models import (
+        TestPage,
+        TestWithTranslationModeDisabledPage,
+        TestWithTranslationModeEnabledPage,
+    )
 
 
 def strip_user_perms():
@@ -83,7 +107,7 @@ class TestTranslatePageListingButton(WagtailTestUtils, TestCase):
             reverse("wagtailadmin_explore", args=[parent_page_id])
         )
 
-        suffix = ' class=""' if WAGTAIL_VERSION >= (7, 1) else ""
+        suffix = ' class=""'
 
         self.assertContains(
             response,
@@ -234,6 +258,18 @@ class TestSubmitPageTranslation(WagtailTestUtils, TestCase):
 
     def test_get_submit_page_translation_without_permissions(self):
         strip_user_perms()
+
+        response = self.client.get(
+            reverse(
+                "wagtail_localize:submit_page_translation",
+                args=[self.en_blog_post_child.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+
+    def test_get_submit_page_translation_without_edit_permission(self):
+        make_user_translate_but_not_edit()
 
         response = self.client.get(
             reverse(
@@ -409,15 +445,21 @@ class TestSubmitPageTranslation(WagtailTestUtils, TestCase):
         # The parent should've been created as an alias page
         translated_parent_page = self.en_blog_index.get_translation(self.fr_locale)
         self.assertTrue(translated_parent_page.live)
-        self.assertEqual(translated_parent_page.alias_of, self.en_blog_index.page_ptr)
+        page_ptr = get_page_ptr_accessor_name()
+        self.assertEqual(
+            translated_parent_page.alias_of, getattr(self.en_blog_index, page_ptr)
+        )
 
         # Just check the translation was created under its parent
-        self.assertEqual(translated_page.get_parent(), translated_parent_page.page_ptr)
+        self.assertEqual(
+            translated_page.get_parent(), getattr(translated_parent_page, page_ptr)
+        )
 
     @patch.object(transaction, "on_commit", side_effect=lambda func: func())
     def test_post_submit_page_translation_with_untranslated_grandparent(
         self, _mock_on_commit
     ):
+        page_ptr_name = get_page_ptr_accessor_name()
         # This is the same as the previous test, except it's done with a new locale so the homepage doesn't exist yet.
         # This should create a translation request that contains the homepage, blog index and the blog post that was requested.
         es_locale = Locale.objects.create(language_code="es")
@@ -447,7 +489,9 @@ class TestSubmitPageTranslation(WagtailTestUtils, TestCase):
         # The parent should've been created as an alias page
         translated_parent_page = self.en_blog_index.get_translation(es_locale)
         self.assertTrue(translated_parent_page.live)
-        self.assertEqual(translated_parent_page.alias_of, self.en_blog_index.page_ptr)
+        self.assertEqual(
+            translated_parent_page.alias_of, getattr(self.en_blog_index, page_ptr_name)
+        )
 
         # The grandparent should've been created as an alias page
         translated_grandparent_page = self.en_homepage.get_translation(es_locale)
@@ -455,7 +499,9 @@ class TestSubmitPageTranslation(WagtailTestUtils, TestCase):
         self.assertEqual(translated_grandparent_page.alias_of, self.en_homepage)
 
         # Just check the translations were created in the right place
-        self.assertEqual(translated_page.get_parent(), translated_parent_page.page_ptr)
+        self.assertEqual(
+            translated_page.get_parent(), getattr(translated_parent_page, page_ptr_name)
+        )
         self.assertEqual(
             translated_parent_page.get_parent(), translated_grandparent_page
         )
@@ -490,6 +536,28 @@ class TestSubmitPageTranslation(WagtailTestUtils, TestCase):
         )
 
         assert_permission_denied(self, response)
+
+    def test_post_submit_page_translation_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        sources_before = list(TranslationSource.objects.order_by("pk").values())
+        translations_before = list(Translation.objects.order_by("pk").values())
+
+        response = self.client.post(
+            reverse(
+                "wagtail_localize:submit_page_translation",
+                args=[self.en_blog_post_child.id],
+            ),
+            {"locales": [self.fr_locale.id]},
+        )
+
+        assert_permission_denied(self, response)
+        self.assertEqual(
+            list(TranslationSource.objects.order_by("pk").values()), sources_before
+        )
+        self.assertEqual(
+            list(Translation.objects.order_by("pk").values()), translations_before
+        )
 
     @patch.object(transaction, "on_commit", side_effect=lambda func: func())
     def test_post_submit_page_translation_reactivates_deleted_translation(
@@ -719,7 +787,7 @@ class TestTranslateSnippetListingButton(WagtailTestUtils, TestCase):
             reverse("wagtailsnippets_wagtail_localize_test_testsnippet:list")
         )
 
-        suffix = 'class=""' if WAGTAIL_VERSION >= (7, 1) else ""
+        suffix = 'class=""'
         self.assertContains(
             response,
             (
@@ -863,6 +931,18 @@ class TestSubmitSnippetTranslation(WagtailTestUtils, TestCase):
 
         assert_permission_denied(self, response)
 
+    def test_get_submit_snippet_translation_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        response = self.client.get(
+            reverse(
+                "wagtail_localize:submit_snippet_translation",
+                args=["wagtail_localize_test", "testsnippet", self.en_snippet.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+
     def test_get_submit_snippet_translation_when_already_translated(self):
         # Locales that have been translated into shouldn't be included
         translation = self.en_snippet.copy_for_translation(self.de_locale)
@@ -992,3 +1072,25 @@ class TestSubmitSnippetTranslation(WagtailTestUtils, TestCase):
         )
 
         assert_permission_denied(self, response)
+
+    def test_post_submit_snippet_translation_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        sources_before = list(TranslationSource.objects.order_by("pk").values())
+        translations_before = list(Translation.objects.order_by("pk").values())
+
+        response = self.client.post(
+            reverse(
+                "wagtail_localize:submit_snippet_translation",
+                args=["wagtail_localize_test", "testsnippet", self.en_snippet.id],
+            ),
+            {"locales": [self.fr_locale.id]},
+        )
+
+        assert_permission_denied(self, response)
+        self.assertEqual(
+            list(TranslationSource.objects.order_by("pk").values()), sources_before
+        )
+        self.assertEqual(
+            list(Translation.objects.order_by("pk").values()), translations_before
+        )

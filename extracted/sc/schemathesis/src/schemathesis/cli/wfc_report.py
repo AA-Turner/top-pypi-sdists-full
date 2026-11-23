@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from schemathesis.cli.commands.run.handlers.base import EventHandler
-from schemathesis.cli.events import LoadingFinished
+from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.core.failures import (
     AcceptedNegativeData,
     AuthScenario,
@@ -49,7 +49,6 @@ if TYPE_CHECKING:
     from schemathesis.generation.case import Case
 
 SCHEMA_VERSION = "0.10.0"
-HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 VALIDATION_FAILURES = (
     JsonSchemaError,
     MalformedJson,
@@ -136,7 +135,7 @@ def fault_category(failure: Failure) -> tuple[int, str] | None:
 
 
 def _case_faults(
-    case_id: str, endpoint: str, failures: list[Failure]
+    case_id: str, endpoint: str, sent_to: str, failures: list[Failure]
 ) -> list[tuple[tuple[int, str], dict[str, object]]]:
     faults: list[tuple[tuple[int, str], dict[str, object]]] = []
     seen: set[tuple[int, str]] = set()
@@ -145,8 +144,8 @@ def _case_faults(
         if category is None:
             continue
         code, description = category
-        # WFC identifies a fault by code and context, so the context names the operation.
-        context = f"{endpoint} -> {description}"
+        # WFC identifies a fault by code and context, so the context names the request's method and path.
+        context = f"{sent_to} -> {description}"
         if (code, context) in seen:
             continue
         seen.add((code, context))
@@ -174,7 +173,7 @@ class ExportedFailures:
 
 def export_failures(
     statistic: Statistic,
-    endpoints: dict[str, tuple[str, str]],
+    endpoints: dict[str, tuple[str, str, str]],
     config: OutputConfig,
     file_name: str,
 ) -> ExportedFailures:
@@ -188,8 +187,8 @@ def export_failures(
         for index, group in enumerate(statistic.failures[label].values(), 1):
             if group.case_id is None or group.code_sample is None:
                 continue
-            endpoint, sent_as = endpoints[group.case_id]
-            faults = _case_faults(group.case_id, endpoint, group.failures)
+            endpoint, sent_to, sent_as = endpoints[group.case_id]
+            faults = _case_faults(group.case_id, endpoint, sent_to, group.failures)
             if not faults:
                 continue
             found_faults.extend(fault for _, fault in faults)
@@ -227,6 +226,7 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
 
     __slots__ = (
         "output",
+        "loading_ended",
         "started_at",
         "finished",
         "endpoint_ids",
@@ -238,20 +238,29 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
 
     def __init__(self, output: Path) -> None:
         self.output = output
+        # A run refused after loading its schema sees nothing past `LoadingStarted` and writes no report.
+        self.loading_ended = False
         self.started_at: float | None = None
         self.finished: events.EngineFinished | None = None
         self.endpoint_ids: set[str] = set()
         self.covered: dict[str, set[int | None]] = {}
-        # Method and path each failing case was sent with, which differ from its operation for undeclared-method probes.
-        self.failing_endpoints: dict[str, tuple[str, str]] = {}
+        # Operation each failing case tests, then the method and path it was sent with as an id and as a label.
+        # Requests to undeclared methods belong to the declared operation they were generated from.
+        self.failing_endpoints: dict[str, tuple[str, str, str]] = {}
         self.total_tests = 0
         self.evaluated_calls = 0
 
     def handle_event(self, ctx: BaseExecutionContext, event: events.EngineEvent) -> None:
+        if not isinstance(event, LoadingStarted):
+            self.loading_ended = True
         if isinstance(event, LoadingFinished):
+            from schemathesis.specs.openapi.operations import iter_path_item_operations
+
             for path, item in event.schema.get("paths", {}).items():
                 if isinstance(item, dict):
-                    self.endpoint_ids.update(operation_id(method, path) for method in item if method in HTTP_METHODS)
+                    self.endpoint_ids.update(
+                        operation_id(method, path) for method, _ in iter_path_item_operations(item)
+                    )
         elif isinstance(event, EngineStarted):
             self.started_at = event.timestamp
         elif isinstance(event, EngineFinished):
@@ -270,9 +279,15 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
                 self.covered.setdefault(endpoint, set()).add(status)
         for case_id in recorder.failing_case_ids():
             case = recorder.cases[case_id].value
-            self.failing_endpoints[case_id] = (_case_operation_id(case), f"{case.method.upper()} {case.path}")
+            self.failing_endpoints[case_id] = (
+                operation_id(case.operation.method, case.operation.path),
+                _case_operation_id(case),
+                f"{case.method.upper()} {case.path}",
+            )
 
     def shutdown(self, ctx: BaseExecutionContext) -> None:
+        if not self.loading_ended:
+            return
         elapsed = running_time(self.started_at, self.finished) or 0.0
         script_path = self.output.with_suffix(".sh")
         exported = export_failures(ctx.statistic, self.failing_endpoints, ctx.config.output, script_path.name)

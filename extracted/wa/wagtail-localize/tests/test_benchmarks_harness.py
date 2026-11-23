@@ -1,0 +1,1002 @@
+"""Structural tests for the benchmark harness."""
+
+import argparse
+import ast
+import contextlib
+import importlib.metadata
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+from unittest import mock
+
+from django.core.management import call_command
+from django.test import SimpleTestCase, TransactionTestCase
+
+from benchmarks import catalog, run
+
+
+BENCHMARKS = os.path.dirname(os.path.abspath(run.__file__))
+
+
+@contextlib.contextmanager
+def environment(**values):
+    """Set env vars for the duration of a block, restoring what was there."""
+    previous = {key: os.environ.get(key) for key in values}
+    for key, value in values.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+DJANGO = ("django", "wagtail")
+# Any harness sibling. Forbidden at module level in run.py, where importing one
+# would run its imports too; allowed inside parent functions when the sibling is
+# Django-free, which benchmarks.catalog is and benchmarks.env is not.
+HARNESS = ("benchmarks",)
+BOOTSTRAP = (*DJANGO, "benchmarks.env", "benchmarks.settings")
+
+
+def _source_of(filename):
+    with open(os.path.join(BENCHMARKS, filename)) as handle:
+        return handle.read()
+
+
+def _imported_names(node):
+    """Every module path an import node names, or () if it is not an import.
+
+    `from benchmarks import env` and `from benchmarks.env import bootstrap`
+    both have to be read as naming benchmarks.env, and one statement can carry
+    several aliases.
+    """
+    if isinstance(node, ast.Import):
+        return tuple(alias.name for alias in node.names)
+    if isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        return (module, *(f"{module}.{alias.name}" for alias in node.names))
+    return ()
+
+
+class TestFlowModel(SimpleTestCase):
+    def test_a_flow_without_scale_points_runs_once_with_no_size(self):
+        flow = catalog.Flow(
+            name="x",
+            group="g",
+            why="w",
+            entrypoint="e",
+            covers=(),
+            run=lambda ctx, size: None,
+            verify=lambda ctx, size, a: None,
+        )
+        self.assertEqual(flow.sizes(), (None,))
+        self.assertIsNone(flow.scale_point(None))
+
+    def test_a_flow_with_scale_points_expands_to_one_execution_each(self):
+        flow = catalog.Flow(
+            name="x",
+            group="g",
+            why="w",
+            entrypoint="e",
+            covers=(),
+            run=lambda ctx, size: None,
+            verify=lambda ctx, size, a: None,
+            workload_unit="things",
+            scale_points=(
+                catalog.ScalePoint("small", why="w", expected_workload=1),
+                catalog.ScalePoint("large", why="w", expected_workload=9),
+            ),
+        )
+        self.assertEqual(flow.sizes(), ("small", "large"))
+        self.assertEqual(flow.scale_point("large").expected_workload, 9)
+        self.assertIsNone(flow.scale_point("enormous"))
+
+
+class TestCatalogIntegrity(SimpleTestCase):
+    def test_flow_names_are_unique(self):
+        names = [flow.name for flow in catalog.CATALOG]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_a_flow_declaring_scale_points_declares_two_or_more(self):
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                self.assertNotEqual(len(flow.scale_points), 1)
+
+    def test_every_scale_point_declares_the_workload_it_expects(self):
+        for flow in catalog.CATALOG:
+            for point in flow.scale_points:
+                with self.subTest(flow=flow.name, size=point.label):
+                    self.assertIsInstance(point.expected_workload, int)
+                    self.assertGreater(point.expected_workload, 0)
+
+    def test_a_flow_with_scale_points_names_the_unit_they_count(self):
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                if flow.scale_points:
+                    self.assertTrue(flow.workload_unit)
+
+    def test_every_flow_is_documented(self):
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                self.assertTrue(flow.why)
+                self.assertTrue(flow.entrypoint)
+                self.assertTrue(flow.group)
+
+    def test_expected_workload_grows_with_the_scale_points(self):
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                expected = [p.expected_workload for p in flow.scale_points]
+                self.assertEqual(expected, sorted(expected))
+                self.assertEqual(len(expected), len(set(expected)))
+
+    def test_the_catalog_expands_to_the_executions_it_claims(self):
+        expanded = catalog.executions()
+        self.assertEqual(len(catalog.CATALOG), 8)
+        self.assertEqual(len(expanded), 15)
+        self.assertEqual(
+            len(expanded), sum(len(flow.sizes()) for flow in catalog.CATALOG)
+        )
+        self.assertIn((catalog.BY_NAME["edit_translation_get"], "large"), expanded)
+
+    def test_submit_page_post_expands_over_related_object_references(self):
+        flow = catalog.BY_NAME["submit_page_post"]
+        self.assertEqual(
+            [point.label for point in flow.scale_points], ["small", "large"]
+        )
+        self.assertEqual(
+            [point.expected_workload for point in flow.scale_points], [2, 40]
+        )
+        self.assertEqual(flow.workload_unit, "related_object_segments")
+        self.assertEqual(
+            [pair for pair in catalog.executions() if pair[0] is flow],
+            [(flow, "small"), (flow, "large")],
+        )
+
+
+class TestRunnerParentNeverImportsDjango(SimpleTestCase):
+    """The parent must not open a Django connection before copying SQLite."""
+
+    def test_run_py_imports_no_django_at_module_level(self):
+        for node in ast.parse(_source_of("run.py")).body:
+            for name in _imported_names(node):
+                self.assertFalse(
+                    name.startswith(DJANGO + HARNESS),
+                    f"run.py imports {name} at module level",
+                )
+
+    def test_the_parent_code_path_defers_every_django_import(self):
+        source = ast.parse(_source_of("run.py"))
+        child_side = {"run_in_child", "build_template_in_child"}
+
+        for node in source.body:
+            if not isinstance(node, ast.FunctionDef) or node.name in child_side:
+                continue
+            for inner in ast.walk(node):
+                for name in _imported_names(inner):
+                    self.assertFalse(
+                        name.startswith(BOOTSTRAP),
+                        f"parent function {node.name}() imports {name}",
+                    )
+
+
+class TestScalePointLabelsAreUnique(SimpleTestCase):
+    def test_no_flow_declares_the_same_label_twice(self):
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                labels = [point.label for point in flow.scale_points]
+                self.assertEqual(len(labels), len(set(labels)))
+
+
+class TestDatabaseGuard(SimpleTestCase):
+    """Internal child commands must refuse databases the harness does not own."""
+
+    def test_a_database_outside_a_harness_directory_is_refused(self):
+        with tempfile.TemporaryDirectory() as outsider:
+            database = os.path.join(outsider, "somebodys-real.sqlite3")
+            contents = b"not a real database, and must stay that way"
+            with open(database, "wb") as handle:
+                handle.write(contents)
+
+            with (
+                environment(
+                    **{run.DB_ENV_VAR: database, run.TOKEN_ENV_VAR: "any-token"}
+                ),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                run.guard_database()
+
+            self.assertIn("refusing to use", str(raised.exception))
+            with open(database, "rb") as handle:
+                self.assertEqual(handle.read(), contents)
+
+    def test_a_missing_token_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run._own_directory(directory)
+            database = os.path.join(directory, "run-00.sqlite3")
+
+            with (
+                environment(**{run.DB_ENV_VAR: database, run.TOKEN_ENV_VAR: None}),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                run.guard_database()
+
+            self.assertIn(run.TOKEN_ENV_VAR, str(raised.exception))
+
+    def test_a_wrong_token_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run._own_directory(directory)
+            database = os.path.join(directory, "run-00.sqlite3")
+
+            with (
+                environment(
+                    **{run.DB_ENV_VAR: database, run.TOKEN_ENV_VAR: "not-the-token"}
+                ),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                run.guard_database()
+
+            self.assertIn("token does not match", str(raised.exception))
+
+    def test_the_harness_own_directory_is_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            token = run._own_directory(directory)
+            database = os.path.join(directory, "run-00.sqlite3")
+
+            with environment(**{run.DB_ENV_VAR: database, run.TOKEN_ENV_VAR: token}):
+                self.assertEqual(run.guard_database(), os.path.realpath(database))
+
+
+class TestChildSelectionGuard(SimpleTestCase):
+    def test_an_unknown_flow_is_refused(self):
+        with self.assertRaises(SystemExit) as raised:
+            run._select("no_such_flow", "small")
+        self.assertIn("unknown flow", str(raised.exception))
+
+    def test_an_undeclared_size_is_refused(self):
+        with self.assertRaises(SystemExit) as raised:
+            run._select("edit_translation_get", "enormous")
+        self.assertIn("no size", str(raised.exception))
+
+    def test_a_flow_with_scale_points_requires_one(self):
+        with self.assertRaises(SystemExit) as raised:
+            run._select("edit_translation_get", None)
+        self.assertIn("needs a size", str(raised.exception))
+
+    def test_a_flow_without_scale_points_is_accepted_without_a_size(self):
+        _catalog, flow, point = run._select("submit_snippet_post", None)
+        self.assertEqual(flow.name, "submit_snippet_post")
+        self.assertIsNone(point)
+
+    def test_a_size_on_a_flow_without_scale_points_is_refused(self):
+        with self.assertRaises(SystemExit) as raised:
+            run._select("submit_snippet_post", "small")
+        self.assertIn("takes no size", str(raised.exception))
+
+    def test_a_declared_size_is_accepted(self):
+        _catalog, flow, point = run._select("submit_page_post", "large")
+        self.assertEqual(flow.name, "submit_page_post")
+        self.assertEqual(point.expected_workload, 40)
+
+
+class TestHarnessSettings(SimpleTestCase):
+    def test_the_harness_settings_turn_debug_off(self):
+        import benchmarks.settings
+
+        self.assertFalse(benchmarks.settings.DEBUG)
+
+
+class TestReservedCatalogNames(SimpleTestCase):
+    def test_no_flow_is_called_all(self):
+        self.assertNotIn(run.ALL, catalog.BY_NAME)
+
+
+class TestExecutionSelection(SimpleTestCase):
+    def test_all_selects_the_whole_catalog_in_order(self):
+        self.assertEqual(run._executions_for(run.ALL, None), list(catalog.executions()))
+
+    def test_all_refuses_a_size(self):
+        with self.assertRaises(ValueError) as raised:
+            run._executions_for(run.ALL, "small")
+        self.assertIn("cannot be used with all", str(raised.exception))
+
+    def test_a_scaled_flow_without_a_size_selects_every_point(self):
+        flow = catalog.BY_NAME["edit_translation_get"]
+        self.assertEqual(
+            run._executions_for("edit_translation_get", None),
+            [(flow, "small"), (flow, "large")],
+        )
+
+    def test_a_scaled_flow_with_a_size_selects_only_that_point(self):
+        flow = catalog.BY_NAME["edit_translation_get"]
+        self.assertEqual(
+            run._executions_for("edit_translation_get", "large"), [(flow, "large")]
+        )
+
+    def test_a_flow_without_scale_points_selects_one_sizeless_execution(self):
+        flow = catalog.BY_NAME["submit_snippet_post"]
+        self.assertEqual(
+            run._executions_for("submit_snippet_post", None), [(flow, None)]
+        )
+
+    def test_a_flow_without_scale_points_refuses_a_size(self):
+        with self.assertRaises(ValueError) as raised:
+            run._executions_for("submit_snippet_post", "small")
+        self.assertIn("takes no size", str(raised.exception))
+
+    def test_an_unknown_name_lists_the_valid_ones(self):
+        with self.assertRaises(ValueError) as raised:
+            run._executions_for("no_such_flow", None)
+        message = str(raised.exception)
+        self.assertIn("edit_translation_get", message)
+        self.assertIn(run.ALL, message)
+
+
+class TestListTakesNoSelection(SimpleTestCase):
+    """`--list` prints the catalog and nothing else, so an argument that asks
+    for something it cannot do is an error rather than a silent omission."""
+
+    def _main_with(self, argv):
+        with (
+            mock.patch.object(sys, "argv", ["run.py", *argv]),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            run.main()
+        return raised.exception
+
+    def test_a_flow_name_is_refused(self):
+        self.assertEqual(self._main_with(["submit_page_post", "--list"]).code, 2)
+
+    def test_a_json_path_is_refused(self):
+        self.assertEqual(self._main_with(["--list", "--json", "run.json"]).code, 2)
+
+    def test_the_bare_flag_still_prints(self):
+        with (
+            mock.patch.object(sys, "argv", ["run.py", "--list"]),
+            mock.patch("sys.stdout"),
+        ):
+            self.assertEqual(run.main(), 0)
+
+
+class TestOrchestration(SimpleTestCase):
+    """A failing execution must not stop the ones after it."""
+
+    def _run_all(self, failing_index):
+        attempted = []
+
+        def fake_execute(name, size, template, directory, index, token):
+            attempted.append((name, size))
+            if index == failing_index:
+                return {"process": name, "size": size, "error": "deliberate"}
+            return {
+                "process": name,
+                "size": size,
+                "queries": 1,
+                "seconds": 0.0,
+                "workload_unit": None,
+                "expected_workload": None,
+                "observed_workload": None,
+            }
+
+        with (
+            mock.patch.object(run, "_build_template", return_value="template"),
+            mock.patch.object(run, "execute", side_effect=fake_execute),
+            mock.patch.object(sys, "argv", ["run.py", run.ALL]),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            return run.main(), attempted
+
+    def test_every_execution_is_attempted_and_the_run_reports_failure(self):
+        code, attempted = self._run_all(failing_index=0)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(attempted), len(catalog.executions()))
+
+    def test_a_run_with_no_failures_reports_success(self):
+        code, attempted = self._run_all(failing_index=None)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(attempted), len(catalog.executions()))
+
+
+class TestSingleModuleIdentity(SimpleTestCase):
+    """Loaded flat and as a package, a harness module becomes two objects with
+    separate state. Everything imports it one way."""
+
+    def test_the_harness_modules_are_package_qualified(self):
+        for module in (catalog, run):
+            with self.subTest(module=module.__name__):
+                self.assertTrue(module.__name__.startswith("benchmarks."))
+
+    def test_no_harness_module_imports_a_sibling_by_bare_name(self):
+        siblings = {"catalog", "env", "run", "seed", "settings"}
+        for filename in ("run.py", "catalog.py", "env.py", "seed.py"):
+            for node in ast.walk(ast.parse(_source_of(filename))):
+                for name in _imported_names(node):
+                    with self.subTest(file=filename, imported=name):
+                        self.assertNotIn(name.split(".")[0], siblings)
+
+
+class TestCatalogInvariants(SimpleTestCase):
+    def test_a_flow_declaring_a_workload_unit_declares_scale_points(self):
+        """Without scale points there is no expected_workload to compare an
+        observed one against, so the unit would measure nothing."""
+        for flow in catalog.CATALOG:
+            with self.subTest(flow=flow.name):
+                if flow.workload_unit:
+                    self.assertTrue(flow.scale_points)
+
+
+class TestUnusableChildResult(SimpleTestCase):
+    """A child that prints something the parent cannot read is that execution's
+    failure. The run continues and ends non-zero."""
+
+    def _execute_with_stdout(self, stdout):
+        completed = mock.Mock(returncode=0, stdout=stdout, stderr="")
+        with (
+            mock.patch.object(run, "_child", return_value=completed),
+            mock.patch("shutil.copy"),
+        ):
+            return run.execute(
+                "a_flow", None, "template", "unused-directory", 0, "token"
+            )
+
+    def test_malformed_json_becomes_a_failed_result(self):
+        result = self._execute_with_stdout(f"{run.RESULT_PREFIX}{{not json")
+        self.assertIn("error", result)
+        self.assertNotIn("queries", result)
+
+    def test_a_result_missing_a_field_becomes_a_failed_result(self):
+        result = self._execute_with_stdout(f'{run.RESULT_PREFIX}{{"pid": 1}}')
+        self.assertIn("error", result)
+
+    def test_a_json_value_that_is_not_an_object_becomes_a_failed_result(self):
+        result = self._execute_with_stdout(f"{run.RESULT_PREFIX}[1, 2, 3]")
+        self.assertIn("error", result)
+
+    def test_a_well_formed_result_is_returned(self):
+        payload = (
+            '{"pid": 1, "database": "d", "queries": 7, "seconds": 0.5, '
+            '"observed_workload": null, "expected_workload": null, '
+            '"workload_unit": null}'
+        )
+        result = self._execute_with_stdout(run.RESULT_PREFIX + payload)
+        self.assertNotIn("error", result)
+        self.assertEqual(result["queries"], 7)
+
+    def test_an_unusable_result_does_not_stop_the_rest_of_the_run(self):
+        attempted = []
+
+        def fake_child(args, database, token):
+            attempted.append(args)
+            return mock.Mock(
+                returncode=0, stdout=f"{run.RESULT_PREFIX}{{broken", stderr=""
+            )
+
+        with (
+            mock.patch.object(run, "_build_template", return_value="template"),
+            mock.patch.object(run, "_child", side_effect=fake_child),
+            mock.patch("shutil.copy"),
+            mock.patch.object(sys, "argv", ["run.py", run.ALL]),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            code = run.main()
+
+        self.assertEqual(code, 1)
+        self.assertEqual(len(attempted), len(catalog.executions()))
+
+
+class TestCatalogOrder(SimpleTestCase):
+    def test_creation_processes_come_before_the_editor(self):
+        """Relative order only. Asserting the whole shape of the list would
+        break as soon as flows from other groups are added."""
+        order = [flow.name for flow in catalog.CATALOG]
+        editor = order.index("edit_translation_get")
+
+        for name in (
+            "submit_page_post",
+            "submit_snippet_post",
+            "translate_page_subtree",
+        ):
+            with self.subTest(flow=name):
+                self.assertLess(order.index(name), editor)
+
+        # Updating an existing translation only makes sense once one exists.
+        for name in ("update_translations_get", "update_translations_post_publish"):
+            with self.subTest(flow=name):
+                self.assertGreater(order.index(name), editor)
+
+    def test_the_sizeless_processes_each_expand_to_one_execution(self):
+        for name in ("submit_snippet_post",):
+            with self.subTest(flow=name):
+                flow = catalog.BY_NAME[name]
+                self.assertEqual(flow.scale_points, ())
+                self.assertIsNone(flow.workload_unit)
+                self.assertEqual(run._executions_for(name, None), [(flow, None)])
+
+
+class TestPublicResult(SimpleTestCase):
+    """The JSON is shared and archived, so it carries what a reader needs and
+    nothing that belongs to one run on one machine."""
+
+    def _result(self, **overrides):
+        result = {
+            "process": "a_flow",
+            "size": "large",
+            "repeats": 1,
+            "queries": 42,
+            "workload_unit": "things",
+            "expected_workload": 7,
+            "observed_workload": 7,
+            "seconds_median": 0.5,
+            "seconds_min": 0.5,
+            "seconds_max": 0.5,
+        }
+        result.update(overrides)
+        return result
+
+    def test_private_fields_are_dropped(self):
+        public = run._public_result(self._result())
+        for field in ("pid", "database", "seconds"):
+            with self.subTest(field=field):
+                self.assertNotIn(field, public)
+
+    def test_the_measurement_is_kept(self):
+        public = run._public_result(self._result())
+        self.assertEqual(public["queries"], 42)
+        self.assertEqual(public["workload_unit"], "things")
+        self.assertEqual(public["expected_workload"], 7)
+        self.assertEqual(public["observed_workload"], 7)
+        self.assertEqual(public["status"], "ok")
+        self.assertEqual(public["repeats"], 1)
+        self.assertEqual(public["seconds_median"], 0.5)
+        self.assertEqual(public["seconds_min"], 0.5)
+        self.assertEqual(public["seconds_max"], 0.5)
+
+    def test_a_failed_execution_reports_no_numbers(self):
+        public = run._public_result(
+            {"process": "a_flow", "size": None, "error": "it broke"}
+        )
+        self.assertEqual(public["status"], "failed")
+        for field in (
+            "queries",
+            "observed_workload",
+            "seconds_median",
+            "seconds_min",
+            "seconds_max",
+        ):
+            with self.subTest(field=field):
+                self.assertIsNone(public[field])
+
+
+class TestJsonDocument(SimpleTestCase):
+    def _write(self, results):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "run.json")
+            run._write_json(path, {"schema_version": run.SCHEMA_VERSION}, results)
+            with open(path) as handle:
+                return json.load(handle)
+
+    def test_a_run_where_everything_passed_is_complete(self):
+        document = self._write(
+            [
+                {
+                    "process": "a",
+                    "size": None,
+                    "repeats": 1,
+                    "queries": 1,
+                    "workload_unit": None,
+                    "expected_workload": None,
+                    "observed_workload": None,
+                    "seconds_median": 0.0,
+                    "seconds_min": 0.0,
+                    "seconds_max": 0.0,
+                }
+            ]
+        )
+        self.assertEqual(document["status"], "complete")
+        self.assertEqual(document["schema_version"], run.SCHEMA_VERSION)
+
+    def test_one_failure_makes_the_whole_run_incomplete(self):
+        """A run with a hole in it is a record of what happened, never a
+        baseline something else can be compared against."""
+        document = self._write(
+            [
+                {
+                    "process": "a",
+                    "size": None,
+                    "repeats": 1,
+                    "queries": 1,
+                    "workload_unit": None,
+                    "expected_workload": None,
+                    "observed_workload": None,
+                    "seconds_median": 0.0,
+                    "seconds_min": 0.0,
+                    "seconds_max": 0.0,
+                },
+                {"process": "b", "size": None, "error": "boom"},
+            ]
+        )
+        self.assertEqual(document["status"], "incomplete")
+        self.assertEqual(document["executions"][1]["status"], "failed")
+
+
+class TestJsonRun(SimpleTestCase):
+    """main() end to end with --json, with the executions faked so no database
+    is built."""
+
+    def _run(self, argv, failing=(), stable=False):
+        def fake_execute(name, size, template, directory, index, token):
+            if (name, size) in failing:
+                return {"process": name, "size": size, "error": "deliberate"}
+            return {
+                "process": name,
+                "size": size,
+                # Unstable on purpose unless asked: the index differs per
+                # repetition, so a repeated run has to notice.
+                "queries": 10 if stable else 10 + index,
+                "seconds": 0.1,
+                "workload_unit": None,
+                "expected_workload": None,
+                "observed_workload": None,
+                "pid": 100 + index,
+                "database": f"/tmp/x/run-{index}.sqlite3",  # noqa: S108
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "run.json")
+            with (
+                mock.patch.object(run, "_build_template", return_value="template"),
+                mock.patch.object(run, "execute", side_effect=fake_execute),
+                mock.patch.object(
+                    run,
+                    "_provenance",
+                    return_value={"schema_version": run.SCHEMA_VERSION},
+                ),
+                mock.patch.object(sys, "argv", ["run.py", *argv, "--json", path]),
+                mock.patch("sys.stdout"),
+                mock.patch("sys.stderr"),
+            ):
+                code = run.main()
+            with open(path) as handle:
+                return code, json.load(handle)
+
+    def test_all_writes_one_entry_per_execution_in_catalog_order(self):
+        code, document = self._run([run.ALL])
+        self.assertEqual(code, 0)
+        self.assertEqual(document["status"], "complete")
+        self.assertEqual(
+            [(e["flow"], e["size"]) for e in document["executions"]],
+            [(flow.name, size) for flow, size in catalog.executions()],
+        )
+
+    def test_a_flow_without_scale_points_records_a_null_size(self):
+        _code, document = self._run(["submit_snippet_post"])
+        self.assertEqual(document["executions"], [document["executions"][0]])
+        self.assertIsNone(document["executions"][0]["size"])
+
+    def test_a_failed_execution_is_written_and_marks_the_run_incomplete(self):
+        code, document = self._run([run.ALL], failing={("submit_page_post", "small")})
+        self.assertEqual(code, 1)
+        self.assertEqual(document["status"], "incomplete")
+        failed = [e for e in document["executions"] if e["status"] == "failed"]
+        self.assertEqual([e["flow"] for e in failed], ["submit_page_post"])
+        # The rest still ran and were recorded.
+        self.assertEqual(len(document["executions"]), len(catalog.executions()))
+
+    def test_repeated_executions_publish_their_summary(self):
+        code, document = self._run([run.ALL, "--repeat", "3"], stable=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(document["status"], "complete")
+        self.assertEqual(document["schema_version"], 2)
+        for execution in document["executions"]:
+            with self.subTest(flow=execution["flow"], size=execution["size"]):
+                self.assertEqual(execution["repeats"], 3)
+                self.assertEqual(execution["seconds_median"], 0.1)
+                self.assertEqual(execution["seconds_min"], 0.1)
+                self.assertEqual(execution["seconds_max"], 0.1)
+                for field in ("pid", "database", "seconds"):
+                    self.assertNotIn(field, execution)
+
+    def test_a_measurement_that_moves_makes_the_whole_run_incomplete(self):
+        code, document = self._run([run.ALL, "--repeat", "3"])
+        self.assertEqual(code, 1)
+        self.assertEqual(document["status"], "incomplete")
+        self.assertEqual(
+            {execution["status"] for execution in document["executions"]}, {"failed"}
+        )
+
+
+class TestJsonPathIsCheckedFirst(SimpleTestCase):
+    """A path that cannot be written is worth a message, not a run whose
+    results are then discarded."""
+
+    def test_a_directory_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError) as raised:
+                run._check_json_path(directory)
+            self.assertIn("is a directory", str(raised.exception))
+
+    def test_a_missing_parent_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError) as raised:
+                run._check_json_path(os.path.join(directory, "nope", "run.json"))
+            self.assertIn("no directory", str(raised.exception))
+
+    def test_an_unwritable_parent_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = os.path.join(directory, "locked")
+            os.mkdir(parent, mode=0o500)
+            try:
+                with self.assertRaises(ValueError) as raised:
+                    run._check_json_path(os.path.join(parent, "run.json"))
+                self.assertIn("not writable", str(raised.exception))
+            finally:
+                os.chmod(parent, 0o700)
+
+    def test_an_unwritable_existing_file_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "run.json")
+            with open(path, "w") as handle:
+                handle.write("{}")
+            os.chmod(path, 0o400)
+            try:
+                with self.assertRaises(ValueError) as raised:
+                    run._check_json_path(path)
+                self.assertIn("not writable", str(raised.exception))
+            finally:
+                os.chmod(path, 0o600)
+
+    def test_a_writable_new_path_is_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run._check_json_path(os.path.join(directory, "run.json"))
+
+
+class TestVersionsComeFromMetadata(SimpleTestCase):
+    """Read from the environment's metadata, so the parent still never imports
+    Django and no extra process is spawned."""
+
+    def test_every_measured_package_is_reported(self):
+        versions = run._versions()
+        for name in (*run.MEASURED_PACKAGES, "python"):
+            with self.subTest(package=name):
+                self.assertTrue(versions[name])
+
+    def test_the_public_keys_do_not_follow_distribution_names(self):
+        # A reader indexes this document; it should not have to know that the
+        # environment spells the distributions Django and wagtail-localize.
+        self.assertEqual(
+            list(run._versions()),
+            ["python", "django", "wagtail", "wagtail_localize"],
+        )
+
+    def test_missing_metadata_stops_the_run_and_names_the_package(self):
+        real = importlib.metadata.version
+
+        def fake(name):
+            if name == "wagtail-localize":
+                raise importlib.metadata.PackageNotFoundError(name)
+            return real(name)
+
+        with (
+            mock.patch.object(importlib.metadata, "version", side_effect=fake),
+            self.assertRaises(LookupError) as raised,
+        ):
+            run._versions()
+        self.assertIn("wagtail-localize", str(raised.exception))
+
+
+class TestProvenanceNeedsGit(SimpleTestCase):
+    """A complete document names the commit it measured. When git cannot say
+    which one, the run stops rather than writing a null."""
+
+    def test_a_failed_command_is_an_error_carrying_what_git_said(self):
+        failure = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr="fatal: not a git repository\n"
+        )
+        with (
+            mock.patch.object(subprocess, "run", return_value=failure),
+            self.assertRaises(RuntimeError) as raised,
+        ):
+            run._git("rev-parse", "HEAD")
+        self.assertIn("not a git repository", str(raised.exception))
+
+    def test_a_missing_executable_is_an_error(self):
+        with (
+            mock.patch.object(subprocess, "run", side_effect=FileNotFoundError("git")),
+            self.assertRaises(RuntimeError) as raised,
+        ):
+            run._git("rev-parse", "HEAD")
+        self.assertIn("cannot run git", str(raised.exception))
+
+    def test_provenance_does_not_survive_a_git_failure(self):
+        with (
+            mock.patch.object(run, "_git", side_effect=RuntimeError("no git")),
+            self.assertRaises(RuntimeError),
+        ):
+            run._provenance({"flow": "all", "size": None})
+
+    def test_a_working_run_records_git_facts_rather_than_nulls(self):
+        provenance = run._provenance({"flow": "all", "size": None})
+        for key in ("commit", "branch", "working_tree_clean"):
+            with self.subTest(key=key):
+                self.assertIsNotNone(provenance[key])
+
+
+class TestRepeatedExecutions(SimpleTestCase):
+    """A repetition is a whole execution: fresh database, fresh child. The
+    parent summarises the time and refuses to summarise anything else."""
+
+    def _result(self, seconds, **overrides):
+        result = {
+            "process": "a_flow",
+            "size": "large",
+            "queries": 42,
+            "seconds": seconds,
+            "workload_unit": "things",
+            "expected_workload": 7,
+            "observed_workload": 7,
+        }
+        result.update(overrides)
+        return result
+
+    def test_a_repeat_below_one_or_not_a_number_is_refused(self):
+        for value in ("0", "-3", "two", "1.5"):
+            with (
+                self.subTest(value=value),
+                self.assertRaises(argparse.ArgumentTypeError),
+            ):
+                run._positive(value)
+
+    def test_an_invalid_repeat_costs_no_database_and_no_child(self):
+        with (
+            mock.patch.object(run, "_build_template") as build,
+            mock.patch.object(run, "execute") as execute,
+            mock.patch.object(sys, "argv", ["run.py", run.ALL, "--repeat", "0"]),
+            mock.patch("sys.stderr"),
+            self.assertRaises(SystemExit),
+        ):
+            run.main()
+        build.assert_not_called()
+        execute.assert_not_called()
+
+    def test_each_repetition_gets_its_own_database_index(self):
+        indices = []
+
+        def fake_execute(name, size, template, directory, index, token):
+            indices.append(index)
+            return self._result(0.1)
+
+        with mock.patch.object(run, "execute", side_effect=fake_execute):
+            result = run.repeat("a_flow", "large", "t", "d", 5, "token", 3)
+
+        self.assertEqual(indices, [5, 6, 7])
+        self.assertEqual(result["repeats"], 3)
+
+    def test_the_default_runs_each_execution_once(self):
+        calls = []
+
+        def fake_execute(name, size, template, directory, index, token):
+            calls.append(index)
+            return self._result(0.1)
+
+        with (
+            mock.patch.object(run, "_build_template", return_value="template"),
+            mock.patch.object(run, "execute", side_effect=fake_execute),
+            mock.patch.object(sys, "argv", ["run.py", "submit_page_post"]),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            code = run.main()
+
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [0, 1])
+
+    def test_the_time_is_summarised_over_every_repetition(self):
+        aggregate = run._aggregate(
+            "a_flow",
+            "large",
+            [self._result(0.3), self._result(0.1), self._result(0.2)],
+        )
+        self.assertEqual(aggregate["repeats"], 3)
+        self.assertEqual(aggregate["seconds_median"], 0.2)
+        self.assertEqual(aggregate["seconds_min"], 0.1)
+        self.assertEqual(aggregate["seconds_max"], 0.3)
+        self.assertEqual(aggregate["queries"], 42)
+        self.assertNotIn("error", aggregate)
+
+    def test_a_measurement_that_moves_between_repetitions_fails(self):
+        for field, moved in (
+            ("queries", 43),
+            ("workload_unit", "others"),
+            ("expected_workload", 8),
+            ("observed_workload", 8),
+        ):
+            with self.subTest(field=field):
+                aggregate = run._aggregate(
+                    "a_flow",
+                    "large",
+                    [self._result(0.1), self._result(0.1, **{field: moved})],
+                )
+                self.assertIn("error", aggregate)
+                self.assertIn(field, aggregate["error"])
+                self.assertNotIn("queries", aggregate)
+
+    def test_one_failed_repetition_fails_the_whole_aggregate(self):
+        aggregate = run._aggregate(
+            "a_flow",
+            "large",
+            [
+                self._result(0.1),
+                {"process": "a_flow", "size": "large", "error": "deliberate"},
+            ],
+        )
+        self.assertIn("deliberate", aggregate["error"])
+        self.assertEqual(run._public_result(aggregate)["status"], "failed")
+
+    def test_the_document_records_the_repeat_the_command_asked_for(self):
+        provenance = mock.Mock(return_value={"schema_version": run.SCHEMA_VERSION})
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "run.json")
+            with (
+                mock.patch.object(run, "_build_template", return_value="t"),
+                mock.patch.object(
+                    run, "execute", side_effect=lambda *args: self._result(0.1)
+                ),
+                mock.patch.object(run, "_provenance", provenance),
+                mock.patch.object(
+                    sys,
+                    "argv",
+                    ["run.py", "submit_page_post", "--repeat", "4", "--json", path],
+                ),
+                mock.patch("sys.stdout"),
+                mock.patch("sys.stderr"),
+            ):
+                run.main()
+        self.assertEqual(provenance.call_args.args[0]["repeat"], 4)
+
+
+class TestSmokeFixtureAndFlow(TransactionTestCase):
+    """The one test that builds the fixture and runs a flow for real.
+
+    Every other test here is structural: they read the catalog, the runner's
+    AST, or mocked results, so a change to `tests/testapp`'s models could break
+    `prepare()` or a flow's invariants while CI stays green, and the breakage
+    would only surface the next time somebody ran the harness by hand. This
+    test closes that gap with the cheapest flow in the catalog.
+
+    It is a `TransactionTestCase`, unlike the rest of the suite, because the
+    harness runs in autocommit: under `TestCase`'s wrapping transaction any
+    `on_commit` hooks would be deferred instead of firing where they do in a
+    real run, and the fixture would build under transactional conditions the
+    harness never runs in.
+    """
+
+    def setUp(self):
+        # The testapp settings use DatabaseCache, the test runner does not
+        # create its table, and a Locale receiver touches the cache when the
+        # first locale is created -- the same reason run.py's template build
+        # creates it.
+        call_command("createcachetable", verbosity=0)
+
+    def test_the_cheapest_flow_completes_its_declared_workload(self):
+        context = catalog.prepare()
+        flow = catalog.BY_NAME["core_page_index"]
+
+        if flow.setup:
+            flow.setup(context, "small")
+        artifacts = flow.run(context, "small")
+        observed = flow.verify(context, "small", artifacts)
+
+        self.assertEqual(observed, flow.scale_point("small").expected_workload)

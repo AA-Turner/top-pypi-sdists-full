@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: ahocorasick_rs
-Version: 1.0.3
+Version: 1.0.4
 Requires-Dist: typing-extensions>=4.6.0 ; python_full_version < '3.12'
 License-File: LICENSE
 Summary: Search for multiple substrings at the same time, and quickly too
 Home-Page: https://github.com/G-Research/ahocorasick_rs
 License: Apache 2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # ahocorasick_rs: Quickly search for multiple substrings at once

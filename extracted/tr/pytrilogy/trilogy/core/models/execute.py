@@ -43,6 +43,7 @@ from trilogy.core.models.build import (
     BuildFilterItem,
     BuildFunction,
     BuildGrain,
+    BuildGroupingSets,
     BuildMultiSelectLineage,
     BuildOrderBy,
     BuildParamaterizedConceptReference,
@@ -195,6 +196,8 @@ class CTE:
     distinct_counts: frozenset[str] = frozenset()
     # See `QueryDatasource.partial_sources`.
     partial_sources: dict[str, BuildConcept] = field(default_factory=dict)
+    # See `QueryDatasource.grouping_sets`.
+    grouping_sets: BuildGroupingSets | None = None
     order_by: BuildOrderBy | None = None
     limit: int | None = None
     base_name_override: Address | str | None = None
@@ -826,134 +829,9 @@ class CTE:
 
     @property
     def group_concepts(self) -> list[BuildConcept]:
-        from trilogy.core.processing.condition_utility import condition_implies
-
-        rollup_addresses = {c.address for c in self.rollup_concepts}
-
-        def has_local_aggregate(c: BuildConcept) -> bool:
-            # does the rendered column value of `c` contain an aggregate computed
-            # in this CTE? A concept sourced from a parent is a plain column here,
-            # so any aggregate in its lineage was already materialized upstream,
-            # unless it is a partial this CTE re-sums.
-            if c.address in rollup_addresses:
-                return True
-            if len(self.source_map.get(c.address, [])) > 0:
-                return False
-            if c.derivation == Derivation.AGGREGATE:
-                return True
-            # a rowset output renders as its underlying content here; mirror
-            # check_is_not_in_group and recurse so a rowset aggregate is still
-            # recognized as aggregate-bearing (e.g. inside a `agg / dim` ratio).
-            if c.derivation == Derivation.ROWSET and isinstance(
-                c.lineage, BuildRowsetItem
-            ):
-                return has_local_aggregate(c.lineage.content)
-            if (
-                c.purpose == Purpose.METRIC
-                and isinstance(c.lineage, BuildFunction)
-                and c.lineage.operator in FunctionClass.AGGREGATE_FUNCTIONS.value
-            ):
-                return True
-            # The filtered content renders as the value, but when the per-row
-            # CASE WHEN is emitted the where condition is part of the column
-            # expression too, so a local aggregate in the predicate (a HAVING
-            # `sum(x) > threshold` lowered to a filter virtual) makes the column
-            # aggregate-bearing and unfit for GROUP BY. When the CTE's own
-            # condition implies the filter predicate the renderer elides the
-            # CASE to bare content (dialect/base.py); the where aggregate is
-            # then not in the column and the filter follows its content, so
-            # only widen for the un-elided case.
-            if c.derivation == Derivation.FILTER and isinstance(
-                c.lineage, BuildFilterItem
-            ):
-                if any(
-                    has_local_aggregate(x) for x in c.lineage.content_concept_arguments
-                ):
-                    return True
-                where_cond = c.lineage.where.conditional
-                elided = self.condition is not None and (
-                    self.condition == where_cond
-                    or condition_implies(self.condition, where_cond)
-                )
-                return not elided and any(
-                    has_local_aggregate(x)
-                    for x in c.lineage.where.rendered_concept_arguments
-                )
-            if c.derivation == Derivation.BASIC and c.lineage:
-                return any(
-                    has_local_aggregate(x) for x in c.lineage.rendered_concept_arguments
-                )
-            return False
-
-        def check_is_not_in_group(c: BuildConcept):
-            if c.address in rollup_addresses:
-                return True
-            if self.filter_collapses_to_grain(c):
-                return True
-            if len(self.source_map.get(c.address, [])) > 0:
-                return False
-            if c.derivation == Derivation.ROWSET:
-                assert isinstance(c.lineage, BuildRowsetItem)
-                return check_is_not_in_group(c.lineage.content)
-
-            # An aligned multiselect column resolves, in this arm CTE, to the
-            # underlying per-arm concept and inherits its group-ness: aligning
-            # an aggregate must not add it to the GROUP BY; aligning a dimension
-            # keeps it a group key. Derive items are computed at the merge
-            # grain, never a group key here.
-            if c.derivation == Derivation.MULTISELECT:
-                assert isinstance(c.lineage, BuildMultiSelectLineage)
-                if c.address in c.lineage.calculated_derivations:
-                    return True
-                try:
-                    return check_is_not_in_group(c.lineage.find_source(c, self))
-                except UnionOutputResolutionError:
-                    return False
-
-            if c.derivation == Derivation.CONSTANT:
-                return True
-            if c.purpose == Purpose.CONSTANT and c.is_aggregate:
-                return True
-
-            if (
-                c.derivation
-                in (Derivation.BASIC, Derivation.FILTER, Derivation.GROUP_TO)
-                and c.lineage
-            ):
-                # A GROUP_TO (`group(agg, key)`) renders as its inner aggregate
-                # value, so it follows that aggregate and is never a group key.
-                if (
-                    isinstance(c.lineage, BuildFunction)
-                    and c.lineage.operator == FunctionType.GROUP
-                ):
-                    return check_is_not_in_group(c.lineage.concept_arguments[0])
-                if all(
-                    check_is_not_in_group(x)
-                    for x in c.lineage.rendered_concept_arguments
-                ):
-                    return True
-                # a basic expression mixing a group key with a locally-computed
-                # aggregate (e.g. a ratio `a / sum(x)`) contains an aggregate and
-                # cannot appear in GROUP BY
-                return bool(has_local_aggregate(c))
-            return c.purpose == Purpose.METRIC
-
-        def read_values(c: BuildConcept) -> list[BuildConcept]:
-            # an aggregate value a parent computed, read bare inside an
-            # expression this CTE aggregates (`sum(n) / total` beside a joined
-            # grand total): constant per group, so a group key of its own
-            if self.source_map.get(c.address) and c.address not in rollup_addresses:
-                return [c] if c.is_aggregate else []
-            if c.derivation != Derivation.BASIC or c.lineage is None:
-                return []
-            return [
-                value
-                for x in c.lineage.rendered_concept_arguments
-                for value in read_values(x)
-            ]
-
         if not self.group_to_grain:
             return []
+        rollup_addresses = {c.address for c in self.rollup_concepts}
         # Two keys that render as one column or expression are one key
         # (distinct aliases over the same column).
         keys: list[BuildConcept] = []
@@ -962,11 +840,12 @@ class CTE:
         candidates = outputs + [
             value
             for c in outputs
-            if c.derivation == Derivation.BASIC and has_local_aggregate(c)
-            for value in read_values(c)
+            if c.derivation == Derivation.BASIC
+            and self._has_local_aggregate(c, rollup_addresses)
+            for value in self._read_values(c, rollup_addresses)
         ]
         for c in unique(candidates, "address"):
-            if check_is_not_in_group(c) or (
+            if self._check_is_not_in_group(c, rollup_addresses) or (
                 c.address in self.hidden_concepts
                 and c.derivation == Derivation.MULTISELECT
             ):
@@ -977,6 +856,135 @@ class CTE:
             bindings.add(binding)
             keys.append(c)
         return keys
+
+    def _has_local_aggregate(self, c: BuildConcept, rollup_addresses: set[str]) -> bool:
+        from trilogy.core.processing.condition_utility import condition_implies
+
+        # does the rendered column value of `c` contain an aggregate computed
+        # in this CTE? A concept sourced from a parent is a plain column here,
+        # so any aggregate in its lineage was already materialized upstream,
+        # unless it is a partial this CTE re-sums.
+        if c.address in rollup_addresses:
+            return True
+        if len(self.source_map.get(c.address, [])) > 0:
+            return False
+        if c.derivation == Derivation.AGGREGATE:
+            return True
+        # a rowset output renders as its underlying content here; mirror
+        # check_is_not_in_group and recurse so a rowset aggregate is still
+        # recognized as aggregate-bearing (e.g. inside a `agg / dim` ratio).
+        if c.derivation == Derivation.ROWSET and isinstance(c.lineage, BuildRowsetItem):
+            return self._has_local_aggregate(c.lineage.content, rollup_addresses)
+        if (
+            c.purpose == Purpose.METRIC
+            and isinstance(c.lineage, BuildFunction)
+            and c.lineage.operator in FunctionClass.AGGREGATE_FUNCTIONS.value
+        ):
+            return True
+        # The filtered content renders as the value, but when the per-row
+        # CASE WHEN is emitted the where condition is part of the column
+        # expression too, so a local aggregate in the predicate (a HAVING
+        # `sum(x) > threshold` lowered to a filter virtual) makes the column
+        # aggregate-bearing and unfit for GROUP BY. When the CTE's own
+        # condition implies the filter predicate the renderer elides the
+        # CASE to bare content (dialect/base.py); the where aggregate is
+        # then not in the column and the filter follows its content, so
+        # only widen for the un-elided case.
+        if c.derivation == Derivation.FILTER and isinstance(c.lineage, BuildFilterItem):
+            if any(
+                self._has_local_aggregate(x, rollup_addresses)
+                for x in c.lineage.content_concept_arguments
+            ):
+                return True
+            where_cond = c.lineage.where.conditional
+            elided = self.condition is not None and (
+                self.condition == where_cond
+                or condition_implies(self.condition, where_cond)
+            )
+            return not elided and any(
+                self._has_local_aggregate(x, rollup_addresses)
+                for x in c.lineage.where.rendered_concept_arguments
+            )
+        if c.derivation == Derivation.BASIC and c.lineage:
+            return any(
+                self._has_local_aggregate(x, rollup_addresses)
+                for x in c.lineage.rendered_concept_arguments
+            )
+        return False
+
+    def _check_is_not_in_group(
+        self, c: BuildConcept, rollup_addresses: set[str]
+    ) -> bool:
+        if c.address in rollup_addresses:
+            return True
+        if self.filter_collapses_to_grain(c):
+            return True
+        if len(self.source_map.get(c.address, [])) > 0:
+            return False
+        if c.derivation == Derivation.ROWSET:
+            assert isinstance(c.lineage, BuildRowsetItem)
+            return self._check_is_not_in_group(c.lineage.content, rollup_addresses)
+
+        # An aligned multiselect column resolves, in this arm CTE, to the
+        # underlying per-arm concept and inherits its group-ness: aligning
+        # an aggregate must not add it to the GROUP BY; aligning a dimension
+        # keeps it a group key. Derive items are computed at the merge
+        # grain, never a group key here.
+        if c.derivation == Derivation.MULTISELECT:
+            assert isinstance(c.lineage, BuildMultiSelectLineage)
+            if c.address in c.lineage.calculated_derivations:
+                return True
+            try:
+                return self._check_is_not_in_group(
+                    c.lineage.find_source(c, self), rollup_addresses
+                )
+            except UnionOutputResolutionError:
+                return False
+
+        if c.derivation == Derivation.CONSTANT:
+            return True
+        if c.purpose == Purpose.CONSTANT and c.is_aggregate:
+            return True
+
+        if (
+            c.derivation in (Derivation.BASIC, Derivation.FILTER, Derivation.GROUP_TO)
+            and c.lineage
+        ):
+            # A GROUP_TO (`group(agg, key)`) renders as its inner aggregate
+            # value, so it follows that aggregate and is never a group key.
+            if (
+                isinstance(c.lineage, BuildFunction)
+                and c.lineage.operator == FunctionType.GROUP
+            ):
+                return self._check_is_not_in_group(
+                    c.lineage.concept_arguments[0], rollup_addresses
+                )
+            if all(
+                self._check_is_not_in_group(x, rollup_addresses)
+                for x in c.lineage.rendered_concept_arguments
+            ):
+                return True
+            # a basic expression mixing a group key with a locally-computed
+            # aggregate (e.g. a ratio `a / sum(x)`) contains an aggregate and
+            # cannot appear in GROUP BY
+            return bool(self._has_local_aggregate(c, rollup_addresses))
+        return c.purpose == Purpose.METRIC
+
+    def _read_values(
+        self, c: BuildConcept, rollup_addresses: set[str]
+    ) -> list[BuildConcept]:
+        # an aggregate value a parent computed, read bare inside an
+        # expression this CTE aggregates (`sum(n) / total` beside a joined
+        # grand total): constant per group, so a group key of its own
+        if self.source_map.get(c.address) and c.address not in rollup_addresses:
+            return [c] if c.is_aggregate else []
+        if c.derivation != Derivation.BASIC or c.lineage is None:
+            return []
+        return [
+            value
+            for x in c.lineage.rendered_concept_arguments
+            for value in self._read_values(x, rollup_addresses)
+        ]
 
     @property
     def render_from_clause(self) -> bool:
@@ -1590,6 +1598,9 @@ class QueryDatasource:
     # no column NULL exactly there (`join_resolution._presence_marker`). Not
     # an output, so planning never sees it; not identity.
     presence_marker: BuildConcept | None = None
+    # The grouping sets this source groups by in place of its plain GROUP BY
+    # (`BuildGroupingSets`). Identity: a ROLLUP of a group is more rows.
+    grouping_sets: BuildGroupingSets | None = None
 
     def _fold_inferred_nullables(self) -> None:
         """A base datasource surfaces nullable columns via
@@ -1897,6 +1908,7 @@ class QueryDatasource:
             distinct_counts=self.distinct_counts | other.distinct_counts,
             partial_sources={**self.partial_sources, **other.partial_sources},
             region_spans=self.region_spans | other.region_spans,
+            grouping_sets=self.grouping_sets,
         )
         logger.debug(
             f"[Query Datasource] merged with {[c.address for c in qds.output_concepts]} concepts"
@@ -2042,6 +2054,11 @@ class QueryDatasource:
             + unnested
             + extent_free
             + preserving
+            + (
+                f"_sets_{string_to_hash(str(self.grouping_sets))}"
+                if self.grouping_sets
+                else ""
+            )
         )
 
     def get_alias(self, concept: BuildConcept, source: str | None = None):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto
-Version: 5.2.5
+Version: 5.2.6
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/getmoto/moto
 Author: Steve Pulec
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -314,3 +315,7 @@ https://opencollective.com/moto
 To report a security vulnerability, please use the
 [Tidelift security contact](https://tidelift.com/security).
 Tidelift will coordinate the fix and disclosure.
+
+
+### Powered by
+[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSource)

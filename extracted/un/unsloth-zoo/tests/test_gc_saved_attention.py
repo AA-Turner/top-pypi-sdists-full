@@ -94,6 +94,8 @@ def _clean(monkeypatch):
     # Hidden states stay on the device: this file tests the attention replay, not the host offload.
     monkeypatch.setattr(G, "MINIMUM_SIZE", 1 << 62)
     SA.SAVED_ATTENTION_STATS.clear()
+    monkeypatch.setattr(SA, "_WARNED_HIP", set() if isinstance(SA._WARNED_HIP, set) else [False])
+    monkeypatch.setattr(SA, "_ROCM_SDPA_SELECT", getattr(SA, "_default_rocm_sdpa_selector", None), raising = False)
     yield
     SA.SAVED_ATTENTION_STATS.clear()
 
@@ -264,14 +266,475 @@ def test_function_level_with_q_k_v_split_from_one_buffer(monkeypatch):
     assert SA.SAVED_ATTENTION_STATS["reused"] == 2
 
 
-def test_rocm_keeps_the_mode_off(monkeypatch):
-    from unsloth_zoo import saved_attention as sa
+def _simulated_rocm(monkeypatch, verdicts = None, current = 0):
+    """A ROCm build with GPUs 0 and 1: SDPA backend selection runs for real on CPU tensors, ``verdicts``
+    (device index -> SDPBackend int, default: the CPU selector's own answer) stands in per GPU."""
+    from contextlib import nullcontext
+
+    seen = []
+
+    def redirect(allocate):
+        def redirected(*args, **kwargs):
+            seen.append(("alloc", kwargs.get("device")))
+            return allocate(*args, **{**kwargs, "device": "cpu"})
+        return redirected
+
+    def select(q):
+        seen.append(("select", q.dtype, q.requires_grad, torch.is_grad_enabled(), torch.is_inference(q)))
+        choice = SA._default_rocm_sdpa_selector(q)
+        index = seen[-2][1].index if seen[-2][0] == "alloc" else None
+        return (verdicts or {}).get(index, choice)
+
+    monkeypatch.setattr(torch.version, "hip", "7.13.0", raising = False)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: current)
+    monkeypatch.setattr(torch.cuda, "device", lambda device: nullcontext())
+    monkeypatch.setattr(SA, "_rocm_probe_dtype", lambda device: torch.bfloat16, raising = False)
+    # The PR's first probe allocated with torch.zeros, this one with torch.empty.
+    monkeypatch.setattr(torch, "empty", redirect(torch.empty))
+    monkeypatch.setattr(torch, "zeros", redirect(torch.zeros))
+    register = getattr(SA, "register_rocm_saved_attention_selector", None)
+    if register is not None:
+        register(select)
+    if hasattr(SA, "_ROCM_SDPA_KEPT"):  # the PR's first probe: a per-ordinal cache stands in for a GPU's verdict
+        monkeypatch.setattr(SA, "_ROCM_SDPA_KEPT", {i: v != _MATH for i, v in (verdicts or {}).items()})
+    return seen
+
+
+_FLASH, _MATH = 1, 0  # SDPBackend.FLASH_ATTENTION, SDPBackend.MATH
+
+
+def test_rocm_keeps_the_mode_off_where_sdpa_is_not_intercepted(monkeypatch):
     monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
     monkeypatch.setattr(torch.version, "hip", "6.4", raising = False)
-    assert sa.save_attention_enabled() is False
-    assert sa.new_saved_attention_frame([torch.zeros(1, requires_grad = True)]) is None
+    monkeypatch.setattr(SA, "_rocm_sdpa_is_kept", lambda device = None: False)
+    assert SA.save_attention_enabled() is False
+    assert SA.new_saved_attention_frame([torch.zeros(1, requires_grad = True)]) is None
+    monkeypatch.setattr(SA, "_rocm_sdpa_is_kept", lambda device = None: True)
+    assert SA.save_attention_enabled() is True
     monkeypatch.setattr(torch.version, "hip", None, raising = False)
-    assert sa.save_attention_enabled() is True
+    monkeypatch.setattr(SA, "_rocm_sdpa_is_kept", lambda device = None: False)
+    assert SA.save_attention_enabled() is True
+
+
+def test_rocm_eligibility_reads_the_operand_device(monkeypatch):
+    # cuda:1 is asked about cuda:1, not the current GPU (0), which keeps nothing.
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    seen = _simulated_rocm(monkeypatch, verdicts = {0: _MATH, 1: _FLASH}, current = 0)
+    assert SA.save_attention_enabled(torch.device("cuda", 1)) is True
+    assert ("alloc", torch.device("cuda", 1)) in seen
+    assert SA.save_attention_enabled(torch.device("cuda", 0)) is False
+    assert SA.save_attention_enabled() is False  # no operand: the current GPU
+    # A device without an index resolves to the current GPU.
+    assert SA.save_attention_enabled(torch.device("cuda")) is False
+
+
+def test_rocm_cpu_checkpoint_keeps_attention_when_the_gpu_does_not(monkeypatch):
+    # A rejected visible GPU must not turn the mode off for CPU tensors (the CPU kernel is intercepted).
+    _simulated_rocm(monkeypatch, verdicts = {0: _MATH})
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    assert SA.save_attention_enabled() is False
+    assert SA.new_saved_attention_frame([torch.zeros(1, requires_grad = True)]) is not None
+    params, x = _make()
+    full = _run(params, x, ckpt = True)
+    assert full[2] == 3, "the CPU checkpoint did not reuse its attention outputs on a ROCm build"
+    assert SA.SAVED_ATTENTION_STATS["stored"] == 3 and SA.SAVED_ATTENTION_STATS["reused"] == 3
+    assert SA.save_attention_enabled(torch.device("cpu")) is True
+
+
+def test_rocm_frame_asks_the_checkpoint_operand_device(monkeypatch):
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    monkeypatch.setattr(torch.version, "hip", "7.13.0", raising = False)
+    asked = []
+    monkeypatch.setattr(SA, "_rocm_sdpa_is_kept", lambda device = None: asked.append(device) or True)
+    t = torch.zeros(2, requires_grad = True)
+    assert SA.new_saved_attention_frame([torch.zeros(1), t, t * 2]) is not None
+    assert asked == [t.device]
+
+
+def test_rocm_probe_never_launches_sdpa_and_uses_the_registered_selector(monkeypatch):
+    # The probe selects a backend and runs no kernel (kernels are validated by Unsloth's isolated
+    # rocm_sdpa_check); Unsloth registers a selector applying that check's filter.
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    _simulated_rocm(monkeypatch)
+    ops = []
+
+    class _Ops(TorchDispatchMode):
+        def __torch_dispatch__(self, func, types, args = (), kwargs = None):
+            ops.append(str(func))
+            return func(*args, **(kwargs or {}))
+
+    with _Ops():
+        assert SA.save_attention_enabled() is True
+    assert not [op for op in ops if "attention" in op or "softmax" in op or "bmm" in op], ops
+    picked = []
+    SA.register_rocm_saved_attention_selector(lambda q: picked.append(q.requires_grad) or -1)  # SDPBackend.ERROR
+    assert SA.save_attention_enabled() is False
+    assert picked == [True]
+    SA.register_rocm_saved_attention_selector(None)
+    assert SA._ROCM_SDPA_SELECT is SA._default_rocm_sdpa_selector
+
+
+def test_rocm_probe_follows_the_live_backend_policy(monkeypatch):
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    seen = _simulated_rocm(monkeypatch)
+    with sdpa_kernel(SDPBackend.MATH):
+        assert SA.save_attention_enabled() is False
+    with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+        assert SA.save_attention_enabled() is True
+    with sdpa_kernel(SDPBackend.MATH):
+        assert SA.save_attention_enabled() is False
+    # Inference mode outside: the sample is still a grad-requiring training tensor.
+    with sdpa_kernel(SDPBackend.FLASH_ATTENTION), torch.inference_mode():
+        assert SA.save_attention_enabled() is True
+    assert seen[-1] == ("select", torch.bfloat16, True, True, False)
+
+
+def test_rocm_failed_probe_is_inconclusive_and_not_remembered(monkeypatch, capsys):
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    _simulated_rocm(monkeypatch)
+    for name in ("empty", "zeros"):
+        allocate = getattr(torch, name)
+
+        def short_once(*args, _allocate = allocate, **kwargs):
+            if kwargs.get("device") is not None and not short_once.failed:
+                short_once.failed = True
+                raise torch.OutOfMemoryError("HIP out of memory. Tried to allocate 4.00 KiB")
+            return _allocate(*args, **kwargs)
+
+        short_once.failed = False
+        monkeypatch.setattr(torch, name, short_once)
+    with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+        assert SA.save_attention_enabled() is False  # this frame keeps nothing
+        assert "keeps nothing" not in capsys.readouterr().out  # not reported as unsupported hardware
+        assert SA.save_attention_enabled() is True  # asked again: no permanent verdict
+
+
+def test_rocm_traced_lookup_is_deferred_without_a_warning(monkeypatch, capsys):
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    _simulated_rocm(monkeypatch, verdicts = {0: _MATH, 1: _MATH})
+    monkeypatch.setattr(torch.compiler, "is_compiling", lambda: True)
+    assert SA._rocm_sdpa_is_kept() is None
+    assert SA.save_attention_enabled() is False
+    assert capsys.readouterr().out == ""
+    monkeypatch.setattr(torch.compiler, "is_compiling", lambda: False)
+    # One warning per device, not one per process.
+    SA.save_attention_enabled(torch.device("cuda", 0))
+    SA.save_attention_enabled(torch.device("cuda", 0))
+    SA.save_attention_enabled(torch.device("cuda", 1))
+    assert capsys.readouterr().out.count("keeps nothing") == 2
+
+
+@pytest.mark.parametrize("arch, bf16, dtype", [
+    ("gfx1151", True, torch.bfloat16), ("gfx1030:sramecc-", True, torch.float16), ("gfx906", False, torch.float16),
+])
+def test_rocm_probe_dtype(monkeypatch, arch, bf16, dtype):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(SA, "_ROCM_PROBE_DTYPE", {})
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda device: SimpleNamespace(gcnArchName = arch))
+    monkeypatch.setattr(torch.cuda, "is_bf16_supported", lambda *a, **k: bf16)
+    monkeypatch.setattr(torch.cuda, "device", lambda device: nullcontext())
+    assert SA._rocm_probe_dtype(torch.device("cuda", 0)) is dtype
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+def test_rocm_transformers_wrappers_stay_in_a_fullgraph_compile_without_a_frame(monkeypatch, kind):
+    monkeypatch.setattr(torch.version, "hip", "7.13.0", raising = False)
+    module = torch.nn.Module()
+    module.train()
+    if kind == "interface":
+        wrapped = SA._wrap_attention_interface(lambda m, q, k, v, **kw: _sdpa(q, k, v))
+        call = lambda q: wrapped(module, q, q, q)  # noqa: E731
+    else:
+        wrapped = SA._wrap_flex_kernel(lambda q, k, v, **kw: _sdpa(q, k, v))
+        call = lambda q: wrapped(q, q, q, training = True)  # noqa: E731
+    q = torch.randn(1, 2, 8, 16, requires_grad = True)
+    torch._dynamo.reset()
+    try:
+        out = torch.compile(call, backend = "eager", fullgraph = True)(q)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(out, _sdpa(q, q, q))
+
+
+def _rocm_frame_wrapper(monkeypatch, kind):
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    monkeypatch.setattr(torch.version, "hip", "7.13.0", raising = False)
+    module = torch.nn.Module()
+    module.train()
+    if kind == "interface":
+        wrapped = SA._wrap_attention_interface(lambda m, q, k, v, **kw: _sdpa(q, k, v))
+        return lambda q: wrapped(module, q, q, q)  # noqa: E731
+    wrapped = SA._wrap_flex_kernel(lambda q, k, v, **kw: _sdpa(q, k, v))
+    return lambda q: wrapped(q, q, q, training = True)  # noqa: E731
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+def test_rocm_transformers_wrappers_stay_in_a_fullgraph_compile_inside_a_frame(monkeypatch, kind):
+    """A live checkpoint frame on an eligible ROCm device (CPU tensors are kept) must not send a user's
+    fullgraph=True training compile into the compiler-disabled helpers: forward + backward compile, and
+    both checkpoint passes take the in-graph route, so the frame keeps nothing."""
+    call = _rocm_frame_wrapper(monkeypatch, kind)
+    q = torch.randn(1, 2, 8, 16, requires_grad = True)
+    frame = SA.new_saved_attention_frame([q])
+    assert frame is not None
+    ref_q = q.detach().requires_grad_()
+    _sdpa(ref_q, ref_q, ref_q).sum().backward()
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(call, backend = "eager", fullgraph = True)
+        with SA.saved_attention_scope(frame, False), torch.no_grad():
+            first = compiled(q)
+        with SA.saved_attention_scope(frame, True):
+            out = compiled(q)
+            out.sum().backward()
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(first, _sdpa(q, q, q).detach())
+    torch.testing.assert_close(out, _sdpa(q, q, q))
+    torch.testing.assert_close(q.grad, ref_q.grad)
+    assert frame.entries == [] and SA.SAVED_ATTENTION_STATS.get("stored", 0) == 0
+    assert SA.SAVED_ATTENTION_STATS.get("unmatched", 0) == 0
+
+
+def test_rocm_frame_still_keeps_inside_an_unsloth_compiled_block(monkeypatch):
+    """Unsloth's own block compile (fullgraph=False) may break the graph: there the frame keeps and the
+    replay reuses as in eager code."""
+    import types
+
+    call = _rocm_frame_wrapper(monkeypatch, "interface")
+    block = types.ModuleType("unsloth.models._block_compile")
+    block._IN_COMPILED_REGION = [True]
+    monkeypatch.setitem(sys.modules, "unsloth.models._block_compile", block)
+    q = torch.randn(1, 2, 8, 16, requires_grad = True)
+    frame = SA.new_saved_attention_frame([q])
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(call, backend = "eager", fullgraph = False)
+        with SA.saved_attention_scope(frame, False), torch.no_grad():
+            compiled(q)
+        with SA.saved_attention_scope(frame, True):
+            out = compiled(q)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(out, _sdpa(q, q, q))
+    assert SA.SAVED_ATTENTION_STATS["stored"] >= 1
+
+
+def _rocm_frame_qkv_wrapper(monkeypatch, kind):
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    monkeypatch.setattr(torch.version, "hip", "7.13.0", raising = False)
+    module = torch.nn.Module()
+    module.train()
+    if kind == "interface":
+        wrapped = SA._wrap_attention_interface(lambda m, q, k, v, **kw: _sdpa(q, k, v))
+        return lambda q, k, v: wrapped(module, q, k, v)  # noqa: E731
+    wrapped = SA._wrap_flex_kernel(lambda q, k, v, **kw: _sdpa(q, k, v))
+    return lambda q, k, v: wrapped(q, k, v, training = True)  # noqa: E731
+
+
+def _two_attention_frame(call, first_call, inputs):
+    """One checkpoint frame holding two attention calls with equal shapes; the first goes through
+    `first_call(replaying)`. Returns the loss and the Q / K / V gradients."""
+    q, k, v = (x.clone().requires_grad_() for x in inputs)
+    frame = SA.new_saved_attention_frame([q, k, v])
+    assert frame is not None
+
+    def layer(replaying):
+        first = first_call(replaying)(q, k, v)
+        second = call(q + 0.7, k * 0.4, v + 3.0)
+        return (first + 2 * second).square().mean()
+
+    with SA.saved_attention_scope(frame, False), torch.no_grad():
+        layer(False)
+    with SA.saved_attention_scope(frame, True):
+        loss = layer(True)
+        loss.backward()
+    return loss.detach(), [x.grad for x in (q, k, v)]
+
+
+def _two_attention_reference(inputs):
+    q, k, v = (x.clone().requires_grad_() for x in inputs)
+    loss = (_sdpa(q, k, v) + 2 * _sdpa(q + 0.7, k * 0.4, v + 3.0)).square().mean()
+    loss.backward()
+    return loss.detach(), [x.grad for x in (q, k, v)]
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+def test_rocm_frame_replays_the_right_call_when_a_compile_falls_back_to_eager(monkeypatch, kind):
+    """A user's fullgraph=False compile at its recompile limit runs the replay eagerly while the first
+    pass was compiled. Both passes must take the same route, or the replay of one call takes the entry
+    another call kept (entries are matched by call order) and its gradients are wrong."""
+    call = _rocm_frame_qkv_wrapper(monkeypatch, kind)
+    torch.manual_seed(0)
+    inputs = tuple(torch.randn(1, 2, 32, 16) for _ in range(3))
+    ref_loss, ref_grads = _two_attention_reference(inputs)
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(call, backend = "eager", fullgraph = False)
+        # The first pass (no_grad) compiles; the replay needs a grad-mode graph and runs eagerly.
+        with torch._dynamo.config.patch(recompile_limit = 1):
+            loss, grads = _two_attention_frame(call, lambda replaying: compiled, inputs)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(loss, ref_loss)
+    for got, want in zip(grads, ref_grads):
+        torch.testing.assert_close(got, want, rtol = 1e-4, atol = 1e-6)
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+def test_rocm_frame_keeps_inside_a_fullgraph_false_user_compile(monkeypatch, kind):
+    """A user's fullgraph=False compile may break the graph: inside a frame it keeps and the replay
+    reuses, as in eager code and in Unsloth's own blocks."""
+    call = _rocm_frame_qkv_wrapper(monkeypatch, kind)
+    torch.manual_seed(0)
+    inputs = tuple(torch.randn(1, 2, 32, 16) for _ in range(3))
+    ref_loss, ref_grads = _two_attention_reference(inputs)
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(call, backend = "eager", fullgraph = False)
+        loss, grads = _two_attention_frame(call, lambda replaying: compiled, inputs)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(loss, ref_loss)
+    for got, want in zip(grads, ref_grads):
+        torch.testing.assert_close(got, want, rtol = 1e-4, atol = 1e-6)
+    assert SA.SAVED_ATTENTION_STATS.get("stored", 0) == 2, dict(SA.SAVED_ATTENTION_STATS)
+    assert SA.SAVED_ATTENTION_STATS.get("reused", 0) == 2, dict(SA.SAVED_ATTENTION_STATS)
+
+
+def test_rocm_frame_stays_in_the_graph_under_error_on_graph_break(monkeypatch):
+    """torch._dynamo.error_on_graph_break(True) inside a fullgraph=False compile is as strict as fullgraph."""
+    if not hasattr(torch._dynamo, "error_on_graph_break"):
+        pytest.skip("torch._dynamo.error_on_graph_break is torch 2.9+")
+    call = _rocm_frame_wrapper(monkeypatch, "interface")
+    q = torch.randn(1, 2, 8, 16, requires_grad = True)
+    frame = SA.new_saved_attention_frame([q])
+
+    def strict(q):
+        with torch._dynamo.error_on_graph_break(True):
+            return call(q)
+
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(strict, backend = "eager", fullgraph = False)
+        with SA.saved_attention_scope(frame, False), torch.no_grad():
+            compiled(q)
+        with SA.saved_attention_scope(frame, True):
+            out = compiled(q)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(out, _sdpa(q, q, q))
+    assert frame.entries == [] and SA.SAVED_ATTENTION_STATS.get("stored", 0) == 0
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+@pytest.mark.parametrize("backend", ["eager", "aot_eager", "inductor"])
+def test_rocm_strict_frame_replays_the_right_call_when_a_compile_falls_back_to_eager(monkeypatch, kind, backend):
+    """error_on_graph_break(True) in a fullgraph=False compile: the first pass (no_grad) compiles and
+    keeps nothing for that call, the replay hits the recompile limit and runs eagerly. The eager replay
+    of the strict call must not take the entry the next (eager) call kept."""
+    if not hasattr(torch._dynamo, "error_on_graph_break"):
+        pytest.skip("torch._dynamo.error_on_graph_break is torch 2.9+")
+    call = _rocm_frame_qkv_wrapper(monkeypatch, kind)
+    torch.manual_seed(0)
+    inputs = tuple(torch.randn(1, 2, 32, 16) for _ in range(3))
+    ref_loss, ref_grads = _two_attention_reference(inputs)
+
+    def strict(q, k, v):
+        with torch._dynamo.error_on_graph_break(True):
+            return call(q, k, v)
+
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(strict, backend = backend, fullgraph = False)
+        with torch._dynamo.config.patch(recompile_limit = 1):
+            loss, grads = _two_attention_frame(call, lambda replaying: compiled, inputs)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(loss, ref_loss)
+    for got, want in zip(grads, ref_grads):
+        torch.testing.assert_close(got, want, rtol = 1e-4, atol = 1e-6)
+    assert SA.SAVED_ATTENTION_STATS.get("unmatched", 0) == 0, dict(SA.SAVED_ATTENTION_STATS)
+
+
+@pytest.mark.parametrize("kind", ["interface", "flex"])
+def test_rocm_strict_replay_after_an_eager_first_pass_keeps_call_order(monkeypatch, kind):
+    """The reverse: the first pass runs the strict call eagerly (it keeps an entry), the replay runs it
+    compiled in the graph. The compiled replay must consume that entry so the next call takes its own."""
+    if not hasattr(torch._dynamo, "error_on_graph_break"):
+        pytest.skip("torch._dynamo.error_on_graph_break is torch 2.9+")
+    call = _rocm_frame_qkv_wrapper(monkeypatch, kind)
+    torch.manual_seed(0)
+    inputs = tuple(torch.randn(1, 2, 32, 16) for _ in range(3))
+    ref_loss, ref_grads = _two_attention_reference(inputs)
+
+    def strict(q, k, v):
+        with torch._dynamo.error_on_graph_break(True):
+            return call(q, k, v)
+
+    torch._dynamo.reset()
+    try:
+        compiled = torch.compile(strict, backend = "eager", fullgraph = False)
+        loss, grads = _two_attention_frame(call, lambda replaying: compiled if replaying else strict, inputs)
+    finally:
+        torch._dynamo.reset()
+    torch.testing.assert_close(loss, ref_loss)
+    for got, want in zip(grads, ref_grads):
+        torch.testing.assert_close(got, want, rtol = 1e-4, atol = 1e-6)
+
+
+def test_rocm_hooks_install_from_the_setting_not_the_current_gpu(monkeypatch):
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    _simulated_rocm(monkeypatch, verdicts = {0: _MATH})
+    installed = []
+    monkeypatch.setattr(G, "patch_transformers_saved_attention", lambda: installed.append(1))
+    G.patch_unsloth_smart_gradient_checkpointing(torch.float32)
+    assert installed == [1]
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or not getattr(torch.version, "hip", None), reason = "needs a ROCm GPU",
+)
+def test_rocm_probe_matches_a_real_training_call(monkeypatch):
+    class _Kept(TorchDispatchMode):
+        found = False
+
+        def __torch_dispatch__(self, func, types, args = (), kwargs = None):
+            self.found |= SA._is_attention_forward(func)
+            return func(*args, **(kwargs or {}))
+
+    device = torch.device("cuda", torch.cuda.current_device())
+    dtype = SA._rocm_probe_dtype(device)
+    probed = SA._rocm_sdpa_is_kept(device)
+    q = torch.randn(1, 8, 128, 64, device = device, dtype = dtype, requires_grad = True)
+    mode = _Kept()
+    with torch.enable_grad(), mode:
+        F.scaled_dot_product_attention(q, q, q, is_causal = True)
+    assert probed is mode.found
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or not getattr(torch.version, "hip", None), reason = "needs a ROCm GPU",
+)
+def test_rocm_gfx1151_checkpoint_reuses_attention(monkeypatch):
+    device = torch.device("cuda", torch.cuda.current_device())
+    arch = torch.cuda.get_device_properties(device).gcnArchName.split(":", 1)[0]
+    if arch != "gfx1151":
+        pytest.skip("positive replay case measured on gfx1151")
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    dtype = SA._rocm_probe_dtype(device)
+    params, x = _make(n_layers = 1)
+    params = [[w.detach().to(device = device, dtype = dtype).requires_grad_() for w in layer] for layer in params]
+    _run(params, x.to(device = device, dtype = dtype), ckpt = True)
+    assert SA.SAVED_ATTENTION_STATS["stored"] == 1
+    assert SA.SAVED_ATTENTION_STATS["reused"] == 1
 
 
 def _math_attention(q, k, v, keep):
@@ -537,8 +1000,7 @@ def test_auto_declines_everything_without_headroom(monkeypatch, auto):
 
 
 def test_auto_peak_reading_charges_kept_bytes_exactly(monkeypatch, auto):
-    """A peak reached while outputs are kept must not be learnt as the run's own peak (that would
-    shrink the budget every step until nothing is kept)."""
+    """Kept-output peaks must not be learnt as the run's peak: the budget shrinks each step."""
     params, x = _make()
     _fake_memory(monkeypatch, base_peak = 1 << 20, capacity = 1 << 30)
     _run(params, x, ckpt = True, steps = 4)
@@ -561,7 +1023,8 @@ def test_auto_a_longer_call_than_measured_keeps_nothing(monkeypatch, auto):
 
 
 def test_auto_frames_need_a_routing_caller_and_respect_the_kill_switch(monkeypatch):
-    monkeypatch.setattr(torch.version, "hip", None, raising = False)  # ROCm keeps the mode off
+    # Automatic routing, which runs on measured non-ROCm GPUs only.
+    monkeypatch.setattr(torch.version, "hip", None, raising = False)
     t = [torch.zeros(1, requires_grad = True)]
     monkeypatch.setattr(SA, "_AUTO_ACTIVE", [False])
     assert SA.new_saved_attention_frame(t) is None
@@ -611,6 +1074,7 @@ def test_auto_min_seq_on_measured_gpus(monkeypatch, capability, min_seq):
         ((8, 6), None, True, None),
         ((9, 0), None, True, None),
         ((8, 0), "6.4", True, None),
+        ((8, 0), "6.4", True, "1"),
         ((8, 0), None, False, None),
         ((10, 0), None, True, None),
         ((12, 0), None, True, None),
@@ -622,8 +1086,9 @@ def test_auto_min_seq_is_off(monkeypatch, capability, hip, cuda, setting):
         monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", setting)
     assert SA.save_attention_auto_min_seq() is None
     assert SA._AUTO_ACTIVE[0] is False
-    # An explicit setting keeps its own (unbudgeted) mode.
-    assert SA.save_attention_enabled() is (setting in ("1", "offload") and hip is None)
+    # An explicit setting keeps its own (unbudgeted) mode; ROCm eligibility is stubbed (tested above).
+    monkeypatch.setattr(SA, "_rocm_sdpa_is_kept", lambda device = None: True)
+    assert SA.save_attention_enabled() is (setting in ("1", "offload"))
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason = "needs CUDA (the real allocator's peak and free memory)")
@@ -656,3 +1121,36 @@ def test_auto_measures_each_device_separately(monkeypatch, auto):
     assert SA._auto_admit(SA.SavedAttentionFrame(auto = True), [long_cpu])
     assert SA._auto_admit(SA.SavedAttentionFrame(auto = True), [short_meta])
     assert not SA._auto_admit(SA.SavedAttentionFrame(auto = True), [long_meta])  # never measured at this size there
+
+
+def test_rejected_function_graph_is_freed_before_backward(monkeypatch):
+    """A refused first-pass graph (too big here, random likewise) is never backpropagated: its saved tensors
+    must not hold it. sigmoid saves its own output, which an identity pack hook makes hold its own node."""
+    import gc
+
+    from torch.multiprocessing.reductions import StorageWeakRef
+
+    params, x = _make(n_layers = 1)
+    first_pass = []
+
+    def attention(q, k, v):
+        gate = torch.sigmoid(q * 1.0)
+        first_pass.append(StorageWeakRef(gate.untyped_storage()))
+        return _sdpa(gate, (k * 1.0).repeat(1, 1, 1, 1), (v * 1.0).repeat(1, 1, 1, 1))
+
+    call = lambda fn, q, k, v: SA.saved_function_call(fn, 3, q, k, v)  # noqa: E731
+    monkeypatch.setattr(SA, "_FUNCTION_SLACK_BYTES", 0)
+    full = _run(params, x, ckpt = True, attention = attention)
+    first_pass.clear()
+    monkeypatch.setenv("UNSLOTH_GC_SAVE_ATTENTION", "1")
+    for w in params:
+        for p in w:
+            p.grad = None
+    h = x.clone().requires_grad_()
+    h = G.UnslothCheckpointFunction.apply(_layer(params[0], attention, call), True, h)
+    gc.collect()
+    assert SA.SAVED_ATTENTION_STATS["too_big"] == 1 and len(first_pass) == 1
+    assert first_pass[0].expired(), "the refused first-pass graph outlived the forward"
+    h.float().pow(2).mean().backward()
+    for a, b in zip([p.grad for p in params[0]], full[1]):
+        torch.testing.assert_close(a, b, rtol = 1e-4, atol = 1e-6)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lunardate
-Version: 0.3.0
+Version: 0.3.1
 Summary: A Chinese Calendar Library in Pure Python
 Home-page: https://github.com/lidaobing/python-lunardate
 Author: LI Daobing
@@ -13,6 +13,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
@@ -106,6 +109,7 @@ pip install lunardate
 
 ## News
 
+* 0.3.1: fix month lengths for lunar years 1933, 1954 and 1978; expand CI to Python 3.12-3.14 on ubuntu-24.04
 * 0.3.0: drop python 2, add typing hints, rename identifiers to follow PEP 8
 * 0.2.2: add LunarDate.leapMonthForYear; fix bug in year 1899
 * 0.2.1: fix bug in year 1956

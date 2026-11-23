@@ -16,12 +16,19 @@ from jsonschema_rs import (
     Draft7Validator,
     Draft201909Validator,
     Draft202012Validator,
+    Draft4,
+    Draft6,
+    Draft7,
+    Draft201909,
+    Draft202012,
     Registry,
     ValidationError,
     ValidationErrorKind,
     evaluate,
     is_valid,
     iter_errors,
+    known_formats,
+    number_format,
     validate,
     validator_for,
     validator_map_for,
@@ -254,6 +261,28 @@ def test_two_references_per_level(length):
     innermost["next"] = 1
     [error] = iter_errors(TWO_STEP_RECURSIVE_SCHEMA, instance)
     assert error.instance_path == ["next"] * (length + 1)
+
+
+# Each object is entered by `outer`, then again by `inner` walking the rest of the chain
+NESTED_RECURSIVE_SCHEMA = {
+    "$defs": {
+        "outer": {"allOf": [{"$ref": "#/$defs/inner"}], "additionalProperties": {"$ref": "#/$defs/outer"}},
+        "inner": {"type": "object", "additionalProperties": {"$ref": "#/$defs/inner"}},
+    },
+    "$ref": "#/$defs/outer",
+}
+
+
+@pytest.mark.parametrize("length", (40, 100))
+def test_two_recursive_references_at_one_instance(length):
+    instance, innermost = chain(length)
+    assert is_valid(NESTED_RECURSIVE_SCHEMA, instance)
+    innermost["next"] = instance
+    assert is_valid(NESTED_RECURSIVE_SCHEMA, instance)
+    innermost["next"] = 1
+    # `inner` reports the value once per `outer` above it, and once more from `outer` at the value
+    paths = [error.instance_path for error in iter_errors(NESTED_RECURSIVE_SCHEMA, instance)]
+    assert paths == [["next"] * (length + 1)] * (length + 2)
 
 
 def cyclic_dict():
@@ -1131,6 +1160,98 @@ def test_custom_format():
     assert validator.is_valid("USD")
     assert not validator.is_valid(42)
     assert not validator.is_valid("invalid")
+
+
+def is_int32(number):
+    return isinstance(number, int) and -(2**31) <= number < 2**31
+
+
+@pytest.mark.parametrize(
+    "instance, valid",
+    [
+        (42, True),
+        (2**31, False),
+        (1.5, False),
+        (2**70, False),
+        ("text", True),
+        ([2**31], True),
+    ],
+)
+def test_number_format(instance, valid):
+    validator = validator_for({"format": "int32"}, formats={"int32": number_format(is_int32)}, validate_formats=True)
+    assert validator.is_valid(instance) is valid
+    assert (not list(validator.iter_errors(instance))) is valid
+
+
+def test_number_format_receives_python_numbers():
+    seen = []
+
+    def record(number):
+        seen.append(number)
+        return True
+
+    validator = validator_for(
+        {"items": {"format": "any"}}, formats={"any": number_format(record)}, validate_formats=True
+    )
+    assert validator.is_valid([1, 1.5, 2**70, Decimal("1e400")])
+    assert seen == [1, 1.5, 2**70, Decimal("1e400")]
+    assert [type(number) for number in seen] == [int, float, int, Decimal]
+
+
+def test_number_format_with_exception():
+    def fail(_):
+        raise ValueError("Invalid number")
+
+    validator = validator_for({"format": "number"}, formats={"number": number_format(fail)}, validate_formats=True)
+    with pytest.raises(ValueError, match="Invalid number"):
+        validator.is_valid(42)
+    assert validator.is_valid("text")
+
+
+def test_number_format_is_callable():
+    assert number_format(is_int32)(42) is True
+
+
+@pytest.mark.parametrize(
+    "draft, name, listed",
+    [
+        (Draft7, "duration", False),
+        (Draft7, "uuid", False),
+        (Draft202012, "duration", True),
+        (Draft202012, "uuid", True),
+        (Draft202012, "idn-hostname", True),
+        (Draft202012, "currency", False),
+    ],
+)
+def test_known_formats_follow_the_draft(draft, name, listed):
+    assert (name in known_formats(draft)) is listed
+
+
+@pytest.mark.parametrize("draft", [Draft4, Draft6, Draft7, Draft201909, Draft202012])
+def test_known_formats_are_sorted_and_unique(draft):
+    names = known_formats(draft, formats={"hostname": lambda _: True})
+    assert names == sorted(set(names))
+
+
+def test_known_formats_list_registered_formats():
+    names = known_formats(Draft202012, formats={"currency": lambda _: True, "int32": number_format(is_int32)})
+    assert "currency" in names
+    assert "int32" in names
+
+
+def test_known_formats_unknown_draft():
+    with pytest.raises(ValueError, match="Unknown draft: 42"):
+        known_formats(42)
+
+
+def test_known_formats_require_callables():
+    with pytest.raises(ValueError, match="Format checker for 'currency' must be a callable"):
+        known_formats(Draft202012, formats={"currency": 42})
+
+
+def test_number_format_requires_a_callable():
+    with pytest.raises(TypeError, match="number_format expects a callable"):
+        number_format(42)
 
 
 def test_custom_format_invalid_callback():

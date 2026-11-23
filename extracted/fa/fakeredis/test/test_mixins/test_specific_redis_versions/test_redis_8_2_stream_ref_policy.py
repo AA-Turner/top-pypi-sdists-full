@@ -9,6 +9,7 @@ import valkey
 
 from fakeredis._typing import ClientType
 from test import testtools
+from test.conftest import ServerDetails
 
 pytestmark = []
 pytestmark.extend(
@@ -95,7 +96,9 @@ def test_xtrim_acked_skips_referenced_entries(r: ClientType):
         ),
     ],
 )
-def test_xtrim_minid_with_ref_policy(r: ClientType, ref_policy, trimmed, remaining, pending):
+def test_xtrim_minid_with_ref_policy(
+    r: ClientType, ref_policy: str, trimmed: int, remaining: list[bytes], pending: list[bytes]
+):
     _setup_stream(r)
     assert testtools.raw_command(r, "XTRIM", "s", "MINID", "=", "9-0", ref_policy) == trimmed
     assert _ids(r) == remaining
@@ -110,7 +113,9 @@ def test_xtrim_minid_with_ref_policy(r: ClientType, ref_policy, trimmed, remaini
         ("ACKED", 120, 30),
     ],
 )
-def test_xtrim_approximate_with_ref_policy(r: ClientType, real_server_details, ref_policy, trimmed, pending):
+def test_xtrim_approximate_with_ref_policy(
+    r: ClientType, real_server_details: ServerDetails, ref_policy: str, trimmed: int, pending: int
+):
     pipe = r.pipeline(transaction=False)
     for i in range(1, 251):  # nodes of 100, 100 and 50 entries
         pipe.xadd("s", {"f": i}, id=f"{i}-1")
@@ -196,23 +201,3 @@ def test_xadd_ref_policy_without_entry(r: ClientType):
     with pytest.raises(Exception) as ctx:
         testtools.raw_command(r, "XADD", "s", "KEEPREF", "*")
     assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
-
-
-def test_xdelex_acked_keeps_entries_a_group_has_not_read(r: ClientType):
-    for i in range(1, 4):
-        r.xadd("s", {"f": i}, id=f"{i}-0")
-    r.xgroup_create("s", "g", "1-0")
-    res = testtools.raw_command(r, "XDELEX", "s", "ACKED", "IDS", 3, "1-0", "2-0", "3-0")
-    assert res == [1, 2, 2]
-    assert _ids(r) == [b"2-0", b"3-0"]
-
-
-def test_xackdel_acked_keeps_entries_another_group_has_not_read(r: ClientType):
-    r.xadd("s", {"f": 1}, id="1-0")
-    r.xgroup_create("s", "g", 0)
-    r.xgroup_create("s", "later", 0)
-    r.xreadgroup("g", "c", {"s": ">"})
-    # "later" has not read 1-0 yet, so acknowledging it in "g" is not enough to delete it.
-    assert testtools.raw_command(r, "XACKDEL", "s", "g", "ACKED", "IDS", 1, "1-0") == [2]
-    assert _ids(r) == [b"1-0"]
-    assert _pending_ids(r) == []

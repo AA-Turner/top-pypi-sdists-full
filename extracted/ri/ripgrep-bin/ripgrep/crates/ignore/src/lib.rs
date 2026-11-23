@@ -48,6 +48,7 @@ See the documentation for `WalkBuilder` for many other options.
 
 use std::path::{Path, PathBuf};
 
+pub use crate::incremental::{IncrementalIgnore, IncrementalMatch};
 pub use crate::walk::{
     DirEntry, ParallelVisitor, ParallelVisitorBuilder, Walk, WalkBuilder,
     WalkParallel, WalkState,
@@ -56,6 +57,7 @@ pub use crate::walk::{
 mod default_types;
 mod dir;
 pub mod gitignore;
+mod incremental;
 pub mod overrides;
 mod pathutil;
 pub mod types;
@@ -190,18 +192,10 @@ impl Error {
     /// following symbolic links.
     ///
     /// This method returns a borrowed value that is bound to the lifetime of the [`Error`]. To
-    /// obtain an owned value, the [`into_io_error`] can be used instead.
-    ///
-    /// > This is the original [`std::io::Error`] and is _not_ the same as
-    /// > [`impl From<Error> for std::io::Error`][impl] which contains
-    /// > additional context about the error.
+    /// obtain an owned value, [`Error::into_io_error`] can be used instead.
     ///
     /// [`None`]: https://doc.rust-lang.org/stable/std/option/enum.Option.html#variant.None
     /// [`std::io::Error`]: https://doc.rust-lang.org/stable/std/io/struct.Error.html
-    /// [`From`]: https://doc.rust-lang.org/stable/std/convert/trait.From.html
-    /// [`Error`]: struct.Error.html
-    /// [`into_io_error`]: struct.Error.html#method.into_io_error
-    /// [impl]: struct.Error.html#impl-From%3CError%3E
     pub fn io_error(&self) -> Option<&std::io::Error> {
         match *self {
             Error::Partial(ref errs) => {

@@ -40,6 +40,7 @@ from bitfab import (
     jev,
     provider_calls,
     service_calls,
+    slack_calls,
     subtree,
 )
 from bitfab.baml import run_function_with_baml
@@ -157,7 +158,7 @@ MAX_CAPTURED_SUBTREE_SPANS_ENV = "BITFAB_MAX_CAPTURED_SUBTREE_SPANS"
 DISABLED_INTEGRATIONS_ENV = "BITFAB_DISABLED_INTEGRATIONS"
 ENABLED_INTEGRATIONS_ENV = "BITFAB_ENABLED_INTEGRATIONS"
 CONTENT_WITHHELD_KEY = "content_withheld_while_integration_off"
-OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail", "github"})
+OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail", "github", "slack"})
 KNOWN_INTEGRATIONS = provider_calls.INTEGRATION_NAMES | OFF_BY_DEFAULT_INTEGRATIONS
 _TRUE_ENV_VALUES = frozenset({"1", "true", "yes"})
 _FALSE_ENV_VALUES = frozenset({"0", "false", "no"})
@@ -1570,6 +1571,7 @@ class Bitfab:
         service_calls.register_client(self)
         google_calls.install()
         github_calls.install()
+        slack_calls.install()
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
@@ -2590,9 +2592,9 @@ class Bitfab:
                 (see :attr:`sandbox_stores`). Each trace has its own state in
                 the store: a sandbox starts from the replayed trace's state
                 for it, else from the store's seed, else from the original
-                trace, and writes its end state back for that trace when the
-                item finishes, so the next replay of the same trace sees it.
-                Replay traces are linked to the store. ``None`` (default)
+                trace, and saves its state to the new replay trace after each
+                write and when the item finishes, so two replays of one trace
+                never share state. Replay traces are linked to the store. ``None`` (default)
                 keeps each sandbox's state to its item.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them

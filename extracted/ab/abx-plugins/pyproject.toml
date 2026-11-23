@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.13.816"
+version = "1.13.848"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -19,8 +19,8 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abxbus==2.5.93",
-    "abxpkg==1.13.102",
+    "abxbus==2.5.96",
+    "abxpkg==1.13.105",
     "certifi>=2026.10.19",
     "imagesize>=2.0.0",
     "psutil>=7.2.1,!=7.2.2",
@@ -132,13 +132,16 @@ executionEnvironments = [
     { root = "abx_plugins/plugins/importers_browser/archivebox", reportMissingImports = false },
     { root = "abx_plugins/plugins/chrome/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/chrome_screencast/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/sentry/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/opencode/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/networkgraph/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/bandwidth/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/base/django.py", reportMissingImports = false },
     { root = "." },
 ]
 
 [[tool.ty.overrides]]
-include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**", "abx_plugins/plugins/base/django.py", "abx_plugins/plugins/chrome/app.py", "abx_plugins/plugins/chrome_screencast/app.py", "abx_plugins/plugins/opencode/app.py"]
+include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**", "abx_plugins/plugins/base/django.py", "abx_plugins/plugins/chrome/app.py", "abx_plugins/plugins/chrome_screencast/app.py", "abx_plugins/plugins/sentry/app.py", "abx_plugins/plugins/opencode/app.py", "abx_plugins/plugins/networkgraph/app.py", "abx_plugins/plugins/bandwidth/app.py"]
 rules = { unresolved-import = "ignore" }
 
 [tool.codespell]

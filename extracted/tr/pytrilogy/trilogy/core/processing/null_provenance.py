@@ -12,13 +12,12 @@ of a source's joins or parents restamps it."""
 from __future__ import annotations
 
 from collections.abc import Callable
+from weakref import ReferenceType, ref
 
-from trilogy.core.enums import AggregateGroupingMode
 from trilogy.core.functions import propagates_argument_nulls
 from trilogy.core.models.build import (
     BuildConcept,
     BuildDatasource,
-    get_grouped_aggregate_wrapper,
 )
 from trilogy.core.models.execute import (
     QueryDatasource,
@@ -44,15 +43,19 @@ def provenance(source: DataSource) -> NullProvenance:
         return NullProvenance(source)
     found = source.__dict__.get(_STAMP)
     if found is None:
-        found = source.__dict__[_STAMP] = NullProvenance(source)
+        found = source.__dict__[_STAMP] = NullProvenance(source, held=True)
     return found
 
 
 class NullProvenance:
     """One source's answers, each computed on first read from its parents'."""
 
-    def __init__(self, source: DataSource) -> None:
-        self.source = source
+    def __init__(self, source: DataSource, held: bool = False) -> None:
+        # A source that holds its provenance is referenced back weakly: the
+        # pair would otherwise keep a whole plan alive until the collector ran.
+        self._source: DataSource | ReferenceType[DataSource] = (
+            ref(source) if held else source
+        )
         self._extent: frozenset[str] | None = None
         self._guest: frozenset[str] | None = None
         self._rollup: frozenset[str] | None = None
@@ -60,6 +63,15 @@ class NullProvenance:
         self._values: dict[str, bool] = {}
         self._driven: dict[int, bool] = {}
         self._padders: dict[str, frozenset[str]] = {}
+
+    @property
+    def source(self) -> DataSource:
+        held = self._source
+        if isinstance(held, ReferenceType):
+            source = held()
+            assert source is not None
+            return source
+        return held
 
     @property
     def extent(self) -> frozenset[str]:
@@ -165,25 +177,11 @@ class NullProvenance:
 
 def rollup_padded_addresses(datasource: DataSource) -> set[str]:
     """Grouping-key addresses this source NULL-pads because it renders
-    `GROUP BY ROLLUP/CUBE/GROUPING SETS` itself. A wrapper already computed
-    upstream is a passthrough: it re-emits the padded rows, it does not
-    create them."""
-    if not isinstance(datasource, QueryDatasource):
+    `GROUP BY ROLLUP/CUBE/GROUPING SETS` itself. A source that passes the
+    pass's rows through re-emits the padding, it does not create it."""
+    if not isinstance(datasource, QueryDatasource) or datasource.grouping_sets is None:
         return set()
-    upstream = {
-        c.address for parent in datasource.datasources for c in parent.output_concepts
-    }
-    padded: set[str] = set()
-    for concept in datasource.output_concepts:
-        wrapper = get_grouped_aggregate_wrapper(concept)
-        if (
-            wrapper is None
-            or wrapper.grouping == AggregateGroupingMode.STANDARD
-            or concept.address in upstream
-        ):
-            continue
-        padded.update(b.address for b in wrapper.by)
-    return padded
+    return set(datasource.grouping_sets.keys)
 
 
 def _no_leaf_addresses(datasource: BuildDatasource) -> set[str]:

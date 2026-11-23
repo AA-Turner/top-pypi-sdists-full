@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marionette_driver
-Version: 3.7.1
+Version: 3.8.0
 Summary: Marionette Driver
 Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Marionette
 Author: Auto-tools
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
-Requires-Dist: mozrunner>=7.4.0
+Requires-Dist: mozrunner>=8.5.0
 Requires-Dist: mozversion>=2.1.0
 Requires-Dist: psutil==5.9.8; sys_platform == "darwin"
 Dynamic: author

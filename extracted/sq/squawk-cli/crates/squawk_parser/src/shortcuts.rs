@@ -46,14 +46,14 @@ enum State {
     PendingExit,
 }
 
-struct Builder<'a, 'b> {
+struct Builder<'a, 'b, F: FnMut(StrStep<'_>)> {
     lexed: &'a LexedStr<'a>,
     pos: usize,
     state: State,
-    sink: &'b mut dyn FnMut(StrStep<'_>),
+    sink: &'b mut F,
 }
 
-impl Builder<'_, '_> {
+impl<F: FnMut(StrStep<'_>)> Builder<'_, '_, F> {
     fn token(&mut self, kind: SyntaxKind, n_tokens: u8) {
         match mem::replace(&mut self.state, State::Normal) {
             State::PendingEnter => unreachable!(),
@@ -68,7 +68,7 @@ impl Builder<'_, '_> {
         match mem::replace(&mut self.state, State::Normal) {
             State::PendingEnter => {
                 (self.sink)(StrStep::Enter { kind });
-                // No need to attach trivias to previous node: there is no
+                // No need to attach trivia to previous node: there is no
                 // previous node.
                 return;
             }
@@ -107,21 +107,23 @@ impl Builder<'_, '_> {
 
 impl LexedStr<'_> {
     pub fn to_input(&self) -> crate::Input {
-        let mut res = crate::Input::default();
+        let mut res = crate::Input::with_capacity(self.len());
         let mut was_joint = false;
+        let mut contextual_keywords = self.contextual_keywords().iter().peekable();
         for i in 0..self.len() {
             let kind = self.kind(i);
             if kind.is_trivia() {
                 was_joint = false;
-                // skip over any triva since the parser shouldn't have to deal
+                // skip over any trivia since the parser shouldn't have to deal
                 // with it
             } else {
                 if was_joint {
                     res.was_joint();
                 }
                 if kind == SyntaxKind::IDENT {
-                    let contextual_kind = SyntaxKind::from_contextual_keyword(self.text(i))
-                        .unwrap_or(SyntaxKind::IDENT);
+                    let contextual_kind = contextual_keywords
+                        .next_if(|keyword| keyword.token as usize == i)
+                        .map_or(SyntaxKind::IDENT, |keyword| keyword.kind);
                     res.push_ident(contextual_kind);
                 } else {
                     res.push(kind);
@@ -133,7 +135,7 @@ impl LexedStr<'_> {
     }
 
     /// NB: only valid to call with Output from Reparser/TopLevelEntry.
-    pub fn intersperse_trivia(&self, output: &Output, sink: &mut dyn FnMut(StrStep<'_>)) -> bool {
+    pub fn intersperse_trivia(&self, output: &Output, sink: &mut impl FnMut(StrStep<'_>)) -> bool {
         let mut builder = Builder {
             lexed: self,
             pos: 0,
@@ -177,6 +179,7 @@ mod tests {
     fn kinds(text: &str) -> Vec<(SyntaxKind, SyntaxKind)> {
         let lexed = LexedStr::new(text);
         let input = lexed.to_input();
+        let input = input.view();
         (0..text.split_whitespace().count())
             .map(|i| (input.kind(i), input.contextual_kind(i)))
             .collect()

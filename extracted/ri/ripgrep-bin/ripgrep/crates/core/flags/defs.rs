@@ -25,9 +25,9 @@ use crate::flags::{
     Category, Flag, FlagValue,
     lowargs::{
         BinaryMode, BoundaryMode, BufferMode, CaseMode, ColorChoice,
-        ContextMode, EncodingMode, EngineChoice, GenerateMode, LoggingMode,
-        LowArgs, MmapMode, Mode, PatternSource, SearchMode, SortMode,
-        SortModeKind, SpecialMode, TypeChange,
+        ContextMode, EncodingMode, EngineChoice, GenerateMode, InputSource,
+        LoggingMode, LowArgs, MmapMode, Mode, PatternSource, SearchMode,
+        SortMode, SortModeKind, SpecialMode, TypeChange,
     },
 };
 
@@ -74,6 +74,7 @@ pub(super) const FLAGS: &[&dyn Flag] = &[
     &Generate,
     &Glob,
     &GlobCaseInsensitive,
+    &GlobNot,
     &Heading,
     &Help,
     &Hidden,
@@ -83,6 +84,8 @@ pub(super) const FLAGS: &[&dyn Flag] = &[
     &IgnoreCase,
     &IgnoreFile,
     &IgnoreFileCaseInsensitive,
+    &In,
+    &In0,
     &IncludeZero,
     &InvertMatch,
     &JSON,
@@ -90,6 +93,7 @@ pub(super) const FLAGS: &[&dyn Flag] = &[
     &LineNumber,
     &LineNumberNo,
     &LineRegexp,
+    &MaxBytes,
     &MaxColumns,
     &MaxColumnsPreview,
     &MaxCount,
@@ -2435,6 +2439,9 @@ Generates a completion script for the \fBfish\fP shell.
 .TP 15
 \fBcomplete\-powershell\fP
 Generates a completion script for PowerShell.
+.TP 15
+\fBcomplete\-nushell\fP
+Generates a completion script for the \fBnushell\fP shell.
 .PP
 The output is written to \fBstdout\fP. The list above may expand over time.
 "
@@ -2446,6 +2453,7 @@ The output is written to \fBstdout\fP. The list above may expand over time.
             "complete-zsh",
             "complete-fish",
             "complete-powershell",
+            "complete-nushell",
         ]
     }
 
@@ -2456,6 +2464,7 @@ The output is written to \fBstdout\fP. The list above may expand over time.
             "complete-zsh" => GenerateMode::CompleteZsh,
             "complete-fish" => GenerateMode::CompleteFish,
             "complete-powershell" => GenerateMode::CompletePowerShell,
+            "complete-nushell" => GenerateMode::CompleteNushell,
             unk => anyhow::bail!("choice '{unk}' is unrecognized"),
         };
         args.mode.update(Mode::Generate(genmode));
@@ -2483,6 +2492,9 @@ fn test_generate() {
 
     let args = parse_low_raw(["--generate", "complete-powershell"]).unwrap();
     assert_eq!(Mode::Generate(GenerateMode::CompletePowerShell), args.mode);
+
+    let args = parse_low_raw(["--generate", "complete-nushell"]).unwrap();
+    assert_eq!(Mode::Generate(GenerateMode::CompleteNushell), args.mode);
 
     let args =
         parse_low_raw(["--generate", "complete-bash", "--generate=man"])
@@ -2527,11 +2539,12 @@ impl Flag for Glob {
 Include or exclude files and directories for searching that match the given
 glob. This always overrides any other ignore logic. Multiple glob flags may
 be used. Globbing rules match \fB.gitignore\fP globs. Precede a glob with a
-\fB!\fP to exclude it. If multiple globs match a file or directory, the glob
+\fB!\fP to exclude it, alternatively use the \flag{glob-not} flag for negation.
+If multiple globs match a file or directory, the glob
 given later in the command line takes precedence.
 .sp
 As an extension, globs support specifying alternatives:
-.BI "\-g '" ab{c,d}* '
+.BI "\-g " 'ab{c,d}'
 is equivalent to
 .BI "\-g " "abc " "\-g " abd.
 Empty alternatives like
@@ -2548,6 +2561,11 @@ a match. For example, if you only want to search in a particular directory
 is incorrect because \fIfoo/bar\fP does not match
 the glob \fIfoo\fP. Instead, you should use
 .BI "\-g '" foo/** '.
+.sp
+A \flag{glob} value with prefix \fB!\fP is equivalent to \flag{glob-not}.
+.sp
+Note that this flag has no effect if a subsequent \flag{glob} or
+\flag{glob-not} flag re-includes a file or directory that this flag excludes.
 "#
     }
 
@@ -2644,6 +2662,97 @@ fn test_glob_case_insensitive() {
     ])
     .unwrap();
     assert_eq!(true, args.glob_case_insensitive);
+}
+
+/// -G/--glob-not
+#[derive(Debug)]
+struct GlobNot;
+
+impl Flag for GlobNot {
+    fn is_switch(&self) -> bool {
+        false
+    }
+    fn name_short(&self) -> Option<u8> {
+        Some(b'G')
+    }
+    fn name_long(&self) -> &'static str {
+        "glob-not"
+    }
+    fn doc_variable(&self) -> Option<&'static str> {
+        Some("GLOB")
+    }
+    fn doc_category(&self) -> Category {
+        Category::Filter
+    }
+    fn doc_short(&self) -> &'static str {
+        r"Exclude files and directories matching GLOB."
+    }
+    fn doc_long(&self) -> &'static str {
+        r#"
+Exclude files and directories for searching that match the given glob. This
+always overrides any other ignore logic. Multiple globs may be used. Globbing
+rules match \fB.gitignore\fP globs. This is equivalent to \flag{glob} with a
+\fB!\fP prefix. If multiple globs match a file or directory, the glob given
+later in the command line takes precedence.
+.sp
+Note that this flag has no effect if a subsequent \flag{glob} or
+\flag{glob-not} flag re-includes a file or directory that this flag excludes.
+"#
+    }
+
+    fn update(&self, v: FlagValue, args: &mut LowArgs) -> anyhow::Result<()> {
+        let glob = convert::string(v.unwrap_value())?;
+        if glob.starts_with("!") {
+            let glob_unnegated: String = glob[1..].to_string();
+            args.globs.push(glob_unnegated);
+        } else {
+            args.globs.push(format!("!{glob}"));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_glob_not() {
+    let args = parse_low_raw(None::<&str>).unwrap();
+    assert_eq!(Vec::<String>::new(), args.globs);
+
+    let args = parse_low_raw(["--glob-not", "foo"]).unwrap();
+    assert_eq!(vec!["!foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["--glob-not=foo"]).unwrap();
+    assert_eq!(vec!["!foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["-G", "foo"]).unwrap();
+    assert_eq!(vec!["!foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["-Gfoo"]).unwrap();
+    assert_eq!(vec!["!foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["--glob-not", "-foo"]).unwrap();
+    assert_eq!(vec!["!-foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["--glob-not=-foo"]).unwrap();
+    assert_eq!(vec!["!-foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["-G", "-foo"]).unwrap();
+    assert_eq!(vec!["!-foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["-G-foo"]).unwrap();
+    assert_eq!(vec!["!-foo".to_string()], args.globs);
+
+    let args = parse_low_raw(["-Gfoo", "-gbar", "-Gbaz"]).unwrap();
+    assert_eq!(
+        vec!["!foo".to_string(), "bar".to_string(), "!baz".to_string()],
+        args.globs
+    );
+
+    let args = parse_low_raw(["-g", "foo", "-G", "bar", "-g", "baz"]).unwrap();
+    assert_eq!(
+        vec!["foo".to_string(), "!bar".to_string(), "baz".to_string()],
+        args.globs
+    );
 }
 
 /// --heading
@@ -3325,6 +3434,204 @@ fn test_ignore_file_case_insensitive() {
     assert_eq!(true, args.ignore_file_case_insensitive);
 }
 
+/// --in
+#[derive(Debug)]
+struct In;
+
+impl Flag for In {
+    fn is_switch(&self) -> bool {
+        false
+    }
+    fn name_long(&self) -> &'static str {
+        "in"
+    }
+    fn doc_variable(&self) -> Option<&'static str> {
+        Some("INPUTFILE")
+    }
+    fn doc_category(&self) -> Category {
+        Category::Input
+    }
+    fn doc_short(&self) -> &'static str {
+        r"Read paths to search from the given text file."
+    }
+    fn doc_long(&self) -> &'static str {
+        r"
+Includes paths to search from the given file, with one path per line.
+.sp
+When this flag is used, it behaves as if the file paths in the file provided
+were passed as positional arguments in the same order as they are
+in the file and relative to other positional arguments.
+.sp
+Newlines (both LF and CRLF) are not counted as part of the path.
+The rest of the path name is taken as-is on Unix and decoded as UTF-8 on
+Windows. Use the \flag{in0} flag to use \fBNUL\fP as terminator.
+.sp
+When \fIINPUTFILE\fP is \fB-\fP, then the paths will be read from \fBstdin\fP.
+"
+    }
+    fn completion_type(&self) -> CompletionType {
+        CompletionType::Filename
+    }
+
+    fn update(&self, v: FlagValue, args: &mut LowArgs) -> anyhow::Result<()> {
+        let path = PathBuf::from(v.unwrap_value());
+        args.inputs.push(InputSource::LineTerminated(path));
+        Ok(())
+    }
+}
+
+/// --in0
+#[derive(Debug)]
+struct In0;
+
+impl Flag for In0 {
+    fn is_switch(&self) -> bool {
+        false
+    }
+    fn name_long(&self) -> &'static str {
+        "in0"
+    }
+    fn doc_variable(&self) -> Option<&'static str> {
+        Some("INPUTFILE")
+    }
+    fn doc_category(&self) -> Category {
+        Category::Input
+    }
+    fn doc_short(&self) -> &'static str {
+        r"Read paths to search from the given binary file."
+    }
+    fn doc_long(&self) -> &'static str {
+        r"
+Includes paths to search from the given file, terminated by \fBNUL\fP bytes.
+.sp
+When this flag is used, it behaves as if the file paths in the file provided
+were passed as positional arguments in the same order as they are
+in the file and relative to other positional arguments.
+.sp
+The path names are taken as-is on Unix, and decoded as UTF-8 on Windows.
+.sp
+When \fIINPUTFILE\fP is \fB-\fP, then the paths will be read from \fBstdin\fP.
+"
+    }
+    fn completion_type(&self) -> CompletionType {
+        CompletionType::Filename
+    }
+
+    fn update(&self, v: FlagValue, args: &mut LowArgs) -> anyhow::Result<()> {
+        let path = PathBuf::from(v.unwrap_value());
+        args.inputs.push(InputSource::NulTerminated(path));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_in_in0() {
+    use std::ffi::OsString;
+
+    let args = parse_low_raw(None::<&str>).unwrap();
+    assert_eq!(Vec::<InputSource>::new(), args.inputs);
+
+    let args = parse_low_raw(["--in", "foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0", "foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in=foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0=foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in", "-foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("-foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0", "-foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("-foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in=-foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("-foo"))],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0=-foo"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("-foo"))],
+        args.inputs
+    );
+
+    let args =
+        parse_low_raw(["--in=foo", "--in0", "bar", "--in", "baz"]).unwrap();
+    assert_eq!(
+        vec![
+            InputSource::LineTerminated(PathBuf::from("foo")),
+            InputSource::NulTerminated(PathBuf::from("bar")),
+            InputSource::LineTerminated(PathBuf::from("baz")),
+        ],
+        args.inputs
+    );
+
+    let args = parse_low_raw([
+        "pos1", "--in=foo", "--in0", "bar", "pos2", "--in", "baz", "pos3",
+    ])
+    .unwrap();
+    assert_eq!(
+        vec![
+            InputSource::PositionalArgument(OsString::from("pos1")),
+            InputSource::LineTerminated(PathBuf::from("foo")),
+            InputSource::NulTerminated(PathBuf::from("bar")),
+            InputSource::PositionalArgument(OsString::from("pos2")),
+            InputSource::LineTerminated(PathBuf::from("baz")),
+            InputSource::PositionalArgument(OsString::from("pos3")),
+        ],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in=-"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("-")),],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in", "-"]).unwrap();
+    assert_eq!(
+        vec![InputSource::LineTerminated(PathBuf::from("-")),],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0=-"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("-")),],
+        args.inputs
+    );
+
+    let args = parse_low_raw(["--in0", "-"]).unwrap();
+    assert_eq!(
+        vec![InputSource::NulTerminated(PathBuf::from("-")),],
+        args.inputs
+    );
+}
+
 /// --include-zero
 #[derive(Debug)]
 struct IncludeZero;
@@ -3754,6 +4061,63 @@ fn test_line_regexp() {
 
     let args = parse_low_raw(["-x"]).unwrap();
     assert_eq!(Some(BoundaryMode::Line), args.boundary);
+}
+
+/// --max-bytes
+#[derive(Debug)]
+struct MaxBytes;
+
+impl Flag for MaxBytes {
+    fn is_switch(&self) -> bool {
+        false
+    }
+    fn name_long(&self) -> &'static str {
+        "max-bytes"
+    }
+    fn doc_variable(&self) -> Option<&'static str> {
+        Some("NUM")
+    }
+    fn doc_category(&self) -> Category {
+        Category::Search
+    }
+    fn doc_short(&self) -> &'static str {
+        r"Limit the number of bytes examined."
+    }
+    fn doc_long(&self) -> &'static str {
+        r"
+Limit the number of bytes per file or stream searched to \fINUM\fP.
+.sp
+This only limits how many bytes are read and searched from each haystack. It
+does not affect which files are discovered or filtered by ripgrep.
+.sp
+When combined with \fB--max-count\fP (for example, \fB--max-count 1\fP), this
+can substantially speed up searches where matches are expected to appear only
+near the beginning of each file, such as HTTP headers in large cache files.
+.sp
+Note that \fB0\fP is a legal value but not likely to be useful. When used,
+ripgrep won't search anything.
+"
+    }
+
+    fn update(&self, v: FlagValue, args: &mut LowArgs) -> anyhow::Result<()> {
+        args.max_bytes = Some(convert::u64(&v.unwrap_value())?);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_max_bytes() {
+    let args = parse_low_raw(None::<&str>).unwrap();
+    assert_eq!(None, args.max_bytes);
+
+    let args = parse_low_raw(["--max-bytes", "5"]).unwrap();
+    assert_eq!(Some(5), args.max_bytes);
+
+    let args = parse_low_raw(["--max-bytes", "5", "--max-bytes=10"]).unwrap();
+    assert_eq!(Some(10), args.max_bytes);
+    let args = parse_low_raw(["--max-bytes=0"]).unwrap();
+    assert_eq!(Some(0), args.max_bytes);
 }
 
 /// -M/--max-columns
@@ -5029,7 +5393,7 @@ impl Flag for NullData {
     fn doc_long(&self) -> &'static str {
         r"
 Enabling this flag causes ripgrep to use \fBNUL\fP as a line terminator instead
-of the default of \fP\\n\fP.
+of the default of \fB\\n\fP.
 .sp
 This is useful when searching large binary files that would otherwise have
 very long lines if \fB\\n\fP were used as the line terminator. In particular,
@@ -5476,8 +5840,8 @@ impl Flag for Pre {
 For each input \fIPATH\fP, this flag causes ripgrep to search the standard
 output of \fICOMMAND\fP \fIPATH\fP instead of the contents of \fIPATH\fP.
 This option expects the \fICOMMAND\fP program to either be a path or to be
-available in your \fBPATH\fP. Either an empty string \fICOMMAND\fP or the
-\fB\-\-no\-pre\fP flag will disable this behavior.
+available in your \fBPATH\fP environment variable. Either an empty string
+\fICOMMAND\fP or the \fB\-\-no\-pre\fP flag will disable this behavior.
 .sp
 .TP 12
 \fBWARNING\fP
@@ -5996,6 +6360,11 @@ impl Flag for Replace {
 Replaces every match with the text given when printing results. Neither this
 flag nor any other ripgrep flag will modify your files.
 .sp
+Unlike grep, ripgrep searches directories recursively by default. The
+\fB-r\fP flag is short for \fB--replace\fP, not recursive search. For example,
+\fBrg -rn PATTERN\fP replaces each match with \fBn\fP. To show line numbers
+without replacing matches, use \fBrg -n PATTERN\fP.
+.sp
 Capture group indices (e.g., \fB$\fP\fI5\fP) and names (e.g., \fB$\fP\fIfoo\fP)
 are supported in the replacement string. Capture group indices are numbered
 based on the position of the opening parenthesis of the group, where the
@@ -6085,9 +6454,9 @@ impl Flag for SearchZip {
 This flag instructs ripgrep to search in compressed files. Currently gzip,
 bzip2, xz, LZ4, LZMA, Brotli and Zstd files are supported. This option expects
 the decompression binaries (such as \fBgzip\fP) to be available in your
-\fBPATH\fP. If the required binaries are not found, then ripgrep will not
-emit an error messages by default. Use the \flag{debug} flag to see more
-information.
+\fBPATH\fP environment variable. If the required binaries are not found, then
+ripgrep will not emit an error message by default. Use the \flag{debug} flag to
+see more information.
 .sp
 Note that this flag does not make ripgrep search archive formats as directory
 trees. It only makes ripgrep detect compressed files and then decompress them
@@ -6734,6 +7103,11 @@ impl Flag for Threads {
 This flag sets the approximate number of threads to use. A value of \fB0\fP
 (which is the default) causes ripgrep to choose the thread count using
 heuristics.
+.sp
+Setting the \fBRIPGREP_THREADS\fP environment variable has the same effect as
+passing this flag when \fB--threads\fP is not explicitly set on the command
+line. A value of \fB0\fP in the environment variable also selects the default
+heuristic thread count.
 "
     }
 

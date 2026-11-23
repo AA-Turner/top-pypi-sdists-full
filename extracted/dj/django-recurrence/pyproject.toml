@@ -38,6 +38,10 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/django-commons/django-recurrence"
+Documentation = "https://django-recurrence.readthedocs.io/"
+Changelog = "https://github.com/django-commons/django-recurrence/blob/master/CHANGES.rst"
+Issues = "https://github.com/django-commons/django-recurrence/issues"
+
 [build-system]
 requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"

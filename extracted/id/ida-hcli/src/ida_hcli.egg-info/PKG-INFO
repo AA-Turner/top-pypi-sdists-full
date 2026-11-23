@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ida-hcli
-Version: 0.28.0
+Version: 0.29.0
 Summary: HCLI - Hex-Rays CLI Utility
 Author-email: Hex-Rays SA <support@hex-rays.com>
 License-Expression: MIT
@@ -25,6 +25,7 @@ Requires-Dist: pip>=25.2
 Requires-Dist: tomli>=1.2.0; python_version < "3.11"
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: truststore>=0.10.4
+Requires-Dist: zstandard>=0.22
 Provides-Extra: dev
 Requires-Dist: taskipy>=1.14.1; extra == "dev"
 Requires-Dist: python-semantic-release>=10.3.1; extra == "dev"
@@ -34,6 +35,7 @@ Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10.0; extra == "test"
 Requires-Dist: pytest-httpx>=0.21.0; extra == "test"
 Requires-Dist: pexpect>=4.9.0; extra == "test"
+Requires-Dist: pyarrow>=17; extra == "test"
 Provides-Extra: docs
 Requires-Dist: mkdocs-material; extra == "docs"
 Requires-Dist: mkdocs-click>=0.9.0; extra == "docs"

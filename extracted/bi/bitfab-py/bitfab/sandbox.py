@@ -56,20 +56,31 @@ class SandboxStartCtx:
     trace_started_at: str | None
     attempt: int
     recorded_state: Any
-    load_recorded_spans: Callable[[str | None], list[RecordedSpan]] = field(repr=False)
+    load_recorded_spans: Callable[
+        [str | Callable[[str], bool] | None], list[RecordedSpan]
+    ] = field(repr=False)
 
-    def recorded_spans(self, name: str | None = None) -> list[RecordedSpan]:
+    def recorded_spans(
+        self, name: str | None = None, *, prefix: str | None = None
+    ) -> list[RecordedSpan]:
         """Spans of the original trace, in the order they started.
 
         Args:
-            name: Only spans with this span name. ``None`` returns every span
-                below the root, which downloads each one, so pass a name
-                when you can.
+            name: Only spans with this span name.
+            prefix: Only spans whose name starts with this text.
 
-        Each span is downloaded from Bitfab the first time any sandbox in the
-        item asks for it, then reused.
+        With neither, every span below the root is returned, which downloads
+        each one, so narrow it when you can. Only the spans asked for are
+        downloaded from Bitfab, each the first time any sandbox in the item
+        asks for it, then reused.
         """
-        return self.load_recorded_spans(name)
+        if prefix is None:
+            return self.load_recorded_spans(name)
+        return self.load_recorded_spans(
+            lambda span_name: (
+                span_name.startswith(prefix) and (name is None or span_name == name)
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -100,10 +111,15 @@ class Sandbox:
             ``"read-real-write-fake"``, shown on the replay trace. ``None``
             (default) shows none.
         load: ``load(ctx, value)`` builds the starting state from this
-            sandbox's entry in the replay's sandbox store (the end state the
-            trace's last replay wrote, or the store's seed). When the store
+            sandbox's entry in the replay's sandbox store (the replayed
+            trace's own entry, or the store's seed). When the store
             has an entry, it is used instead of ``start``. ``None`` (default)
             starts from the entry as it is.
+        is_write: ``is_write(call)`` says whether a call writes. With a
+            sandbox store, the sandbox's state is saved to the store right
+            after each call it returns ``True`` for, in the background, as
+            well as when the replay item ends. ``None`` (default) saves only
+            when the item ends.
     """
 
     name: str
@@ -113,6 +129,7 @@ class Sandbox:
     integration: str | None = None
     mode: str | None = None
     load: Callable[[SandboxStartCtx, Any], Any] | None = None
+    is_write: Callable[[MockOverrideCtx], bool] | None = None
 
 
 def _as_stored(_start_ctx: SandboxStartCtx, value: Any) -> Any:
@@ -153,6 +170,9 @@ class SandboxSession:
     _reports: dict[str, dict[str, Any]] = field(default_factory=dict)
     _failures: list[BaseException] = field(default_factory=list)
     _lock: threading.RLock = field(default_factory=threading.RLock)
+    _save_pending: bool = False
+    _saving: bool = False
+    _saved: threading.Condition | None = None
 
     def fail(self, error: BaseException) -> None:
         with self._lock:
@@ -183,7 +203,38 @@ class SandboxSession:
             state = self._state_for(sandbox, attach_report)
             result = sandbox.handle(state, call)
             self._reports[sandbox.name]["calls"] += 1
+            if sandbox.is_write is not None and sandbox.is_write(call):
+                self._save_soon()
             return result
+
+    def _saved_condition(self) -> threading.Condition:
+        if self._saved is None:
+            self._saved = threading.Condition(self._lock)
+        return self._saved
+
+    def _save_soon(self) -> None:
+        if self.store is None:
+            return
+        self._save_pending = True
+        if self._saving:
+            return
+        self._saving = True
+        threading.Thread(target=self._save_while_changed, daemon=True).start()
+
+    def _save_while_changed(self) -> None:
+        while True:
+            with self._lock:
+                if not self._save_pending or self.store is None:
+                    self._saving = False
+                    self._saved_condition().notify_all()
+                    return
+                self._save_pending = False
+                snapshot = copy.deepcopy(self._states)
+                store = self.store
+            try:
+                store.write(snapshot)
+            except Exception:
+                continue
 
     def find_named(self, name: str) -> Sandbox | None:
         return next(
@@ -251,6 +302,8 @@ class SandboxSession:
         if self.store is None:
             return
         with self._lock:
+            while self._saving:
+                self._saved_condition().wait()
             states = dict(self._states)
         if states:
             self.store.write(states)

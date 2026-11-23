@@ -114,7 +114,10 @@ def _attach_jitter_seconds(world_size: object) -> float:
 def _writer_lease(role: str, session_id: str) -> dict:
     """Who this process is, as a lease (sent on create/attach/reopen and on
     every lease beat). Rank fields and the launch come from the launcher's environment."""
+    from .....hardware.join_keys import warm_join_keys
     from .....run.closing.heartbeat import _heartbeat_interval
+
+    warm_join_keys()  # the beat carries where this process runs: read it now, off this thread where slow
 
     lease: dict[str, Any] = {
         "session_id": str(session_id),

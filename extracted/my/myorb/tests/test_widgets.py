@@ -961,6 +961,49 @@ def test_commute_plans_when_to_leave():
     assert late[0]["origin"] == "work"
 
 
+def test_commute_leaves_when_the_event_says():
+    import asyncio
+    from datetime import datetime
+
+    from myorb.plugins.calendar.commute import plan
+
+    now = datetime(2026, 10, 26, 7, 0, tzinfo=TZ)  # a Monday
+
+    def event(hour: int, title: str, description: str) -> dict:
+        start = now.replace(hour=hour)
+        return {
+            "title": title,
+            "start": start,
+            "end": start + timedelta(hours=1),
+            "all_day": False,
+            "location": f"{title} St 1, Košice",
+            "description": description,
+            "kind": "event",
+        }
+
+    events = [
+        event(16, "Cinema", "Tickets in the app<br>Odchod z domu o&nbsp;15:00"),  # from home
+        event(19, "Dinner", "leave at 18.20"),  # from where it would start anyway
+        event(21, "Bar", "Odchod o 22:00"),  # after it starts: not a time to leave for it
+    ]
+    asked = []
+
+    async def route(origin: str, destination: str, departure: datetime) -> tuple | None:
+        asked.append((origin, departure))
+        return (20, "drive")
+
+    credentials = {"home": "Home St 1", "work": "Work St 2", "mode": "drive", "api_key": "k"}
+    trips = asyncio.run(plan(events, now, credentials, route))
+    found = [(t["event"]["title"], t["origin"], f"{t['start']:%H:%M}", t["noted"]) for t in trips]
+    assert found == [
+        ("Cinema", "home", "15:00", True),  # not 15:35, though work would be the start at 16:00
+        ("Dinner", "Cinema St 1, Košice", "18:20", True),
+        ("Bar", "Dinner St 1, Košice", "20:35", False),
+    ]
+    # The traffic of when the user leaves.
+    assert asked[0] == ("Home St 1", now.replace(hour=15))
+
+
 def test_commute_asks_google_routes():
     import asyncio
     import json as jsonlib

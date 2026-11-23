@@ -6,12 +6,12 @@ from io import StringIO
 from pathlib import Path
 from types import TracebackType
 from typing import IO, TYPE_CHECKING
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl
 
 import harfile
 
 from schemathesis.config import OutputConfig
-from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
+from schemathesis.core.output.sanitization import sanitize_headers, sanitize_url
 from schemathesis.core.timing import format_timestamp
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import Headers, Response, response_content_type
@@ -42,7 +42,7 @@ class HarWriter:
         self._har: harfile.HarFile | None = None
 
     def open(self, seed: int | None = None) -> None:
-        """Open the HAR output file. `seed` is ignored — HAR has no header field for it."""
+        """Open the HAR output file; HAR has no field for `seed`, so it is ignored."""
         self._ctx = harfile.open(self._output)
         self._har = self._ctx.__enter__()
 
@@ -57,7 +57,8 @@ class HarWriter:
                 uri = sanitize_url(interaction.request.uri, config=config.sanitization)
             else:
                 uri = interaction.request.uri
-            query_params = urlparse(uri).query
+            # A sanitized authority such as `[Filtered]@host` is not a valid netloc, so split the query off textually.
+            query_params = uri.partition("#")[0].partition("?")[2]
             if interaction.request.body is not None:
                 post_data = harfile.PostData(
                     mimeType=interaction.request.headers.get("Content-Type", [""])[0],
@@ -83,7 +84,7 @@ class HarWriter:
                 http_version = f"HTTP/{interaction.response.http_version}"
                 if config.sanitization.enabled:
                     resp_headers = deepclone(interaction.response.headers)
-                    sanitize_value(resp_headers, config=config.sanitization)
+                    sanitize_headers(resp_headers, config=config.sanitization)
                 else:
                     resp_headers = interaction.response.headers
                 response = harfile.Response(
@@ -105,7 +106,7 @@ class HarWriter:
 
             if config.sanitization.enabled:
                 req_headers = deepclone(interaction.request.headers)
-                sanitize_value(req_headers, config=config.sanitization)
+                sanitize_headers(req_headers, config=config.sanitization)
             else:
                 req_headers = interaction.request.headers
             started_datetime = format_timestamp(interaction.timestamp)
@@ -131,7 +132,6 @@ class HarWriter:
             )
 
     def close(self) -> None:
-        """Close the HAR output file."""
         if self._har is not None:
             self._ctx.__exit__(None, None, None)
             self._har = None
@@ -149,7 +149,7 @@ class HarWriter:
 
 
 def _truncation_comment(response: Response) -> str | None:
-    """Say how much of the body `text` holds — `size` alone cannot be told apart from compression."""
+    """Say how much of the body `text` holds, as `size` alone does not tell truncation from compression."""
     if not response.is_truncated:
         return None
     return f"Body truncated: {len(response.content)} of {response.content_size} bytes recorded"

@@ -1,4 +1,4 @@
-"""Helpers for sending follow-up requests with modified or stripped authentication."""
+"""Follow-up requests with invalid or stripped credentials."""
 
 from __future__ import annotations
 
@@ -17,8 +17,7 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.adapter.security import SecurityParameter
 
 INVALID_CREDENTIAL = "SCHEMATHESIS-INVALID-VALUE"
-# Wrong credentials that still match the syntax their scheme expects, so the API runs its own
-# credential validation instead of rejecting the value while parsing the `Authorization` header.
+# Wrong credentials in the syntax their scheme expects, so the API checks them instead of failing to parse the header.
 INVALID_AUTH_HEADERS = {
     "_basic_auth": f"Basic {b64encode(f'{INVALID_CREDENTIAL}:{INVALID_CREDENTIAL}'.encode()).decode()}",
     "_bearer_auth": f"Bearer {INVALID_CREDENTIAL}",
@@ -54,8 +53,10 @@ def set_auth_for_case(case: Case, parameter: SecurityParameter) -> None:
 
 
 def get_security_parameters(operation: APIOperation) -> list[SecurityParameter]:
-    """Extract security definitions that are active for the given operation and convert them into parameters."""
-    return [param for param in operation.security.iter_parameters() if param.scheme_type in ["apiKey", "basic", "http"]]
+    """Credentials the operation's security schemes send, including OAuth 2 and OpenID Connect access tokens."""
+    from schemathesis.specs.openapi.adapter.security import iter_bearer_token_parameters
+
+    return [*operation.security.iter_parameters(), *iter_bearer_token_parameters(operation)]
 
 
 def remove_auth_from_container(

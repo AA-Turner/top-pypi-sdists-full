@@ -30,6 +30,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             spec: "bg_sync".to_string(),
             last_updated: 123,
             zstd_dict_id: None,
+            spec_bytes: None,
         }))
         .await;
 
@@ -61,6 +62,7 @@ impl MockForwardProxy {
                 spec: "NOT STUBBED".to_string(),
                 last_updated: 0,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }),
 
             shutdown_notifier: Arc::new(Notify::new()),

@@ -151,7 +151,8 @@ pub struct StatsigOptionsPy {
     /// False or None selects eager loading. Recreate the SDK to switch modes.
     #[pyo3(get, set)]
     pub lazy_load_id_lists: Option<bool>,
-    /// Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
+    /// Private ID lists and shared ID-list files use Elias–Fano by default with raw downloads.
+    /// Set to False to use hash storage or True to request snapshots from an eligible download_id_list_file_api endpoint.
     #[pyo3(get, set)]
     pub enable_id_list_elias_fano: Option<bool>,
     /// Maximum simultaneous index builds during eager private ID-list initialization.
@@ -171,10 +172,8 @@ pub struct StatsigOptionsPy {
     pub disable_country_lookup: Option<bool>,
     #[pyo3(get, set)]
     pub id_lists_url: Option<String>,
-    /// Trusted directory for shared ID lists. Omit for private lists. By default,
-    /// only eager workers share downloads and updates. Add "shared_initial_id_list_base"
-    /// to experimental_flags at SDK construction to let eligible eager and lazy
-    /// workers share initial indexes and fetch their own updates.
+    /// Trusted directory where eager and lazy workers share initial indexes.
+    /// Each worker fetches its own manifest and updates. Omit for private lists.
     #[pyo3(get, set)]
     pub shared_id_lists_dir: Option<String>,
     #[pyo3(get, set)]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from io import StringIO
 from typing import TYPE_CHECKING, Any
@@ -7,11 +8,35 @@ from unicodedata import normalize
 from urllib.parse import quote, unquote
 
 from schemathesis.core import Body
+from schemathesis.core.deserialization import SSE_LINE_RE
 from schemathesis.core.errors import UnboundPrefix
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference_with_uri
-from schemathesis.core.jsonschema.types import JsonSchema, JsonValue
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue
 from schemathesis.core.parameters import DelimitedValue, EncodedPath
 from schemathesis.core.transforms import to_wire_string, to_wire_text, transform
+
+
+def _quote_path_segment(value: str) -> str:
+    if value == ".":
+        return "%2E"
+    if value == "..":
+        return "%2E%2E"
+    # Percent-encode for path segments (space -> "%20"); "+" is literal in a path, not a space.
+    return quote(value, safe="")
+
+
+def quote_generated(parameters: dict[str, Any], listed: Mapping[str, Collection[str]]) -> dict[str, Any]:
+    """Percent-encode generated path values with `%` kept literal: `a%41` reaches the server as `a%41`, not `aA`.
+
+    Values the schema lists, like examples or `enum` members, may be written percent-encoded, so they are unquoted
+    first, as in `quote_all`. A later `quote_all` pass leaves the result unchanged.
+    """
+    for key, value in parameters.items():
+        if isinstance(value, DelimitedValue):
+            parameters[key] = EncodedPath(value.encoded)
+        elif isinstance(value, str):
+            parameters[key] = _quote_path_segment(unquote(value) if value in listed.get(key, ()) else value)
+    return parameters
 
 
 def quote_all(parameters: dict[str, Any]) -> dict[str, Any]:
@@ -32,19 +57,12 @@ def quote_all(parameters: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, str):
             # Unquote first to keep quoting idempotent for already-escaped inputs.
             # E.g. "%2E" should stay escaped and not become a raw "."
-            decoded = unquote(value)
-            if decoded == ".":
-                parameters[key] = "%2E"
-            elif decoded == "..":
-                parameters[key] = "%2E%2E"
-            else:
-                # Percent-encode for path segments (space -> "%20"); "+" is literal in a path, not a space.
-                parameters[key] = quote(decoded, safe="")
+            parameters[key] = _quote_path_segment(unquote(value))
     return parameters
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Collection, Iterable, Iterator, Mapping
 
     from schemathesis.generation.case import Case
 
@@ -116,6 +134,39 @@ def serialize_json(value: Body) -> dict[str, Any]:
     return {"json": value}
 
 
+def serialize_json_sequence(value: Body, record_start: str) -> bytes:
+    """Encode a list as one compact JSON record per item, and any other value as a single record."""
+    if isinstance(value, bytes):
+        # Possible to get via explicit examples, e.g. `externalValue`
+        return value
+    records = value if isinstance(value, list) else [value]
+    return "".join(f"{record_start}{json.dumps(record, separators=(',', ':'))}\n" for record in records).encode()
+
+
+def serialize_event_stream(value: Body) -> bytes:
+    """Encode a list as one server-sent event per item and a mapping as a single event; send other values as text."""
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, dict):
+        return _serialize_event(value).encode()
+    if isinstance(value, list):
+        return "".join(_serialize_event(item) for item in value).encode()
+    return to_wire_text(value).encode()
+
+
+def _serialize_event(event: object) -> str:
+    # An item that is not a mapping of fields travels as the event's payload
+    fields = event.items() if isinstance(event, dict) else [("data", event)]
+    # One line per line of a value: readers join repeated `data` lines with line feeds
+    lines = [f"{name}: {line}\n" for name, value in fields for line in SSE_LINE_RE.split(to_wire_text(value))]
+    return "".join(lines) + "\n"
+
+
+def json_sequence_readings(value: object) -> list[object]:
+    """Values a server may read from a JSON sequence body: a non-array value is also a one-item array."""
+    return [value] if isinstance(value, list) else [value, [value]]
+
+
 def _replace_binary(value: dict) -> dict:
     return {key: value.data if isinstance(value, Binary) else value for key, value in value.items()}
 
@@ -182,7 +233,8 @@ def serialize_xml_with_schema(value: Any, schema: JsonSchema, resource_name: str
     if isinstance(value, ((Binary, str))) and definition.get("format") in ("binary", "file"):
         # Opaque payloads are already the wire representation and carry no XML structure to wrap.
         return {"data": value.data if isinstance(value, Binary) else value}
-    tag = _get_xml_tag(definition, resource_name)
+    # A payload schema without a reference has no name to infer
+    tag = resource_name if resource_name is not None else DEFAULT_TAG_NAME
     buffer = StringIO()
     # Collect all namespaces to ensure that all child nodes with prefixes have proper namespaces in their parent nodes
     namespace_stack: list[str] = []
@@ -197,7 +249,11 @@ def _resolve_xml_schema(resolver: Resolver, schema: dict[str, Any]) -> tuple[Res
     xml: dict[str, Any] = {}
     seen: set[str] = set()
     while "$ref" in schema:
-        xml = {**schema.get("xml", {}), **xml}
+        hints = schema.get("xml", {})
+        # Next to `$ref`, `nodeType: none` is the default and leaves the node type to the referenced schema
+        if hints.get("nodeType") == "none":
+            hints = {key: value for key, value in hints.items() if key != "nodeType"}
+        xml = {**hints, **xml}
         uri, target_resolver, target = resolve_reference_with_uri(resolver, schema["$ref"])
         # A chain that loops back ends at the last schema before the loop
         if uri in seen:
@@ -205,17 +261,6 @@ def _resolve_xml_schema(resolver: Resolver, schema: dict[str, Any]) -> tuple[Res
         seen.add(uri)
         resolver, schema = target_resolver, target
     return resolver, {**schema, "xml": {**schema.get("xml", {}), **xml}}
-
-
-def _get_xml_tag(schema: dict[str, Any] | None, resource_name: str | None) -> str:
-    # On the top level we need to detect the proper XML tag, in other cases it is known from object properties
-    if (schema or {}).get("xml", {}).get("name"):
-        return (schema or {})["xml"]["name"]
-    if resource_name is not None:
-        return resource_name
-
-    # Here we don't have any name for the payload schema - no reference or the `xml` property
-    return DEFAULT_TAG_NAME
 
 
 def _write_xml(
@@ -226,10 +271,13 @@ def _write_xml(
     namespace_stack: list[str],
     resolver: Resolver,
 ) -> None:
+    # `tag` is the inferred name; an array's `xml.name` names only its wrapping element, so arrays apply it themselves
+    if isinstance(value, list):
+        _write_array(buffer, value, tag, schema, namespace_stack, resolver)
+        return
+    tag = (schema or {}).get("xml", {}).get("name", tag)
     if isinstance(value, dict):
         _write_object(buffer, value, tag, schema, namespace_stack, resolver)
-    elif isinstance(value, list):
-        _write_array(buffer, value, tag, schema, namespace_stack, resolver)
     else:
         _write_primitive(buffer, value, tag, schema, namespace_stack)
 
@@ -270,19 +318,16 @@ def _write_object(
     if "namespace" in options:
         _write_namespace(buffer, options)
 
-    attribute_namespaces = {}
+    namespaces: dict[str, str] = {}
     attributes = {}
     children_buffer = StringIO()
-    properties = (schema or {}).get("properties", {})
-    # Attribute namespaces are declared on this element, so their prefixes stay bound only until it closes.
+    # Attribute and `nodeType: none` namespaces are declared on this element, so they stay bound only until it closes.
     depth = len(stack)
     # Elements go out after every attribute is read, so they can use any attribute's prefix regardless of order.
     elements = []
-    for child_name, value in obj.items():
-        property_schema = properties.get(child_name, {})
-        child_resolver = resolver
-        if "$ref" in property_schema:
-            child_resolver, property_schema = _resolve_xml_schema(resolver, property_schema)
+    for child_name, value, property_schema, child_resolver in _iter_child_nodes(
+        obj, schema, resolver, stack, namespaces
+    ):
         child_options = property_schema.get("xml", {})
         child_tag = child_options.get("name", child_name)
 
@@ -293,7 +338,7 @@ def _write_object(
                 prefix = child_options["prefix"]
                 attr_name = f"{prefix}:{_sanitize_xml_name(child_tag)}"
                 # Store namespace declaration
-                attribute_namespaces[prefix] = child_options["namespace"]
+                namespaces[prefix] = child_options["namespace"]
             else:
                 attr_name = _sanitize_xml_name(child_tag)
 
@@ -301,22 +346,21 @@ def _write_object(
                 attributes[attr_name] = f'{attr_name}="{_escape_xml(value)}"'
             continue
 
-        elements.append((child_tag, value, property_schema, child_options, child_resolver))
+        elements.append((child_name, value, property_schema, child_options, child_resolver))
 
-    for child_tag, value, property_schema, child_options, child_resolver in elements:
+    for child_name, value, property_schema, child_options, child_resolver in elements:
         node_type = child_options.get("nodeType")
         # Text and CDATA nodes carry a scalar as this element's content, with no tag of their own
         if node_type in ("text", "cdata") and not isinstance(value, (dict, list)):
             children_buffer.write(_escape_xml(value) if node_type == "text" else _cdata_section(value))
             continue
         push_namespace_if_any(stack, child_options)
-        child_tag = _sanitize_xml_name(child_tag)
         _validate_prefix(child_options, stack)
-        _write_xml(children_buffer, value, child_tag, property_schema, stack, child_resolver)
+        _write_xml(children_buffer, value, child_name, property_schema, stack, child_resolver)
         pop_namespace_if_any(stack, child_options)
 
-    # Write namespace declarations for attributes
-    for prefix, namespace in attribute_namespaces.items():
+    # Write namespace declarations for attributes and `nodeType: none` objects
+    for prefix, namespace in namespaces.items():
         buffer.write(f' xmlns:{prefix}="{namespace}"')
 
     if attributes:
@@ -326,6 +370,31 @@ def _write_object(
     buffer.write(f"</{tag}>")
     del stack[depth:]
     pop_namespace_if_any(stack, options)
+
+
+def _iter_child_nodes(
+    obj: dict[str, JsonValue],
+    schema: JsonSchemaObject | None,
+    resolver: Resolver,
+    stack: list[str],
+    namespaces: dict[str, str],
+) -> Iterator[tuple[str, JsonValue, JsonSchemaObject, Resolver]]:
+    properties = (schema or {}).get("properties", {})
+    for child_name, value in obj.items():
+        property_schema = properties.get(child_name, {})
+        child_resolver = resolver
+        if "$ref" in property_schema:
+            child_resolver, property_schema = _resolve_xml_schema(resolver, property_schema)
+        options = property_schema.get("xml", {})
+        # An object with `nodeType: none` has no element of its own; its nodes belong to the enclosing element
+        if options.get("nodeType") == "none" and isinstance(value, dict):
+            # Its children may use its prefix, so the enclosing element binds it unless that prefix is already bound
+            if "namespace" in options and "prefix" in options and options["prefix"] not in stack:
+                stack.append(options["prefix"])
+                namespaces[options["prefix"]] = options["namespace"]
+            yield from _iter_child_nodes(value, property_schema, child_resolver, stack, namespaces)
+        else:
+            yield child_name, value, property_schema, child_resolver
 
 
 def _write_array(
@@ -338,11 +407,14 @@ def _write_array(
 ) -> None:
     options = (schema or {}).get("xml", {})
     push_namespace_if_any(stack, options)
+    wrapped = options.get("wrapped", False) or options.get("nodeType") == "element"
+    # Items of an unwrapped array keep the inferred name, as the array has no element for its own `xml.name`
+    if wrapped:
+        tag = options.get("name", tag)
     tag = _sanitize_xml_name(tag)
     child_tag = tag
     if options.get("prefix"):
         tag = f"{options['prefix']}:{tag}"
-    wrapped = options.get("wrapped", False) or options.get("nodeType") == "element"
     is_namespace_specified = False
     if wrapped:
         buffer.write(f"<{tag}")
@@ -361,7 +433,6 @@ def _write_array(
     # The array's namespace and prefix apply to its items only here, not to other arrays sharing the items schema.
     items = dict(items)
     child_options = dict(items.get("xml", {}))
-    child_tag = child_options.get("name", child_tag)
     # Items with their own namespace declare it on every element they write.
     items_bind_prefix = "namespace" in child_options
     if not is_namespace_specified and "namespace" in options:

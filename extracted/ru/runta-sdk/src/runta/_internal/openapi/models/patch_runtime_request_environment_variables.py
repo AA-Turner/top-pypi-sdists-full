@@ -11,8 +11,8 @@ T = TypeVar("T", bound="PatchRuntimeRequestEnvironmentVariables")
 
 @_attrs_define
 class PatchRuntimeRequestEnvironmentVariables:
-    """Complete replacement of the runtime's non-secret environment variables. An empty object removes every variable; omit
-    to leave unchanged. The same name, value, and reservation rules as creation apply.
+    """Complete replacement of the runtime's non-secret environment variables. An empty object removes all variables. Omit
+    to preserve current values. Creation rules for names, values, and reserved names also apply.
 
     """
 

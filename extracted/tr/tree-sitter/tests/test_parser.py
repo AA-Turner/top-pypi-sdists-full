@@ -1,3 +1,4 @@
+from threading import Thread
 from typing import cast
 from unittest import TestCase
 
@@ -30,6 +31,7 @@ class TestParser(TestCase):
         parser = Parser()
         self.assertIsNone(parser.language)
         self.assertListEqual(parser.included_ranges, [self.max_range])
+        self.assertNotEqual(self.max_range, self.min_range)
 
     def test_init_args(self):
         parser = Parser(language=self.python, included_ranges=[self.min_range])
@@ -228,6 +230,7 @@ class TestParser(TestCase):
         self.assertEqual(script_content_node.type, "raw_text")
 
         parser.included_ranges = [script_content_node.range]
+        self.assertEqual(hash(script_content_node.range), hash(parser.included_ranges[0]))
         parser.language = self.javascript
         js_tree = parser.parse(source_code)
         self.assertEqual(
@@ -547,3 +550,26 @@ class TestParser(TestCase):
             f.seek(0)
             lines = [f.readline(), f.readline(), f.readline()]
             self.assertListEqual(lines, new_parse)
+
+    def test_parse_in_parallel(self):
+        source = "".join(
+            f"def f{i}(a, b):\n    return a + b * {i}\n\n"
+            for i in range(2048)
+        ).encode()
+        expected = str(Parser(self.python).parse(source).root_node)
+        errors = []
+
+        def work():
+            try:
+                parser = Parser(self.python)
+                for _ in range(3):
+                    self.assertEqual(str(parser.parse(source).root_node), expected)
+            except BaseException as e:  # noqa
+                errors.append(e)
+
+        threads = [Thread(target=work) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(60)
+        self.assertEqual(errors, [])

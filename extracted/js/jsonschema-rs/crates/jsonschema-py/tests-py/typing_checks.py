@@ -23,9 +23,20 @@ def build_through_class(
 def build_from_union(schema: Schema) -> list[jsonschema_rs.Validator]:
     return [
         jsonschema_rs.validator_for(schema, formats={"currency": is_currency}),
+        jsonschema_rs.validator_for(
+            schema,
+            formats={"currency": is_currency, "int32": jsonschema_rs.number_format(lambda number: number < 2**31)},
+        ),
         jsonschema_rs.Draft4Validator(schema),
         jsonschema_rs.validator_cls_for(schema)(schema),
     ]
+
+
+def json_text(schema: Schema, text: str | bytes) -> list[str]:
+    validator = jsonschema_rs.JsonTextValidator(schema, draft=jsonschema_rs.Draft7, validate_formats=True)
+    assert_type(validator.is_valid(text), bool)
+    validator.validate(text)
+    return [error.message for error in validator.iter_errors(text)]
 
 
 def module_functions(schema: Schema, instance: object) -> list[str]:

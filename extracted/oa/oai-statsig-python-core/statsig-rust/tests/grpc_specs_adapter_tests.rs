@@ -47,6 +47,7 @@ pub mod specs_adapter_tests {
                 spec: "bg_sync".to_string(),
                 last_updated: 123,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
 
@@ -73,6 +74,7 @@ pub mod specs_adapter_tests {
                 spec: "first_sync".to_string(),
                 last_updated: 123,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
 
@@ -92,6 +94,7 @@ pub mod specs_adapter_tests {
                 spec: "reconnected_sync".to_string(),
                 last_updated: 123,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
 

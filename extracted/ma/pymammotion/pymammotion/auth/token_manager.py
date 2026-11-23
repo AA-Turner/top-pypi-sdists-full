@@ -11,8 +11,13 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from pymammotion.aliyun.exceptions import LoginException
-from pymammotion.http.model.http import MQTTConnection, UnauthorizedExceptionError
+from pymammotion.aliyun.exceptions import CloudSetupError, LoginException
+from pymammotion.http.model.http import (
+    AuthorizationCodeError,
+    MQTTConnection,
+    RateLimitedError,
+    UnauthorizedExceptionError,
+)
 from pymammotion.transport.base import (
     ReLoginRequiredError,
     SessionExpiredError,
@@ -49,6 +54,9 @@ _MAX_SCHEDULER_SLEEP = 3600.0
 #: Backoff after a refresh fails, or succeeds without moving the expiry forward.
 #: Stops an unrenewable credential from becoming a hot loop.
 _SCHEDULER_RETRY_DELAY = 300.0
+
+#: Ceiling for the doubling delay between attempts to establish a deferred Aliyun session.
+_MAX_ALIYUN_RETRY_DELAY = 4 * 3600.0
 
 
 @dataclass(frozen=True)
@@ -178,7 +186,7 @@ class TokenManager:
         """
         self._account_id = account_id
         self._http: MammotionHTTP = mammotion_http
-        self._cloud_gateway: CloudIOTGateway | None = cloud_gateway
+        self._cloud_gateway: CloudIOTGateway | None = None
         self._http_creds: HTTPCredentials | None = None
         self._aliyun_creds: AliyunCredentials | None = None
         self._mqtt_creds: MQTTCredentials | None = None
@@ -214,6 +222,18 @@ class TokenManager:
         # Background task that renews credentials shortly before they expire — see
         # start_refresh_scheduler().
         self._scheduler_task: asyncio.Task[None] | None = None
+        # A gateway whose session could not be established for a transient reason; the
+        # scheduler retries it at _aliyun_retry_at, doubling the delay each time.
+        self._aliyun_pending: CloudIOTGateway | None = None
+        self._aliyun_retry_at: float = 0.0
+        self._aliyun_retries: int = 0
+        #: Fired with the gateway once a deferred Aliyun session is established, so the
+        #: client can build its transport and attach the account's Aliyun devices.
+        self.on_aliyun_established: Callable[[CloudIOTGateway], Awaitable[None]] | None = None
+        #: Fired (async, detached) on each edge of a transport-scoped flag: with the
+        #: reason when Aliyun or Mammotion MQTT is given up, with None when it recovers.
+        self.on_transport_availability_changed: Callable[[TransportType, str | None], Awaitable[None]] | None = None
+        self._availability_tasks: set[asyncio.Task[None]] = set()
         # RAII subscriptions to device handle error buses — kept alive here so they
         # are never garbage-collected while this token manager is active.
         self._handle_subscriptions: dict[str, _HandleSubscription] = {}
@@ -221,6 +241,9 @@ class TokenManager:
         # refreshes that never pass through this manager) into our snapshot and
         # persist them — see _on_http_login_refreshed.
         mammotion_http.on_login_refreshed = self._on_http_login_refreshed
+        mammotion_http.on_reauth_required = self._mark_reauth_required
+        if cloud_gateway is not None:
+            self.attach_cloud_gateway(cloud_gateway)
 
     @property
     def http(self) -> MammotionHTTP:
@@ -246,8 +269,14 @@ class TokenManager:
         single manager (and its running refresh scheduler, terminal flags, and the
         transports holding a reference to it) rather than replacing it with a second
         one built around the gateway.
+
+        The manager owns the gateway's session from here on: it adopts the session now
+        so the scheduler renews it, and hears of every later renewal — the gateway's
+        in-band ones included — to hand the new iotToken to the transport and persist it.
         """
         self._cloud_gateway = cloud_gateway
+        cloud_gateway.on_session_refreshed = self._sync_aliyun_session
+        self._adopt_aliyun_session()
 
     async def initialize(
         self,
@@ -339,6 +368,15 @@ class TokenManager:
         if (http_reason := self._http.reauth_required) is not None:
             raise self._mark_reauth_required(http_reason)
 
+    def reject_login(self, reason: str) -> ReLoginRequiredError:
+        """Record that the server refused this login and build the error to raise.
+
+        For a refusal found outside this manager — a restore whose cached login the
+        server no longer accepts.  Sets :attr:`reauth_required` and fires
+        :attr:`on_reauth_required` exactly as a rejected refresh token does.
+        """
+        return self._mark_reauth_required(reason)
+
     def _mark_reauth_required(self, reason: str) -> ReLoginRequiredError:
         """Mark the account terminally unauthenticated and build the error to raise.
 
@@ -366,6 +404,8 @@ class TokenManager:
         """
         if self._aliyun_unavailable is None:
             self._aliyun_unavailable = reason
+            self._aliyun_pending = None
+            self._notify_availability(TransportType.CLOUD_ALIYUN, reason)
         return ReLoginRequiredError(self._account_id, reason)
 
     def _mark_mqtt_unavailable(self, reason: str) -> ReLoginRequiredError:
@@ -377,7 +417,61 @@ class TokenManager:
         """
         if self._mqtt_unavailable is None:
             self._mqtt_unavailable = reason
+            self._notify_availability(TransportType.CLOUD_MAMMOTION, reason)
         return ReLoginRequiredError(self._account_id, reason)
+
+    def mark_transport_unavailable(self, transport_type: TransportType, reason: str) -> ReLoginRequiredError:
+        """Give one cloud transport up after its own recovery was exhausted; the login is untouched.
+
+        For a give-up found outside this manager — a broker that keeps refusing the
+        bind after every refresh.  Idempotent; the first reason wins.
+        """
+        if transport_type is TransportType.CLOUD_ALIYUN:
+            return self._mark_aliyun_unavailable(reason)
+        return self._mark_mqtt_unavailable(reason)
+
+    @property
+    def unavailable_transports(self) -> dict[TransportType, str]:
+        """Cloud transports given up for this account, with the reason for each."""
+        flags = {
+            TransportType.CLOUD_ALIYUN: self._aliyun_unavailable,
+            TransportType.CLOUD_MAMMOTION: self._mqtt_unavailable,
+        }
+        return {transport_type: reason for transport_type, reason in flags.items() if reason is not None}
+
+    def _notify_availability(self, transport_type: TransportType, reason: str | None) -> None:
+        """Fire :attr:`on_transport_availability_changed` detached: callers may hold ``self._lock``."""
+        if self.on_transport_availability_changed is None:
+            return
+        task = asyncio.ensure_future(self.on_transport_availability_changed(transport_type, reason))
+        self._availability_tasks.add(task)
+        task.add_done_callback(self._availability_tasks.discard)
+
+    async def reestablish_aliyun(self, cloud_gateway: CloudIOTGateway) -> CloudIOTGateway:
+        """Make one password-free attempt to mint a new Aliyun session; clear the give-up only on success.
+
+        Raises whatever the attempt raised, leaving :attr:`aliyun_unavailable` as it was.
+        """
+        async with self._lock:
+            gateway = await self.establish_aliyun(cloud_gateway)
+        self._aliyun_pending = None
+        self._aliyun_retries = 0
+        if self._aliyun_unavailable is not None:
+            self._aliyun_unavailable = None
+            self._notify_availability(TransportType.CLOUD_ALIYUN, None)
+        return gateway
+
+    async def retry_mqtt_credentials(self) -> MQTTCredentials:
+        """Make one attempt to fetch a Mammotion MQTT JWT after a give-up; clear it only on success.
+
+        Raises whatever the attempt raised, leaving :attr:`mqtt_unavailable` as it was.
+        """
+        async with self._lock:
+            creds = await self._refresh_mqtt(retrying=True)
+        if self._mqtt_unavailable is not None:
+            self._mqtt_unavailable = None
+            self._notify_availability(TransportType.CLOUD_MAMMOTION, None)
+        return creds
 
     # ------------------------------------------------------------------
     # Public credential getters — both follow the same pattern:
@@ -478,21 +572,8 @@ class TokenManager:
         async with self._lock:
             return await self._refresh_mqtt()
 
-    # ------------------------------------------------------------------
-    # Scheduled refresh
-    #
-    # Every other refresh path in this class is lazy — it runs because something
-    # asked for a credential.  That is not enough on its own: when every device on
-    # the account is offline, the poll loop skips sending (no usable transport), so
-    # no HTTP call is made, ``ensure_token_valid`` never fires, and the in-band
-    # Aliyun expiry check inside ``send_cloud_command`` never runs.  Nothing would
-    # renew anything, and the credentials would sit there until the *refresh*
-    # tokens expired — at which point recovery needs the user.
-    #
-    # So renewal is driven by the clock rather than by traffic.  The loop sleeps
-    # until the earliest credential is due and then renews just that one; it does
-    # not poll.
-    # ------------------------------------------------------------------
+    # Renewal is clock-driven: every other path is lazy, and an account whose devices
+    # are all offline makes no calls, so its credentials would otherwise rot.
 
     def start_refresh_scheduler(self) -> None:
         """Start renewing credentials shortly before they expire.
@@ -568,9 +649,16 @@ class TokenManager:
             and (exp := self._expiry(self._aliyun_creds.iot_token_expires_at)) is not None
         ):
             due_at.append(exp - _ALIYUN_REFRESH_LEAD)
+        if self._aliyun_pending is not None:
+            due_at.append(self._aliyun_retry_at)
         if not due_at:
             return _MAX_SCHEDULER_SLEEP
         return max(0.0, min(min(due_at) - now, _MAX_SCHEDULER_SLEEP))
+
+    def _http_refresh_due(self, now: float) -> bool:
+        """Report whether the HTTP access token is inside its refresh lead at *now*."""
+        http_exp = self._expiry(self._http.expires_in)
+        return http_exp is not None and http_exp - _HTTP_REFRESH_LEAD <= now
 
     async def _refresh_due_credentials(self) -> bool:
         """Renew every credential currently within its lead window.
@@ -582,11 +670,12 @@ class TokenManager:
         now = time.time()
         ok = True
 
-        http_exp = self._expiry(self._http.expires_in)
-        if http_exp is not None and http_exp - _HTTP_REFRESH_LEAD <= now:
+        if self._http_refresh_due(now):
             _LOGGER.debug("token scheduler [%s]: HTTP access token due — refreshing", self._account_id)
             async with self._lock:
-                await self.refresh_http()
+                # Another path may have refreshed while this one queued for the lock.
+                if self._http_refresh_due(time.time()):
+                    await self.refresh_http()
 
         if (
             self._mqtt_unavailable is None
@@ -615,6 +704,14 @@ class TokenManager:
                 _LOGGER.warning("token scheduler [%s]: Aliyun session unrenewable", self._account_id)
                 ok = False
 
+        if (pending := self._aliyun_pending) is not None and self._aliyun_retry_at <= now:
+            _LOGGER.debug("token scheduler [%s]: retrying the deferred Aliyun session", self._account_id)
+            self._aliyun_pending = None
+            if (gateway := await self.recover_aliyun(pending)) is None:
+                ok = False
+            elif self.on_aliyun_established is not None:
+                await self.on_aliyun_established(gateway)
+
         return ok
 
     async def _refresh_scheduler(self) -> None:
@@ -631,23 +728,19 @@ class TokenManager:
                     continue
 
                 progressed = await self._refresh_due_credentials()
+                # A refresh that did not move the expiry (clock skew, same lifetime reissued) must not spin.
                 if not progressed or self._seconds_until_next_refresh() <= 0:
-                    # Either something failed, or a refresh "succeeded" without moving
-                    # the expiry (clock skew, or the server reissuing the same
-                    # lifetime).  Back off rather than spinning on it.
                     await asyncio.sleep(_SCHEDULER_RETRY_DELAY)
             except asyncio.CancelledError:
                 raise
             except ReLoginRequiredError:
-                # Raised by refresh_http: the account itself is finished.  The loop
-                # exits on the next pass via the _reauth_required check above.
                 _LOGGER.warning("token scheduler [%s]: re-authentication required — stopping", self._account_id)
                 return
+            except RateLimitedError as exc:
+                _LOGGER.warning("token scheduler [%s]: %s — pausing renewals", self._account_id, exc)
+                await asyncio.sleep(exc.retry_after)
             except Exception:
-                # Transient (network/DNS/server) — never terminal.  Back off and retry;
-                # the credentials are probably still fine, we just could not reach the
-                # server, and treating that as an auth failure would strand a working
-                # login behind a re-auth prompt.
+                # Transient, never terminal: the credentials are probably still fine.
                 _LOGGER.debug(
                     "token scheduler [%s]: refresh attempt failed — retrying in %.0fs",
                     self._account_id,
@@ -687,16 +780,9 @@ class TokenManager:
     async def _on_http_login_refreshed(self) -> None:
         """Mirror an HTTP-level token rotation into this manager's snapshot and persist it.
 
-        Fired by MammotionHTTP after any successful oauth2/token exchange —
-        including refreshes triggered by the ``refresh_token_decorator``, which
-        never pass through this manager.  Without this, a decorator refresh
-        rotates the server-side refresh token while the persisted cache keeps the
-        dead one, so the next restart starts with a failed refresh and falls back
-        to a password re-login.
-
-        Deliberately lock-free: it can fire while :meth:`refresh_http` already
-        holds ``self._lock`` (refresh_login → callback), so taking the lock here
-        would deadlock.
+        Fired by MammotionHTTP after any oauth2/token exchange, including decorator
+        refreshes that bypass this manager, so the cache never keeps a spent refresh
+        token.  Lock-free: it fires while :meth:`refresh_http` already holds the lock.
         """
         login_info = self._http.login_info
         if login_info is None:
@@ -735,6 +821,8 @@ class TokenManager:
                 re-authenticate.  Transient network failures instead propagate as
                 their own type so the caller backs off, and never mark the account
                 terminal.
+            RateLimitedError: oauth2/token answered 429, or its cooldown is running.
+                Marks nothing; every refresh path passes it through unchanged.
 
         """
         self._raise_if_reauth_required()
@@ -750,33 +838,21 @@ class TokenManager:
                 expires_at=time.time() + data.expires_in,
             )
         except ReLoginRequiredError:
-            # Raised above, or from inside MammotionHTTP.ensure_token_valid — both
-            # mean the refresh token is dead, so the account is terminal either way.
             self._mark_reauth_required("HTTP refresh token rejected")
             raise
+        except RateLimitedError:
+            raise
         except Exception as exc:
-            # DNS / connection / timeout failures must propagate as-is so the
-            # caller's reconnect-with-backoff path handles them.  Treating a
-            # network outage as an auth failure would strand a perfectly good
-            # login behind a re-auth prompt the user cannot satisfy.
             if is_transient_network_error(exc):
                 raise
             raise self._mark_reauth_required(str(exc)) from exc
-        await self._fire_credentials_updated()
+        # The rotation fired _on_http_login_refreshed, which persists it.
 
     async def _refresh_aliyun(self) -> None:
-        """Refresh the Aliyun IoT session via check_or_refresh_session().
+        """Refresh the Aliyun IoT session, rebuilding it from the HTTP login on a 2401.
 
-        On a 2401 ("refreshToken invalid") the session is rebuilt once from the
-        existing HTTP login's authCode chain (:meth:`connect_iot`).  That path uses
-        no password, so it is legitimate automatic recovery rather than a re-login.
-
-        If the rebuild also fails, the *Aliyun transport* is terminally
-        unavailable — but the HTTP login and any Mammotion MQTT transport are
-        untouched and keep working, so the account's cached credentials are
-        deliberately left in place.
-
-        Updates *_aliyun_creds* in place.  Callers hold ``self._lock``.
+        A failed rebuild gives up the Aliyun transport only; the HTTP login, the
+        Mammotion MQTT transport and the cached credentials stay.  Callers hold ``self._lock``.
 
         Raises:
             ReLoginRequiredError: The Aliyun session cannot be renewed.
@@ -788,103 +864,190 @@ class TokenManager:
             raise ReLoginRequiredError(self._account_id, self._aliyun_unavailable)
         self._raise_if_reauth_required()
         try:
-            try:
-                await self._cloud_gateway.check_or_refresh_session(force=True)
-            except SessionExpiredError as session_exc:
-                # 2401 "refreshToken invalid" — rebuild the IoT session from the
-                # still-valid HTTP login.  Do NOT return here: fall through so
-                # _aliyun_creds is updated from the newly established session.
-                # Returning early was the bug that handed the caller a stale
-                # iotToken and caused an infinite bind-failure loop.
-                try:
-                    await self.connect_iot()
-                except Exception as rebuild_exc:
-                    if is_transient_network_error(rebuild_exc):
-                        raise
-                    raise self._mark_aliyun_unavailable(
-                        f"Aliyun session rebuild failed after refreshToken rejection: {rebuild_exc}"
-                    ) from session_exc
-
-            session = self._cloud_gateway.session_by_authcode_response
-            session_data = session.data  # type: ignore
-            if session_data is None:
+            await self._renew_aliyun_session(self._cloud_gateway)
+            if (session := self._cloud_gateway.session_by_authcode_response) is None or session.data is None:
                 raise ReLoginRequiredError(self._account_id, "Aliyun session data is None after refresh")
-            issued_at = self._cloud_gateway._iot_token_issued_at  # noqa: SLF001
-            self._aliyun_creds = AliyunCredentials(
-                iot_token=session_data.iotToken,
-                iot_token_expires_at=issued_at + session_data.iotTokenExpire,
-                refresh_token=session_data.refreshToken,
-                refresh_token_expires_at=issued_at + session_data.refreshTokenExpire,
-            )
-            if self.on_aliyun_token_refreshed is not None:
-                self.on_aliyun_token_refreshed(session_data.iotToken)
+            await self._sync_aliyun_session()
         except ReLoginRequiredError:
             self._adopt_http_reauth()
+            raise
+        except RateLimitedError:
             raise
         except LoginException as exc:
             raise self._mark_aliyun_unavailable(str(exc)) from exc
         except Exception as exc:
-            # DNS / connection / timeout failures must propagate as-is — see
-            # refresh_http() for the rationale.
             if is_transient_network_error(exc):
                 raise
             raise self._mark_aliyun_unavailable(str(exc)) from exc
+
+    async def _renew_aliyun_session(self, gateway: CloudIOTGateway) -> None:
+        """Renew *gateway*'s session; a rejected refreshToken (2401) rebuilds it via the authCode chain."""
+        try:
+            await gateway.check_or_refresh_session(force=True)
+        except SessionExpiredError as session_exc:
+            try:
+                await self.establish_aliyun()
+            except Exception as rebuild_exc:
+                if (
+                    is_transient_network_error(rebuild_exc)
+                    or isinstance(rebuild_exc, RateLimitedError)
+                    or self._reauth_required is not None
+                ):
+                    raise
+                raise self._mark_aliyun_unavailable(
+                    f"Aliyun session rebuild failed after refreshToken rejection: {rebuild_exc}"
+                ) from session_exc
+
+    def _adopt_aliyun_session(self) -> AliyunCredentials | None:
+        """Snapshot the attached gateway's current session as this manager's Aliyun credentials."""
+        if self._cloud_gateway is None or (session := self._cloud_gateway.session_by_authcode_response) is None:
+            return None
+        if (data := session.data) is None:
+            return None
+        issued_at = self._cloud_gateway._iot_token_issued_at  # noqa: SLF001
+        self._aliyun_creds = AliyunCredentials(
+            iot_token=data.iotToken,
+            iot_token_expires_at=issued_at + data.iotTokenExpire,
+            refresh_token=data.refreshToken,
+            refresh_token_expires_at=issued_at + data.refreshTokenExpire,
+        )
+        return self._aliyun_creds
+
+    async def _sync_aliyun_session(self) -> None:
+        """Adopt the gateway's session; a new iotToken goes to the transport's next bind and is persisted.
+
+        Lock-free and idempotent: it runs both as the gateway's renewal hook (inside
+        refreshes that already hold ``self._lock``) and after a refresh made here.
+        """
+        previous = self._aliyun_creds
+        if (creds := self._adopt_aliyun_session()) is None:
+            return
+        if previous is not None and previous.iot_token == creds.iot_token:
+            return
+        if self.on_aliyun_token_refreshed is not None:
+            self.on_aliyun_token_refreshed(creds.iot_token)
         await self._fire_credentials_updated()
 
-    async def connect_iot(self) -> None:
-        """Run the Aliyun IoT gateway setup sequence (region, AEP, session, devices)."""
+    async def establish_aliyun(
+        self, cloud_gateway: CloudIOTGateway | None = None, *, fresh_code: bool = True
+    ) -> CloudIOTGateway:
+        """Mint an Aliyun IoT session from the HTTP login via the authCode chain, and attach its gateway.
 
-        if self._cloud_gateway is None:
-            raise ReLoginRequiredError(self._account_id, "No Aliyun cloud gateway configured")
-        cloud_client = self._cloud_gateway
-        mammotion_http = cloud_client.mammotion_http
-        login_info = mammotion_http.login_info
-        if login_info is None:
-            msg = "login_info is None — call login_v2() before _connect_iot()"
-            raise ReLoginRequiredError(mammotion_http.account or "", msg)
-        country_code = login_info.userInformation.domainAbbreviation
-        if cloud_client.region_response is None:
-            await cloud_client.get_region(country_code)
-        await cloud_client.connect()
-        await cloud_client.login_by_oauth(country_code)
-        await cloud_client.aep_handle()
-        await cloud_client.session_by_auth_code()
-        await cloud_client.list_binding_by_account()
-
-    async def refresh_invoke_token(self, stale_token: str | None = None) -> None:
-        """Renew the HTTP bearer token used for ``mqtt_invoke`` after a 401.
-
-        Renews the OAuth access token via the refresh token — bypassing the
-        time-based expiry check, because a 401 means the server rejected a token
-        our local clock still considers valid — then fetches a fresh authorization
-        code via POST /authorization/code.
+        The one place the chain runs: a fresh login, a restore whose cached session is
+        unusable, and a runtime rebuild after a 2401 all come here.  No password is
+        involved.  The gateway defaults to the attached one, rebuilt in place so the
+        transport holding it sees the new session.
 
         Args:
-            stale_token: The access token the failed request actually used.  When
-                the live token has already moved on, some other caller refreshed
-                while we queued for the lock, so this returns immediately and the
-                caller simply retries with the new token.
-
-                Without that check a burst of commands that all 401 on the same
-                dead token produces one refresh *each*, serialized by the lock —
-                and every refresh rotates the refresh token server-side, so the
-                later rotations race the earlier ones.  The Android app guards the
-                identical way, comparing the failing request's ``Authorization``
-                header against its stored token before refreshing
-                (``SpecialCodeIntercepter.refreshToken``).
-
-        No cooldown is needed: if the refresh token is dead, :meth:`refresh_http`
-        marks the account terminal and every subsequent caller fails fast without
-        touching the network.
+            cloud_gateway: The gateway to establish; defaults to the attached one.
+            fresh_code: Mint a new authorization code first.  Only a login that has just
+                returned one may pass False — a code is spent by its first loginbyoauth.
 
         Raises:
-            ReLoginRequiredError: The refresh token was rejected — the user must
-                re-authenticate.
+            CloudSetupError: A step answered without the region, AEP or session it should have.
 
-        Any other failure (network outage, a 5xx from the authorization-code
-        endpoint) propagates as-is: it is a server or connectivity fault, not an
-        auth verdict, and wrapping it in AuthError previously let a benign blip
-        permanently kill the transport.
+        """
+        gateway = cloud_gateway or self._cloud_gateway
+        if gateway is None:
+            raise ReLoginRequiredError(self._account_id, "No Aliyun cloud gateway configured")
+        if (login_info := self._http.login_info) is None:
+            raise ReLoginRequiredError(self._account_id, "no HTTP login to mint an Aliyun session from")
+        country_code = login_info.userInformation.domainAbbreviation
+        if fresh_code:
+            await self._mint_authorization_code()
+        if gateway.region_response is None:
+            await gateway.get_region(country_code)
+        await gateway.connect()
+        await gateway.login_by_oauth(country_code)
+        await gateway.aep_handle()
+        await gateway.session_by_auth_code()
+        await gateway.list_binding_by_account()
+        if (
+            gateway.aep_response is None
+            or gateway.region_response is None
+            or gateway.session_by_authcode_response is None
+            or gateway.session_by_authcode_response.data is None
+        ):
+            msg = "Aliyun setup incomplete — no AEP, region or session response"
+            raise CloudSetupError(msg)
+        if gateway is not self._cloud_gateway:
+            self.attach_cloud_gateway(gateway)
+        return gateway
+
+    async def recover_aliyun(self, cloud_gateway: CloudIOTGateway) -> CloudIOTGateway | None:
+        """Establish an Aliyun session for a restore, without letting its failure escape.
+
+        Returns the gateway once established.  A transient failure defers it: the
+        scheduler retries with a doubling delay and fires :attr:`on_aliyun_established`
+        on success.  A throttle defers it to the end of its cooldown.  A refusal gives
+        the Aliyun transport up (:attr:`aliyun_unavailable`).  Only an account-level
+        rejection raises.
+        """
+        try:
+            async with self._lock:
+                gateway = await self.establish_aliyun(cloud_gateway)
+        except RateLimitedError as exc:
+            _LOGGER.warning("Aliyun session for %s deferred: %s", self._account_id, exc)
+            self._aliyun_pending = cloud_gateway
+            self._aliyun_retry_at = time.time() + exc.retry_after
+            return None
+        except Exception as exc:
+            if self._reauth_required is not None:
+                raise
+            if is_transient_network_error(exc):
+                delay = min(_SCHEDULER_RETRY_DELAY * 2**self._aliyun_retries, _MAX_ALIYUN_RETRY_DELAY)
+                _LOGGER.warning(
+                    "Aliyun session for %s unavailable (%s) — retrying in %.0fs", self._account_id, exc, delay
+                )
+                self._aliyun_pending = cloud_gateway
+                self._aliyun_retry_at = time.time() + delay
+                self._aliyun_retries += 1
+            else:
+                self._mark_aliyun_unavailable(f"Aliyun session could not be established: {exc}")
+            return None
+        self._aliyun_retries = 0
+        return gateway
+
+    async def _mint_authorization_code(self) -> None:
+        """Fetch a fresh single-use authorization code with a bearer the server accepts.
+
+        The expiry check comes first; a 401 means the bearer was revoked server-side,
+        which earns one forced refresh and one retry.  A second 401 is the login itself.
+        """
+        try:
+            await self._http.refresh_authorization_token()
+        except UnauthorizedExceptionError:
+            await self.refresh_http()
+            await self._fetch_code_with_fresh_bearer()
+
+    async def _fetch_code_with_fresh_bearer(self) -> None:
+        """Fetch a code right after :meth:`refresh_http`; a 401 now means the login is dead."""
+        try:
+            await self._http.fetch_authorization_token()
+        except UnauthorizedExceptionError as exc:
+            raise self._mark_reauth_required(f"authorization code refused a freshly refreshed bearer: {exc}") from exc
+
+    async def _force_refresh_bearer(self) -> None:
+        """Renew the access token regardless of its expiry, then a code; a refused or throttled code is ignored."""
+        await self.refresh_http()
+        with contextlib.suppress(AuthorizationCodeError, RateLimitedError):
+            await self._fetch_code_with_fresh_bearer()
+
+    async def connect_iot(self) -> None:
+        """Rebuild the attached gateway's Aliyun session; kept for callers of the old name."""
+        await self.establish_aliyun()
+
+    async def refresh_invoke_token(self, stale_token: str | None = None) -> None:
+        """Renew the HTTP bearer used for ``mqtt_invoke`` after a 401, ignoring the local expiry clock.
+
+        Args:
+            stale_token: The access token the failed request used.  When the live token
+                has moved on, another caller already refreshed, so this returns and the
+                caller retries — a burst of 401s then costs one refresh, not one each.
+
+        Raises:
+            ReLoginRequiredError: The refresh token, or the refreshed bearer, was rejected.
+                A transient failure propagates as itself.
 
         """
         async with self._lock:
@@ -893,13 +1056,7 @@ class TokenManager:
                 current = login_info.access_token if login_info is not None else None
                 if current is not None and current != stale_token:
                     return
-            try:
-                await self.refresh_http()
-                await self._http.fetch_authorization_token()
-            except ReLoginRequiredError:
-                raise
-            except UnauthorizedExceptionError as exc:
-                raise self._mark_reauth_required(str(exc)) from exc
+            await self._force_refresh_bearer()
 
     def _set_mqtt_creds(self, data: MQTTConnection) -> MQTTCredentials:
         """Store MQTTConnection data into self._mqtt_creds and return it.
@@ -917,21 +1074,12 @@ class TokenManager:
         )
         return self._mqtt_creds
 
-    async def _refresh_mqtt(self) -> MQTTCredentials:
+    async def _refresh_mqtt(self, *, retrying: bool = False) -> MQTTCredentials:
         """Fetch a fresh Mammotion MQTT JWT.  Callers hold ``self._lock``.
 
-        ``get_mqtt_credentials`` carries ``@refresh_token_decorator``, so the
-        access token is renewed first if — and only if — it is close to expiry.
-        If the JWT endpoint still refuses, the access token is force-renewed once
-        and the fetch retried; that covers a server-side revocation the local
-        expiry clock cannot see.
-
-        A second refusal gives up on the Mammotion MQTT transport *only*: the HTTP
-        login and any Aliyun transport are still good, so the account's cached
-        credentials are deliberately left intact.
-
-        Updates *_mqtt_creds* in place.  Expiry is taken from the JWT's ``exp``
-        claim (see :func:`_jwt_expiry`), falling back to 24 hours when absent.
+        A refusal force-renews the access token once and retries, covering a
+        server-side revocation the expiry clock cannot see.  A second refusal gives
+        up the Mammotion MQTT transport only; the login and cached credentials stay.
 
         Raises:
             ReLoginRequiredError: The MQTT JWT cannot be renewed.  Transient
@@ -939,25 +1087,21 @@ class TokenManager:
 
         """
         self._raise_if_reauth_required()
-        if self._mqtt_unavailable is not None:
+        if self._mqtt_unavailable is not None and not retrying:
             raise ReLoginRequiredError(self._account_id, self._mqtt_unavailable)
         try:
             response = await self._http.get_mqtt_credentials()
             if response.data is None:
-                # Force-renew the access token and re-fetch the authorization code,
-                # then retry once.  Reading self._http.mqtt_credentials here would
-                # yield the prior (now-rejected) JWT.
-                await self.refresh_http()
-                await self._http.fetch_authorization_token()
+                await self._force_refresh_bearer()
                 response = await self._http.get_mqtt_credentials()
                 if response.data is None:
-                    # Do NOT fall through to the old snapshot — returning stale creds
-                    # loops 401 → refresh → 401, rotating refresh tokens server-side
-                    # on every pass.
+                    # Never fall back to the old snapshot: that loops 401 → refresh → 401.
                     raise self._mark_mqtt_unavailable("MQTT JWT endpoint returned no data after access-token refresh")
             creds = self._set_mqtt_creds(response.data)
         except ReLoginRequiredError:
             self._adopt_http_reauth()
+            raise
+        except RateLimitedError:
             raise
         except Exception as exc:
             if is_transient_network_error(exc):

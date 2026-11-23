@@ -18,27 +18,6 @@ const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../tests/data/eval_proj_dcs.jso
 const LAZY_CONFIG_ID_LIST_MANIFEST_URL: &str = "https://lists.test/manifest";
 const LAZY_CONFIG_ID_LIST_FILE_URL: &str = "https://lists.test/lazy-members";
 
-#[test]
-fn shared_initial_base_is_selected_per_instance() {
-    let directory = tempfile::tempdir().unwrap();
-    let client = |experimental_flags| {
-        Statsig::new(
-            "secret-initial-base-test",
-            Some(Arc::new(StatsigOptions {
-                enable_id_lists: Some(true),
-                enable_id_list_elias_fano: Some(true),
-                shared_id_lists_dir: Some(directory.path().display().to_string()),
-                experimental_flags,
-                ..Default::default()
-            })),
-        )
-    };
-    let pilot = client(Some(["shared_initial_id_list_base".into()].into()));
-    let control = client(None);
-    assert!(matches!(pilot.id_lists_adapter, LocalIdLists::Worker(_)));
-    assert!(matches!(control.id_lists_adapter, LocalIdLists::Catalog(_)));
-}
-
 #[derive(Default)]
 struct CapturingEventLoggingAdapter {
     payloads: Mutex<Vec<crate::log_event_payload::LogEventPayload>>,
@@ -447,14 +426,33 @@ async fn direct_gate_experiment_and_layer_apis_lazy_load_id_lists() {
 
 #[tokio::test]
 async fn lazy_load_timeout_partially_evaluates_logs_reason_and_reports_ops_stats() {
-    let (statsig, adapter, event_logging_adapter) =
-        setup_lazy_config_test_with_logging(Duration::from_millis(200), true).await;
+    assert_lazy_timeout_recovers(StatsigOptions::default()).await;
+}
+
+#[tokio::test]
+async fn lazy_download_with_shared_directory_finishes_after_getter_wait_expires() {
+    let directory = tempfile::tempdir().unwrap();
+    assert_lazy_timeout_recovers(StatsigOptions {
+        shared_id_lists_dir: Some(directory.path().display().to_string()),
+        enable_id_list_elias_fano: Some(true),
+        ..Default::default()
+    })
+    .await;
+}
+
+async fn assert_lazy_timeout_recovers(options: StatsigOptions) {
+    let expect_mapped = options.shared_id_lists_dir.is_some();
+    let (statsig, provider, event_logging_adapter) =
+        setup_lazy_config_test_with_option(Duration::ZERO, true, Some(true), options).await;
+    let release = Arc::new(tokio::sync::Semaphore::new(0));
+    *provider.first_body_gate.lock() = Some(release.clone());
     let event_logging_adapter = event_logging_adapter.unwrap();
     let mut ops_stats = statsig.ops_stats.subscribe_for_test();
     let started = Instant::now();
     let timed_out =
         statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
 
+    release.add_permits(1);
     assert!(started.elapsed() < Duration::from_millis(150));
     assert_eq!(timed_out.get_opt::<bool>("loaded"), None);
     assert!(
@@ -496,11 +494,22 @@ async fn lazy_load_timeout_partially_evaluates_logs_reason_and_reports_ops_stats
         );
     }
 
-    tokio::time::sleep(Duration::from_millis(250)).await;
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let Some(list) = statsig.spec_store.load_data().id_lists.get("lazy-members") {
+                assert_eq!(list.ids.is_mapped(), expect_mapped);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("background load should install the list after the getter times out");
     let loaded =
         statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
     assert_eq!(loaded.get_opt::<bool>("loaded"), Some(true));
-    assert_eq!(adapter.downloads.load(Ordering::SeqCst), 1);
+    assert!(!loaded.details.reason.contains("PartialEvaluation"));
+    assert_eq!(provider.downloads.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

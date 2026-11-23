@@ -92,6 +92,8 @@ CALL :collect dbgcore.dll
 CALL :collect dciman32.dll
 CALL :collect ddraw.dll
 CALL :collect devobj.dll
+CALL :collect dhcpcsvc.dll
+CALL :collect dhcpcsvc6.dll
 CALL :collect diagnosticdatasettings.dll
 CALL :collect dinput.dll
 CALL :collect dinput8.dll
@@ -111,6 +113,7 @@ CALL :collect gdiplus.dll
 CALL :collect glu32.dll
 CALL :collect hal.dll
 CALL :collect hid.dll
+CALL :collect iconcodecservice.dll
 CALL :collect imageres.dll
 CALL :collect imm32.dll
 CALL :collect imagehlp.dll
@@ -192,6 +195,7 @@ CALL :collect samlib.dll
 CALL :collect schannel.dll
 CALL :collect sechost.dll
 CALL :collect secur32.dll
+CALL :collect sensapi.dll
 CALL :collect setupapi.dll
 CALL :collect shcore.dll
 CALL :collect shell32.dll
@@ -274,6 +278,11 @@ CALL :collect l_intl.nls
 CALL :collect c_1252.nls
 CALL :collect c_437.nls
 CALL :collect c_850.nls
+CALL :collect normidna.nls
+CALL :collect normnfc.nls
+CALL :collect normnfd.nls
+CALL :collect normnfkc.nls
+CALL :collect normnfkd.nls
 CALL :collect_file "%WINDIR%\Globalization\Sorting", sortdefault.nls, %EMU_SORTDIR%
 
 CALL :collect wdmaud.drv

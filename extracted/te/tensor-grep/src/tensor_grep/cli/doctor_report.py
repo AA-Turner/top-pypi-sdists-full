@@ -7,9 +7,9 @@ ast-grep provider probes, GPU tier and runtime probes, cache and daemon status -
 `main.py`; only its evidence gathering moved.
 
 `_self` is `cli/main.py`'s module object, imported from `cli/_main_binding`. Every reference
-here to a symbol that still lives in `main.py` goes through it -- including `_self.subprocess`,
-which the test suite patches on `main` to stub out `tg --version` probes. Read that module's
-docstring before adding a bare cross-module reference.
+here to a symbol that still lives in `main.py` goes through it. Read that module's docstring before
+adding a bare cross-module reference. Candidate `tg --version` probes use the contained, byte-capped
+freshness helper directly; its tests patch this module's `capture_probe` binding.
 
 One exception is deliberate: `_doctor_rust_binary_version` keeps its FUNCTION-LOCAL
 `import subprocess` and a bare `subprocess.run`. A local import shadows the module global, so
@@ -20,6 +20,7 @@ rewriting it to `_self.subprocess` would have newly exposed it to the patch.
 This module sits in the same directory as `main.py`, so the depth is unchanged by the move.
 """
 
+import contextlib
 import json
 import math
 import os
@@ -27,14 +28,17 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
 from tensor_grep.cli._main_binding import _self as _self
+from tensor_grep.cli.doctor_launcher_probe import powershell_shim_target as powershell_shim_target
 from tensor_grep.cli.doctor_shell_guidance import (
     _doctor_shell_escaping_guidance as _doctor_shell_escaping_guidance,
 )
+from tensor_grep.cli.freshness_process import capture_probe
 from tensor_grep.cli.runtime_paths import (
     gpu_probe_timeout_s,
     iter_in_tree_native_tg_binaries,
@@ -731,13 +735,14 @@ def _doctor_installation_health(
     pypi_latest: str | None = None,
 ) -> str:
     """Aggregate installation health (A90 PATH-honesty). Precedence:
-    foreign_launcher > unverifiable_version > launcher_version_mismatch > stale_install >
-    unknown_pypi > ok. ANY unverifiable version (invalid installed, invalid pypi_latest, or
-    invalid present-route version) lands on unverifiable_version, never ok (codex must-fix
-    REV-4: an invalid NON-NULL pypi_latest must not fall through to ok — hence pypi_latest is
-    parsed here when provided)."""
+    foreign_launcher > managed_launcher_broken > unverifiable_version >
+    launcher_version_mismatch > stale_install > unknown_pypi > ok. ANY unverifiable version
+    (invalid installed/pypi_latest/route) lands on unverifiable_version, never ok (codex
+    REV-4: an invalid NON-NULL pypi_latest must not fall through to ok)."""
     if any(bool(entry.get("foreign")) for entry in shadow_launchers):
         return "foreign_launcher"
+    if any(entry.get("kind") == "managed-native-broken" for entry in shadow_launchers):
+        return "managed_launcher_broken"
     if _doctor_version_tuple(installed_version) is None or _any_route_unverifiable(
         shadow_launchers
     ):
@@ -806,28 +811,49 @@ def _doctor_rust_binary_warning(
 
 
 def _doctor_tg_candidate_version(candidate: Path) -> str | None:
+    from tensor_grep.cli.doctor_launcher_probe import (
+        sanitized_probe_env,
+        verified_powershell_shim_probe,
+        verified_probe_target,
+    )
     from tensor_grep.cli.frontdoor_hops import probe_env
 
-    env = probe_env()
+    env = sanitized_probe_env(probe_env())
     if env is None:  # TG_FRONTDOOR_HOPS limit/malformed: do not spawn native tg
         return None
-    for key in ("PYTHONHOME", "PYTHONPATH", "VIRTUAL_ENV", "__PYVENV_LAUNCHER__"):
-        env.pop(key, None)
+
+    @contextlib.contextmanager
+    def _lease() -> Iterator[tuple[Path, str, tuple[int, ...], Callable[[], bool]] | None]:
+        if candidate.suffix.lower() == ".ps1":
+            with verified_powershell_shim_probe(candidate) as leased:
+                yield leased
+        else:
+            with verified_probe_target(candidate) as leased_target:
+                if leased_target is None:
+                    yield None
+                else:
+                    launch_arg, pass_fds, verify_unchanged = leased_target
+                    yield (candidate, launch_arg, pass_fds, verify_unchanged)
+
+    with _lease() as leased:
+        if leased is None:
+            return None
+        probe_candidate, launch_arg, pass_fds, verify_unchanged = leased
+        try:
+            stdout_bytes, _stderr_bytes = capture_probe(
+                [launch_arg, "--version"],
+                timeout_seconds=2,
+                env=env,
+                require_success=True,
+                cwd=str(probe_candidate.parent),
+                pass_fds=pass_fds,
+            )
+        except Exception:
+            return None
+        if not verify_unchanged():
+            return None
     try:
-        res = _self.subprocess.run(
-            [str(candidate), "--version"],
-            capture_output=True,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            text=False,
-            timeout=2,
-        )
-    except Exception:
-        return None
-    if res.returncode != 0:
-        return None
-    try:
-        stdout = decode_protocol_output(res.stdout)
+        stdout = decode_protocol_output(stdout_bytes)
     except UnicodeDecodeError:
         return None
     for line in stdout.splitlines():
@@ -846,22 +872,26 @@ def _doctor_tg_launcher_kind(
 ) -> str | None:
     if not path:
         return None
-    if version_text is not _DOCTOR_VERSION_NOT_PROVIDED and not isinstance(version_text, str):
-        return "foreign"
-    if isinstance(version_text, str) and not _doctor_tg_version_looks_like_tensor_grep(
-        version_text
-    ):
-        return "foreign"
-
     candidate = Path(path)
-    suffix = candidate.suffix.lower()
     parts = tuple(part.lower() for part in candidate.parts)
+    is_managed = (
+        len(parts) >= 3
+        and parts[-3:-1] == (".tensor-grep", "bin")
+        and candidate.name.lower() in {"tg", "tg.exe"}
+    )
+    if version_text is not _DOCTOR_VERSION_NOT_PROVIDED and (
+        not isinstance(version_text, str)
+        or not _doctor_tg_version_looks_like_tensor_grep(version_text)
+    ):
+        return "managed-native-broken" if is_managed else "foreign"
+
+    suffix = candidate.suffix.lower()
     if suffix in {".cmd", ".bat"}:
         return "cmd-shim"
     if suffix == ".ps1":
         return "powershell-shim"
     if suffix in {".com", ".exe"}:
-        if ".tensor-grep" in parts and "bin" in parts:
+        if is_managed:
             return "managed-native"
         if suffix == ".exe" and isinstance(version_text, str) and version_text.startswith("tg "):
             return "native-exe"
@@ -876,7 +906,7 @@ def _doctor_tg_launcher_kind(
             return "python-entrypoint"
         return "native-exe"
     if candidate.name.lower() == "tg":
-        if ".tensor-grep" in parts and "bin" in parts:
+        if is_managed:
             return "managed-native"
         if sys.platform.startswith("win"):
             return "bash-shim"
@@ -964,9 +994,10 @@ def _doctor_path_tg_candidates(path_value: str | None = None) -> list[dict[str, 
             if key in seen:
                 continue
             seen.add(key)
+            probe_input = candidate if candidate.suffix.lower() == ".ps1" else resolved
             candidates.append({
                 "path": str(resolved),
-                "version": _self._doctor_tg_candidate_version(resolved),
+                "version": _self._doctor_tg_candidate_version(probe_input),
             })
     return candidates
 
@@ -1099,35 +1130,6 @@ def _doctor_tg_foreign_warning(
     return (
         f"first {label} tg is not tensor-grep: {path} reports "
         f"{version or 'no recognizable --version output'}; expected tg {expected_version}."
-    )
-
-
-def _doctor_tg_foreign_remediation(
-    *,
-    foreign_path: str | None,
-    candidates: list[dict[str, str | None]],
-) -> str | None:
-    if not foreign_path:
-        return None
-    managed_candidate = next(
-        (
-            candidate
-            for candidate in candidates
-            if _doctor_tg_launcher_kind(candidate.get("path"), candidate.get("version"))
-            == "managed-native"
-        ),
-        None,
-    )
-    managed_path = managed_candidate.get("path") if managed_candidate else None
-    managed_dir = str(Path(managed_path).parent) if managed_path else "~/.tensor-grep/bin"
-    foreign_dir = str(Path(foreign_path).parent)
-    return (
-        f"Move {managed_dir} earlier in PATH than {foreign_dir}, or rename the foreign tg "
-        "command outside tensor-grep. If the foreign directory comes from Machine PATH, "
-        "User PATH repair cannot outrank it. If you own the foreign command, run "
-        "tg repair-launcher --allow-foreign-rename to back it up before installing the "
-        "managed native tg.exe into that PATH slot. Do not remove unrelated launchers "
-        "unless you own them."
     )
 
 

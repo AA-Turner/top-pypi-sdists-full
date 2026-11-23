@@ -1,12 +1,11 @@
-"""Automatic schema loading.
-
-This module handles the automatic detection and loading of API schemas,
-supporting OpenAPI, GraphQL, and gRPC services.
-"""
+"""Automatic detection and loading of OpenAPI, GraphQL and gRPC schemas."""
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import os
+import sys
 import warnings
 from collections.abc import Callable, Iterable
 from json import JSONDecodeError
@@ -19,8 +18,16 @@ from schemathesis.cli.constants import MISSING_BASE_URL_MESSAGE
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.validation import validate_tls_verify
 from schemathesis.config import ProjectConfig, ReportFormat
-from schemathesis.core import SpecificationKind
-from schemathesis.core.errors import HookExecutionError, IncorrectUsage, InvalidSchema, LoaderError, LoaderErrorKind
+from schemathesis.core import Specification, SpecificationFeature
+from schemathesis.core.app_output import inside_application
+from schemathesis.core.errors import (
+    HookExecutionError,
+    IncorrectUsage,
+    InvalidSchema,
+    LoaderError,
+    LoaderErrorKind,
+    format_exception,
+)
 from schemathesis.core.fs import file_exists
 from schemathesis.engine.events import EventGenerator, FatalError, Interrupted
 from schemathesis.grpc.loaders import BUILD_HINT, require_extra
@@ -37,11 +44,21 @@ GRPC_HTTP_REPORTS_MESSAGE = (
 GRPC_WFC_AUTH_MESSAGE = (
     "Web Fuzzing Commons authentication (`--auth-wfc`, `[auth.wfc]`) is not available for gRPC targets"
 )
+GRPC_APP_MESSAGE = "`--app` works with Open API and GraphQL schemas, not with gRPC"
 GRPC_REQUESTS_AUTH_MESSAGE = (
     "`requests` auth objects are not supported for gRPC targets; "
     "pass credentials as headers, basic auth or an `@schemathesis.auth()` class"
 )
 WFC_REPORT_MESSAGE = "WFC reports describe REST endpoints and are only available for Open API schemas"
+# Reports that need a specification feature, checked in order, with the refusal for a schema that lacks it.
+_REPORT_FEATURES: tuple[tuple[SpecificationFeature, tuple[ReportFormat, ...], str], ...] = (
+    (
+        SpecificationFeature.HTTP_REPORTS,
+        (ReportFormat.HAR, ReportFormat.VCR, ReportFormat.WFC, ReportFormat.PYTEST),
+        GRPC_HTTP_REPORTS_MESSAGE,
+    ),
+    (SpecificationFeature.WFC_REPORTS, (ReportFormat.WFC,), WFC_REPORT_MESSAGE),
+)
 GRPC_DESCRIPTOR_SET_EXTENSIONS = (".binpb", ".pb", ".protoset")
 TEXT_SCHEMA_EXTENSIONS = (".json", ".yaml", ".yml")
 PROTO_FILE_MESSAGE = f"Schemathesis reads descriptor sets, not `.proto` files. {BUILD_HINT} and run `schemathesis run api.binpb --url URL`"
@@ -57,11 +74,9 @@ def into_event_stream(
     validate_tls_verify(config.tls_verify)
     # Checked before any report handler creates its file.
     if is_grpc_location(location):
-        if any(
-            config.reports.get(report_format).enabled
-            for report_format in (ReportFormat.HAR, ReportFormat.VCR, ReportFormat.WFC, ReportFormat.PYTEST)
-        ):
-            raise click.UsageError(GRPC_HTTP_REPORTS_MESSAGE)
+        if config.app is not None:
+            raise click.UsageError(GRPC_APP_MESSAGE)
+        _refuse_unsupported_reports(config, Specification.grpc(version=""))
         if config.auth.wfc is not None:
             raise click.UsageError(GRPC_WFC_AUTH_MESSAGE)
         if any(
@@ -78,6 +93,14 @@ def into_event_stream(
     return _event_stream(location=location, config=config, filter_set=filter_set, engine_callback=engine_callback)
 
 
+def _refuse_unsupported_reports(config: ProjectConfig, specification: Specification) -> None:
+    for feature, formats, message in _REPORT_FEATURES:
+        if not specification.supports_feature(feature) and any(
+            config.reports.get(report_format).enabled for report_format in formats
+        ):
+            raise click.UsageError(message)
+
+
 def _event_stream(
     *,
     location: str,
@@ -85,22 +108,19 @@ def _event_stream(
     filter_set: dict[str, Any],
     engine_callback: Callable[[BaseSchema], Iterable[events.EngineEvent]],
 ) -> EventGenerator:
-    # The whole engine idea is that it communicates with the outside via events, so handlers can react to them.
-    # For this reason, even schema loading is done via a separate set of events.
+    # The engine talks to handlers through events, so schema loading emits its own events too.
     loading_started = LoadingStarted(location=location)
     yield loading_started
 
     try:
         schema = load_schema(location=location, config=config)
-        if config.reports.wfc.enabled and schema.specification.kind != SpecificationKind.OPENAPI:
-            raise click.UsageError(WFC_REPORT_MESSAGE)
+        _refuse_unsupported_reports(config, schema.specification)
         # An explicitly configured base URL carries its own path, so the origin only applies without one.
         if schema.config.origin is not None and schema.config.base_url is None:
             schema.config.base_url = schema.config.origin.rstrip("/") + schema.base_path.rstrip("/")
-        # Schemas don't (yet?) use configs for deciding what operations should be tested, so
-        # a separate FilterSet is passed there. It combines both config file filters + CLI options.
+        # Schemas select operations through a `FilterSet` combining config file filters and CLI options, not the config.
         schema.filter_set = schema.config.operations.create_filter_set(**filter_set)
-        if file_exists(location) and schema.config.base_url is None:
+        if file_exists(location) and schema.config.base_url is None and schema.app is None:
             message = MISSING_BASE_URL_MESSAGE
             declared = schema.declared_base_url
             if declared is not None:
@@ -136,7 +156,66 @@ def _event_stream(
 
 def load_schema(location: str, config: ProjectConfig) -> BaseSchema:
     """Load API schema automatically based on the provided configuration."""
-    return _try_load_schema(location, config, _candidate_modules(location))
+    if config.app is None:
+        return _try_load_schema(location, config, _candidate_modules(location))
+    with inside_application():
+        app = load_app(config.app)
+    return _try_load_schema(location, config, _candidate_modules(location), app)
+
+
+def load_app(path: str) -> object:
+    """Import the application at `module:attribute`."""
+    module_name, _, attribute = path.partition(":")
+    if not module_name or not attribute:
+        raise click.UsageError(f"Invalid `--app` value `{path}`: expected `module:attribute`, e.g. `project.asgi:app`")
+    # Applications often live in the working directory, which is not always importable
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.append(cwd)
+    try:
+        module = importlib.import_module(module_name)
+    except Exception as exc:
+        if isinstance(exc, ModuleNotFoundError) and exc.name == module_name:
+            raise click.UsageError(f"Can not import `{module_name}` from `--app={path}`: no such module") from None
+        # The import machinery's own frames say nothing about the application
+        trace = exc.__traceback__
+        while trace is not None and (
+            "importlib" in trace.tb_frame.f_code.co_filename or trace.tb_frame.f_code is load_app.__code__
+        ):
+            trace = trace.tb_next
+        details = format_exception(exc.with_traceback(trace), with_traceback=True)
+        raise click.UsageError(f"Can not import `{module_name}` from `--app={path}`:\n\n{details}") from None
+    try:
+        app = getattr(module, attribute)
+    except AttributeError:
+        raise click.UsageError(f"Module `{module_name}` from `--app={path}` has no attribute `{attribute}`") from None
+    if _is_factory(app):
+        try:
+            app = app()
+        except Exception as exc:
+            details = format_exception(exc, with_traceback=True, skip_frames=1)
+            raise click.UsageError(
+                f"`{attribute}` from `--app={path}` failed to create the app:\n\n{details}"
+            ) from None
+    if not callable(app):
+        raise click.UsageError(
+            f"`{attribute}` from `--app={path}` is not an ASGI or WSGI application, got `{type(app).__name__}`"
+        )
+    return app
+
+
+def _is_factory(app: object) -> bool:
+    """Whether calling `app` with nothing builds the application: ASGI and WSGI apps need arguments."""
+    if not callable(app):
+        return False
+    try:
+        signature = inspect.signature(app)
+    except (TypeError, ValueError):
+        return False
+    return all(
+        parameter.default is not parameter.empty or parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD)
+        for parameter in signature.parameters.values()
+    )
 
 
 def _candidate_modules(location: str) -> tuple[ModuleType, ...]:
@@ -161,7 +240,7 @@ def should_try_more(exc: LoaderError) -> bool:
     ):
         return False
 
-    # We should not try other loaders for cases when we can't even establish connection
+    # A connection failure would fail other loaders too
     return not isinstance(exc.__cause__, requests.exceptions.ConnectionError) and exc.kind not in (
         LoaderErrorKind.OPEN_API_INVALID_SCHEMA,
         LoaderErrorKind.OPEN_API_UNSPECIFIED_VERSION,
@@ -170,13 +249,14 @@ def should_try_more(exc: LoaderError) -> bool:
 
 
 def detect_loader(location: str, module: Any) -> Callable:
-    """Detect API schema loader."""
     if file_exists(location):
         return module.from_path
     return module.from_url
 
 
-def _try_load_schema(location: str, config: ProjectConfig, modules: tuple[ModuleType, ...]) -> BaseSchema:
+def _try_load_schema(
+    location: str, config: ProjectConfig, modules: tuple[ModuleType, ...], app: object = None
+) -> BaseSchema:
     """Load with the first module, falling back to the rest in order."""
     from urllib3.exceptions import InsecureRequestWarning
 
@@ -184,21 +264,36 @@ def _try_load_schema(location: str, config: ProjectConfig, modules: tuple[Module
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", InsecureRequestWarning)
         try:
-            return _load_schema(location, config, first)
+            return _load_schema(location, config, first, app)
         except LoaderError as exc:
             if should_try_more(exc):
                 for module in rest:
                     try:
-                        return _load_schema(location, config, module)
+                        return _load_schema(location, config, module, app)
                     except Exception as other_exc:
                         if is_specific_exception(other_exc):
                             raise other_exc
-            # Re-raise the original error
             raise exc
 
 
-def _load_schema(location: str, config: ProjectConfig, module: Any) -> BaseSchema:
+def _load_schema(location: str, config: ProjectConfig, module: Any, app: object = None) -> BaseSchema:
     """Unified schema loader for OpenAPI, GraphQL, and gRPC."""
+    if app is not None:
+        if file_exists(location):
+            if module is graphql:
+                raise click.UsageError("A GraphQL `--app` needs the path it serves GraphQL at, e.g. `/graphql`")
+            return openapi.loaders._from_path(location, config=config._parent, app=app)
+        from schemathesis.transport import is_asgi_app
+
+        loader = module.from_asgi if is_asgi_app(app) else module.from_wsgi
+        try:
+            return loader(location, app, config=config._parent)
+        except (LoaderError, HookExecutionError):
+            raise
+        except Exception as exc:
+            raise click.UsageError(
+                f"The application failed while serving its schema at `{location}`: {type(exc).__name__}: {exc}"
+            ) from None
     loader = detect_loader(location, module)
 
     kwargs: dict = {}
@@ -211,7 +306,7 @@ def _load_schema(location: str, config: ProjectConfig, module: Any) -> BaseSchem
 
 
 def is_specific_exception(exc: Exception) -> bool:
-    """Determine if alternative schema loading should be attempted."""
+    """Whether a fallback loader's error is specific enough to report instead of the original one."""
     return (
         isinstance(exc, LoaderError)
         and exc.kind == LoaderErrorKind.GRAPHQL_INVALID_SCHEMA

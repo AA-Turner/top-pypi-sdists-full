@@ -24,6 +24,8 @@ __all__ = [
 ]
 
 from typing import Union, Callable, Optional, List, Dict
+import contextlib as _contextlib
+import functools as _functools
 import itertools as _itertools
 import json as _json
 from bisect import bisect_left as _bisect_left
@@ -805,6 +807,53 @@ pass
 
 def _rebuild_response_masker(arguments):
     return train_on_responses_only(None, **arguments)
+pass
+
+
+@_contextlib.contextmanager
+def rank_zero_first(dataset):
+    """On a multi-rank run, rank 0 runs the body first and the other ranks after it, so their
+    `map` calls load the Arrow cache rank 0 wrote instead of recomputing it (the window TRL's own
+    `_prepare_dataset` runs in). Only for a file-backed split: an in-memory one writes no cache,
+    so waiting would just serialise the ranks. Rank 0 reaches the barrier even when the body
+    raises, so the other ranks run it and raise too instead of hanging at the barrier."""
+    try:
+        import torch.distributed as dist
+        active = (
+            dist.is_available()
+            and dist.is_initialized()
+            and dist.get_world_size() > 1
+            and bool(getattr(dataset, "cache_files", None))
+        )
+    except Exception:
+        active = False
+    if not active:
+        yield
+        return
+    is_main = dist.get_rank() == 0
+    if not is_main:
+        dist.barrier()
+    try:
+        yield
+    finally:
+        if is_main:
+            dist.barrier()
+pass
+
+
+def rank_zero_first_prepare(prepare):
+    """Wrap a trainer's `_prepare_dataset(dataset, ...)` in `rank_zero_first(dataset)`."""
+    if getattr(prepare, "_unsloth_rank_zero_first", False):
+        return prepare
+
+    @_functools.wraps(prepare)
+    def prepare_rank_zero_first(*args, **kwargs):
+        dataset = args[0] if args else kwargs.get("dataset")
+        with rank_zero_first(dataset):
+            return prepare(*args, **kwargs)
+
+    prepare_rank_zero_first._unsloth_rank_zero_first = True
+    return prepare_rank_zero_first
 pass
 
 
@@ -2334,12 +2383,14 @@ def train_on_responses_only(
                 columns = getattr(dataset, "_format_columns", fmt.get("columns")),
                 output_all_columns = fmt.get("output_all_columns", False),
             )
-        dataset = _maybe_tokenize_dataset(dataset)
-        if isinstance(dataset, IterableDataset):
-            dataset = dataset.map(_train_on_responses_only, batch_size = _iterable_batch_size(dataset), batched = True)
-        else:
-            dataset = dataset.map(_train_on_responses_only, batched = True, num_proc = _effective_num_proc(dataset))
-        return _filter_fully_masked(dataset, dataset_name)
+        # Rank 0 first on a file-backed split: the other ranks then load its cached maps.
+        with rank_zero_first(dataset):
+            dataset = _maybe_tokenize_dataset(dataset)
+            if isinstance(dataset, IterableDataset):
+                dataset = dataset.map(_train_on_responses_only, batch_size = _iterable_batch_size(dataset), batched = True)
+            else:
+                dataset = dataset.map(_train_on_responses_only, batched = True, num_proc = _effective_num_proc(dataset))
+            return _filter_fully_masked(dataset, dataset_name)
     pass
 
     # Map both splits before assigning: a raise on eval must not leave train half-masked for a retry.
@@ -2897,6 +2948,79 @@ def _row_tools(example):
 
 
 # Faster SFTTrainer prepare_dataset
+_MAP_TO_DISK_DIR = None
+# Windows cannot delete a file that is still memory-mapped, and the tokenized dataset is usually still
+# alive when the atexit cleanup runs, so each run would leave its dir behind; the next run removes them.
+_SWEEP_STALE_MAP_DIRS = __import__("os").name == "nt"
+
+
+def _sweep_stale_map_dirs(parent):
+    """Remove `unsloth_dataset_<pid>_*` dirs in `parent` whose process has exited."""
+    import os
+    import re
+    import shutil
+
+    try:
+        import psutil
+
+        for name in os.listdir(parent):
+            matched = re.match(r"unsloth_dataset_(\d+)_", name)
+            if matched is None or int(matched.group(1)) == os.getpid():
+                continue
+            if not psutil.pid_exists(int(matched.group(1))):
+                shutil.rmtree(os.path.join(parent, name), ignore_errors = True)
+    except Exception:
+        pass
+
+
+def _map_to_disk_kwargs(dataset):
+    """`cache_file_name` for tokenizing an in-memory `Dataset` (from_dict / from_list / pandas).
+
+    With no cache file to sit next to, `datasets` builds the mapped table in anonymous RAM and
+    keeps it there for the whole run (about 5 bytes per token, more with labels). A file in a
+    per-process temp dir makes it memory-mapped instead. The name is unique, so nothing is ever
+    reused across runs; the dir is removed at exit. UNSLOTH_DATASET_MAP_TO_DISK=0 turns it off,
+    =1 applies it whatever the size; the default (auto) only above
+    UNSLOTH_DATASET_MAP_TO_DISK_MIN_MB (128) of source data and with 4x that free on disk.
+    """
+    global _MAP_TO_DISK_DIR
+    import os
+
+    mode = os.environ.get("UNSLOTH_DATASET_MAP_TO_DISK", "auto").strip().lower()
+    if mode in ("0", "false", "off", "no"):
+        return {}
+    try:
+        if not isinstance(dataset, Dataset) or dataset.cache_files:
+            return {}
+        source_bytes = int(dataset.data.nbytes)
+        if mode not in ("1", "true", "on", "yes"):
+            try:
+                min_mb = float(os.environ.get("UNSLOTH_DATASET_MAP_TO_DISK_MIN_MB", "128"))
+            except ValueError:
+                min_mb = 128.0
+            if source_bytes < min_mb * 2**20:
+                return {}
+        import shutil
+        import tempfile
+        import uuid
+
+        if _MAP_TO_DISK_DIR is None or not os.path.isdir(_MAP_TO_DISK_DIR):
+            parent = os.environ.get("UNSLOTH_DATASET_MAP_TO_DISK_DIR") or tempfile.gettempdir()
+            if shutil.disk_usage(parent).free < 4 * source_bytes:
+                return {}
+            if _SWEEP_STALE_MAP_DIRS:
+                _sweep_stale_map_dirs(parent)
+            _MAP_TO_DISK_DIR = tempfile.mkdtemp(prefix = f"unsloth_dataset_{os.getpid()}_", dir = parent)
+            import atexit
+
+            atexit.register(shutil.rmtree, _MAP_TO_DISK_DIR, ignore_errors = True)
+        elif shutil.disk_usage(_MAP_TO_DISK_DIR).free < 4 * source_bytes:
+            return {}
+        return {"cache_file_name": os.path.join(_MAP_TO_DISK_DIR, f"tokenized_{uuid.uuid4().hex}.arrow")}
+    except Exception:
+        return {}
+
+
 def sft_prepare_dataset(
     self,
     dataset: Union[Dataset, IterableDataset],
@@ -3114,6 +3238,9 @@ def sft_prepare_dataset(
             )
         else:
             map_kwargs["batch_size"] = _iterable_batch_size(dataset)
+        # Tokenize an in-memory dataset into a temp file, not anonymous RAM; only these maps, not packing.
+        from unsloth_zoo.dataset_utils import _map_to_disk_kwargs
+        _tokenize_map_kwargs = {**map_kwargs, **_map_to_disk_kwargs(dataset)}
 
         if do_messages or do_prompt_completion:
             assistant_only_loss = bool(getattr(args, "assistant_only_loss", False))
@@ -3276,14 +3403,14 @@ def sft_prepare_dataset(
                 return results
 
             if use_desc:
-                map_kwargs["desc"] = 'Unsloth: Tokenizing ["prompt"+"completion"]'
+                _tokenize_map_kwargs["desc"] = 'Unsloth: Tokenizing ["prompt"+"completion"]'
             import warnings as _w
             with _w.catch_warnings():
                 _w.filterwarnings("ignore", message=".*couldn't be hashed properly.*")
                 dataset = dataset.map(
                     _batched_rows(_tokenize_pc, _tokenize_pc_rows) if _batch_map else _tokenize_pc,
                     batched=_batch_map,
-                    remove_columns=source_column_names, **map_kwargs,
+                    remove_columns=source_column_names, **_tokenize_map_kwargs,
                 )
             if assistant_only_loss:
                 # Prompt-history assistant turns are no target while completion_mask applies.
@@ -3400,14 +3527,14 @@ def sft_prepare_dataset(
                         results[i] = _tokenize_messages(row)
                 return results
 
-            if use_desc: map_kwargs["desc"] = 'Unsloth: Tokenizing ["messages"]'
+            if use_desc: _tokenize_map_kwargs["desc"] = 'Unsloth: Tokenizing ["messages"]'
             import warnings as _w
             with _w.catch_warnings():
                 _w.filterwarnings("ignore", message = ".*couldn't be hashed properly.*")
                 dataset = dataset.map(
                     _batched_rows(_tokenize_messages, _tokenize_messages_rows) if _batch_map else _tokenize_messages,
                     batched=_batch_map,
-                    remove_columns=source_column_names, **map_kwargs,
+                    remove_columns=source_column_names, **_tokenize_map_kwargs,
                 )
             if assistant_only_loss:
                 # Truncation can drop every assistant token; such a row has no target.
@@ -3419,11 +3546,11 @@ def sft_prepare_dataset(
                 else:
                     dataset = dataset.filter(lambda row: any(row["assistant_masks"]))
         else:
-            if use_desc: map_kwargs["desc"] = f'Unsloth: Tokenizing ["{dataset_text_field}"]'
+            if use_desc: _tokenize_map_kwargs["desc"] = f'Unsloth: Tokenizing ["{dataset_text_field}"]'
             import warnings as _w
             with _w.catch_warnings():
                 _w.filterwarnings("ignore", message=".*couldn't be hashed properly.*")
-                dataset = dataset.map(_tokenize, batched = True, remove_columns = source_column_names, **map_kwargs)
+                dataset = dataset.map(_tokenize, batched = True, remove_columns = source_column_names, **_tokenize_map_kwargs)
 
         # VLMs need .pad; switch the data collator
         # transformers' collator rebuilds labels from input_ids, dropping assistant masks: keep TRL's for messages.

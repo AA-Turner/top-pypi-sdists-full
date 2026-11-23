@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.33.4
+Version: 4.34.0
 Summary: Adaptive API testing for OpenAPI, GraphQL, and gRPC
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -34,7 +34,7 @@ Requires-Dist: click<9,>=8.0
 Requires-Dist: harfile<1.0,>=0.6.0
 Requires-Dist: hypothesis-graphql<1,>=0.13.6
 Requires-Dist: hypothesis<7,>=6.130.12
-Requires-Dist: jsonschema-rs<0.62.0,>=0.61.2
+Requires-Dist: jsonschema-rs<0.64.0,>=0.63.0
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=8.4
 Requires-Dist: pyyaml<7.0,>=5.1
@@ -46,7 +46,7 @@ Provides-Extra: allure
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
 Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'bench'
-Requires-Dist: pytest-codspeed==5.0.3; extra == 'bench'
+Requires-Dist: pytest-codspeed==5.0.4; extra == 'bench'
 Requires-Dist: pytest-timeout<3.0,>=2.3; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
@@ -68,9 +68,9 @@ Requires-Dist: httpx<1.0,>=0.22.0; extra == 'dev'
 Requires-Dist: mkdocstrings[python]; extra == 'dev'
 Requires-Dist: protobuf>=6.31.0; extra == 'dev'
 Requires-Dist: pydantic>=1.10.2; extra == 'dev'
-Requires-Dist: pymdown-extensions<12.2; extra == 'dev'
+Requires-Dist: pymdown-extensions<13.2; extra == 'dev'
 Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
-Requires-Dist: pytest-codspeed==5.0.3; extra == 'dev'
+Requires-Dist: pytest-codspeed==5.0.4; extra == 'dev'
 Requires-Dist: pytest-rerunfailures<17.0,>=15.0; extra == 'dev'
 Requires-Dist: pytest-timeout<3.0,>=2.3; extra == 'dev'
 Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'dev'
@@ -83,11 +83,11 @@ Requires-Dist: tracecov>=0.26; extra == 'dev'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'dev'
 Requires-Dist: uvicorn<1.0,>=0.20; extra == 'dev'
 Requires-Dist: webfuzzing-commons==0.13.0; extra == 'dev'
-Requires-Dist: zensical<0.1,>=0.0.73; extra == 'dev'
+Requires-Dist: zensical<0.2,>=0.0.73; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: mkdocstrings[python]; extra == 'docs'
-Requires-Dist: pymdown-extensions<12.2; extra == 'docs'
-Requires-Dist: zensical<0.1,>=0.0.73; extra == 'docs'
+Requires-Dist: pymdown-extensions<13.2; extra == 'docs'
+Requires-Dist: zensical<0.2,>=0.0.73; extra == 'docs'
 Provides-Extra: grpc
 Requires-Dist: googleapis-common-protos>=1.70.0; extra == 'grpc'
 Requires-Dist: grpcio-reflection>=1.72.1; extra == 'grpc'

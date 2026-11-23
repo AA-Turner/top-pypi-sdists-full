@@ -16,8 +16,7 @@ from schemathesis.cli.output import DEFAULT_INTERNAL_ERROR_MESSAGE
     ids=["check-failure", "engine-error"],
 )
 def test_lone_surrogate_in_check_message(cli, ctx, exception, prefix):
-    # `response.json()` decodes the server's ASCII `\uXXXX` escape into a real lone surrogate; the FAILURES and
-    # ERRORS renderers show it escaped instead of crashing or replacing it when writing to a UTF-8 terminal.
+    # `response.json()` decodes the `\uXXXX` escape into a lone surrogate; the output must show it escaped, not crash.
     app, _ = ctx.openapi.make_flask_app({"/echo": {"post": {"responses": {"200": {"description": "OK"}}}}})
 
     @app.route("/echo", methods=["POST"])
@@ -36,8 +35,18 @@ def test_lone_surrogate_in_check_message(cli, ctx, exception, prefix):
     assert f"{prefix} rejected: \\udc4b" in result.stdout, result.stdout
 
 
+@pytest.mark.parametrize(
+    "env",
+    [
+        {"PYTHONIOENCODING": "cp1252"},
+        # The state of a piped stdout on Windows
+        {"PYTHONIOENCODING": "cp1252:surrogateescape"},
+        {"LC_ALL": "C", "PYTHONCOERCECLOCALE": "0"},
+    ],
+    ids=["encoding", "encoding-and-errors", "legacy-locale"],
+)
 @pytest.mark.parametrize("value", ["ok", "쑅"], ids=["ascii", "non-ascii"])
-def test_output_on_cp1252_stdout(ctx, app_runner, tmp_path, value):
+def test_output_on_non_utf8_stdout(ctx, app_runner, tmp_path, env, value):
     # A stdout that cannot represent the output is normal on Windows and when piping to a file.
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -63,10 +72,13 @@ def test_output_on_cp1252_stdout(ctx, app_runner, tmp_path, value):
         capture_output=True,
         text=True,
         encoding="cp1252",
-        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+        errors="replace",
+        env={**os.environ, "PYTHONUTF8": "0", "PYTHONIOENCODING": "", **env},
     )
 
     output = result.stdout + result.stderr
+    header, separator = output.splitlines()[:2]
+    assert separator == "-" * len(header), output
     assert "UnicodeEncodeError" not in output, output
     assert DEFAULT_INTERNAL_ERROR_MESSAGE not in output, output
     assert result.returncode == 1, output

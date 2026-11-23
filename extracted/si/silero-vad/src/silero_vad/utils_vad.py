@@ -528,8 +528,11 @@ def get_speech_timestamps_from_probs(speech_probs: List[float],
                     current_speech['end'] = cur_sample
                     speeches.append(current_speech)
                     current_speech = {}
+                    if temp_end or speech_prob < neg_threshold:
+                        triggered = False  # cut inside a pause: wait for speech to return
+                    else:
+                        current_speech['start'] = cur_sample  # speech goes on: keep it in the next chunk
                     prev_end = next_start = temp_end = 0
-                    triggered = False
                     possible_ends = []
                     continue
 
@@ -594,7 +597,8 @@ class VADIterator:
                  threshold: float = 0.5,
                  sampling_rate: int = 16000,
                  min_silence_duration_ms: int = 100,
-                 speech_pad_ms: int = 30
+                 speech_pad_ms: int = 30,
+                 neg_threshold: float = None
                  ):
 
         """
@@ -615,11 +619,17 @@ class VADIterator:
             In the end of each speech chunk wait for min_silence_duration_ms before separating it
 
         speech_pad_ms: int (default - 30 milliseconds)
-            Final speech chunks are padded by speech_pad_ms each side
+            Final speech chunks are padded by speech_pad_ms each side (a start is never padded back past the previous end)
+
+        neg_threshold: float (default = max(threshold - 0.15, 0.01))
+            Negative threshold (noise or exit threshold). If model's current state is SPEECH, values BELOW this value are considered as NON-SPEECH.
         """
 
         self.model = model
         self.threshold = threshold
+        if neg_threshold is None:
+            neg_threshold = max(threshold - 0.15, 0.01)
+        self.neg_threshold = neg_threshold
         self.sampling_rate = sampling_rate
 
         if sampling_rate not in [8000, 16000]:
@@ -635,6 +645,7 @@ class VADIterator:
         self.triggered = False
         self.temp_end = 0
         self.current_sample = 0
+        self.last_speech_end = 0
 
     @torch.no_grad()
     def __call__(self, x, return_seconds=False, time_resolution: int = 1):
@@ -665,10 +676,11 @@ class VADIterator:
 
         if (speech_prob >= self.threshold) and not self.triggered:
             self.triggered = True
-            speech_start = max(0, self.current_sample - self.speech_pad_samples - window_size_samples)
+            # the left pad must not reach back into the previous segment
+            speech_start = max(self.last_speech_end, self.current_sample - self.speech_pad_samples - window_size_samples)
             return {'start': int(speech_start) if not return_seconds else round(speech_start / self.sampling_rate, time_resolution)}
 
-        if (speech_prob < self.threshold - 0.15) and self.triggered:
+        if (speech_prob < self.neg_threshold) and self.triggered:
             if not self.temp_end:
                 self.temp_end = self.current_sample
             if self.current_sample - self.temp_end < self.min_silence_samples:
@@ -677,6 +689,7 @@ class VADIterator:
                 speech_end = self.temp_end + self.speech_pad_samples - window_size_samples
                 self.temp_end = 0
                 self.triggered = False
+                self.last_speech_end = speech_end
                 return {'end': int(speech_end) if not return_seconds else round(speech_end / self.sampling_rate, time_resolution)}
 
         return None
@@ -724,6 +737,9 @@ def collect_chunks(tss: List[dict],
 
     for i in _tss:
         chunks.append(wav[i['start']:i['end']])
+
+    if not chunks:  # no speech found, e.g. get_speech_timestamps on silence
+        return wav[:0]
 
     return torch.cat(chunks)
 

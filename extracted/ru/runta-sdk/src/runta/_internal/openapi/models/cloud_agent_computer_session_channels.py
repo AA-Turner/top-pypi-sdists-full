@@ -14,8 +14,8 @@ T = TypeVar("T", bound="CloudAgentComputerSessionChannels")
 
 @_attrs_define
 class CloudAgentComputerSessionChannels:
-    """Extensible set of transports authorized by this Runta session. VNC is available now; computer-use transports can be
-    added without changing the session envelope.
+    """Transports that this Runta session authorizes. VNC is available now. Additional computer-use transports can use the
+    same session envelope.
 
         Attributes:
             vnc (CloudAgentVncSessionChannel):

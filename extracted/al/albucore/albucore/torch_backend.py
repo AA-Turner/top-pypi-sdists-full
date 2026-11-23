@@ -18,19 +18,13 @@ if TYPE_CHECKING:
 
 TORCH_MIN_ELEMENTS = 512 * 1024
 TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS = 12_288
-TORCH_CPU_BACKEND_ENABLED = True
 
 
 def _is_torch_compatible_array(array: np.ndarray, *, minimum_elements: int | None = None) -> bool:
     """Check whether a NumPy array can use a measured Torch CPU route without an input repair copy."""
     if minimum_elements is None:
         minimum_elements = TORCH_MIN_ELEMENTS
-    return (
-        TORCH_CPU_BACKEND_ENABLED
-        and array.size >= minimum_elements
-        and array.flags.writeable
-        and all(stride >= 0 for stride in array.strides)
-    )
+    return array.size >= minimum_elements and array.flags.writeable and all(stride >= 0 for stride in array.strides)
 
 
 def _is_half_torch_compatible(array: np.ndarray, minimum_elements: int) -> TypeGuard[NDArray[np.float16]]:
@@ -109,7 +103,7 @@ def float16_pointwise_torch(
 
 def _float16_unary_torch(
     array: np.ndarray,
-    operation: Literal["exp", "log", "sqrt"],
+    operation: Literal["exp", "sqrt"],
     *,
     minimum_elements: int,
     out: NDArray[np.float16] | None = None,
@@ -121,12 +115,7 @@ def _float16_unary_torch(
         return None
     image = torch.from_numpy(array)
     destination = None if out is None else torch.from_numpy(out)
-    if operation == "exp":
-        result = torch.exp(image, out=destination)
-    elif operation == "log":
-        result = torch.log(image, out=destination)
-    else:
-        result = torch.sqrt(image, out=destination)
+    result = torch.exp(image, out=destination) if operation == "exp" else torch.sqrt(image, out=destination)
     if out is not None:
         return out
     return cast("NDArray[np.float16]", result.numpy())
@@ -227,33 +216,6 @@ def multiply_add_float32_torch(
     return cast("NDArray[np.float32]", result)
 
 
-def normalize_float32_torch(
-    img: NDArray[np.float32],
-    mean: float | np.ndarray,
-    denominator: float | np.ndarray,
-    *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32] | None:
-    """Compute ``img * denominator - mean * denominator`` for multi-channel float32 input."""
-    if img.dtype != np.float32 or img.shape[-1] <= 1 or not _is_torch_compatible_array(img):
-        return None
-    mean_tensor = _parameter_tensor(mean, img.ndim, img.shape[-1])
-    denominator_tensor = _parameter_tensor(denominator, img.ndim, img.shape[-1])
-    if out is not None and all(stride >= 0 for stride in out.strides):
-        torch.addcmul(
-            -mean_tensor * denominator_tensor,
-            torch.from_numpy(img),
-            denominator_tensor,
-            out=torch.from_numpy(out),
-        )
-        return out
-    result = torch.addcmul(-mean_tensor * denominator_tensor, torch.from_numpy(img), denominator_tensor)
-    if out is not None:
-        np.copyto(out, result.numpy())
-        return out
-    return cast("NDArray[np.float32]", result.numpy())
-
-
 def normalize_float16_torch(
     img: NDArray[np.float16],
     mean: float | np.ndarray,
@@ -265,6 +227,11 @@ def normalize_float16_torch(
     """Write the rounded fused result into half storage without a Tensor-owned return view."""
     if img.shape[-1] <= 1 or not img.flags.c_contiguous or not _is_half_torch_compatible(img, minimum_elements):
         return None
+    # Type promotion narrows 0-D float32 controls to float16 next to a half image, losing or overflowing the bias.
+    if not isinstance(mean, np.ndarray):
+        mean = np.array([mean], dtype=np.float32)
+    if not isinstance(denominator, np.ndarray):
+        denominator = np.array([denominator], dtype=np.float32)
     mean_tensor = _parameter_tensor(mean, img.ndim, img.shape[-1])
     denominator_tensor = _parameter_tensor(denominator, img.ndim, img.shape[-1])
     image = torch.from_numpy(img)

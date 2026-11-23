@@ -83,12 +83,13 @@ def _reference_untouched(
 
 
 def _alias_target(context: PythonFileContext, statement: ast.AST | None, value: ast.expr) -> ast.Name | None:
-    if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and statement.value is value:
-        target = statement.targets[0]
-    elif isinstance(statement, ast.AnnAssign) and statement.value is value:
-        target = statement.target
-    else:
-        return None
+    match statement:
+        case ast.Assign() if len(statement.targets) == 1 and statement.value is value:
+            target = statement.targets[0]
+        case ast.AnnAssign() if statement.value is value:
+            target = statement.target
+        case _:
+            return None
     if not isinstance(context.parents.get(statement), ast.Module | ast.FunctionDef | ast.AsyncFunctionDef):
         return None
     return target if isinstance(target, ast.Name) and stable_binding(context, target.id, target) is target else None
@@ -98,12 +99,15 @@ def runtime_expression(context: PythonFileContext, expression: ast.expr) -> bool
     child: ast.AST = expression
     parent = context.parents.get(child)
     while parent is not None:
-        if isinstance(parent, ast.TypeAlias | ast.type_param):
-            return False
-        if isinstance(parent, ast.AnnAssign | ast.arg) and parent.annotation is child:
-            return False
-        if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef) and parent.returns is child:
-            return False
+        match parent:
+            case ast.TypeAlias() | ast.type_param():
+                return False
+            case ast.AnnAssign() | ast.arg() if parent.annotation is child:
+                return False
+            case ast.FunctionDef() | ast.AsyncFunctionDef() if parent.returns is child:
+                return False
+            case _:
+                pass
         child, parent = parent, context.parents.get(parent)
     return True
 

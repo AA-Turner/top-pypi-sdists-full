@@ -1,9 +1,13 @@
+import datetime
+from numbers import Real
+
 import numpy as np
 
 from uniplot.axis_labels.label_set import VALID_UNIT_SCALINGS
 from uniplot.color_themes import COLOR_THEMES
 from uniplot.colors import Color
 from uniplot.conversions import floatify
+from uniplot.datetimes import is_missing, pad_datetime_bound, validate_datetime_option
 from uniplot.legend_placements import LegendPlacement
 from uniplot.multi_series import MultiSeries
 from uniplot.options import CharacterSet, Options
@@ -36,16 +40,38 @@ def validate_and_transform_options(
     if kwargs is None:
         kwargs = {}
 
+    # TODO Remove rounded_corners no earlier than 2027-05-14 (six months).
+    if "rounded_corners" in kwargs:
+        print(
+            "Warning: the rounded_corners option is deprecated and will be removed "
+            'no earlier than May 14, 2027. Please use border="rounded" or '
+            'border="box" instead.'
+        )
+
+    if kwargs.get("fill") is not None:
+        # Invalid samples break filled paths and must not poison automatic bounds.
+        series.xs = [np.where(np.isfinite(x), x, np.nan) for x in series.xs]
+        series.ys = [np.where(np.isfinite(y), y, np.nan) for y in series.ys]
+
     # First, some cleanup, including converting datetimes to float
     for key in ["x_min", "x_max", "y_min", "y_max"]:
         if key in kwargs:
+            if getattr(series, f"{key[0]}_is_time_series"):
+                validate_datetime_option(
+                    kwargs[key], getattr(series, f"{key[0]}_timezone"), key
+                )
             kwargs[key] = floatify(kwargs[key])
-    # TODO y gridlines
-    if "x_gridlines" in kwargs:
-        kwargs["x_gridlines"] = [floatify(x) for x in kwargs["x_gridlines"]]
-    elif series.x_is_time_series:
-        # Default to no x gridlines
-        kwargs["x_gridlines"] = []
+    for axis in ("x", "y"):
+        key = f"{axis}_gridlines"
+        if key in kwargs:
+            if getattr(series, f"{axis}_is_time_series"):
+                for value in kwargs[key]:
+                    validate_datetime_option(
+                        value, getattr(series, f"{axis}_timezone"), key
+                    )
+            kwargs[key] = [floatify(value) for value in kwargs[key]]
+        elif getattr(series, f"{axis}_is_time_series"):
+            kwargs[key] = []
 
     if kwargs.get("x_as_log"):
         series.set_x_axis_to_log10()
@@ -68,6 +94,10 @@ def validate_and_transform_options(
         if kwargs.get("y_max") and "y_max" not in bounds_already_in_plot_space:
             kwargs["y_max"] = np.log10(kwargs["y_max"])
 
+    kwargs["fill"] = _normalize_fill(
+        kwargs.get("fill"), series, kwargs.get("y_as_log", False)
+    )
+
     # Colors of gridlines
     kwargs["x_gridlines_color"] = kwargs.get("x_gridlines_color", False)
     kwargs["x_gridlines_color"] = _init_color_from_arg(kwargs["x_gridlines_color"])
@@ -79,10 +109,20 @@ def validate_and_transform_options(
         floatify(series.x_max()) - floatify(series.x_min())
     )
     kwargs["x_min"] = floatify(
-        kwargs.get("x_min", floatify(series.x_min()) - x_enlarge_delta)
+        kwargs.get(
+            "x_min",
+            pad_datetime_bound(
+                series.x_min(), series.x_min() - x_enlarge_delta, series.x_timezone
+            ),
+        )
     )
     kwargs["x_max"] = floatify(
-        kwargs.get("x_max", floatify(series.x_max()) + x_enlarge_delta)
+        kwargs.get(
+            "x_max",
+            pad_datetime_bound(
+                series.x_max(), series.x_max() + x_enlarge_delta, series.x_timezone
+            ),
+        )
     )
 
     # Fallback for only a single data point, or multiple with single x
@@ -92,9 +132,26 @@ def validate_and_transform_options(
         kwargs["x_max"] = kwargs["x_max"] + 1
 
     # Set y bounds to show all points by default
-    y_enlarge_delta = AUTO_WINDOW_ENLARGE_FACTOR * (series.y_max() - series.y_min())
-    kwargs["y_min"] = kwargs.get("y_min", series.y_min() - y_enlarge_delta)
-    kwargs["y_max"] = kwargs.get("y_max", series.y_max() + y_enlarge_delta)
+    y_min, y_max = series.y_min(), series.y_max()
+    for xs, ys, baseline in zip(series.xs, series.ys, kwargs["fill"]):
+        if baseline is None or baseline == "bottom":
+            continue
+        finite = np.isfinite(xs) & np.isfinite(ys)
+        has_area = (
+            finite[:-1]
+            & finite[1:]
+            & (xs[:-1] != xs[1:])
+            & ((ys[:-1] != baseline) | (ys[1:] != baseline))
+        )
+        if np.any(has_area):
+            y_min, y_max = min(y_min, baseline), max(y_max, baseline)
+    y_enlarge_delta = AUTO_WINDOW_ENLARGE_FACTOR * (y_max - y_min)
+    kwargs["y_min"] = kwargs.get(
+        "y_min", pad_datetime_bound(y_min, y_min - y_enlarge_delta, series.y_timezone)
+    )
+    kwargs["y_max"] = kwargs.get(
+        "y_max", pad_datetime_bound(y_max, y_max + y_enlarge_delta, series.y_timezone)
+    )
 
     # Fallback for only a single data point, or multiple with single y
     # coordinate
@@ -200,3 +257,33 @@ def _init_color_from_arg(color_arg):
 
     # Otherwise assume no color
     return False
+
+
+def _normalize_fill(value, series: MultiSeries, log: bool) -> list:
+    values = value if isinstance(value, list) else [value] * len(series)
+    if len(values) != len(series):
+        raise ValueError("fill must have one entry per series.")
+    result: list[float | str | None] = []
+    for baseline in values:
+        if baseline is None or (isinstance(baseline, str) and baseline == "bottom"):
+            result.append(baseline)
+            continue
+        is_datetime = isinstance(baseline, (datetime.date, np.datetime64))
+        if is_datetime:
+            if not series.y_is_time_series or is_missing(baseline):
+                raise ValueError(
+                    "fill requires a valid datetime baseline on a datetime y axis."
+                )
+        elif isinstance(baseline, (bool, np.bool_)) or not isinstance(baseline, Real):
+            raise ValueError(
+                'fill must be None, "bottom", a finite baseline, or a per-series list.'
+            )
+        if is_datetime:
+            validate_datetime_option(baseline, series.y_timezone, "fill")
+        baseline = floatify(baseline)
+        if not np.isfinite(baseline) or (log and baseline <= 0):
+            raise ValueError(
+                "fill baseline must be finite and positive on a logarithmic y axis."
+            )
+        result.append(float(np.log10(baseline)) if log else baseline)
+    return result

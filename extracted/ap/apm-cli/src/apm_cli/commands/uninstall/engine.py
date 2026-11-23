@@ -36,6 +36,7 @@ from ...models.dependency.selection import (
 from ...models.dependency.selection import (
     parse_dependency_entry as _parse_dependency_entry,
 )
+from ...native_plugins.scopes import native_harnesses, native_source_current
 from ...utils.path_security import PathTraversalError, ensure_path_within, safe_rmtree
 from ...utils.paths import portable_relpath
 from .local_survivors import _surviving_local_refs_at_install_path
@@ -1206,22 +1207,20 @@ def _cleanup_transitive_orphans(
     return removed, actual_orphans
 
 
-def _shrink_surviving_selections(
-    lockfile, packages_to_remove, apm_modules_dir, apm_yml_path, logger
-) -> builtins.set[str]:
-    """Narrow survivors' locked selections to what surviving edges still declare.
+def project_shrunk_selections(
+    lockfile, packages_to_remove, apm_modules_dir, apm_yml_path, logger=None
+) -> dict:
+    """Return ``{lock key: NodeSelection}`` for survivors whose selection changes.
 
     A node's ``skill_subset``/``target_subset`` is the merge over every edge
     that declares it (#3735). Once a parent is uninstalled its contribution
     must leave the union. The merge is recomputed from the surviving
     manifests through the canonical owner; an incomplete walk keeps the
     locked union, because missing evidence is not proof a selection is unused.
-
-    Returns the lock keys whose selection changed; their deployed files must
-    be removed and re-integrated with the new selection.
+    Read-only: the evidence preflight and the shrink itself share it (#4313).
     """
     if not lockfile or apm_yml_path is None or not apm_modules_dir.exists():
-        return builtins.set()
+        return {}
     from ...deps.reachability import declared_node_selections
 
     direct_refs, dev_refs = _read_survivor_direct_refs(apm_yml_path, packages_to_remove)
@@ -1229,12 +1228,13 @@ def _shrink_surviving_selections(
         lockfile, apm_yml_path.parent, apm_modules_dir, direct_refs, dev_refs=dev_refs
     )
     if not declared.complete:
-        logger.verbose_detail(
-            "    Kept recorded skill and target selections: "
-            f"{len(declared.unverifiable)} package manifest(s) could not be verified"
-        )
-        return builtins.set()
-    changed = builtins.set()
+        if logger is not None:
+            logger.verbose_detail(
+                "    Kept recorded skill and target selections: "
+                f"{len(declared.unverifiable)} package manifest(s) could not be verified"
+            )
+        return {}
+    changed = {}
     for key, selection in declared.selections.items():
         locked = lockfile.get_dependency(key)
         if locked is None:
@@ -1243,15 +1243,8 @@ def _shrink_surviving_selections(
             unchanged = locked.selection() == selection.lock_selection()
         except ValueError:
             unchanged = False  # invalid recorded pairing: rewrite it from the survivors
-        if unchanged:
-            continue
-        locked.skill_subset = list(selection.skill_subset or ())
-        locked.target_subset = list(selection.target_subset or ())
-        exact = selection.subset_pairings
-        locked.subset_pairings = exact.to_lock_records() if exact is not None else None
-        changed.add(key)
-        label = "local dependency" if _is_private_local_identity(key) else key
-        logger.verbose_detail(f"    Updated selection of {label} to its surviving declarations")
+        if not unchanged:
+            changed[key] = selection
     return changed
 
 
@@ -1294,6 +1287,7 @@ def _preflight_uninstall_survivors(
         enforce_agent_plugin_deployment_boundary,
         preflight_reintegration_survivors,
     )
+    from ...install.phases.local_content import LocalPackageError, staged_local_package_image
     from ...models.apm_package import PackageInfo
     from ...models.validation import validate_apm_package
 
@@ -1307,17 +1301,23 @@ def _preflight_uninstall_survivors(
             source_path = Path(dep_ref.local_path).expanduser()
             if not source_path.is_absolute():
                 source_path = (source_root / source_path).resolve()
-            validation = validate_apm_package(source_path, source_path=source_path)
-            if validation.is_valid and validation.package is not None:
-                with contextlib.suppress(AgentPluginTargetExcludedError):
-                    enforce_agent_plugin_deployment_boundary(
-                        PackageInfo(
-                            package=validation.package,
-                            install_path=source_path,
-                            dependency_ref=dep_ref,
-                            package_type=validation.package_type,
+            # Validate a staged image: validation normalizes plugins in place (#4566).
+            with contextlib.ExitStack() as stack:
+                try:
+                    image = stack.enter_context(staged_local_package_image(dep_ref, source_root))
+                except (LocalPackageError, PathTraversalError):
+                    continue
+                validation = validate_apm_package(image, source_path=source_path)
+                if validation.is_valid and validation.package is not None:
+                    with contextlib.suppress(AgentPluginTargetExcludedError):
+                        enforce_agent_plugin_deployment_boundary(
+                            PackageInfo(
+                                package=validation.package,
+                                install_path=image,
+                                dependency_ref=dep_ref,
+                                package_type=validation.package_type,
+                            )
                         )
-                    )
     if lockfile is not None:
         refs = [
             dependency.to_dependency_ref()
@@ -1435,6 +1435,7 @@ def _sync_integrations_after_uninstall(
         with_every_skill_layout,
     )
     from ...primitives.discovery import clear_discovery_cache
+    from .recorded_targets import reconciled_targets
 
     installed_modules_dir = modules_dir or Path(APM_MODULES_DIR)
     config_target = list(apm_package.canonical_targets)
@@ -1444,6 +1445,7 @@ def _sync_integrations_after_uninstall(
     _base_targets = resolve_reintegration_targets(
         project_root, user_scope=user_scope, explicit_target=_explicit
     )
+    _base_targets = reconciled_targets(_base_targets, lockfile, logger)  # #4636
     _resolved_targets = resolve_skill_layout(
         _base_targets, recorded_paths=recorded_deployed_paths(lockfile)
     )
@@ -1486,8 +1488,9 @@ def _sync_integrations_after_uninstall(
     # Resolve targets once -- used for both Phase 1 removal and Phase 2 re-integration.
     target_survivor_plan = []
     for dep_ref, pkg_info in validated_survivors:
-        if dep_ref.get_unique_key() in excluded_survivor_keys:
+        if (dep_key := dep_ref.get_unique_key()) in excluded_survivor_keys:
             continue
+        native = native_harnesses(lockfile, dep_key, pkg_info)  # route as install did (#3921)
         target_selection = resolve_effective_package_targets(
             _resolved_targets,
             effective_dependency_selection(dep_ref).target_subset,
@@ -1497,7 +1500,8 @@ def _sync_integrations_after_uninstall(
         )
         authorized_targets = []
         for target in target_selection.targets:
-            authorized_targets.append(target)
+            if target.name not in native:
+                authorized_targets.append(target)
         target_survivor_plan.append((dep_ref, pkg_info, authorized_targets))
 
     # Refuse survivors whose hooks Phase 2 would reject before Phase 1 wipes
@@ -1785,6 +1789,8 @@ def _restage_changed_local_survivors(
     for key, dep in sorted(lockfile.dependencies.items()):
         if key == "." or key in skip_keys or dep.source != "local" or dep.depth != 1:
             continue
+        if dep.native_plugin is not None and native_source_current(dep, source_root):
+            continue  # an unchanged native plugin is never re-copied (#3921)
         try:
             dep_ref = dep.to_dependency_ref()
             source = (source_root / dep_ref.local_path).resolve()
@@ -1792,8 +1798,7 @@ def _restage_changed_local_survivors(
             current = compute_local_package_hash(source, framed=dep.content_hash_framed)
         except (OSError, ValueError, TypeError, PathTraversalError):
             continue
-        # Judge the source against the materialized copy, not the lock row: a
-        # native plugin's locked hash is recorded from its normalized image.
+        # Judge the source against the materialized copy, not the lock row.
         if not install_path.is_dir() or current == compute_local_package_hash(
             install_path, framed=dep.content_hash_framed
         ):
@@ -1843,6 +1848,8 @@ def gate_retired_hook_survivors(
     """
     from ...install.exec_gate import gate_retirements
     from ...models.apm_package import APMPackage
+    from ...native_plugins.uninstall import retire_disallowed_native_survivors
+    from ...security.exec_kinds import retired_kinds_warnings
     from .local_survivors import survivor_ships_hooks
 
     if lockfile is None:
@@ -1869,13 +1876,13 @@ def gate_retired_hook_survivors(
         for k, why in retirements.denied_packages.items()
         if k not in removed_keys and survivor_ships_hooks(lockfile, k, modules_dir)
     }
-    hooks = {k: why for k, why in retirements.hook_packages.items() if k not in removed_keys}
+    hooks = {k: v for k, v in retirements.hook_packages.items() if k not in removed_keys}
     for key, why in sorted(denied.items()):
         logger.warning(f"{key} is no longer allowed ({why}); removing its integrated files")
-    for key, why in sorted(hooks.items()):
-        if key not in denied:
-            logger.warning(f"{key} hooks are no longer allowed ({why}); removing them")
-    return refreshed | set(denied) | set(hooks), set(denied)
+    for line in retired_kinds_warnings(hooks, skip=denied):
+        logger.warning(line)
+    native = retire_disallowed_native_survivors(lockfile, retirements, removed_keys, hooks, logger)
+    return refreshed | set(denied) | set(hooks) | native, set(denied)
 
 
 def _remove_stale_mcp_from_recorded_targets(

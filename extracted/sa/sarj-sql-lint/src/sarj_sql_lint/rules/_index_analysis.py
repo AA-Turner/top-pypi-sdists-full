@@ -221,8 +221,6 @@ def _index_source(source: str, *, include_executable_bodies: bool) -> str:
 def _mask_dollar_quoted_bodies(source: str, masked: str) -> str:
     output = list(masked)
     for start, end in dollar_quoted_spans(source):
-        # PostgreSQL identifiers can contain dollar signs; restore identifier text that would otherwise resemble a
-        # dollar-quoted literal.
         if start > 0 and _is_identifier_character(source[start - 1]):
             output[start:end] = source[start:end]
             continue
@@ -419,16 +417,19 @@ def _split_elements(value: str) -> tuple[str, ...]:
         if char == "$" and (dollar_end := _dollar_quoted_literal_end(value, position)) is not None:
             position = dollar_end
             continue
-        if char in {"'", '"'}:
-            quote = char
-        elif char == "(":
-            depth += 1
-        elif char == ")":
-            depth = max(0, depth - 1)
-        elif char == "," and depth == 0:
-            if normalized := _normalize_sql(value[start:position]):
-                elements.append(normalized)
-            start = position + 1
+        match char:
+            case "'" | '"':
+                quote = char
+            case "(":
+                depth += 1
+            case ")":
+                depth = max(0, depth - 1)
+            case "," if depth == 0:
+                if normalized := _normalize_sql(value[start:position]):
+                    elements.append(normalized)
+                start = position + 1
+            case _:
+                pass
         position += 1
     if normalized := _normalize_sql(value[start:]):
         elements.append(normalized)

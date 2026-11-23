@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "albucore"
-version = "0.3.11"
+version = "0.3.12"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -193,4 +193,5 @@ dev = [
     "packaging>=25.0",
     "pytest>=9.1.1",
     "pytest-randomly>=4.1.0",
+    "pyyaml>=6.0.3",
 ]

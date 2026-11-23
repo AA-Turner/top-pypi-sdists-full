@@ -14,13 +14,15 @@ from urllib.parse import urlencode, urljoin, urlparse
 import requests
 from requests.adapters import HTTPAdapter
 from typing_extensions import override
-from urllib3.exceptions import DecodeError, ProtocolError, ReadTimeoutError
+from urllib3.exceptions import DecodeError, MaxRetryError, ProtocolError, ReadTimeoutError
 from urllib3.filepost import encode_multipart_formdata
 
 from schemathesis.core import Body, NotSet, media_types
 from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible, is_read_timeout, read_timeout_error
 from schemathesis.core.file_samples import MEDIA_TYPE_FILE_SAMPLES
-from schemathesis.core.jsonschema import get_type
+from schemathesis.core.jsonschema import get_type, resolve_with_root_bundle
+from schemathesis.core.jsonschema.types import JsonSchemaObject
+from schemathesis.core.output.sanitization import sanitize_url
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.transforms import merge_at, to_wire_text
@@ -42,13 +44,18 @@ from schemathesis.transport.prepare import (
 from schemathesis.transport.serialization import (
     Binary,
     serialize_binary,
+    serialize_event_stream,
     serialize_json,
+    serialize_json_sequence,
     serialize_xml,
     serialize_xml_with_schema,
     serialize_yaml,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from schemathesis.config import SanitizationConfig
     from schemathesis.generation.case import Case
 
 
@@ -280,13 +287,24 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             max_stream_events = config.max_stream_events_for(operation=case.operation)
             with ratelimit(rate_limit, config.base_url):
                 response = retry_on_transport_errors(
-                    partial(_request_resending_on_dropped_connection, session, data, max_stream_events), retries
+                    partial(
+                        _request_resending_on_dropped_connection,
+                        session,
+                        data,
+                        max_stream_events,
+                        config.output.sanitization,
+                    ),
+                    retries,
                 )
             return Response.from_requests(
                 response,
                 verify=verify,
                 _override=Override.from_send_kwargs(kwargs),
+                _explicit_auth=kwargs.get("auth") is not None or session.auth is not None,
             )
+        except requests.exceptions.RequestException as exc:
+            _mask_quoted_url(exc, config.output.sanitization)
+            raise
         finally:
             session.headers = current_session_headers
             if current_session_auth is not None:
@@ -297,20 +315,28 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                 session.cookies.clear()
 
 
+def _mask_quoted_url(exc: requests.exceptions.RequestException, sanitization: SanitizationConfig) -> None:
+    # urllib3 quotes the sent URL, e.g. `Max retries exceeded with url: /items?api_key=...`. Rebuilt in place, since
+    # the same error is chained to the raised one, so tracebacks and pickled copies show the masked URL too.
+    inner = exc.args[0] if exc.args else None
+    if sanitization.enabled and isinstance(inner, MaxRetryError) and inner.url is not None:
+        MaxRetryError.__init__(inner, inner.pool, sanitize_url(inner.url, config=sanitization), inner.reason)
+
+
 def _request_resending_on_dropped_connection(
-    session: requests.Session, data: dict[str, Any], max_stream_events: int
+    session: requests.Session, data: dict[str, Any], max_stream_events: int, sanitization: SanitizationConfig
 ) -> requests.Response:
     # A server may close a keep-alive connection after a response without `Connection: close`, leaving a request
     # already sent on it unread. Like browsers and curl, send such a request once more on a fresh connection.
     opened = _count_opened_connections(session)
     try:
-        return _request(session, data, max_stream_events)
+        return _request(session, data, max_stream_events, sanitization)
     except requests.exceptions.ConnectionError as exc:
         if not _is_dropped_before_response(exc) or _count_opened_connections(session) != opened:
             raise
         dropped = exc
     try:
-        return _request(session, data, max_stream_events)
+        return _request(session, data, max_stream_events, sanitization)
     except requests.exceptions.RequestException:
         # The fresh connection failing too means the server itself is broken; report what the original request saw.
         pass
@@ -320,7 +346,9 @@ def _request_resending_on_dropped_connection(
 EVENT_STREAM_CHUNK_SIZE = 64 * 1024
 
 
-def _request(session: requests.Session, data: dict[str, Any], max_stream_events: int) -> requests.Response:
+def _request(
+    session: requests.Session, data: dict[str, Any], max_stream_events: int, sanitization: SanitizationConfig
+) -> requests.Response:
     response = session.request(**{**data, "stream": True})
     if media_types.is_sse(response.headers.get("Content-Type")):
         # An event stream may never end; stop reading once the request timeout passes in total.
@@ -333,17 +361,18 @@ def _request(session: requests.Session, data: dict[str, Any], max_stream_events:
         response.close()
     else:
         # Read the body here, so network errors while reading it are retried like before.
-        _read_body(response, data["timeout"])
+        _read_body(response, data["timeout"], sanitization)
     return response
 
 
-def _read_body(response: requests.Response, timeout: float | int) -> None:
+def _read_body(response: requests.Response, timeout: float | int, sanitization: SanitizationConfig) -> None:
     try:
         response.content  # noqa: B018
     except requests.exceptions.ConnectionError as exc:
         # A body that stops arriving within the timeout is reported like a response that never started.
         if is_read_timeout(exc):
-            raise read_timeout_error(response.url, timeout, response.request) from exc
+            url = sanitize_url(response.url, config=sanitization) if sanitization.enabled else response.url
+            raise read_timeout_error(url, timeout, response.request) from exc
         raise
 
 
@@ -422,6 +451,22 @@ def json_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
     return serialize_json(value)
 
 
+@REQUESTS_TRANSPORT.serializer("application/jsonl", "application/x-ndjson")
+def json_lines_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
+    return {"data": serialize_json_sequence(value, record_start="")}
+
+
+@REQUESTS_TRANSPORT.serializer("application/json-seq")
+def json_text_sequence_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
+    # RFC 7464 starts every record with the ASCII record separator
+    return {"data": serialize_json_sequence(value, record_start="\x1e")}
+
+
+@REQUESTS_TRANSPORT.serializer("text/event-stream")
+def event_stream_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
+    return {"data": serialize_event_stream(value)}
+
+
 @REQUESTS_TRANSPORT.serializer(
     "text/yaml", "text/x-yaml", "text/vnd.yaml", "text/yml", "application/yaml", "application/x-yaml"
 )
@@ -479,17 +524,88 @@ def _encode_multipart(value: Any, boundary: str) -> bytes:
     return body.getvalue()
 
 
-def encode_non_object_multipart(value: Any) -> tuple[bytes, str]:
-    """Encode a body from an uncommon schema, e.g. `{"type": "string"}`, and return it with its Content-Type."""
+def encode_non_object_multipart(ctx: SerializationContext, value: Any) -> tuple[bytes, str]:
+    """Encode a body that is not a mapping of named parts and return it with its Content-Type."""
+    media_type = ctx.case.media_type or "multipart/form-data"
+    main, sub = media_types.parse(media_type)
+    if isinstance(value, list) and media_types.is_positional_multipart(media_type):
+        # Parts of multipart types other than forms have no names, so each array item is one part, in order.
+        body = ctx.case.operation.get_body_for_media_type(media_type)
+        # A media type the operation does not declare gives every part the defaults for a value of any type.
+        encodings, schema = ({}, {}) if body is None else (body.definition, body.resolved_schema or {})
+        payload, boundary = _encode_positional_parts(ctx, value, encodings, schema, schema)
+        return payload, f"{main}/{sub}; boundary={boundary}"
+    # A body from an uncommon schema, e.g. `{"type": "string"}`
     boundary = choose_boundary()
     return _encode_multipart(value, boundary), f"multipart/form-data; boundary={boundary}"
 
 
+def _positional_entry(container: Mapping[str, object], prefix_key: str, rest_key: str, index: int) -> dict[str, object]:
+    """The entry for the array item at `index`: the one at its position, or else the one shared by the rest."""
+    prefix = container.get(prefix_key)
+    entry = prefix[index] if isinstance(prefix, list) and index < len(prefix) else container.get(rest_key)
+    return entry if isinstance(entry, dict) else {}
+
+
+def _default_part_content_type(schema: JsonSchemaObject, root_schema: JsonSchemaObject) -> str:
+    # An array item is one part, so an array of primitives is JSON too, unlike a named field sent as repeated parts.
+    if any(
+        all(_declares_structure(resolve_with_root_bundle(branch, root_schema)) for branch in group)
+        for group in _alternative_groups(schema)
+    ):
+        return "application/json"
+    if _holds_bytes(schema):
+        return "application/octet-stream"
+    return "text/plain"
+
+
+def _holds_bytes(schema: JsonSchemaObject) -> bool:
+    """Whether a part is raw bytes: a value of any type, or an encoded or binary string."""
+    return "type" not in schema or _declares_binary(schema)
+
+
+def _declares_binary(schema: JsonSchemaObject) -> bool:
+    """Whether the schema describes bytes: a `contentEncoding` or `format: binary` string, or a Swagger 2.0 file."""
+    return "contentEncoding" in schema or schema.get("format") == "binary" or schema.get("type") == "file"
+
+
+def _encode_positional_parts(
+    ctx: SerializationContext,
+    items: list[object],
+    encodings: Mapping[str, object],
+    schema: JsonSchemaObject,
+    root_schema: JsonSchemaObject,
+) -> tuple[bytes, str]:
+    """Encode array items as unnamed parts in their order, returning the payload and its boundary."""
+    boundary = choose_boundary()
+    payload = BytesIO()
+    for index, item in enumerate(items):
+        encoding = _positional_entry(encodings, "prefixEncoding", "itemEncoding", index)
+        item_schema = resolve_with_root_bundle(_positional_entry(schema, "prefixItems", "items", index), root_schema)
+        # Without a declared content type, the item schema picks the default; with several, the first is sent.
+        content_type = next(iter(media_types.parse_list(encoding.get("contentType"))), None)
+        content_type = content_type or _default_part_content_type(item_schema, root_schema)
+        content: Body
+        if isinstance(item, list) and media_types.is_multipart(content_type):
+            # A nested multipart document takes the encodings of its own parts from this item's encoding.
+            content, nested_boundary = _encode_positional_parts(ctx, item, encoding, item_schema, root_schema)
+            content_type = f"{content_type}; boundary={nested_boundary}"
+        else:
+            content, content_type = _serialize_part_value(ctx, item, item_schema, None, content_type)
+        payload.write(f"--{boundary}\r\nContent-Type: {content_type}\r\n\r\n".encode())
+        payload.write(serialize_binary(content))
+        payload.write(b"\r\n")
+    payload.write(f"--{boundary}--\r\n".encode())
+    return payload.getvalue(), boundary
+
+
 def _part_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    # An array part takes the default of its items: JSON for nested structures, plain text for primitives and files.
+    # An array part takes the default of its items; absent or `{}` items default to bytes like any untyped part.
     items = schema.get("items")
-    if isinstance(items, dict) and items:
+    if isinstance(items, dict):
         return items
+    if [ty for ty in get_type(schema) if ty != "null"] == ["array"]:
+        return {}
     return schema
 
 
@@ -502,14 +618,13 @@ def _declares_structure(schema: dict[str, Any]) -> bool:
     return "properties" in schema or "items" in schema or "additionalProperties" in schema
 
 
-def _is_structured_part(schema: dict[str, Any]) -> bool:
-    return any(
-        all(_declares_structure(_part_schema(branch)) for branch in group) for group in _structure_groups(schema)
-    )
+def _part_declares(schema: dict[str, Any], declares: Callable[[dict[str, Any]], bool]) -> bool:
+    """Whether every schema in at least one of the part's alternative groups passes `declares`."""
+    return any(all(declares(_part_schema(branch)) for branch in group) for group in _alternative_groups(schema))
 
 
-def _structure_groups(schema: dict[str, Any]) -> list[list[dict[str, Any]]]:
-    """Schemas whose members all declaring structure make a part structured."""
+def _alternative_groups(schema: dict[str, Any]) -> list[list[dict[str, Any]]]:
+    """Groups to test: the schema alone, each `allOf` member alone, the non-null `anyOf`/`oneOf` branches together."""
     groups = [[schema]]
     all_of = schema.get("allOf")
     if isinstance(all_of, list):
@@ -524,7 +639,7 @@ def _structure_groups(schema: dict[str, Any]) -> list[list[dict[str, Any]]]:
     return groups
 
 
-def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
+def _collect_encoded_fields(ctx: SerializationContext, properties: Mapping[str, object]) -> dict[str, str]:
     """Return multipart field names mapped to the content-type declared via `encoding`."""
     operation = ctx.case.operation
     selected = ctx.case.multipart_content_types or {}
@@ -537,10 +652,15 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
         content_type = selected.get(name) or next(iter(body.get_property_content_types(name)), None)
         if content_type is not None:
             result[name] = content_type
-    # Default nested-object / array form-parts to JSON so the wire payload is parsable.
-    for name, prop in body.form_properties.items():
-        if name not in result and isinstance(prop, dict) and _is_structured_part(prop):
+    for name, prop in properties.items():
+        if name in result or not isinstance(prop, dict):
+            continue
+        # Default nested-object / array form-parts to JSON so the wire payload is parsable.
+        if _part_declares(prop, _declares_structure):
             result[name] = "application/json"
+        # Binary and untyped parts default to bytes; receivers read a part without a media type as text.
+        elif _part_declares(prop, _declares_binary) or not _part_declares(prop, lambda part: "type" in part):
+            result[name] = "application/octet-stream"
     return result
 
 
@@ -553,16 +673,16 @@ def _is_already_serialized(value: object) -> bool:
     return False
 
 
-def _property_schema(ctx: SerializationContext, name: str) -> dict[str, Any]:
-    """Return the schema of a multipart property, with `$ref` resolved."""
+def _form_properties(ctx: SerializationContext) -> dict[str, Any]:
+    """Return the schemas of multipart properties, with `$ref` resolved."""
     body = ctx.case.operation.get_body_for_media_type(ctx.case.media_type or "multipart/form-data")
-    assert body is not None
-    schema = body.form_properties.get(name)
-    return schema if isinstance(schema, dict) else {}
+    return {} if body is None else body.form_properties
 
 
-def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, content_type: str) -> tuple[object, str]:
-    """Serialize a multipart field value for its content-type, returning the part content and its content-type."""
+def _serialize_part_value(
+    ctx: SerializationContext, value: Any, schema: JsonSchemaObject, resource_name: str | None, content_type: str
+) -> tuple[Body, str]:
+    """Serialize a multipart part value for its content-type, returning the part content and its content-type."""
     if _is_already_serialized(value) or media_types.is_plain_text(content_type):
         # Plain text parts are rendered like fields without an explicit content-type.
         return value, content_type
@@ -579,7 +699,10 @@ def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, cont
         return content, f"{main}/{sub}; boundary={boundary}"
     pair = REQUESTS_TRANSPORT.get_first_matching_media_type(content_type)
     if pair is None:
-        if not isinstance(value, list) and "array" in get_type(_property_schema(ctx, name)):
+        if _holds_bytes(schema):
+            # Raw bytes need no serializer, so they go out as they are under any media type, e.g. `image/jpg`.
+            return serialize_binary(value), content_type
+        if not isinstance(value, list) and "array" in get_type(schema):
             # An array's media type describes its items. A value of another type, e.g. `0` for a list of files,
             # has no items to encode, so it goes out as the text it would have without `encoding`.
             return value, content_type
@@ -587,7 +710,7 @@ def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, cont
     _, serializer = pair
     if serializer is xml_serializer:
         # The part is its own XML document, so its root comes from the part schema.
-        result = serialize_xml_with_schema(value, _property_schema(ctx, name), resource_name=name)
+        result = serialize_xml_with_schema(value, schema, resource_name=resource_name)
     else:
         result = serializer(ctx, value)
     if "json" in result:
@@ -599,16 +722,35 @@ def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, cont
     return data, content_type
 
 
+def _serialize_form_field(
+    ctx: SerializationContext, value: object, schema: JsonSchemaObject, name: str, content_type: str
+) -> tuple[object, str]:
+    """Serialize a named form field, whose array items are separate parts under the field's media type."""
+    if isinstance(value, list):
+        # Optional arrays declare the array alone in an `anyOf` branch next to `null`.
+        for group in _alternative_groups(schema):
+            branch = group[0]
+            items = branch.get("items", {})
+            if len(group) == 1 and "type" in branch and "array" in get_type(branch) and isinstance(items, dict):
+                # The field's media type describes each item, e.g. one JSON document per item.
+                return [_serialize_part_value(ctx, item, items, name, content_type)[0] for item in value], content_type
+    return _serialize_part_value(ctx, value, schema, name, content_type)
+
+
 def prepare_multipart_parts(
     ctx: SerializationContext, value: dict[str, Any]
 ) -> tuple[list | None, dict[str, Any] | None]:
     """Split a form payload into file parts and plain form fields."""
     # Fields are replaced with their wire form; the case body must keep its generated values.
     value = dict(value)
-    encoded_fields = _collect_encoded_fields(ctx)
+    properties = _form_properties(ctx)
+    encoded_fields = _collect_encoded_fields(ctx, properties)
     for name, content_type in encoded_fields.items():
         if name in value:
-            value[name], encoded_fields[name] = _serialize_part_value(ctx, value[name], name, content_type)
+            schema = properties.get(name)
+            value[name], encoded_fields[name] = _serialize_form_field(
+                ctx, value[name], schema if isinstance(schema, dict) else {}, name, content_type
+            )
     multipart = _prepare_form_data(value)
     # Surface auto-discovered per-part content types on the wire; case-level overrides still win.
     selected = {**encoded_fields, **(ctx.case.multipart_content_types or {})}
@@ -630,15 +772,15 @@ def multipart_serializer(ctx: SerializationContext, value: Body) -> dict[str, An
                 "data": f"--{boundary}--\r\n".encode("latin-1"),
                 "headers": {"Content-Type": content_type},
             }
-        if sub == "mixed":
+        if sub not in ("form-data", "*"):
             # `requests` labels every encoded body `multipart/form-data`; keep the declared subtype instead.
             prepared = requests.PreparedRequest()
             prepared.prepare_headers(None)
             prepared.prepare_body(data, files)
-            content_type = prepared.headers["Content-Type"].replace("multipart/form-data", "multipart/mixed", 1)
+            content_type = prepared.headers["Content-Type"].replace("multipart/form-data", f"{main}/{sub}", 1)
             return {"data": prepared.body, "headers": {"Content-Type": content_type}}
         return {"files": files, "data": data}
-    raw_data, content_type = encode_non_object_multipart(value)
+    raw_data, content_type = encode_non_object_multipart(ctx, value)
     return {"data": raw_data, "headers": {"Content-Type": content_type}}
 
 

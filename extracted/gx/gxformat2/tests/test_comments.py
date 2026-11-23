@@ -6,6 +6,7 @@ from gxformat2._comment_helpers import (
     flatten_comment_data,
     unflatten_comment_data,
 )
+from gxformat2.examples import load, load_contents
 from gxformat2.export import from_galaxy_native
 
 from ._helpers import (
@@ -462,6 +463,52 @@ comments:
         to_native(bad_wf)
 
 
+def test_format2_to_native_bad_step_label():
+    """Unknown contains_steps label raises an error naming the frame and label."""
+    with pytest.raises(
+        ValueError,
+        match=r"^Frame 'Typo' references unknown step or input label 'cat_stepp' in contains_steps$",
+    ):
+        to_native(load_contents("synthetic-frame-unknown-step.gxwf.yml"))
+
+
+def test_format2_to_native_frame_index_out_of_range():
+    """Out-of-range contains_steps index raises an error naming the frame and index."""
+    with pytest.raises(
+        ValueError,
+        match=r"^Frame 'Range' references out-of-range step index '2' in contains_steps$",
+    ):
+        to_native(load_contents("synthetic-frame-index-out-of-range.gxwf.yml"))
+
+
+def test_format2_to_native_frame_huge_digit_index():
+    """A digit string past Python's int conversion limit reports out-of-range, not a crash."""
+    workflow = load("synthetic-frame-index-out-of-range.gxwf.yml")
+    huge = "9" * 5000
+    workflow["comments"][0]["contains_steps"] = [huge]
+    workflow["comments"][0]["contains_comments"] = []
+    with pytest.raises(ValueError, match=r"out-of-range step index '9+' in contains_steps$"):
+        to_native(workflow)
+
+
+def test_format2_to_native_frame_digit_label():
+    """An all-digit step label resolves as a label even past the index range."""
+    native = to_native(load_contents("synthetic-frame-digit-label.gxwf.yml"))
+    assert native["comments"][0]["child_steps"] == [1, 0]
+
+
+def test_format2_to_native_bad_step_label_in_subworkflow():
+    """Frames inside a subworkflow resolve against that subworkflow's labels."""
+    parent = {
+        "class": "GalaxyWorkflow",
+        "inputs": {"outer": "data"},
+        "outputs": {},
+        "steps": {"nested": {"run": load("synthetic-frame-unknown-step.gxwf.yml"), "in": {"input1": "outer"}}},
+    }
+    with pytest.raises(ValueError, match="Frame 'Typo' references unknown step"):
+        to_native(parent)
+
+
 def test_round_trip_text_all_optional_fields():
     """Text comment with all optional fields (bold, italic) round-trips."""
     fmt2 = round_trip("""
@@ -660,3 +707,18 @@ comments:
     assert set(comments["group"]["contains_comments"]) == {"note", "docs"}
     assert comments["sketch"]["thickness"] == 2
     assert comments["sketch"]["line"] == [[610, 110], [620, 120]]
+
+
+def test_format2_to_native_text_comment_bad_contains_comments():
+    """Non-frame comment with unknown contains_comments label raises a named error."""
+    wf = {
+        "class": "GalaxyWorkflow",
+        "inputs": {"i": "data"},
+        "outputs": {},
+        "steps": {},
+        "comments": [
+            {"type": "text", "text": "x", "position": [0, 0], "size": [1, 1], "contains_comments": ["missing"]}
+        ],
+    }
+    with pytest.raises(Exception, match=r"^contains_comments references unknown comment label 'missing'$"):
+        to_native(wf)

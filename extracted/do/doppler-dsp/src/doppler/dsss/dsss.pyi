@@ -256,6 +256,9 @@ class PoolReceiverStatus(tuple[int, float, float, float, float, int, int, float,
         """
 
 ASYNC_DSSS_RX_STATE: dict[int, str]
+"""Names of the async_dsss_rx_state values, keyed by code
+(ASYNC_DSSS_RX_SEARCHING .. ASYNC_DSSS_RX_LOST).
+"""
 
 @final
 class Despreader:
@@ -411,7 +414,7 @@ class Despreader:
             Telemetry context to attach, or NULL to detach.
         prefix : str
             Probe-name prefix, e.g. "ch0".
-        decim : int
+        decim : int, default 1
             Emit every decim-th code period; >= 1.
 
         Raises
@@ -512,7 +515,7 @@ class Despreader:
             Per-decision false-alarm probability, in (0, 1).
         n_looks : int
             Non-coherent integration depth N (looks); clamped >= 1.
-        ref_snr_db : float
+        ref_snr_db : float, default 0.0
             Noise-reference estimator SNR in dB (> 0), or 0 to derive from
             n_looks (see dp_dll_configure_lock()).
 
@@ -2983,7 +2986,7 @@ class AsyncDsssReceiver:
             Telemetry context to attach, or NULL to detach.
         prefix : str
             Probe-name prefix; NULL means "rx".
-        decim : int
+        decim : int, default 1
             Emit every decim-th event on each probe; >= 1.
 
         Raises
@@ -3024,12 +3027,11 @@ class AsyncDsssReceiver:
         search is bit-identical at every count, so this changes the cost of a
         steps() call and nothing about its output. A pool that steps its
         receivers in parallel sets each one to 1. A mutator's value, so it
-        travels in the state blob (#2022). The blob carries the count that RAN,
-        not the request: set_threads(0) on a writer restores as the count the
-        writer ran (its online cores, capped at the tiles at D = 1) on any
-        reader, by design -- a resumed receiver runs as the one that was
-        checkpointed, and a pool's 1 is 1 everywhere. Setup path; not while
-        another thread is inside steps().
+        travels in the state blob (#2022), in one place: the searcher's own
+        blob, as the request, which dp_correlator_set_state() applies through
+        dp_correlator_set_threads(). A pool's 1 restores as 1 everywhere; a
+        writer's 0 restores as 0, which the reader runs on its own online
+        cores. Setup path; not while another thread is inside steps().
 
         Parameters
         ----------
@@ -3772,7 +3774,7 @@ class AsyncDsssPool:
             Context to attach, or NULL to detach every receiver.
         prefix : str
             Probe-name prefix; NULL means "pool".
-        decim : int
+        decim : int, default 1
             Emit every decim-th event on each probe; >= 1.
 
         Raises
@@ -3964,7 +3966,7 @@ class DsssBurstReceiver:
         samples per chip.
     chip_rate : float, default 1000000.0
         chips per second.
-    cn0_dbhz : float
+    cn0_dbhz : float, default DP_CORRELATOR_CN0_NONE
         design C/N0 for the acquisition, dB-Hz (or NaN).
     doppler_uncertainty : float, default 0.0
         the Doppler span to search, cycles/sample.

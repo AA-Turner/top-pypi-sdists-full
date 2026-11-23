@@ -265,7 +265,7 @@ hooks = [
   {
     id = "pylint",
     name = "pylint",
-    entry = "uv run --group=dev -m pylint *.py src/ tests/",
+    entry = "uv run --group=dev -m pylint *.py src/ tests/ docs/",
     language = "python",
     stages = ["manual"],
     pass_filenames = false,
@@ -383,8 +383,6 @@ hooks = [
   {
     id = "vale-sync",
     name = "vale sync",
-    # The Python Vale wrapper may fail transiently while downloading its binary; see
-    # https://github.com/daniperez/vale-python-package/issues/77
     entry = "uv run --group=dev vale sync",
     language = "python",
     pass_filenames = false,
@@ -491,6 +489,19 @@ hooks = [
     name = "pyrefly",
     stages = ["pre-push"],
     entry = "uv run --group=dev pyrefly check",
+    language = "python",
+    types_or = [
+      "python",
+      "toml"
+    ],
+    pass_filenames = false,
+    additional_dependencies = ["uv==0.11.7"]
+  },
+  {
+    id = "pyrefly-coverage",
+    name = "pyrefly coverage",
+    stages = ["pre-push"],
+    entry = "uv run --group=dev pyrefly coverage check --strict --fail-under 100",
     language = "python",
     types_or = [
       "python",

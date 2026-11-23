@@ -35,6 +35,7 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
     (&["buildstream"], &["*.bst"]),
     (&["bzip2"], &["*.bz2", "*.tbz2"]),
     (&["c"], &["*.[chH]", "*.[chH].in", "*.cats"]),
+    (&["c3"], &["*.c3", "*.c3i", "*.c3t"]),
     (&["cabal"], &["*.cabal"]),
     (&["candid"], &["*.did"]),
     (&["carp"], &["*.carp"]),
@@ -155,9 +156,16 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
         "OFL-*[0-9]*",
     ]),
     (&["lilypond"], &["*.ly", "*.ily"]),
-    (&["lisp"], &["*.el", "*.jl", "*.lisp", "*.lsp", "*.sc", "*.scm"]),
+    (&["lisp"], &["*.el", "*.jl", "*.lisp", "*.lsp"]),
     (&["llvm"], &["*.ll"]),
-    (&["lock"], &["*.lock", "package-lock.json"]),
+    (&["lock"], &[
+        ".terraform.lock.hcl",
+        "*.lock",
+        "gradle.lockfile",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "pylock*.toml",
+    ]),
     (&["log"], &["*.log"]),
     (&["lua"], &["*.lua"]),
     (&["lz4"], &["*.lz4"]),
@@ -191,9 +199,10 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
     (&["motoko"], &["*.mo"]),
     (&["msbuild"], &[
         "*.csproj", "*.fsproj", "*.vcxproj", "*.proj", "*.props", "*.targets",
-        "*.sln", "*.slnf"
+        "*.sln", "*.slnf", "*.slnx"
     ]),
     (&["nim"], &["*.nim", "*.nimf", "*.nimble", "*.nims"]),
+    (&["ninja"], &["*.ninja"]),
     (&["nix"], &["*.nix"]),
     (&["objc"], &["*.h", "*.m"]),
     (&["objcpp"], &["*.h", "*.mm"]),
@@ -213,9 +222,12 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
     (&["po"], &["*.po"]),
     (&["pod"], &["*.pod"]),
     (&["postscript"], &["*.eps", "*.ps"]),
+    (&["powershell", "ps", "pwsh"], &[
+        "*.cdxml", "*.ps1", "*.ps1xml", "*.psc1", "*.psd1", "*.psm1", "*.psr",
+         "*.psrc", "*.pssc", "*.psxml"
+    ]),
     (&["prolog"], &["*.pl", "*.pro", "*.prolog", "*.P"]),
     (&["proto", "protobuf"], &["*.proto"]),
-    (&["ps"], &["*.cdxml", "*.ps1", "*.ps1xml", "*.psd1", "*.psm1"]),
     (&["puppet"], &["*.epp", "*.erb", "*.pp", "*.rb"]),
     (&["purs"], &["*.purs"]),
     (&["py", "python"], &["*.py", "*.pyi"]),
@@ -233,6 +245,7 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
     (&["readme"], &["README*", "*README"]),
     (&["reasonml"], &["*.re", "*.rei"]),
     (&["red"], &["*.r", "*.red", "*.reds"]),
+    (&["rego"], &["*.rego"]),
     (&["rescript"], &["*.res", "*.resi"]),
     (&["robot"], &["*.robot"]),
     (&["rocq"], &["*.v"]),
@@ -247,6 +260,7 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
     (&["sass"], &["*.sass", "*.scss"]),
     (&["scala"], &["*.scala", "*.sbt"]),
     (&["scdoc"], &["*.scd", "*.scdoc"]),
+    (&["scheme"], &["*.sc", "*.scm", "*.ss", "*.sld"]),
     (&["seed7"], &["*.sd7", "*.s7i"]),
     (&["sh"], &[
         // Portable/misc. init files
@@ -301,6 +315,7 @@ pub(crate) const DEFAULT_TYPES: &[(&[&str], &[&str])] = &[
         "*.terraformrc", "terraform.rc", "*.tfrc", "*.terraform.lock.hcl",
     ]),
     (&["thrift"], &["*.thrift"]),
+    (&["toit"], &["*.toit"]),
     (&["toml"], &["*.toml", "Cargo.lock"]),
     (&["ts", "typescript"], &["*.ts", "*.tsx", "*.cts", "*.mts"]),
     (&["twig"], &["*.twig"]),

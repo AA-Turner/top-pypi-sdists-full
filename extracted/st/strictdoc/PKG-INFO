@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strictdoc
-Version: 0.31.1
+Version: 0.32.1
 Summary: StrictDoc is open-source software for technical documentation and requirements management.
 Project-URL: Changelog, https://github.com/strictdoc-project/strictdoc/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://strictdoc.readthedocs.io/en/stable/
@@ -36,6 +36,7 @@ Requires-Dist: pygments==2.21.0
 Requires-Dist: pypdf==6.*,>=6.5.0
 Requires-Dist: python-datauri==2.*,>=2.1.1
 Requires-Dist: python-multipart
+Requires-Dist: pyyaml==6.*,>=6.0
 Requires-Dist: reqif==0.1.*,>=0.1.1
 Requires-Dist: robotframework>=4.0.0
 Requires-Dist: spdx-tools>=0.8.5

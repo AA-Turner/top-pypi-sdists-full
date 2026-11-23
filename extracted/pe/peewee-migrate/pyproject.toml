@@ -1,9 +1,9 @@
 [project]
 name = "peewee-migrate"
-version = "2.3.0"
+version = "2.5.0"
 description = "Support for migrations in Peewee ORM"
 requires-python = ">=3.11,<4"
-readme = "README.rst"
+readme = "README.md"
 license = "MIT"
 keywords = [
     "peewee",
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
@@ -47,10 +48,11 @@ dev = [
     "pytest",
     "ruff",
     "pyrefly",
+    "pymysql>=1.2.4",
 ]
 
 [build-system]
-requires = ["uv_build>=0.10.2,<0.11.0"]
+requires = ["uv_build>=0.10.2,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv]
@@ -59,6 +61,7 @@ default-groups = "all"
 [tool.uv.build-backend]
 module-name = "peewee_migrate"
 module-root = ""
+source-include = ["tests/**"]
 
 [tool.ruff]
 include = [
@@ -95,9 +98,10 @@ project-excludes = [
 
 [tool.pytest.ini_options]
 addopts = "-svx"
+markers = ["real_db: needs a live database from PEEWEE_MIGRATE_PG or PEEWEE_MIGRATE_MYSQL"]
 
 [tool.bumpversion]
-current_version = "2.3.0"
+current_version = "2.5.0"
 commit = false
 tag = false
 

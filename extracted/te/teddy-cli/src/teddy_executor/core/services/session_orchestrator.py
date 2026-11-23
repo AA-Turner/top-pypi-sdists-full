@@ -4,6 +4,10 @@ from dataclasses import is_dataclass, replace
 from pathlib import Path
 from typing import Any, Optional, cast
 
+from teddy_executor.core.domain.models.config_schema import (
+    resolve_agent_llm_overrides,
+    resolve_effective_model,
+)
 from teddy_executor.core.domain.models.execution_report import (
     ExecutionReport,
 )
@@ -17,6 +21,11 @@ from teddy_executor.core.services.session_replanner import SessionReplanner
 from teddy_executor.core.utils.io import Tee as _Tee
 from teddy_executor.core.utils.session_notices import format_termination_notice
 from teddy_executor.core.utils.terminal import emit_user_message
+from teddy_executor.core.utils.message_renderer import (
+    inline_code_theme,
+    render_message_body,
+)
+from rich.console import Console
 import typer
 
 logger = logging.getLogger(__name__)
@@ -100,7 +109,7 @@ def _print_header_bar(plan: Any, is_session: bool) -> None:
         typer.secho(" ".join(parts))
 
 
-def _print_message_from_teddy(content: str) -> None:
+def _print_message_from_teddy(content: str, console: Optional[Console] = None) -> None:
     """Print the agent's MESSAGE under the shared TeDDy framing.
 
     Renders a blank separator, the CYAN `--- MESSAGE from TeDDy ---`
@@ -109,10 +118,20 @@ def _print_message_from_teddy(content: str) -> None:
     (`SessionOrchestrator.execute`) and the `resume -p` stop-again
     re-print (`SessionLifecycleManager._consume_awaiting_reply`), so the
     two presentations stay byte-identical (Bug 54 / defect 4a).
+
+    On a terminal the body is rendered for display; otherwise the raw
+    Markdown is emitted unchanged so pipeline and redirected output stay
+    byte-identical. ``console`` is an injection seam for tests, because the
+    CLI runs under a non-TTY capture and cannot exercise the formatted path
+    through the real entry point.
     """
     typer.secho("")
     typer.secho("--- MESSAGE from TeDDy ---", fg=typer.colors.CYAN)
-    typer.secho(content)
+    active = console if console is not None else Console(theme=inline_code_theme())
+    if active.is_terminal:
+        render_message_body(content, active)
+    else:
+        typer.secho(content)
 
 
 def _print_user_message(
@@ -438,7 +457,21 @@ class SessionOrchestrator(IRunPlanUseCase):
                 else "Unknown"
             )
         )
-        total_window = self._llm_client.get_context_window()
+        # Resolve the effective model exactly as the planner does: the turn's
+        # explicit ``model_override``, then the persona entry, then ``llm.model``.
+        # The carried ``model`` key is display data and never a resolution input.
+        turn_dir = str(Path(plan_path).parent)
+        turn_meta = self._session_service.load_turn_meta(turn_dir)
+        llm_overrides = resolve_agent_llm_overrides(
+            self._config_service.get_setting("agents", {}), agent_name
+        )
+        model = resolve_effective_model(
+            turn_meta.get("model_override"),
+            llm_overrides.get("model"),
+            self._config_service.get_setting("llm.model"),
+        )
+
+        total_window = self._llm_client.get_context_window(model=model)
 
         cache_dir = str(Path(plan_path).parent.parent)
         # Compute system prompt token count BEFORE context construction so the
@@ -446,7 +479,6 @@ class SessionOrchestrator(IRunPlanUseCase):
         system_prompt = self._prompt_manager.fetch_system_prompt(
             agent_name, Path(plan_path).parent
         )
-        model = str(self._config_service.get_setting("llm.model") or "")
         try:
             system_token_count = self._llm_client.get_text_token_count(
                 system_prompt, model=model
@@ -460,6 +492,8 @@ class SessionOrchestrator(IRunPlanUseCase):
             total_window=total_window,
             cache_dir=cache_dir,
             system_prompt_tokens=system_token_count,
+            session_root=cache_dir,
+            model=model,
         )
 
         if is_dataclass(project_context) and agent_name != getattr(

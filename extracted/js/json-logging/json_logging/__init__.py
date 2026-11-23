@@ -1,4 +1,5 @@
 # coding=utf-8
+import inspect
 import json
 import logging
 import sys
@@ -55,10 +56,12 @@ def get_correlation_id(request=None):
 
 def config_root_logger():
     """
-        You must call this if you are using root logger.
-        Make all root logger' handlers produce JSON format
-        & remove duplicate handlers for request instrumentation logging.
-        Please made sure that you call this after you called "logging.basicConfig() or logging.getLogger()
+        Make all root logger handlers produce JSON format.
+
+        init_*() already converts the root logger handlers that exist at initialisation time. Call this
+        when a handler with a plain text formatter is attached to the root logger afterwards, for example
+        by a logging.basicConfig() call made after initialisation. The handler must exist before this is
+        called.
     """
 
     if not logging.root.handlers:
@@ -140,12 +143,11 @@ def __init(framework_name=None, custom_formatter=None, enable_json=False):
 
         ENABLE_JSON_LOGGING and _logger.debug("Update all existing logger to using JSONLogFormatter")
 
-        existing_loggers = list(map(logging.getLogger, logging.Logger.manager.loggerDict))
-        util.update_formatter_for_loggers(existing_loggers, _default_formatter)
+        util.update_formatter_for_all_loggers(_default_formatter)
 
 
 def init_request_instrument(app=None, custom_formatter=None, exclude_url_patterns=[],
-                            request_response_dto_class=DefaultRequestResponseDTO):
+                            request_response_dto_class=DefaultRequestResponseDTO, read_request_body=False):
     """
     Configure the request instrumentation logging configuration for given web app. Must be called after init method
 
@@ -154,6 +156,9 @@ def init_request_instrument(app=None, custom_formatter=None, exclude_url_pattern
     :param app: current web application instance
     :param custom_formatter: formatter to override default JSONRequestLogFormatter.
     :param request_response_dto_class: request_response_dto_class to override default json_logging.RequestResponseDataExtractor.
+    :param read_request_body: FastAPI only. Read each logged request's body before the handler runs and expose it as
+        ``request.state.json_logging_request_body`` (bytes), so a custom formatter can use it without ``await``.
+        Off by default and never added to the log automatically. The whole body is held in memory.
     """
 
     if _current_framework is None or _current_framework == '-':
@@ -171,7 +176,13 @@ def init_request_instrument(app=None, custom_formatter=None, exclude_url_pattern
     _validated_excluded_fields(EXCLUDED_FIELDS)
 
     configurator = _current_framework['app_request_instrumentation_configurator']()
-    configurator.config(app, request_response_dto_class, exclude_url_patterns=exclude_url_patterns)
+    config_options = {}
+    if read_request_body:
+        if 'read_request_body' not in inspect.signature(configurator.config).parameters:
+            raise ValueError('read_request_body is only supported for FastAPI')
+        config_options['read_request_body'] = True
+    configurator.config(app, request_response_dto_class, exclude_url_patterns=exclude_url_patterns,
+                        **config_options)
 
     formatter = custom_formatter if custom_formatter else JSONRequestLogFormatter
     request_logger = configurator.request_logger
@@ -187,7 +198,8 @@ def get_request_logger():
             "request_logger is only available if json_logging is inited with a web app, "
             "call init_<framework_name>() to do that")
 
-    instance = _current_framework['app_request_instrumentation_configurator']._instance
+    # _instance only exists once the configurator has been instantiated by init_request_instrument()
+    instance = getattr(_current_framework['app_request_instrumentation_configurator'], '_instance', None)
     if instance is None:
         raise RuntimeError("please init request instrument first, call init_request_instrument(app) to do that")
 

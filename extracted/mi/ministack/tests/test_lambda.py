@@ -35,7 +35,7 @@ from conftest import (
     routed_request,
 )
 
-from ministack.core.responses import AccountRegionScopedDict, request_scope
+from ministack.core.responses import AccountRegionScopedDict, AccountScopedDict, request_scope
 from ministack.services import lambda_svc as _lambda_mod
 
 _endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566").rstrip("/")
@@ -4323,6 +4323,43 @@ def test_lambda_provided_runtime_env_has_function_vars(monkeypatch, tmp_path):
     assert body["log_stream"]
 
 
+def test_lambda_provided_one_shot_logs_more_than_a_pipe_holds(monkeypatch, tmp_path):
+    """The one-shot executor reads the log only after the reply, so it must not fill a pipe."""
+    from ministack.services import lambda_svc as lmod
+
+    bootstrap_script = (
+        "#!/usr/bin/env python3\n"
+        "import os, urllib.request\n"
+        "api = os.environ['AWS_LAMBDA_RUNTIME_API']\n"
+        "nxt = urllib.request.urlopen(f'http://{api}/2018-06-01/runtime/invocation/next')\n"
+        "rid = nxt.headers['Lambda-Runtime-Aws-Request-Id']\n"
+        "for i in range(50000):\n"
+        "    print('upload', i, flush=True)\n"
+        "urllib.request.urlopen(urllib.request.Request(\n"
+        "    f'http://{api}/2018-06-01/runtime/invocation/{rid}/response',\n"
+        "    data=b'{\"ok\": true}', method='POST'))\n"
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        info = zipfile.ZipInfo("bootstrap")
+        info.external_attr = 0o755 << 16
+        zf.writestr(info, bootstrap_script)
+    func = {
+        "config": {
+            "FunctionName": "provided-log",
+            "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:provided-log",
+            "Timeout": 15,
+            "Handler": "bootstrap",
+        },
+        "code_zip": buf.getvalue(),
+    }
+    monkeypatch.setattr(lmod, "_PROVIDED_CODE_CACHE", str(tmp_path / "provided"))
+    monkeypatch.setattr(lmod, "_provided_code_dirs", {})
+    result = lmod._execute_function_provided(func, {}, request_id="request-1")
+    assert result["body"] == {"ok": True}, result
+    assert "upload 49999" in result["log"]
+
+
 def test_lambda_provided_runtime_parallel_invocations(monkeypatch, tmp_path):
     """Concurrent provided.* invocations must not fail with ETXTBSY (#1051).
 
@@ -4722,6 +4759,47 @@ def test_lambda_warm_worker_nodejs_esm_uses_layer(lam):
         assert payload["esm"] is True
     finally:
         lam.delete_function(FunctionName=fname)
+
+
+@pytest.mark.parametrize("runtime", ["python3.12", "nodejs20.x"])
+def test_lambda_one_shot_child_process_stdout_is_log(runtime):
+    if runtime.startswith("nodejs"):
+        if not shutil.which("node"):
+            pytest.skip("needs node")
+        code = _make_zip_js(
+            "const { spawnSync } = require('child_process');\n"
+            "exports.handler = async () => {\n"
+            "  spawnSync(process.execPath, ['-e', 'console.log(\\'upload 1\\')'], { stdio: 'inherit' });\n"
+            "  return { ok: true };\n"
+            "};\n")
+    else:
+        code = _make_zip(
+            "import subprocess, sys\n"
+            "def handler(event, context):\n"
+            "    subprocess.run([sys.executable, '-c', 'print(\\'upload 1\\')'], check=True)\n"
+            "    return {'ok': True}\n")
+    config = {"FunctionName": "one-shot", "Runtime": runtime, "Handler": "index.handler",
+              "MemorySize": 128, "Timeout": 30,
+              "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:one-shot"}
+    result = _lambda_mod._execute_function_local({"config": config, "code_zip": code}, {}, "req-1")
+    assert result["body"] == {"ok": True}, result
+    assert "upload 1" in result["log"]
+
+
+def test_lambda_one_shot_crash_with_a_detached_child_is_an_exit():
+    code = _make_zip(
+        "import os, subprocess, sys\n"
+        "def handler(event, context):\n"
+        "    subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'], start_new_session=True)\n"
+        "    os._exit(3)\n")
+    config = {"FunctionName": "one-shot", "Runtime": "python3.12", "Handler": "index.handler",
+              "MemorySize": 128, "Timeout": 15,
+              "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:one-shot"}
+    started = time.monotonic()
+    result = _lambda_mod._execute_function_local({"config": config, "code_zip": code}, {}, "req-2")
+    assert time.monotonic() - started < 10
+    assert result["body"]["errorType"] == "Runtime.ExitError", result
+
 
 # ---------------------------------------------------------------------------
 # Terraform compatibility tests
@@ -6545,6 +6623,45 @@ def test_poll_kinesis_returns_false_when_invoke_fails(esm_poll_state, monkeypatc
     assert _lsvc._poll_kinesis() is False
 
 
+def test_ttl_delete_writes_a_service_remove_record(esm_poll_state, monkeypatch):
+    """GetRecords keys userIdentity PrincipalId/Type, the Lambda event principalId/type."""
+    _lsvc, _sqs, _kin, _ddb = esm_poll_state
+    _ddb._create_table({"TableName": "ttl-t", "BillingMode": "PAY_PER_REQUEST",
+                        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+                        "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+                        "StreamSpecification": {"StreamEnabled": True, "StreamViewType": "NEW_AND_OLD_IMAGES"}})
+    _ddb._update_ttl({"TableName": "ttl-t", "TimeToLiveSpecification": {"Enabled": True, "AttributeName": "exp"}})
+    now = time.time()
+    _ddb._put_item({"TableName": "ttl-t", "Item": {"pk": {"S": "old"}, "exp": {"N": str(int(now) - 5)}}})
+    _ddb._put_item({"TableName": "ttl-t", "Item": {"pk": {"S": "new"}, "exp": {"N": str(int(now) + 3600)}}})
+    _ddb._put_item({"TableName": "ttl-t", "Item": {"pk": {"S": "user"}}})
+    _ddb._delete_item({"TableName": "ttl-t", "Key": {"pk": {"S": "user"}}})
+    _ddb._reap_expired_items(now)
+
+    records = _ddb.stream_live_records("ttl-t")
+    ttl = [r for r in records if r.get("userIdentity")]
+    assert [(r["eventName"], r["dynamodb"]["Keys"]) for r in ttl] == [("REMOVE", {"pk": {"S": "old"}})]
+    assert ttl[0]["userIdentity"] == {"PrincipalId": "dynamodb.amazonaws.com", "Type": "Service"}
+    assert ttl[0]["dynamodb"]["OldImage"]["pk"] == {"S": "old"}
+    assert "Item" in _ddb._get_item({"TableName": "ttl-t", "Key": {"pk": {"S": "new"}}})[2].decode()
+
+    stream_arn = _ddb._tables["ttl-t"]["LatestStreamArn"]
+    _lsvc._functions["ttl-fn"] = {"config": {"FunctionName": "ttl-fn",
+                                             "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:ttl-fn"},
+                                  "versions": {}, "aliases": {}}
+    pattern = {"userIdentity": {"type": ["Service"], "principalId": ["dynamodb.amazonaws.com"]}}
+    _lsvc._esms["ttl-esm"] = {"UUID": "ttl-esm", "EventSourceArn": stream_arn, "FunctionName": "ttl-fn",
+                              "State": "Enabled", "Enabled": True, "BatchSize": 100, "StartingPosition": "TRIM_HORIZON",
+                              "FilterCriteria": {"Filters": [{"Pattern": json.dumps(pattern)}]}}
+    events = []
+    monkeypatch.setattr(_lsvc, "_execute_function", lambda _f, event: events.append(event) or {"error": False, "body": {}})
+    assert _lsvc._poll_dynamodb_streams() is True
+    [event] = events
+    assert [(r["eventName"], r["userIdentity"]) for r in event["Records"]] == [
+        ("REMOVE", {"principalId": "dynamodb.amazonaws.com", "type": "Service"})]
+    assert ttl[0]["userIdentity"] == {"PrincipalId": "dynamodb.amazonaws.com", "Type": "Service"}
+
+
 def test_poll_dynamodb_streams_returns_false_when_invoke_fails(esm_poll_state, monkeypatch):
     """A failed invoke doesn't advance the stream position, so the next pass
     would refetch the same batch — _poll_loop must not skip its idle sleep
@@ -8168,7 +8285,8 @@ def test_lambda_container_maps_host_docker_internal_to_host_gateway(monkeypatch)
     assert captured["environment"]["AWS_ENDPOINT_URL"] == (
         "http://host.docker.internal:4566"
     )
-    assert captured["extra_hosts"] == {"host.docker.internal": "host-gateway"}
+    assert captured["extra_hosts"] == {"host.docker.internal": "host-gateway",
+                                       "s3.us-east-1.host.docker.internal": "host-gateway"}
 
 
 def test_lambda_container_host_gateway_yields_to_an_explicit_add_host(monkeypatch):
@@ -8179,7 +8297,8 @@ def test_lambda_container_host_gateway_yields_to_an_explicit_add_host(monkeypatc
         docker_flags="--add-host host.docker.internal:10.5.0.1",
     )
 
-    assert captured["extra_hosts"] == {"host.docker.internal": "10.5.0.1"}
+    assert captured["extra_hosts"] == {"host.docker.internal": "10.5.0.1",
+                                       "s3.us-east-1.host.docker.internal": "10.5.0.1"}
 
 
 def test_lambda_container_without_host_docker_internal_gets_no_mapping(monkeypatch):
@@ -8262,6 +8381,7 @@ def test_lambda_docker_flags_applied_to_run_kwargs(monkeypatch):
     # The host-gateway mapping is merged in alongside an explicit --add-host.
     assert captured["extra_hosts"] == {
         "myhost": "10.0.0.1", "host.docker.internal": "host-gateway",
+        "s3.us-east-1.host.docker.internal": "host-gateway",
     }
     assert captured["tmpfs"] == {"/run": "size=100m"}
     assert captured["privileged"] is True
@@ -8626,7 +8746,10 @@ def _run_nodejs_worker(handler_js, event_payload=None, env_extra=None):
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(code_dir)
 
-        env = {**os.environ, "AWS_ENDPOINT_URL": _endpoint}
+        from ministack.core.lambda_runtime import RESPONSE_FD_ENV
+
+        resp_r, resp_w = os.pipe()
+        env = {**os.environ, "AWS_ENDPOINT_URL": _endpoint, RESPONSE_FD_ENV: str(resp_w)}
         if env_extra:
             env.update(env_extra)
 
@@ -8635,10 +8758,13 @@ def _run_nodejs_worker(handler_js, event_payload=None, env_extra=None):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            pass_fds=(resp_w,),
             text=True,
             bufsize=1,
             env=env,
         )
+        os.close(resp_w)
+        replies = open(resp_r, encoding="utf-8")
 
         init = json.dumps({
             "code_dir": code_dir,
@@ -8652,7 +8778,7 @@ def _run_nodejs_worker(handler_js, event_payload=None, env_extra=None):
         proc.stdin.write(init + "\n")
         proc.stdin.flush()
 
-        init_resp = json.loads(proc.stdout.readline())
+        init_resp = json.loads(replies.readline())
         assert init_resp.get("status") == "ready", (
             f"Worker init failed: {init_resp}; stderr: {proc.stderr.read(2048)}"
         )
@@ -8661,8 +8787,9 @@ def _run_nodejs_worker(handler_js, event_payload=None, env_extra=None):
         proc.stdin.write(event + "\n")
         proc.stdin.flush()
 
-        invoke_resp = json.loads(proc.stdout.readline())
+        invoke_resp = json.loads(replies.readline())
         proc.terminate()
+        replies.close()
         return invoke_resp
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
@@ -16385,7 +16512,8 @@ def test_lambda_create_function_checks_pass_role_and_the_function_arn_contract(a
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")
 @pytest.mark.parametrize("scheme", ["http", "https"])
-@pytest.mark.parametrize("host", ["localhost", "000000000000.localhost", "data-localhost", "sync-localhost"])
+@pytest.mark.parametrize("host", ["localhost", "000000000000.localhost", "data-localhost", "sync-localhost",
+                                  "abc123.appsync-api.us-east-1.localhost"])
 def test_lambda_node_worker_reaches_an_ipv4_gateway_through_prefixed_hosts(tmp_path, scheme, host):
     """The Node worker sends localhost and the SDK v3 prefixed hosts to 127.0.0.1, also over TLS."""
     import ssl
@@ -16425,3 +16553,60 @@ def test_lambda_node_worker_reaches_an_ipv4_gateway_through_prefixed_hosts(tmp_p
         server.shutdown()
     assert out.stdout.strip() == "200", out.stdout + out.stderr
     assert seen == [f"{host}:{port}"]
+
+
+def test_lambda_container_gets_regional_s3_endpoint_and_bucket_hosts(monkeypatch):
+    from ministack.services import lambda_svc
+    from ministack.services import s3 as s3_svc
+
+    buckets = AccountScopedDict()
+    with request_scope("111111111111", "us-east-2"):
+        buckets["own-bucket"] = {}
+        buckets["Not_DNS"] = {}
+    with request_scope("222222222222", "eu-west-1"):
+        buckets["other.account.bucket"] = {}
+    monkeypatch.setattr(s3_svc, "_buckets", buckets)
+    run_kwargs = {"extra_hosts": {"host.docker.internal": "host-gateway"}}
+    env = {"AWS_REGION": "us-east-2"}
+    with request_scope("111111111111", "us-east-2"):
+        s3_host, names = lambda_svc._plumb_s3_regional_endpoint(run_kwargs, env, {}, "http://host.docker.internal:4566")
+    assert s3_host == "s3.us-east-2.host.docker.internal"
+    assert env["AWS_ENDPOINT_URL_S3"] == "http://s3.us-east-2.host.docker.internal:4566"
+    assert names == ["own-bucket"]
+    assert run_kwargs["extra_hosts"] == {
+        "host.docker.internal": "host-gateway", s3_host: "host-gateway", f"own-bucket.{s3_host}": "host-gateway"}
+
+    assert lambda_svc._plumb_s3_regional_endpoint(
+        {"extra_hosts": {"host.docker.internal": "host-gateway"}}, {"AWS_REGION": "us-east-2"},
+        {"AWS_ENDPOINT_URL_S3": "http://mine:1"}, "http://host.docker.internal:4566") == (None, None)
+    assert lambda_svc._plumb_s3_regional_endpoint(
+        {"extra_hosts": {}}, {"AWS_REGION": "us-east-2"}, {}, "http://10.0.0.5:4566") == (None, None)
+    assert lambda_svc._plumb_s3_regional_endpoint(
+        {}, {"AWS_REGION": "us-east-2"}, {}, "http://ministack:4566") == (None, None)
+
+
+def test_lambda_bucket_hosts_only_grow():
+    from ministack.services import lambda_svc
+
+    class _Exec:
+        def __init__(self, output=b"", exit_code=0):
+            self.output, self.exit_code = output, exit_code
+
+    class _Container:
+        id = "c1"
+
+        def __init__(self, hosts):
+            self.hosts, self.writes = hosts, 0
+
+        def exec_run(self, cmd, environment=None, user=None):
+            if cmd == ["cat", "/etc/hosts"]:
+                return _Exec(self.hosts.encode())
+            self.hosts, self.writes = environment["H"] + "\n", self.writes + 1
+            return _Exec()
+
+    h = "s3.us-east-2.host.docker.internal"
+    c = _Container(f"127.0.0.1\tlocalhost\n192.168.65.254\t{h}\nfdc4::254\t{h}\n192.168.65.254\told.{h}\n")
+    assert lambda_svc._write_s3_bucket_hosts(c, h, ["new"])
+    assert f"192.168.65.254\tnew.{h}" in c.hosts and f"fdc4::254\tnew.{h}" in c.hosts
+    assert f"192.168.65.254\told.{h}" in c.hosts and "127.0.0.1\tlocalhost" in c.hosts
+    assert lambda_svc._write_s3_bucket_hosts(c, h, ["new", "old"]) and c.writes == 1

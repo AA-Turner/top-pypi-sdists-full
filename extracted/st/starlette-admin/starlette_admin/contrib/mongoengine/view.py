@@ -6,6 +6,7 @@ import mongoengine as me
 import starlette_admin.fields as sa
 from bson import ObjectId
 from mongoengine.base import BaseDocument
+from mongoengine.base.fields import BaseField as MongoBaseField
 from mongoengine.errors import DoesNotExist, ValidationError
 from mongoengine.fields import GridFSProxy
 from mongoengine.queryset import QNode
@@ -35,7 +36,7 @@ from starlette_admin.views import InlineModelView as BaseInlineModelView
 _log = get_logger(__name__)
 
 
-class ModelView(BaseModelView):
+class ModelView(BaseModelView[MongoBaseField]):
     """`BaseModelView` backed by a `mongoengine.Document`.
 
     Wraps a document class and implements CRUD, search, filtering, and sorting
@@ -79,7 +80,7 @@ class ModelView(BaseModelView):
         self.icon = icon or self.icon
         self.pk_attr = "id"
         if self.fields is None or len(self.fields) == 0:
-            self.fields = document._fields_ordered  # ty: ignore[unresolved-attribute]
+            self.fields = document._fields_ordered  # ty: ignore[missing-attribute]
         self.fields = (converter or ModelConverter()).convert_fields_list(
             fields=self.fields, model=self.document
         )
@@ -120,7 +121,7 @@ class ModelView(BaseModelView):
     ) -> int:
         """Return the number of documents matching the search term and filters."""
         qs = await self._build_query(request, q, filters)
-        total = self.document.objects(qs).count()  # ty: ignore[unresolved-attribute]
+        total = self.document.objects(qs).count()  # ty: ignore[missing-attribute]
         _log.debug("count: key=%r q=%r total=%d", self.key, q, total)
         return total
 
@@ -146,7 +147,7 @@ class ModelView(BaseModelView):
             q,
         )
         qs = await self._build_query(request, q, filters)
-        objs = self.document.objects(qs).order_by(  # ty: ignore[unresolved-attribute]
+        objs = self.document.objects(qs).order_by(  # ty: ignore[missing-attribute]
             *build_order_clauses(sorts or [])
         )
         if limit > 0:
@@ -158,7 +159,7 @@ class ModelView(BaseModelView):
         exist or `pk` is not a valid ObjectId.
         """
         try:
-            obj = self.document.objects(id=pk).get()  # ty: ignore[unresolved-attribute]
+            obj = self.document.objects(id=pk).get()  # ty: ignore[missing-attribute]
             _log.debug("find_by_pk: key=%r pk=%s found", self.key, pk)
             return obj
         except (DoesNotExist, ValidationError):
@@ -169,7 +170,7 @@ class ModelView(BaseModelView):
         self, request: Request, pks: list[Any]
     ) -> Sequence[me.Document]:
         """Return the documents whose primary key is in `pks`."""
-        return self.document.objects(id__in=pks)  # ty: ignore[unresolved-attribute]
+        return self.document.objects(id__in=pks)  # ty: ignore[missing-attribute]
 
     async def get_serialized_pk_value(self, request: Request, obj: Any) -> Any:
         return str(await self.get_pk_value(request, obj))
@@ -395,7 +396,7 @@ class ModelView(BaseModelView):
             The number of documents deleted.
         """
         _log.debug("delete: key=%r pks=%s", self.key, pks)
-        objs = self.document.objects(id__in=pks)  # ty: ignore[unresolved-attribute]
+        objs = self.document.objects(id__in=pks)  # ty: ignore[missing-attribute]
         for obj in objs:
             await self._emit_before_delete(
                 request, await self.get_pk_value(request, obj), obj
@@ -478,7 +479,7 @@ class ModelView(BaseModelView):
         )
 
 
-class InlineModelView(BaseInlineModelView, ModelView):
+class InlineModelView(BaseInlineModelView[MongoBaseField], ModelView):
     """Inline editing of MongoEngine-backed related documents inside a parent form.
 
     Declare ``document`` as a class attribute. The parent reference field is
@@ -519,9 +520,9 @@ class InlineModelView(BaseInlineModelView, ModelView):
         )
         ref_fields = [
             name
-            for name, field in self.document._fields.items()  # ty: ignore[unresolved-attribute]
+            for name, field in self.document._fields.items()  # ty: ignore[missing-attribute]
             if isinstance(field, me.ReferenceField)
-            and field.document_type is self.parent_view.document  # ty: ignore[unresolved-attribute]
+            and field.document_type is self.parent_view.document  # ty: ignore[missing-attribute]
         ]
         if len(ref_fields) == 1:
             _log.debug(
@@ -553,7 +554,7 @@ class InlineModelView(BaseInlineModelView, ModelView):
             self.fk_attr,
         )
         rows = list(
-            self.document.objects(**{self.fk_attr: parent.pk})  # ty: ignore[unresolved-attribute]
+            self.document.objects(**{self.fk_attr: parent.pk})  # ty: ignore[missing-attribute]
         )
         _log.debug("find_by_parent %s → %d row(s)", self.document.__name__, len(rows))
         return rows

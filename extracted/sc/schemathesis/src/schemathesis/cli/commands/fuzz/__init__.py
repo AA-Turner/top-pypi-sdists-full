@@ -11,6 +11,7 @@ from schemathesis.cli.constants import COLOR_OPTIONS_INVALID_USAGE_MESSAGE
 from schemathesis.cli.core import ensure_color, resolve_color
 from schemathesis.cli.ext.groups import group, grouped_option
 from schemathesis.cli.options import (
+    APP,
     AUTH,
     AUTH_WFC,
     AUTH_WFC_USER,
@@ -71,6 +72,7 @@ from schemathesis.config import (
     SchemathesisConfig,
     SchemathesisWarning,
 )
+from schemathesis.core.app_output import hidden_application_output
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.metrics import MetricFunction
 
@@ -91,6 +93,7 @@ load_all_checks()
 )
 @grouped_option(*SUPPRESS_HEALTH_CHECK.args, **SUPPRESS_HEALTH_CHECK.kwargs)
 @grouped_option(*WAIT_FOR_SCHEMA.args, **WAIT_FOR_SCHEMA.kwargs)
+@grouped_option(*APP.args, **APP.kwargs)
 @grouped_option(*WARNINGS.args, **WARNINGS.kwargs)
 @group("API validation options")
 @grouped_option(*CHECKS_OPTION.args, **CHECKS_OPTION.kwargs)
@@ -172,6 +175,7 @@ def fuzz(
     workers: int | None = None,
     base_url: str | None,
     wait_for_schema: float | None = None,
+    app: str | None = None,
     suppress_health_check: list[HealthCheck] | None,
     warnings: bool | list[SchemathesisWarning] | None,
     rate_limit: str | None = None,
@@ -200,10 +204,8 @@ def fuzz(
 ) -> None:
     """Continuously fuzz your API with multi-step operation sequences.
 
-    Generates chains of API calls across operations and validates each
-    response. Stops at the first failure, when --max-time is reached, or when
-    interrupted. With --continue-on-failure it keeps fuzzing until
-    --max-failures failures.
+    Validates every response. Stops at the first failure, at --max-time, or on interrupt;
+    with --continue-on-failure, it keeps fuzzing until --max-failures failures.
 
     \b
     LOCATION can be:
@@ -228,8 +230,11 @@ def fuzz(
         suppress_health_check=suppress_health_check,
         seed=generation_seed,
         wait_for_schema=wait_for_schema,
+        app=app,
         max_failures=max_failures,
     )
+    if config.app is not None:
+        ctx.with_resource(hidden_application_output())
     config.output.sanitization.update(enabled=output_sanitize)
     config.output.truncation.update(enabled=output_truncate)
     apply_report_options(config.reports, ctx.params)

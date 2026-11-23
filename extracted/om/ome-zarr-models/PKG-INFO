@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ome-zarr-models
-Version: 1.9.0
+Version: 1.9.1
 Summary: A minimal Python package for reading OME-Zarr (meta)data 
 Project-URL: Documentation, https://ome-zarr-models-py.readthedocs.io
 Project-URL: Repository, https://github.com/ome-zarr-models/ome-zarr-models-py
@@ -20,8 +20,8 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Requires-Python: >=3.12
 Requires-Dist: numpy
-Requires-Dist: pydantic-zarr>=0.10.0; python_version >= '3.14'
-Requires-Dist: pydantic-zarr>=0.8.2
+Requires-Dist: pydantic-zarr<0.11,>=0.10.0; python_version >= '3.14'
+Requires-Dist: pydantic-zarr<0.11,>=0.8.2
 Requires-Dist: pydantic>=2.11.5
 Requires-Dist: zarr>=3.1.1
 Provides-Extra: docs

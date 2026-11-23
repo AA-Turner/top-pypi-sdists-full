@@ -66,6 +66,11 @@ class ChecksConfig:
 
 
 @dataclass(frozen=True)
+class UpdateConfig:
+    index_url: str = ""
+
+
+@dataclass(frozen=True)
 class AutoPruningConfig:
     enabled: bool = True
     turn_context_threshold: int = 50000
@@ -93,6 +98,7 @@ class AppConfig:
     context: ContextConfig = field(default_factory=ContextConfig)
     research: ResearchConfig = field(default_factory=ResearchConfig)
     checks: ChecksConfig = field(default_factory=ChecksConfig)
+    update: UpdateConfig = field(default_factory=UpdateConfig)
     auto_pruning: AutoPruningConfig = field(default_factory=AutoPruningConfig)
     guardrails: GuardrailsConfig = field(default_factory=GuardrailsConfig)
     editor: str = ""
@@ -224,6 +230,7 @@ _SCHEMA_FIELDS: tuple[_FieldSpec, ...] = (
     _FieldSpec("checks.prompts", "checks", "prompts", bool),
     _FieldSpec("checks.templates", "checks", "templates", bool),
     _FieldSpec("checks.update", "checks", "update", bool),
+    _FieldSpec("update.index_url", "update", "index_url", str),
     _FieldSpec("auto_pruning.enabled", "auto_pruning", "enabled", bool),
     _FieldSpec(
         "auto_pruning.turn_context_threshold",
@@ -269,8 +276,97 @@ _DECLARED_KEY_TARGETS: dict[str, tuple[str | None, str]] = {
 _KNOWN_TOP_LEVEL = frozenset(
     {spec.group for spec in _SCHEMA_FIELDS if spec.group is not None}
     | {spec.key for spec in _SCHEMA_FIELDS if spec.group is None}
-    | {"llm"}
+    | {"llm", "agents"}
 )
+
+_AGENTS_GROUP = "agents"
+
+
+def resolve_agent_llm_overrides(agents_block: Any, persona: str) -> dict[str, Any]:
+    """Return the per-persona ``llm`` overlay from the ``agents`` block.
+
+    The overlay is a copy of the persona entry, so a caller can merge it without
+    mutating the lazily interpolated merged configuration. Persona matching is
+    case-insensitive, mirroring the prompt resolver's casefold stem rule. A blank
+    ``model`` is dropped, because an empty model would reach the provider as an
+    unresolvable identifier. Any malformed input (a non-mapping block, a
+    non-mapping entry) resolves to an empty overlay, so runtime extraction is
+    total; ``construct_app_config`` is the raising seam at load time.
+    """
+    if not isinstance(agents_block, Mapping):
+        return {}
+    entry: Any = None
+    for key, value in agents_block.items():
+        if isinstance(key, str) and key.casefold() == persona.casefold():
+            entry = value
+            break
+    if not isinstance(entry, Mapping):
+        return {}
+    overlay = dict(entry)
+    model = overlay.get("model")
+    if isinstance(model, str) and not model.strip():
+        del overlay["model"]
+    return overlay
+
+
+def resolve_effective_model(
+    override: Any, persona_model: Any, global_model: Any
+) -> str:
+    """Resolve the effective model by the slice precedence.
+
+    The explicit ``--model`` flag override wins, then the persona entry, then the
+    global ``llm.model``. A blank or non-string candidate is skipped so an empty
+    identifier never propagates to the provider. When every candidate is blank
+    the resolver returns an empty string.
+    """
+    for candidate in (override, persona_model, global_model):
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate
+    return ""
+
+
+def _validate_agents_block(merged: Mapping[str, Any]) -> None:
+    """Reject an unusable ``agents`` block at load time.
+
+    A non-mapping block, a non-empty non-mapping persona entry, and two persona
+    keys that differ only in case each raise a ``ConfigurationError`` naming the
+    offending key. An empty persona entry is accepted as a declared persona
+    without overrides, mirroring the tolerated empty block. The duplicate case
+    fails because case-insensitive matching would otherwise make the winning
+    entry depend on YAML key order.
+    """
+    if _AGENTS_GROUP not in merged:
+        return
+    block = merged[_AGENTS_GROUP]
+    if block is None:
+        return
+    if not isinstance(block, Mapping):
+        raise ConfigurationError(
+            f"Configuration key '{_AGENTS_GROUP}' expected a mapping of persona "
+            f"names, got {block!r}."
+        )
+    seen: set[str] = set()
+    for persona, entry in block.items():
+        if not isinstance(persona, str):
+            raise ConfigurationError(
+                f"Configuration key '{_AGENTS_GROUP}' expected string persona "
+                f"names, got {persona!r}."
+            )
+        folded = persona.casefold()
+        if folded in seen:
+            raise ConfigurationError(
+                f"Configuration key '{_AGENTS_GROUP}' declares the persona "
+                f"{persona!r} more than once when ignoring case. Keep one spelling."
+            )
+        seen.add(folded)
+        if entry is None:
+            # A bare persona key declares the persona with no overrides.
+            continue
+        if not isinstance(entry, Mapping):
+            raise ConfigurationError(
+                f"Configuration key '{_AGENTS_GROUP}.{persona}' expected a mapping "
+                f"of llm settings, got {entry!r}."
+            )
 
 
 def is_declared_key(key: str) -> bool:
@@ -338,6 +434,7 @@ def construct_app_config(merged: Mapping[str, Any]) -> AppConfig:
     Undeclared top-level groups are ignored so future keys stay forward
     compatible.
     """
+    _validate_agents_block(merged)
     _log_unknown_keys(merged)
     group_overrides: dict[str, dict[str, Any]] = {}
     top_level_overrides: dict[str, Any] = {}
@@ -360,6 +457,7 @@ def construct_app_config(merged: Mapping[str, Any]) -> AppConfig:
         context=ContextConfig(**group_overrides.get("context", {})),
         research=ResearchConfig(**group_overrides.get("research", {})),
         checks=ChecksConfig(**group_overrides.get("checks", {})),
+        update=UpdateConfig(**group_overrides.get("update", {})),
         auto_pruning=AutoPruningConfig(**group_overrides.get("auto_pruning", {})),
         guardrails=GuardrailsConfig(**group_overrides.get("guardrails", {})),
         **top_level_overrides,

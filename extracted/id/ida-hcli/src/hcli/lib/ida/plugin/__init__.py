@@ -1,3 +1,4 @@
+import functools
 import io
 import logging
 import pathlib
@@ -5,8 +6,8 @@ import re
 import sys
 import typing
 import zipfile
-from collections.abc import Iterable, Iterator
-from pathlib import Path
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from pathlib import Path, PurePath
 from typing import Literal
 
 if sys.version_info >= (3, 11):
@@ -21,6 +22,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     ValidationError,
     field_serializer,
     field_validator,
@@ -67,12 +69,12 @@ Platform = Literal[
 
 ALL_PLATFORMS: frozenset[Platform] = frozenset(typing.get_args(Platform))
 
-IdaVersion = Literal[
-    # next versions, unreleased. names are guesses and not any sort of official announcement.
-    # we should have these available so that older versions of hcli don't complain about new plugin support.
-    "10.0",
-    "9.5",
-    # released versions
+# Released IDA versions, newest first. hcli matches the `idaVersions` spec against the
+# running IDA version, so existing specs match a new IDA release before it is added here.
+# hcli uses this list to pick the "!=X.Y" exclusions when it converts a deprecated list of
+# versions to a spec, and to display and lint specs.
+KNOWN_IDA_VERSIONS: tuple[str, ...] = (
+    "9.5",  #    2026-10
     "9.4",  #    2026-07
     "9.3",  #    2026-02
     "9.2",  #    2025-09
@@ -138,9 +140,13 @@ IdaVersion = Literal[
     "4.1",
     "4.0",
     "3.0",
-]
+)
 
-ALL_IDA_VERSIONS: frozenset[IdaVersion] = frozenset(typing.get_args(IdaVersion))
+IDA_VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)(?:sp\d+)?$")
+
+ALL_IDA_VERSIONS_SPEC = "*"
+
+IdaVersionsForm = Literal["omitted", "spec", "list"]
 
 
 def parse_plugin_version(version: str) -> semantic_version.Version:
@@ -167,9 +173,57 @@ def parse_ida_version(version: str) -> semantic_version.Version:
     return semantic_version.Version(normalized_version)
 
 
+@functools.lru_cache(maxsize=1024)
 def parse_ida_version_spec(version: str) -> semantic_version.SimpleSpec:
     normalized_version = version.replace("sp", ".")
     return semantic_version.SimpleSpec(normalized_version)
+
+
+def get_ida_major_minor(version: str) -> str:
+    """Return the "X.Y" part of an IDA version such as "9.0" or "9.0sp1".
+
+    Raises:
+        ValueError: when the version does not look like "X.Y" or "X.YspN".
+    """
+    match = IDA_VERSION_PATTERN.match(version)
+    if not match:
+        raise ValueError(f"invalid IDA version: '{version}' (expected X.Y or X.YspN)")
+    return f"{match.group(1)}.{match.group(2)}"
+
+
+def get_ida_version_spec_from_list(versions: Sequence[str]) -> str:
+    """Convert an explicit list of IDA versions into an equivalent spec string.
+
+    hcli detects the running IDA version as "X.Y", so service packs collapse into their
+    release. Known releases between the lowest and highest entry that the list leaves
+    out become "!=X.Y" exclusions. An empty list means all versions.
+
+    Raises:
+        ValueError: when an entry does not look like "X.Y" or "X.YspN".
+    """
+    if not versions:
+        return ALL_IDA_VERSIONS_SPEC
+
+    declared = sorted({get_ida_major_minor(version) for version in versions}, key=parse_ida_version)
+    if len(declared) == 1:
+        return f"=={declared[0]}"
+
+    lowest = parse_ida_version(declared[0])
+    highest = parse_ida_version(declared[-1])
+    known = {get_ida_major_minor(version) for version in KNOWN_IDA_VERSIONS}
+    missing = sorted(
+        (version for version in known - set(declared) if lowest < parse_ida_version(version) < highest),
+        key=parse_ida_version,
+    )
+    return ",".join([f">={declared[0]}", f"<={declared[-1]}", *(f"!={version}" for version in missing)])
+
+
+def get_ida_versions_matching_spec(spec: str) -> list[str]:
+    """Return the known IDA versions that the spec matches, oldest first."""
+    parsed = parse_ida_version_spec(spec)
+    return sorted(
+        (version for version in KNOWN_IDA_VERSIONS if parse_ida_version(version) in parsed), key=parse_ida_version
+    )
 
 
 def split_plugin_version_spec(version_spec: str) -> tuple[str, str]:
@@ -359,8 +413,322 @@ class PluginSettingDescriptor(BaseModel):
                 raise ChoiceValueError(self.key, candidate_value, self.choices)
 
 
+def is_valid_plugin_name(name: str) -> bool:
+    return (
+        bool(re.match(r"^[a-zA-Z0-9_-]+$", name)) and not name.startswith(("_", "-")) and not name.endswith(("_", "-"))
+    )
+
+
+IDAUSR_TOKEN = "$IDAUSR"
+CONFIG_TEMPLATE_ROOT = "cfg"
+WINDOWS_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "CLOCK$"}
+    | {f"COM{i}" for i in range(10)}
+    | {f"LPT{i}" for i in range(10)}
+)
+# Base names, in lower case, of the files and directories in `$IDADIR/cfg` of IDA 9.0 to 9.5.
+IDA_CONFIG_NAMES = frozenset(
+    [
+        "32bit-avx",
+        "32bit-core",
+        "32bit-linux",
+        "32bit-sse",
+        "64bit-avx",
+        "64bit-avx512",
+        "64bit-core",
+        "64bit-linux",
+        "64bit-segments",
+        "64bit-sse",
+        "6805",
+        "6808",
+        "6811",
+        "6812",
+        "6816",
+        "78k0",
+        "78k0s",
+        "aarch64",
+        "aarch64-core",
+        "aarch64-fpu",
+        "ad218x",
+        "alpha",
+        "amd64-avx",
+        "arc",
+        "arm-core",
+        "arm-m-profile",
+        "arm-ocd-banked",
+        "arm-vfpv3",
+        "arm-with-banked",
+        "arm-with-m",
+        "arm-with-neon",
+        "arm_sys_reg",
+        "atrap",
+        "avr",
+        "baltic",
+        "bochsrc",
+        "c166",
+        "c166v1",
+        "c166v2",
+        "central_europe",
+        "chinese",
+        "clsid",
+        "dbg_bochs",
+        "dbg_dalvik",
+        "dbg_gdb",
+        "dbg_ios",
+        "dbg_pin",
+        "dbg_xnu",
+        "dex",
+        "dscu",
+        "dsp561xx",
+        "dsp563xx",
+        "dsp566xx",
+        "dsp56k",
+        "dwarf",
+        "eh34",
+        "exceptions",
+        "f2mc16l",
+        "f2mc16lx",
+        "fr",
+        "gdb_arch",
+        "ghidra_patterns",
+        "golang",
+        "goodname",
+        "goomba",
+        "greek",
+        "h8",
+        "hcs12",
+        "hcs12x",
+        "hexrays",
+        "hpux",
+        "i386-avx",
+        "i51",
+        "i960",
+        "ida",
+        "idaclang",
+        "idagui",
+        "idapython",
+        "idatui",
+        "ios-arm",
+        "ios-arm64",
+        "japanese",
+        "korean",
+        "kr1878",
+        "latin_1",
+        "m16c60",
+        "m16c80",
+        "m32c80",
+        "m32r",
+        "m65816",
+        "m68k",
+        "m68k-core",
+        "m740",
+        "m7700",
+        "m7900",
+        "macho",
+        "mc68kvec",
+        "mips-cp0",
+        "mips-cpu",
+        "mips-dsp",
+        "mips-fpu",
+        "mips-linux",
+        "mips64-cp0",
+        "mips64-cpu",
+        "mips64-fpu",
+        "mips64-linux",
+        "n64",
+        "noret",
+        "oakdsp",
+        "objc",
+        "patfind",
+        "pdb",
+        "pe",
+        "pic12",
+        "pic14",
+        "pic16",
+        "pic24",
+        "pic30",
+        "pic33",
+        "power-altivec",
+        "power-core",
+        "power-fpu",
+        "power-linux",
+        "power64-core",
+        "powerpc-32",
+        "powerpc-64",
+        "powerpc-altivec64",
+        "ppc",
+        "psx",
+        "r32c",
+        "rh850",
+        "rh850-core",
+        "riscv",
+        "riscv-32",
+        "riscv-32bit-cpu",
+        "riscv-64",
+        "riscv-64bit-cpu",
+        "rl78",
+        "rust",
+        "sh3",
+        "spc700",
+        "st10",
+        "st20",
+        "st7",
+        "st9",
+        "super10",
+        "swift",
+        "tms32028",
+        "tms320c3",
+        "tms320c54",
+        "tms320c55",
+        "tricore",
+        "tricore-core",
+        "turkish",
+        "uefi",
+        "uefi_guids",
+        "vietnam",
+        "xbe",
+        "xnu-arm64",
+        "xnu-x64",
+        "xref_graph",
+        "z180",
+        "z8",
+    ]
+)
+IDA_CONFIG_DIRECTORY_NAMES = frozenset({"ghidra_patterns"})
+WINDOWS_INVALID_PATH_CHARACTERS = frozenset('<>:"|?*\\')
+
+
+def validate_config_template_destination_component(component: str, destination: str) -> None:
+    """Check one path component of a config template destination.
+
+    Raises:
+        ValueError: when the component is empty, a traversal, not ASCII, or not valid on Windows.
+    """
+    if component == "":
+        raise ValueError(f"destination must not contain empty path components: '{destination}'")
+    if component in (".", ".."):
+        raise ValueError(f"destination must not contain '.' or '..': '{destination}'")
+    if not component.isascii():
+        raise ValueError(f"destination must contain only ASCII characters: '{destination}'")
+    if "\\" in component:
+        raise ValueError(f"destination must use '/' as the path separator: '{destination}'")
+    if any(c in WINDOWS_INVALID_PATH_CHARACTERS or ord(c) < 0x20 or ord(c) == 0x7F for c in component):
+        raise ValueError(f"destination contains a character that is not valid in a path: '{destination}'")
+    if component.endswith((".", " ")):
+        raise ValueError(f"destination path components must not end with '.' or ' ': '{destination}'")
+    if component.split(".", maxsplit=1)[0].rstrip(" ").upper() in WINDOWS_RESERVED_NAMES:
+        raise ValueError(f"destination contains a name reserved on Windows: '{component}' in '{destination}'")
+
+
+def get_config_template_destination_parts(destination: str) -> tuple[str, ...]:
+    """Validate a config template destination and get its path components below `$IDAUSR`.
+
+    The destination is `$IDAUSR/cfg/<owner>.<suffix>` or `$IDAUSR/cfg/<owner>/<path>`,
+    where `<owner>` has the syntax of a plugin name and is not the name of a file or directory
+    that IDA ships in `$IDADIR/cfg`, because a copy in `$IDAUSR/cfg` hides the file of IDA.
+    Whether `<owner>` names the declaring plugin is checked by `validate_config_template_owners`.
+
+    Raises:
+        ValueError: when the destination breaks a rule; the message names the rule.
+    """
+    prefix = IDAUSR_TOKEN + "/"
+    if not destination.startswith(prefix):
+        raise ValueError(f"destination must start with '{prefix}': '{destination}'")
+
+    relative = destination[len(prefix) :]
+    if relative.endswith("/"):
+        raise ValueError(f"destination must not end with '/': '{destination}'")
+
+    parts = tuple(relative.split("/"))
+    for part in parts:
+        validate_config_template_destination_component(part, destination)
+
+    root = parts[0]
+    if root != CONFIG_TEMPLATE_ROOT:
+        raise ValueError(f"destination must be under {prefix}{CONFIG_TEMPLATE_ROOT}/: '{destination}'")
+
+    if len(parts) < 2:
+        raise ValueError(f"destination must name a file below {prefix}{root}/: '{destination}'")
+
+    if len(parts) == 2:
+        owner, _, suffix = parts[1].partition(".")
+        if not suffix:
+            raise ValueError(
+                f"a destination directly in {prefix}{root}/ must be named '<plugin>.<suffix>': '{destination}'"
+            )
+    else:
+        owner = parts[1]
+
+    if not is_valid_plugin_name(owner):
+        raise ValueError(
+            f"destination must start with {prefix}{root}/<plugin>/ or {prefix}{root}/<plugin>.<suffix>, "
+            f"where <plugin> is a plugin name: '{destination}'"
+        )
+
+    reserved = IDA_CONFIG_NAMES if len(parts) == 2 else IDA_CONFIG_DIRECTORY_NAMES
+    if owner.lower() in reserved:
+        raise ValueError(f"destination must not use the name of a config file that IDA ships: '{destination}'")
+
+    return parts
+
+
+class ConfigTemplate(BaseModel):
+    source: str = Field(
+        description=(
+            "Path of the template file, relative to this `ida-plugin.json`. The file must be in the plugin archive."
+        ),
+        examples=["defaults/my-plugin.cfg"],
+    )
+
+    destination: str = Field(
+        description=(
+            "Path that HCLI copies the template to. It starts with the literal `$IDAUSR/cfg/`, "
+            "followed by `<plugin>.<suffix>` or `<plugin>/<path>`, where `<plugin>` is this plugin's name "
+            "or, for a component, the name of its suite. "
+            "It must be ASCII, use `/` as the separator, and contain no `.` or `..` components. "
+            "`<plugin>` must not be the name of a file or directory that IDA ships in `$IDADIR/cfg`."
+        ),
+        examples=["$IDAUSR/cfg/my-plugin.cfg", "$IDAUSR/cfg/my-plugin/patterns.txt"],
+    )
+
+    @field_validator("source", mode="after")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        if not value:
+            raise ValueError("source must not be empty")
+        validate_path(value, "config template source")
+        return value
+
+    @field_validator("destination", mode="after")
+    @classmethod
+    def validate_destination(cls, value: str) -> str:
+        _ = get_config_template_destination_parts(value)
+        return value
+
+    @property
+    def destination_parts(self) -> tuple[str, ...]:
+        """Path components of the destination below `$IDAUSR`."""
+        return get_config_template_destination_parts(self.destination)
+
+    @property
+    def owner(self) -> str:
+        """Plugin name that the destination belongs to."""
+        return self.destination_parts[1].partition(".")[0]
+
+
+def set_ida_versions_json_schema(schema: dict[str, typing.Any]) -> None:
+    """Document the spec string, and keep the deprecated list form valid."""
+    del schema["type"]
+    schema["anyOf"] = [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "string"}, "deprecated": True},
+    ]
+
+
 class PluginMetadata(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True, extra="allow")  # type: ignore
+
+    _ida_versions_form: IdaVersionsForm = PrivateAttr(default="omitted")
 
     # required fields
     name: str = Field(
@@ -444,15 +812,18 @@ class PluginMetadata(BaseModel):
         description="Maintainers of the plugin. At least one author or maintainer is required.",
     )
 
-    ida_versions: list[IdaVersion] = Field(
+    ida_version_spec: str = Field(
         alias="idaVersions",
-        default_factory=lambda: sorted(ALL_IDA_VERSIONS),
+        default=ALL_IDA_VERSIONS_SPEC,
         description=(
-            "Versions of IDA Pro the plugin supports. Each version must be declared "
-            "separately because IDA's APIs do not strictly follow semantic versioning. "
-            "The default is all versions, but this is almost certainly incorrect."
+            'Versions of IDA Pro the plugin supports, as a version spec such as ">=9.0" or '
+            '">=9.0,<10,!=9.3". Comma-separated clauses must all match. A spec without an upper '
+            "bound also matches later IDA releases. HCLI does not distinguish service packs: "
+            '"9.0" also matches 9.0 SP1. The default is all versions, but this is almost certainly '
+            "incorrect. A list of versions is deprecated; HCLI converts it to the equivalent spec."
         ),
-        examples=[["9.0", "9.1", "9.2"]],
+        examples=[">=9.0", ">=9.0,<10", "==9.2"],
+        json_schema_extra=set_ida_versions_json_schema,
     )
 
     platforms: list[Platform] = Field(
@@ -498,6 +869,24 @@ class PluginMetadata(BaseModel):
     settings: list[PluginSettingDescriptor] = Field(
         default_factory=list,
         description="User-configurable settings exposed by the plugin.",
+    )
+
+    config_templates: list[ConfigTemplate] = Field(
+        alias="configTemplates",
+        default_factory=list,
+        description=(
+            "Files that HCLI copies from the plugin directory into `$IDAUSR/cfg`, where IDA's "
+            "`getsysfile` and `read_config_file` find them and the user can edit them. "
+            "HCLI writes a missing copy at install and upgrade, replaces a copy the user did not edit "
+            "when the template changes, and deletes a copy the user did not edit at uninstall. "
+            "The plugin must work when the copy is missing."
+        ),
+        examples=[
+            [
+                {"source": "defaults/my-plugin.cfg", "destination": "$IDAUSR/cfg/my-plugin.cfg"},
+                {"source": "defaults/patterns.txt", "destination": "$IDAUSR/cfg/my-plugin/patterns.txt"},
+            ]
+        ],
     )
 
     dependencies: list = Field(
@@ -697,26 +1086,54 @@ class PluginMetadata(BaseModel):
             raise ValueError(f"failed to parse version: {e}") from e
         return value
 
-    @field_validator("ida_versions", mode="before")
+    @field_validator("ida_version_spec", mode="before")
     @classmethod
-    def transform_ida_version_spec_to_versions(cls, raw: str | list[IdaVersion]) -> list[IdaVersion]:
-        if isinstance(raw, str):
-            spec = parse_ida_version_spec(raw)
+    def normalize_ida_version_spec(cls, raw: object) -> object:
+        if isinstance(raw, list) and all(isinstance(version, str) for version in raw):
+            return get_ida_version_spec_from_list(raw)
 
-            versions: list[IdaVersion] = [version for version in ALL_IDA_VERSIONS if parse_ida_version(version) in spec]
-            return versions
-        else:
+        if not isinstance(raw, str):
             return raw
+
+        spec = re.sub(r"\s+", "", raw)
+        try:
+            _ = parse_ida_version_spec(spec)
+        except ValueError as e:
+            raise ValueError(f"invalid IDA version spec: '{raw}': {e}") from e
+        return spec
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def record_ida_versions_form(
+        cls, data: typing.Any, handler: typing.Callable[[typing.Any], "PluginMetadata"]
+    ) -> "PluginMetadata":
+        form: IdaVersionsForm = "omitted"
+        if isinstance(data, dict):
+            raw = data.get("idaVersions")
+            if isinstance(raw, list):
+                form = "list"
+            elif raw is not None:
+                form = "spec"
+        model = handler(data)
+        if not isinstance(data, PluginMetadata):
+            model._ida_versions_form = form
+        return model
+
+    @property
+    def ida_versions_form(self) -> IdaVersionsForm:
+        """How ida-plugin.json declared idaVersions: omitted, as a spec string, or as a deprecated list."""
+        return self._ida_versions_form
+
+    @property
+    def ida_versions(self) -> list[str]:
+        """Known IDA versions that the spec matches, oldest first."""
+        return get_ida_versions_matching_spec(self.ida_version_spec)
 
     @model_validator(mode="after")
     def check_at_least_one_contact(self):
         if not self.authors and not self.maintainers:
             raise ValueError("authors or maintainers must be present")
         return self
-
-    @field_serializer("ida_versions")
-    def serialize_sorted_ida_versions(self, versions: list[IdaVersion]):
-        return sorted(versions, key=parse_ida_version)
 
     @field_serializer("platforms")
     def serialize_sorted_platforms(self, platforms: list[Platform]):
@@ -730,6 +1147,17 @@ class PluginMetadata(BaseModel):
             raise ValueError("setting keys must be unique")
 
         return settings
+
+    @field_validator("config_templates", mode="after")
+    @classmethod
+    def has_unique_config_template_destinations(cls, templates: list[ConfigTemplate]) -> list[ConfigTemplate]:
+        seen: set[str] = set()
+        for template in templates:
+            key = template.destination.lower()
+            if key in seen:
+                raise ValueError(f"config template destinations must be unique: '{template.destination}'")
+            seen.add(key)
+        return templates
 
     @field_validator("settings", mode="after")
     @classmethod
@@ -1008,9 +1436,17 @@ def does_plugin_path_exist_in_plugin_archive(zip_data: bytes, plugin_root: Path,
     return does_path_exist_in_zip_archive(zip_data, candidate_path.as_posix())
 
 
-def is_ida_version_compatible(current_version: str, compatible_versions: Iterable[str]) -> bool:
-    """Check if current IDA version is compatible with the given versions."""
-    return current_version in compatible_versions
+def is_ida_version_compatible(current_version: str, ida_version_spec: str) -> bool:
+    """Check if the IDA version matches the plugin's `idaVersions` spec.
+
+    A version that cannot be parsed matches no spec.
+    """
+    try:
+        version = parse_ida_version(current_version)
+    except ValueError:
+        logger.debug("failed to parse IDA version: %s", current_version)
+        return False
+    return version in parse_ida_version_spec(ida_version_spec)
 
 
 def is_python_version_compatible(current_version: str, requirement: str) -> bool:
@@ -1045,6 +1481,156 @@ def validate_path(path: str, field_name: str) -> None:
         raise ValueError(f"Invalid {field_name} path: '{path}'")
 
 
+MAX_COMPONENT_DEPTH = 10
+
+
+def validate_config_template_owners(metadata: IDAMetadataDescriptor, suite_names: Iterable[str]) -> None:
+    """Check that each config template destination belongs to the plugin or to one of its suites.
+
+    Raises:
+        ValueError: when a destination belongs to another plugin.
+    """
+    name = metadata.plugin.name
+    allowed = {name.lower(), *(suite_name.lower() for suite_name in suite_names)}
+    for template in metadata.plugin.config_templates:
+        if template.owner.lower() not in allowed:
+            raise ValueError(
+                f"config template destination of plugin '{name}' must start with "
+                f"{IDAUSR_TOKEN}/cfg/{name}/ or {IDAUSR_TOKEN}/cfg/{name}.<suffix>: '{template.destination}'"
+            )
+
+
+def get_inline_component_metadata(parent: IDAMetadataDescriptor, name: str) -> IDAMetadataDescriptor | None:
+    """Get the expanded metadata of the named component from the `components` field of its parent."""
+    for entry in parent.plugin.components:
+        if isinstance(entry, IDAMetadataDescriptor) and entry.plugin.name == name:
+            return entry
+    return None
+
+
+def get_suite_names(
+    plugin_dir: PurePath, name: str, get_metadata: Callable[[PurePath], IDAMetadataDescriptor | None]
+) -> set[str]:
+    """Get the names of the suites that contain the plugin, at any depth.
+
+    A component lives in the subdirectory of its suite that has the component's name,
+    and the suite lists the component in `components`.
+    `get_metadata` returns the metadata of the plugin in a directory, or None.
+    """
+    suite_names: set[str] = set()
+    child_dir = plugin_dir
+    child_name = name
+    for _ in range(MAX_COMPONENT_DEPTH):
+        if child_dir.name != child_name or child_dir.parent == child_dir:
+            break
+
+        parent = get_metadata(child_dir.parent)
+        if parent is None:
+            break
+        if child_name not in {get_component_name(entry) for entry in parent.plugin.components}:
+            break
+
+        suite_names.add(parent.plugin.name)
+        child_dir = child_dir.parent
+        child_name = parent.plugin.name
+
+    return suite_names
+
+
+def get_suite_names_from_plugin_archive(zip_data: bytes, metadata_path: Path, name: str) -> set[str]:
+    """Get the names of the suites in the archive that contain the plugin, at any depth.
+
+    `metadata_path` is the path of the plugin's `ida-plugin.json` in the archive.
+    """
+    metadatas = {path.parent: metadata for path, metadata in get_metadatas_with_paths_from_plugin_archive(zip_data)}
+
+    def get_metadata(directory: PurePath, depth: int = 0) -> IDAMetadataDescriptor | None:
+        if directory in metadatas:
+            return metadatas[directory]
+        if depth >= MAX_COMPONENT_DEPTH or directory.parent == directory:
+            return None
+        parent = get_metadata(directory.parent, depth + 1)
+        if parent is None:
+            return None
+        return get_inline_component_metadata(parent, directory.name)
+
+    return get_suite_names(metadata_path.parent, name, get_metadata)
+
+
+def get_metadata_from_plugin_directory_or_suite(directory: Path, *, _depth: int = 0) -> IDAMetadataDescriptor | None:
+    """Get the metadata of the plugin in the directory.
+
+    A component of a suite may have no `ida-plugin.json`, when the suite lists its expanded metadata.
+    """
+    metadata_file = directory / "ida-plugin.json"
+    if metadata_file.is_file():
+        try:
+            return IDAMetadataDescriptor.model_validate_json(metadata_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            logger.debug("failed to read metadata %s: %s", metadata_file, e)
+            return None
+
+    if _depth >= MAX_COMPONENT_DEPTH or directory.parent == directory:
+        return None
+    parent = get_metadata_from_plugin_directory_or_suite(directory.parent, _depth=_depth + 1)
+    if parent is None:
+        return None
+    return get_inline_component_metadata(parent, directory.name)
+
+
+def get_suite_names_from_plugin_directory(plugin_path: Path, name: str) -> set[str]:
+    """Get the names of the suites that contain the plugin, from the manifests in its parent directories."""
+    return get_suite_names(
+        plugin_path.absolute(), name, lambda directory: get_metadata_from_plugin_directory_or_suite(Path(directory))
+    )
+
+
+def has_config_templates_owned_by_others(metadata: IDAMetadataDescriptor) -> bool:
+    name = metadata.plugin.name.lower()
+    return any(template.owner.lower() != name for template in metadata.plugin.config_templates)
+
+
+def validate_config_templates_in_plugin_archive(
+    zip_data: bytes, metadata_path: Path, metadata: IDAMetadataDescriptor
+) -> None:
+    """Check that each config template source is a file in the archive and that each destination belongs to the plugin.
+
+    Raises:
+        ValueError: when a source is missing or a destination belongs to another plugin.
+    """
+    if not metadata.plugin.config_templates:
+        return
+
+    plugin_root = metadata_path.parent
+    with zipfile.ZipFile(io.BytesIO(zip_data), "r") as zip_file:
+        names = set(zip_file.namelist())
+
+    for template in metadata.plugin.config_templates:
+        if (plugin_root / template.source).as_posix() not in names:
+            raise ValueError(f"config template source not found in archive: '{template.source}'")
+
+    suite_names: set[str] = set()
+    if has_config_templates_owned_by_others(metadata):
+        suite_names = get_suite_names_from_plugin_archive(zip_data, metadata_path, metadata.plugin.name)
+    validate_config_template_owners(metadata, suite_names)
+
+
+def validate_config_templates_in_plugin_directory(plugin_path: Path, metadata: IDAMetadataDescriptor) -> None:
+    """Check that each config template source is a file in the directory and that each destination belongs to the plugin.
+
+    Raises:
+        ValueError: when a source is missing or a destination belongs to another plugin.
+    """
+    for template in metadata.plugin.config_templates:
+        if not (plugin_path / template.source).is_file():
+            raise ValueError(f"config template source not found in directory: '{template.source}'")
+
+    suite_names: set[str] = set()
+    if has_config_templates_owned_by_others(metadata):
+        suite_names = get_suite_names_from_plugin_directory(plugin_path, metadata.plugin.name)
+    validate_config_template_owners(metadata, suite_names)
+
+
 def validate_metadata_in_plugin_archive(zip_data: bytes, metadata_path: Path, metadata: IDAMetadataDescriptor):
     """validate the `ida-plugin.json` metadata within the given plugin archive.
 
@@ -1055,6 +1641,8 @@ def validate_metadata_in_plugin_archive(zip_data: bytes, metadata_path: Path, me
     - the file paths must exist in the archive:
       - entry point
       - logo path
+      - config template sources
+    - config template destinations must belong to the plugin or to one of its suites
     """
     plugin_root = metadata_path.parent
 
@@ -1107,6 +1695,8 @@ def validate_metadata_in_plugin_archive(zip_data: bytes, metadata_path: Path, me
         if not does_plugin_path_exist_in_plugin_archive(zip_data, plugin_root, metadata.plugin.logo_path):
             logger.debug("Missing logo file: %s", metadata.plugin.logo_path)
             raise ValueError(f"Logo file not found in archive: '{metadata.plugin.logo_path}'")
+
+    validate_config_templates_in_plugin_archive(zip_data, metadata_path, metadata)
 
 
 def is_plugin_archive(zip_data: bytes, name: str) -> bool:

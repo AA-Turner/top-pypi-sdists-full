@@ -13,8 +13,10 @@ from dataclasses import replace as dc_replace
 from typing import (
     TYPE_CHECKING,
     Any,
+    Generic,
     Literal,
     Optional,
+    TypeVar,
     Union,
     cast,
 )
@@ -125,6 +127,38 @@ from starlette_admin.widgets import (
 )
 
 _log = get_logger(__name__)
+
+if TYPE_CHECKING:
+    # Type checkers ship typing_extensions; the default is only needed there.
+    from typing_extensions import TypeVar as _TypeVar
+
+    FieldReferenceT = _TypeVar("FieldReferenceT", default=Any)
+else:
+    FieldReferenceT = TypeVar("FieldReferenceT")
+"""What a view's field lists accept besides field names, such as SQLAlchemy
+column attributes (`User.name`). Backends resolve these to names on init."""
+
+
+_ORM_DEFAULT_STR_METHODS: frozenset[tuple[str | None, str]] = frozenset(
+    {
+        ("pydantic.main", "BaseModel.__str__"),
+        ("mongoengine.base.document", "BaseDocument.__str__"),
+        ("tortoise.models", "Model.__str__"),
+    }
+)
+
+
+def _has_custom_str(obj: Any) -> bool:
+    """Return `True` if `obj` defines a user-supplied `__str__` method,
+    ignoring default implementations inherited from `object` or ORM base classes.
+    """
+    str_method = type(obj).__str__
+    if str_method is object.__str__:
+        return False
+    return (
+        getattr(str_method, "__module__", None),
+        getattr(str_method, "__qualname__", ""),
+    ) not in _ORM_DEFAULT_STR_METHODS
 
 
 def _form_layout_field_names(node: BaseWidget) -> Iterator[str]:
@@ -496,7 +530,7 @@ async def build_export_form(request: Request, view: "BaseModelView") -> str:
     )
 
 
-class BaseModelView(BaseView):
+class BaseModelView(BaseView, Generic[FieldReferenceT]):
     """
     Base administrative view.
     Derive from this class to implement your administrative interface piece.
@@ -505,7 +539,11 @@ class BaseModelView(BaseView):
         key: Unique key to identify the model associated to this view.
             Will be used for URL of the endpoints.
         display_name: Name of the view to be displayed
-        fields: List of fields
+        fields: Fields to display, as model field names, model attributes or
+            [BaseField][starlette_admin.fields.BaseField] instances, e.g.
+            `fields = ["name", User.email, ImageField("avatar")]`. Model
+            attributes, accepted here and in the other field lists by backends
+            that resolve them, let type checkers catch misspelled names.
         form_layout: Arranges `fields` on the create/edit forms using the
             same composable widgets as
             [CustomView.widget][starlette_admin.views.CustomView.widget]:
@@ -611,21 +649,23 @@ class BaseModelView(BaseView):
 
     key: str | None = None
     display_name: str | None = None
-    fields: Sequence[BaseField] = []
+    fields: Sequence[str | FieldReferenceT | BaseField] = []
     form_layout: Sequence[WidgetShorthand] | None = None
     pk_attr: str | None = None
     show_pk_in_forms: bool = False
-    exclude_fields_from_list: Sequence[str] = []
-    exclude_fields_from_detail: Sequence[str] = []
-    exclude_fields_from_create: Sequence[str] = []
-    exclude_fields_from_edit: Sequence[str] = []
-    searchable_fields: Sequence[str] | None = None
-    sortable_fields: Sequence[str] | None = None
-    fields_default_sort: Sequence[tuple[str, bool] | str] | None = None
+    exclude_fields_from_list: Sequence[str | FieldReferenceT] = []
+    exclude_fields_from_detail: Sequence[str | FieldReferenceT] = []
+    exclude_fields_from_create: Sequence[str | FieldReferenceT] = []
+    exclude_fields_from_edit: Sequence[str | FieldReferenceT] = []
+    searchable_fields: Sequence[str | FieldReferenceT] | None = None
+    sortable_fields: Sequence[str | FieldReferenceT] | None = None
+    fields_default_sort: (
+        Sequence[tuple[str | FieldReferenceT, bool] | str | FieldReferenceT] | None
+    ) = None
     exporters: Sequence[BaseExporter | str] = ["csv", "json"]
     importers: Sequence[BaseImporter | str] = ["csv", "json"]
-    exclude_fields_from_export: Sequence[str] = []
-    exclude_fields_from_import: Sequence[str] = []
+    exclude_fields_from_export: Sequence[str | FieldReferenceT] = []
+    exclude_fields_from_import: Sequence[str | FieldReferenceT] = []
     column_visibility: bool = True
     search_highlight: bool = True
     search_auto_submit: bool = False
@@ -687,6 +727,16 @@ class BaseModelView(BaseView):
         self.exporters = [resolve_exporter(e) for e in self.exporters]
         self.importers = [resolve_importer(i) for i in self.importers]
 
+    @property
+    def _resolved_fields(self) -> Sequence[BaseField]:
+        """``fields`` as ``BaseField`` instances.
+
+        Backend ``ModelView`` classes replace field names with concrete fields
+        in ``__init__`` (through ``ModelConverter.convert_fields_list``) before
+        ``_init_fields`` runs.
+        """
+        return cast("Sequence[BaseField]", self.fields)
+
     def _init_fields(self) -> None:  # noqa: C901
         """Walk ``self.fields`` depth-first, set ``_name`` / ``_view`` on every
         field, apply exclusion overrides, and populate ``self._all_fields`` (the
@@ -699,7 +749,7 @@ class BaseModelView(BaseView):
         )
         self._all_fields: list[BaseField] = []
         all_field_names: list[str] = []
-        queue: deque[BaseField] = deque(self.fields)
+        queue: deque[BaseField] = deque(self._resolved_fields)
         while queue:
             field = queue.popleft()
             if not field._name:
@@ -779,7 +829,7 @@ class BaseModelView(BaseView):
         """
         if not self.inline_editable_fields:
             return
-        fields_by_name = {f.name: f for f in self.fields}
+        fields_by_name = {f.name: f for f in self._resolved_fields}
         for name in self.inline_editable_fields:
             field = fields_by_name.get(name)
             if field is None:
@@ -821,7 +871,7 @@ class BaseModelView(BaseView):
         if not self.form_layout:
             return
         nodes = [normalize_widget(entry) for entry in self.form_layout]
-        declared_names = [f.name for f in self.fields]
+        declared_names = [f.name for f in self._resolved_fields]
         declared_names_set = set(declared_names)
         seen: set[str] = set()
         for node in nodes:
@@ -2154,6 +2204,7 @@ class BaseModelView(BaseView):
         Returns a string representation of the given object, suitable for display in the admin interface.
 
         If the object defines a custom representation method, `__admin_repr__`, it is used to generate the string.
+        Otherwise, if the model defines a custom `__str__` method, `str(obj)` is returned.
         Otherwise, the fallback is `"{display_name}({pk})"`.
 
         Args:
@@ -2175,12 +2226,14 @@ class BaseModelView(BaseView):
             ```
         """
         repr_method = getattr(obj, "__admin_repr__", None)
-        if repr_method is None:
-            pk = await self.get_pk_value(request, obj)
-            return f"{self.display_name}({pk})"
-        if inspect.iscoroutinefunction(repr_method):
-            return await repr_method(request)
-        return repr_method(request)
+        if repr_method is not None:
+            if inspect.iscoroutinefunction(repr_method):
+                return await repr_method(request)
+            return repr_method(request)
+        if _has_custom_str(obj):
+            return str(obj)
+        pk = await self.get_pk_value(request, obj)
+        return f"{self.display_name}({pk})"
 
     async def select2_result(self, obj: Any, request: Request) -> str:
         """
@@ -2190,8 +2243,8 @@ class BaseModelView(BaseView):
         excluding relation and file attributes.
 
         If the object defines a custom representation method, `__admin_select2_repr__`, it is used to generate the
-        HTML-formatted string. If that method is not defined but `__admin_repr__` is, its (escaped) return value
-        is used instead.
+        HTML-formatted string. If that method is not defined but `__admin_repr__` or a custom `__str__` is, its
+        (escaped) return value is used instead.
 
         !!! note
 
@@ -2227,7 +2280,7 @@ class BaseModelView(BaseView):
                 return await html_repr_method(request)
             return html_repr_method(request)
 
-        if getattr(obj, "__admin_repr__", None) is not None:
+        if getattr(obj, "__admin_repr__", None) is not None or _has_custom_str(obj):
             return f"<span>{escape(await self.repr(obj, request))}</span>"
 
         template_str = (
@@ -2331,7 +2384,7 @@ class BaseModelView(BaseView):
         ``edit()`` safe to call with a single-field data dict.
         """
         action = action if action is not None else request.state.action
-        source = self._all_fields if include_nested else self.fields
+        source = self._all_fields if include_nested else self._resolved_fields
         # Set only by the inline-edit endpoint, always as a field-name string.
         inline_edit_field = getattr(request.state, "inline_edit_field", None)
         if isinstance(inline_edit_field, str):
@@ -2451,8 +2504,16 @@ class BaseModelView(BaseView):
         from the full ``fields_default_sort`` list, with a fallback to the primary key
         if no other sort is specified.
         """
-        defaults = self.fields_default_sort or [not_none(self.pk_attr)]
-        return [(d, False) if isinstance(d, str) else d for d in defaults]
+        sorts: list[tuple[str, bool]] = []
+        for item in self.fields_default_sort or [not_none(self.pk_attr)]:
+            name, descending = item if isinstance(item, tuple) else (item, False)
+            if not isinstance(name, str):
+                raise TypeError(
+                    f"{type(self).__name__}.fields_default_sort has an unresolved"
+                    f" field reference {name!r}; resolve it to a name on init"
+                )
+            sorts.append((name, descending))
+        return sorts
 
     def _parse_sorts(
         self,
@@ -3207,7 +3268,7 @@ class DefaultIndexView(CustomView):
         )
 
 
-class InlineModelView(BaseModelView):
+class InlineModelView(BaseModelView[FieldReferenceT]):
     """Inline editing of related records inside a parent model's create/edit form.
 
     Like Django's ``TabularInline``/``StackedInline``, an inline lets users
@@ -3272,7 +3333,7 @@ class InlineModelView(BaseModelView):
         """
         raise NotImplementedError()
 
-    def _find_foreign_view(self, key: str) -> "BaseModelView":
+    def _find_foreign_view(self, key: str) -> "BaseModelView":  # ty: ignore[incompatible-mutable-override]
         """Delegate foreign-view lookup to the parent view.
 
         RelationField.serialize_value calls ``self._view._find_foreign_view``
@@ -3322,7 +3383,7 @@ class InlineModelView(BaseModelView):
         can be invoked directly inside ``{{ }}`` without printing anything.
         """
         prefix = self._prefix()
-        for field in self.fields:
+        for field in self._resolved_fields:
             field.id = f"{prefix}.{index}.{field.name}"
             if isinstance(field, CollectionField):
                 field._propagate_id()

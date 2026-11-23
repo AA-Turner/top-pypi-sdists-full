@@ -138,6 +138,7 @@ def test_get_extracts_cookie_over_wsgi(ctx, name):
     @app.route("/api/auth", methods=["POST"])
     def auth():
         response = jsonify({})
+        response.headers.add("Set-Cookie", "valueless; Path=/")
         response.headers.add("Set-Cookie", f"{name}=s3ss10nt0k3n; Path=/; Priority=High")
         return response
 
@@ -511,8 +512,7 @@ def test_build_auth_provider_carries_configured_retry_on():
 
 
 def test_reauth_state_not_shared_across_calls(ctx):
-    # Each `call_and_validate` gets a fresh breaker; one call tripping the breaker must not
-    # disable reactive refresh for later, independent calls that share the schema.
+    # Each `call_and_validate` gets a fresh breaker, so one tripped call leaves reactive refresh on for later calls.
     schema = ctx.openapi.load_schema({"/a": {"get": {"responses": {"200": {"description": "OK"}}}}})
     tripped = schema.reauth_state
     for _ in range(REAUTH_BREAKER_THRESHOLD):
@@ -1086,7 +1086,7 @@ def test_refresh_auth_keeps_static_scheme(ctx):
     assert dict(case.headers) == {"X-API-Key": "static-key", "Authorization": "Bearer token-2"}
 
 
-# Single-use token 401s after first use; the hook re-authenticates and replays so the recorded response is the recovered 2xx.
+# A single-use token 401s after first use; the hook re-authenticates and replays, recording the recovered 2xx.
 def test_reauth_recovers_expired_token(ctx, cli, app_runner, tmp_path, snapshot_cli, snapshot_html):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1217,7 +1217,7 @@ def test_reauth_failure_in_html_report(ctx, cli, app_runner, tmp_path, snapshot_
     assert (report_dir / "index.html").read_text(encoding="utf-8") == snapshot_html
 
 
-# A negated-security case's 401 is the expected outcome, not an expired token - the hook must not re-authenticate for it.
+# A negated-security case expects its 401, so the hook must not re-authenticate for it.
 def test_negative_auth_case_does_not_reauth(ctx, cli, app_runner):
     app = _protected_app(ctx, "ApiKeyAuth", {"type": "apiKey", "in": "header", "name": "X-API-Key"})
     token_requests = []
@@ -1355,6 +1355,52 @@ def test_breaker_bounds_login_attempts(ctx, cli, app_runner):
     )
     assert hits["auth"] <= 4
     assert result.stdout.count("⚠️ Authentication stopped working mid-run - credentials likely invalidated") == 1
+
+
+# A test changed the login password: re-login after an unrelated 401 fails, while the issued token still works.
+def test_failed_reactive_refresh_keeps_last_token(ctx, cli, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/protected": {
+                "get": {
+                    "operationId": "getProtected",
+                    "security": [{"OAuth2": []}],
+                    "parameters": [{"name": "key", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"OAuth2": OAUTH2_SCHEME}},
+    )
+    logins = itertools.count()
+    sent = []
+
+    @app.route("/api/auth", methods=["POST"])
+    def auth_endpoint():
+        if next(logins) == 0:
+            return jsonify({"access_token": "t"})
+        return jsonify({"error": "invalid credentials"}), 401
+
+    @app.route("/protected")
+    def protected():
+        authorization = request.headers.get("Authorization")
+        sent.append(authorization)
+        if len(sent) == 1 or authorization != "Bearer t":
+            return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"result": "ok"})
+
+    _run_cli(
+        cli,
+        app_runner,
+        app,
+        "--phases=fuzzing",
+        "--mode=positive",
+        "-n 1",
+        "--max-examples=10",
+        "--seed=42",
+        config={"checks": {"ignored_auth": {"enabled": False}}, "auth": _dynamic_auth("OAuth2", retry_on=[401])},
+    )
+    assert sent == ["Bearer t"] * 10
 
 
 # An API that answers 401 for unknown ids keeps answering 401 after a successful re-login: credentials are fine.

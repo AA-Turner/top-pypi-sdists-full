@@ -91,9 +91,11 @@ class _MutableFetch:
         self.impressions = 10
         self.provisional_until: datetime | None = None
         self.calls: list[str] = []
+        self.requests: list[Any] = []
 
     def __call__(self, request: Any) -> InlineFetchResult:
         self.calls.append(request.publication_class)
+        self.requests.append(request)
         return InlineFetchResult(
             rows=[
                 {
@@ -226,9 +228,9 @@ async def test_unchanged_refresh_honors_cadence_and_commits_an_observation() -> 
 
     clock[0] += timedelta(minutes=1)
     unchanged = await producer.run_worker()
-    assert len(unchanged.revisions_committed) == 1
+    assert unchanged.revisions_committed == []
     assert fetch.calls == ["PROVISIONAL_SNAPSHOT", "PROVISIONAL_SNAPSHOT"]
-    assert len(await _revisions(store)) == 2
+    assert len(await _revisions(store)) == 1
 
     # The successful observation advances both the cadence clock and execution
     # ordinal, so an immediate worker turn neither polls nor replays it.
@@ -323,7 +325,7 @@ async def test_source_without_a_window_retains_its_final_default_read() -> None:
     clock[0] = obligation.period.end + timedelta(days=10)
     await producer.run_worker()
     assert fetch.calls == ["PROVISIONAL_SNAPSHOT", "PROVISIONAL_SNAPSHOT"]
-    assert len(await _revisions(store)) == 2
+    assert len(await _revisions(store)) == 1
     checkpoint = await store.get_restatement_checkpoint(
         account_id=ACCOUNT,
         reporting_obligation_id=obligation.reporting_obligation_id,
@@ -345,5 +347,19 @@ def test_settling_options_require_a_declared_window_and_safe_cadence() -> None:
                 **payload,
                 "restatement_window": "P3D",
                 "restatement_cadence": "PT1M",
+            }
+        )
+
+
+def test_snapshot_offering_rejects_official_stability_policy() -> None:
+    snapshot = redacted_capabilities().offering(SNAPSHOT_OFFERING_ID)
+    assert isinstance(snapshot, ProvisionalSnapshotOfferingV1)
+    with pytest.raises(ValidationError, match="official_stability_duration"):
+        ProvisionalSnapshotOfferingV1.model_validate(
+            {
+                **snapshot.model_dump(mode="python"),
+                "restatement_window": "P90D",
+                "official_close_lag": "P90D",
+                "official_stability_duration": "P1D",
             }
         )

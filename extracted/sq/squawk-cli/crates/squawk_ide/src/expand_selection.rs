@@ -27,8 +27,8 @@
 // NOTE: this is pretty much copied as is from rust analyzer with some
 // simplifications. I imagine there's more we can do to adapt it for SQL.
 
-use rowan::{Direction, NodeOrToken, TextRange, TextSize};
 use squawk_line_index::find_newline;
+use squawk_rowan::{Direction, NodeOrToken, TextRange, TextSize};
 use squawk_syntax::{
     SyntaxKind, SyntaxNode, SyntaxToken,
     ast::{self, AstToken},
@@ -41,6 +41,7 @@ const DELIMITED_LIST_KINDS: &[SyntaxKind] = &[
     SyntaxKind::ATTRIBUTE_LIST,
     SyntaxKind::ATOMIC_BODY,
     SyntaxKind::CHECKPOINT_OPTION_LIST,
+    SyntaxKind::WAIT_OPTION_LIST,
     SyntaxKind::COLUMN_DEF_LIST,
     SyntaxKind::COLUMN_LIST,
     SyntaxKind::COLUMN_REF_LIST,
@@ -116,8 +117,8 @@ fn try_extend_selection(root: &SyntaxNode, range: TextRange) -> Option<TextRange
             return Some(extend_ws(root, &leaves.next()?, offset));
         }
         let leaf_range = match root.token_at_offset(offset) {
-            rowan::TokenAtOffset::None => return None,
-            rowan::TokenAtOffset::Single(l) => {
+            squawk_rowan::TokenAtOffset::None => return None,
+            squawk_rowan::TokenAtOffset::Single(l) => {
                 if is_string_or_comment(l.kind()) {
                     extend_single_word_in_comment_or_string(&l, offset)
                         .unwrap_or_else(|| l.text_range())
@@ -125,7 +126,7 @@ fn try_extend_selection(root: &SyntaxNode, range: TextRange) -> Option<TextRange
                     l.text_range()
                 }
             }
-            rowan::TokenAtOffset::Between(l, r) => pick_best(l, r).text_range(),
+            squawk_rowan::TokenAtOffset::Between(l, r) => pick_best(l, r).text_range(),
         };
         return Some(leaf_range);
     }
@@ -170,7 +171,7 @@ fn shallowest_node(node: &SyntaxNode) -> SyntaxNode {
         .unwrap()
 }
 
-/// Expand to the current word instead the full text range of the node.
+/// Expand to the current word instead of the full text range of the node.
 fn extend_single_word_in_comment_or_string(
     leaf: &SyntaxToken,
     offset: TextSize,
@@ -350,12 +351,10 @@ mod tests {
     fn expand(sql: &str) -> Vec<String> {
         let fixture = Fixture::new(sql);
         let offset = fixture.marker().offset();
-        let sql = offset
-            .file_id
-            .original_file(fixture.db())
+        let sql = squawk_ide_db::original_file(fixture.db(), offset.file_id)
             .content(fixture.db())
             .clone();
-        let tree = crate::db::parse(fixture.db(), offset.file_id).tree();
+        let tree = squawk_ide_db::parse(fixture.db(), offset.file_id).tree();
         let root = tree.syntax();
 
         let mut range = TextRange::empty(offset.value);

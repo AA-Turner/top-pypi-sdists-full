@@ -23,6 +23,8 @@ use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
 use delta_kernel::actions::{Remove, Sidecar};
 use delta_kernel::engine::arrow_conversion::TryIntoArrow as _;
 use delta_kernel::engine::arrow_data::ArrowEngineData;
+use delta_kernel::history_manager::error::{LogHistoryError, NearestTimestamp};
+use delta_kernel::history_manager::{HistoryCommitType, get_earliest_commit, latest_version_as_of};
 use delta_kernel::path::{LogPathFileType, ParsedLogPath};
 use delta_kernel::scan::scan_row_schema;
 use delta_kernel::schema::derive_macro_utils::ToDataType;
@@ -45,7 +47,7 @@ use super::{Action, CommitInfo, Metadata, Protocol};
 use crate::checkpoints::parse_last_checkpoint_hint;
 use crate::kernel::arrow::engine_ext::{ExpressionEvaluatorExt, rb_from_scan_meta};
 use crate::kernel::{ARROW_HANDLER, StructType, spawn_blocking_with_span};
-use crate::logstore::{LogStore, LogStoreExt};
+use crate::logstore::{CatalogLogTail, LogStore, LogStoreExt};
 use crate::{DeltaResult, DeltaTableError};
 
 pub use self::log_data::*;
@@ -210,10 +212,30 @@ impl Snapshot {
         table_root: Url,
         version: Option<Version>,
     ) -> DeltaResult<Self> {
+        Self::try_new_with_engine_and_catalog(engine, table_root, version, None).await
+    }
+
+    /// Build a snapshot like [`Snapshot::try_new_with_engine`], additionally feeding the kernel a
+    /// catalog-provided log tail for catalog-managed tables.
+    ///
+    /// When `catalog_log_tail` is `Some`, the catalog is the source of truth: the ratified
+    /// commits are passed via `with_log_tail` and the kernel is capped at `max_version` via
+    /// `with_max_catalog_version`, so filesystem commits beyond that version are ignored.
+    pub async fn try_new_with_engine_and_catalog(
+        engine: Arc<dyn Engine>,
+        table_root: Url,
+        version: Option<Version>,
+        catalog_log_tail: Option<CatalogLogTail>,
+    ) -> DeltaResult<Self> {
         let snapshot = match spawn_blocking_with_span(move || {
             let mut builder = KernelSnapshot::builder_for(table_root);
             if let Some(version) = version {
                 builder = builder.at_version(version);
+            }
+            if let Some(tail) = catalog_log_tail {
+                builder = builder
+                    .with_log_tail(tail.log_tail)
+                    .with_max_catalog_version(tail.max_version);
             }
             builder.build(engine.as_ref())
         })
@@ -223,7 +245,7 @@ impl Snapshot {
             Ok(snapshot) => snapshot,
             Err(e) => {
                 // TODO: we should have more handling-friendly errors upstream in kernel.
-                if e.to_string().contains("No files in log segment") {
+                if matches!(e, delta_kernel::KernelError::EmptyLog) {
                     return Err(DeltaTableError::NotATable(e.to_string()));
                 } else {
                     return Err(e.into());
@@ -239,8 +261,7 @@ impl Snapshot {
 
     /// Create a new [`Snapshot`] instance
     pub async fn try_new(log_store: &dyn LogStore, version: Option<Version>) -> DeltaResult<Self> {
-        // TODO: bundle operation_id with logstore ...
-        let engine = log_store.engine(None);
+        let engine = log_store.engine();
 
         // NB: kernel engine uses Url::join to construct paths,
         // if the path does not end with a slash, the would override the entire path.
@@ -250,7 +271,25 @@ impl Snapshot {
             table_root.set_path(&format!("{}/", table_root.path()));
         }
 
-        Self::try_new_with_engine(engine, table_root, version).await
+        // For catalog-managed tables the log store fronts a commit coordinator and supplies the
+        // ratified log tail; filesystem-managed stores return `None` here.
+        let catalog_log_tail = log_store.catalog_log_tail().await?;
+
+        let snapshot =
+            Self::try_new_with_engine_and_catalog(engine, table_root, version, catalog_log_tail)
+                .await?;
+
+        if !log_store.is_catalog_managed() && snapshot.table_configuration().is_catalog_managed() {
+            return Err(DeltaTableError::Generic(
+                "table requires catalog-managed (coordinated) commits but was opened without a \
+                 catalog coordinator; open it through its catalog with catalog-managed commits \
+                 enabled (for Unity Catalog: `uc://catalog.schema.table` with \
+                 `catalog_managed=true`)"
+                    .to_string(),
+            ));
+        }
+
+        Ok(snapshot)
     }
 
     /// Create a [`ScanBuilder`] borrowing this snapshot to configure a read of the table.
@@ -303,20 +342,19 @@ impl Snapshot {
             inner: snapshot,
             materialized_files: None,
         });
-        if snapshot.version() as u64 == current_version {
-            // `target_version` was `None`, but there were no new commits.
-            // We may still need to pick up a checkpoint written for the current version.
-            self.refresh_same_version_checkpoint_if_needed(engine, current_version)
-                .await
-        } else {
-            match self.materialized_files() {
-                Some(materialized_files) => {
-                    snapshot
-                        .materialize_files_with_engine(engine, Some(materialized_files))
-                        .await
-                }
-                None => Ok(snapshot),
+        // The kernel adopts late checkpoints, so compare checkpoints too.
+        if snapshot.version() == current_version
+            && snapshot.checkpoint_version() == self.checkpoint_version()
+        {
+            return Ok(self);
+        }
+        match self.materialized_files() {
+            Some(materialized_files) => {
+                snapshot
+                    .materialize_files_with_engine(engine, Some(materialized_files))
+                    .await
             }
+            None => Ok(snapshot),
         }
     }
 
@@ -438,7 +476,7 @@ impl Snapshot {
             return Ok(self);
         }
 
-        self.materialize_files_with_engine(log_store.engine(None), None)
+        self.materialize_files_with_engine(log_store.engine(), None)
             .await
     }
 
@@ -582,14 +620,14 @@ impl Snapshot {
                 let (existing_version, existing_data, existing_predicate) =
                     materialized_seed.into_parts();
                 self.files_from(
-                    log_store.engine(None),
+                    log_store.engine(),
                     predicate,
                     existing_version,
                     Box::new(existing_data),
                     existing_predicate,
                 )
             }
-            None => self.files_with_engine(log_store.engine(None), predicate),
+            None => self.files_with_engine(log_store.engine(), predicate),
         }
     }
 
@@ -727,7 +765,7 @@ impl Snapshot {
                 let (existing_version, existing_data, existing_predicate) =
                     materialized_seed.into_parts();
                 self.files_from_materialized_with_options(
-                    log_store.engine(None),
+                    log_store.engine(),
                     predicate,
                     existing_version,
                     Box::new(existing_data),
@@ -739,7 +777,7 @@ impl Snapshot {
                 )
             }
             None => self.files_with_engine_materialized_with_skip_stats(
-                log_store.engine(None),
+                log_store.engine(),
                 predicate,
                 stats_mode,
                 skip_stats,
@@ -920,7 +958,7 @@ impl Snapshot {
         log_store: &dyn LogStore,
         limit: Option<usize>,
     ) -> DeltaResult<BoxStream<'_, DeltaResult<Option<CommitInfo>>>> {
-        let store = log_store.root_object_store(None);
+        let store = log_store.root_object_store();
 
         let log_root = self.table_root_path()?.join("_delta_log");
         let start_from = if let Some(limit) = limit {
@@ -1010,7 +1048,7 @@ impl Snapshot {
         let tx = builder.tx();
 
         // TODO: bundle operation id with log store ...
-        let engine = log_store.engine(None);
+        let engine = log_store.engine();
 
         let remove_data = match self
             .inner
@@ -1019,7 +1057,7 @@ impl Snapshot {
         {
             Ok(data) => data,
             Err(err) => {
-                return Box::pin(once(ready(Err(DeltaTableError::KernelError(err)))));
+                return Box::pin(once(ready(Err(err.into()))));
             }
         };
 
@@ -1057,7 +1095,7 @@ impl Snapshot {
         app_id: String,
     ) -> DeltaResult<Option<i64>> {
         // TODO: bundle operation id with log store ...
-        let engine = log_store.engine(None);
+        let engine = log_store.engine();
         let inner = self.inner.clone();
         let version =
             spawn_blocking_with_span(move || inner.get_app_id_version(&app_id, engine.as_ref()))
@@ -1067,6 +1105,19 @@ impl Snapshot {
             return Ok(Some(version));
         }
         Ok(None)
+    }
+
+    pub(crate) async fn in_commit_timestamp(
+        &self,
+        log_store: &dyn LogStore,
+    ) -> DeltaResult<Option<i64>> {
+        let engine = log_store.engine();
+        let inner = self.inner.clone();
+        Ok(
+            spawn_blocking_with_span(move || inner.get_in_commit_timestamp(engine.as_ref()))
+                .await
+                .map_err(|e| DeltaTableError::GenericError { source: e.into() })??,
+        )
     }
 
     /// Fetch the [domainMetadata] for a specific domain in this snapshot.
@@ -1079,7 +1130,7 @@ impl Snapshot {
         log_store: &dyn LogStore,
         domain: impl ToString,
     ) -> DeltaResult<Option<String>> {
-        let engine = log_store.engine(None);
+        let engine = log_store.engine();
         let inner = self.inner.clone();
         let domain = domain.to_string();
         let metadata =
@@ -1087,6 +1138,50 @@ impl Snapshot {
                 .await
                 .map_err(|e| DeltaTableError::GenericError { source: e.into() })??;
         Ok(metadata)
+    }
+
+    /// The latest version committed at or before `timestamp` (milliseconds since the Unix epoch).
+    ///
+    /// Commits made while in-commit timestamps are enabled are compared by their
+    /// `inCommitTimestamp`, earlier commits by the modification time of their log file. A
+    /// timestamp before the earliest available commit resolves to that commit.
+    pub(crate) async fn version_at_timestamp(
+        &self,
+        log_store: &dyn LogStore,
+        timestamp: i64,
+    ) -> DeltaResult<Version> {
+        let engine = log_store.engine();
+        let inner = self.inner.clone();
+        let version = spawn_blocking_with_span(move || {
+            match latest_version_as_of(
+                &inner,
+                engine.as_ref(),
+                timestamp,
+                HistoryCommitType::Published,
+            ) {
+                Ok(commit) => Ok(commit.version),
+                Err(delta_kernel::KernelError::LogHistory(err))
+                    if matches!(
+                        *err,
+                        LogHistoryError::TimestampOutOfRange {
+                            nearest_timestamp: NearestTimestamp::Earliest(_),
+                            ..
+                        }
+                    ) =>
+                {
+                    get_earliest_commit(
+                        engine.as_ref(),
+                        &inner.log_segment().log_root,
+                        None,
+                        HistoryCommitType::Published,
+                    )
+                }
+                Err(err) => Err(err),
+            }
+        })
+        .await
+        .map_err(|e| DeltaTableError::GenericError { source: e.into() })??;
+        Ok(version)
     }
 }
 
@@ -1231,7 +1326,7 @@ async fn read_last_checkpoint_version(
             .map_err(|e| DeltaTableError::Generic(e.to_string()))?;
         match storage.read_files(vec![(checkpoint_path, None)])?.next() {
             Some(Ok(data)) => Ok(parse_last_checkpoint_hint(&data).map(|hint| hint.version)),
-            Some(Err(delta_kernel::Error::FileNotFound(_))) => Ok(None),
+            Some(Err(delta_kernel::KernelError::FileNotFound(_))) => Ok(None),
             Some(Err(err)) => Err(err.into()),
             None => {
                 tracing::warn!("empty _last_checkpoint file");
@@ -1292,10 +1387,20 @@ impl EagerSnapshot {
         log_store: &dyn LogStore,
         target_version: Option<Version>,
     ) -> DeltaResult<()> {
+        // Catalog-managed tables: the incremental (filesystem-only) update path below can't see
+        // ratified-but-unpublished commits, and the catalog — not the filesystem — decides the
+        // latest version. Rebuild from the catalog-provided log tail instead.
+        // TODO(catalog-commits): make this incremental once kernel `builder_from` is wired with a
+        // refreshed catalog log tail.
+        if log_store.catalog_log_tail().await?.is_some() {
+            *self = EagerSnapshot::try_new(log_store, target_version).await?;
+            return Ok(());
+        }
+
         let previous_snapshot = self.snapshot.clone();
         let updated_snapshot = previous_snapshot
             .clone()
-            .update(log_store.engine(None), target_version)
+            .update(log_store.engine(), target_version)
             .await?;
         if Arc::ptr_eq(&updated_snapshot, &previous_snapshot) {
             return Ok(());
@@ -1479,6 +1584,7 @@ mod tests {
         test_utils::{
             TestResult, TestTables, assert_batches_sorted_eq, make_test_add,
             object_store::{
+                RecordedObjectStoreOperation,
                 drain_recorded_object_store_operations as drain_recorded_ops, recording_log_store,
             },
         },
@@ -1508,7 +1614,7 @@ mod tests {
                 &Default::default(),
             );
 
-            let engine = log_store.engine(None);
+            let engine = log_store.engine();
             let snapshot = KernelSnapshot::builder_for(table_url.clone()).build(engine.as_ref())?;
             Ok((
                 Self {
@@ -1712,7 +1818,7 @@ mod tests {
     ) -> DeltaResult<Vec<object_store::path::Path>> {
         let checkpoint_prefix = format!("{version:020}.checkpoint", version = version);
         Ok(log_store
-            .object_store(None)
+            .object_store()
             .list(Some(log_store.log_path()))
             .try_collect::<Vec<_>>()
             .await?
@@ -3193,7 +3299,7 @@ mod tests {
 
         append_test_add(&mut table, "part-00002.snappy.parquet").await?;
         let version = table.version().unwrap();
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
 
         let snapshot = EagerSnapshot::try_new(table.log_store().as_ref(), None).await?;
         assert_eq!(snapshot.version(), version);
@@ -3220,10 +3326,10 @@ mod tests {
         assert_eq!(snapshot.version(), version);
         assert_eq!(snapshot.checkpoint_version(), None);
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
 
         let updated = Arc::new(snapshot)
-            .update(log_store.engine(None), Some(version))
+            .update(log_store.engine(), Some(version))
             .await?;
         assert_eq!(updated.version(), version);
         assert_eq!(updated.checkpoint_version(), Some(version));
@@ -3239,11 +3345,9 @@ mod tests {
         assert_eq!(snapshot.version(), version);
         assert_eq!(snapshot.checkpoint_version(), None);
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
 
-        let updated = Arc::new(snapshot)
-            .update(log_store.engine(None), None)
-            .await?;
+        let updated = Arc::new(snapshot).update(log_store.engine(), None).await?;
         assert_eq!(updated.version(), version);
         assert_eq!(updated.checkpoint_version(), Some(version));
         Ok(())
@@ -3259,7 +3363,7 @@ mod tests {
         let expected_paths = eager_file_paths(&snapshot, log_store.as_ref()).await?;
         assert_eq!(snapshot.snapshot.checkpoint_version(), None);
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
 
         snapshot.update(log_store.as_ref(), Some(version)).await?;
         assert_eq!(snapshot.version(), version);
@@ -3280,7 +3384,7 @@ mod tests {
         let expected_paths = eager_file_paths(&snapshot, log_store.as_ref()).await?;
         assert_eq!(snapshot.snapshot.checkpoint_version(), None);
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
 
         snapshot.update(log_store.as_ref(), None).await?;
         assert_eq!(snapshot.version(), version);
@@ -3294,7 +3398,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_update_latest_same_version_without_changes_reuses_arc() -> TestResult {
-        let log_store = TestTables::Checkpoints.table_builder()?.build_storage()?;
+        let base = TestTables::Checkpoints.table_builder()?.build_storage()?;
+        let (log_store, mut operations) = recording_log_store(base);
         let snapshot = Arc::new(Snapshot::try_new(log_store.as_ref(), None).await?)
             .ensure_materialized_files(log_store.as_ref())
             .await?;
@@ -3303,8 +3408,10 @@ mod tests {
             .materialized_files()
             .cloned()
             .expect("expected materialized files");
+        drain_recorded_ops(&mut operations).await;
 
-        let updated = snapshot.update(log_store.engine(None), None).await?;
+        let updated = snapshot.update(log_store.engine(), None).await?;
+        let update_ops = drain_recorded_ops(&mut operations).await;
 
         assert!(Arc::ptr_eq(&updated, &prior_snapshot));
         assert!(Arc::ptr_eq(
@@ -3313,6 +3420,13 @@ mod tests {
                 .expect("expected materialized files"),
             &prior_materialized
         ));
+        assert!(
+            matches!(
+                update_ops.as_slice(),
+                [RecordedObjectStoreOperation::ListWithOffset(_)]
+            ),
+            "expected a single log listing, got {update_ops:?}"
+        );
         Ok(())
     }
 
@@ -3323,7 +3437,7 @@ mod tests {
         let log_store = table.log_store();
         let mut snapshot = EagerSnapshot::try_new(log_store.as_ref(), Some(version)).await?;
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
         snapshot.update(log_store.as_ref(), Some(version)).await?;
         assert_eq!(snapshot.snapshot.checkpoint_version(), Some(version));
 
@@ -3360,18 +3474,15 @@ mod tests {
         let log_store = table.log_store();
         let snapshot = Snapshot::try_new(log_store.as_ref(), Some(version)).await?;
 
-        checkpoints::create_checkpoint(&table, None).await?;
+        checkpoints::create_checkpoint(&table).await?;
         let checkpoint_paths = checkpoint_file_paths(log_store.as_ref(), version).await?;
         assert!(!checkpoint_paths.is_empty());
         for checkpoint_path in checkpoint_paths {
-            log_store
-                .object_store(None)
-                .delete(&checkpoint_path)
-                .await?;
+            log_store.object_store().delete(&checkpoint_path).await?;
         }
 
         let err = Arc::new(snapshot)
-            .update(log_store.engine(None), Some(version))
+            .update(log_store.engine(), Some(version))
             .await
             .unwrap_err();
         assert!(

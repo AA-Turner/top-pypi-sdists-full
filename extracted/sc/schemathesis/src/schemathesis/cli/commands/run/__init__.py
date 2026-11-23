@@ -14,6 +14,7 @@ from schemathesis.cli.core import ensure_color, resolve_color
 from schemathesis.cli.ext.groups import group, grouped_option
 from schemathesis.cli.ext.options import CsvChoice
 from schemathesis.cli.options import (
+    APP,
     AUTH,
     AUTH_WFC,
     AUTH_WFC_USER,
@@ -73,13 +74,19 @@ from schemathesis.cli.options import (
     WARNINGS,
     WORKERS,
 )
-from schemathesis.cli.validation import CONFLICTING_URL_MESSAGE, validate_auth_overlap, validate_wfc_user
+from schemathesis.cli.validation import (
+    CONFLICTING_URL_MESSAGE,
+    validate_auth_overlap,
+    validate_baseline_flags,
+    validate_wfc_user,
+)
 from schemathesis.config import (
     HealthCheck,
     ProjectConfig,
     SchemathesisConfig,
     SchemathesisWarning,
 )
+from schemathesis.core.app_output import hidden_application_output
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.metrics import MetricFunction
 
@@ -106,6 +113,7 @@ OBJECT_LEVEL_AUTHORIZATION_GUIDE = "https://schemathesis.readthedocs.io/en/stabl
 )
 @grouped_option(*SUPPRESS_HEALTH_CHECK.args, **SUPPRESS_HEALTH_CHECK.kwargs)
 @grouped_option(*WAIT_FOR_SCHEMA.args, **WAIT_FOR_SCHEMA.kwargs)
+@grouped_option(*APP.args, **APP.kwargs)
 @grouped_option(*WARNINGS.args, **WARNINGS.kwargs)
 @group("API validation options")
 @grouped_option(*CHECKS_OPTION.args, **CHECKS_OPTION.kwargs)
@@ -203,6 +211,7 @@ def run(
     base_url: str | None,
     origin: str | None,
     wait_for_schema: float | None = None,
+    app: str | None = None,
     suppress_health_check: list[HealthCheck] | None,
     warnings: bool | list[SchemathesisWarning] | None,
     rate_limit: str | None = None,
@@ -233,8 +242,7 @@ def run(
 ) -> None:
     """Generate and run property-based tests against your API.
 
-    Runs configured test phases in order and exits on completion.
-    Use --phases to select which phases to run.
+    Runs the test phases selected with --phases in order, then exits.
 
     \b
     LOCATION can be:
@@ -248,7 +256,6 @@ def run(
 
     config: SchemathesisConfig = ctx.obj
 
-    # First, set the right color
     color = resolve_color(force_color, no_color, config.color)
     ensure_color(ctx, color)
 
@@ -258,27 +265,28 @@ def run(
     if base_url is not None and origin is not None:
         raise click.UsageError(CONFLICTING_URL_MESSAGE)
 
-    # Then override the global config from CLI options
     config.update(
         color=color,
         suppress_health_check=suppress_health_check,
         seed=generation_seed,
         wait_for_schema=wait_for_schema,
+        app=app,
         max_failures=max_failures,
         max_time=max_time,
     )
+    if config.app is not None:
+        ctx.with_resource(hidden_application_output())
     config.output.sanitization.update(enabled=output_sanitize)
     config.output.truncation.update(enabled=output_truncate)
     apply_report_options(config.reports, ctx.params)
     # Other CLI options work as an override for all defined projects
     apply_project_options(config.projects.override, ctx.params, baseline=baseline, origin=origin)
-    if (baseline_update or baseline_prune) and config.projects.get_default().baseline is None:
-        flag = "--baseline-update" if baseline_update else "--baseline-prune"
-        raise click.UsageError(
-            f"{flag} needs a baseline file - pass `--baseline PATH` or set `baseline` in your configuration file"
-        )
+    # A named project's baseline can only be resolved once the schema title is known.
+    if (baseline_update or baseline_prune) and not any(
+        named.baseline is not None for named in config.projects.named.values()
+    ):
+        validate_baseline_flags(config.projects.get_default().baseline, update=baseline_update, prune=baseline_prune)
 
-    # These are filters for what API operations should be tested
     filter_set = build_filter_set(ctx.params)
     config.projects.override.phases.update(phases=phases)
     config.projects.override.checks.update(
@@ -305,7 +313,7 @@ def run(
     executor.execute(
         location=location,
         filter_set=filter_set,
-        # We don't the project yet, so pass the default config
+        # The project is not known yet, so pass the default config
         config=config.projects.get_default(),
         args=ctx.args,
         params=ctx.params,

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from . import agent_wakes, request_meter, run_continuation, run_outcomes, run_settle, spend_ledger, wake_keys
+from . import agent_wakes, request_meter, run_continuation, run_outcomes, run_settle, unusual_cost, wake_keys
 from .agent_gate import run_context, run_end
 from .cloud_procedures import (
     START_PROCEDURE_RUN_MUTATION, current_cloud_procedure_version, get_cloud_procedure_definition_by_key,
@@ -27,6 +27,7 @@ from .cloud_procedures import (
 from .agent_policy import Gate, PolicyGate, PolicyNotLocated, PolicyUnreadable, UnlocatedPolicy
 from .agent_policy.run_gate import RunDecision
 from .spend_brake import SpendBrake
+from .spend_stop import SpendStop, runner_timers
 from .policy_location import S3_BUCKET
 from .model_cost import estimate_cost
 from .site_procedures import SKILL_SORT_KEY_PREFIX
@@ -235,22 +236,21 @@ def usage_record(outcome: dict) -> tuple[dict | None, float | None]:
 
 
 def spend_of(request: dict, decision, usage: dict | None, cost_usd: float | None) -> dict | None:
-    """What the ledger needs to count this run: the site, the agent that made it, the budget period of the site's policy and the model calls with their cost.
-    None when the run made no model call. A site with no budget in its policy is counted by the month."""
+    """What the ledger needs to count this run: the site, the agent that made it, the budget period of the site's policy, the model calls with their cost, and
+    the owner's per-run budget for the agent (``agents.<responsibility>.budgetUsdPerRun``, which only flags). None when the run made no model call. A site
+    with no budget in its policy is counted by the month."""
     if not usage or not usage.get("calls") or not request.get("tenantId"):
         return None
-    site = (decision.state.document.get("site") or {}) if decision.state is not None else {}
+    document = decision.state.document if decision.state is not None else {}
+    site, agent = document.get("site") or {}, (document.get("agents") or {}).get(decision.responsibility or "") or {}
     return {"tenantId": request["tenantId"], "responsibility": decision.responsibility, "period": (site.get("budget") or {}).get("period", "month"),
-            "costUsd": cost_usd, "calls": usage["calls"], "unpricedCalls": usage.get("unpricedCalls", 0)}
+            "costUsd": cost_usd, "calls": usage["calls"], "unpricedCalls": usage.get("unpricedCalls", 0), "budgetUsdPerRun": agent.get("budgetUsdPerRun")}
 
 
-def record_spend(table, result: dict, *, moment: datetime | None = None) -> None:
-    """Add a finished run's cost to the spend ledger, once. A run that made no model call adds nothing."""
-    spend = result.get("spend")
-    if table is None or not spend:
-        return
-    spend_ledger.record_run(table, tenant_id=spend["tenantId"], responsibility=spend["responsibility"], run_id=result["runId"], period=spend["period"],
-                            cost_usd=spend["costUsd"], calls=spend["calls"], unpriced_calls=spend["unpricedCalls"], moment=moment or datetime.now(timezone.utc))
+def record_spend(table, client, result: dict, *, moment: datetime | None = None) -> dict | None:
+    """Add a finished run's cost to the spend ledger, once, after judging it against its agent's history: an unusual cost, or one over the owner's per-run
+    budget, raises one flag and stops nothing (unusual_cost.py). A run that made no model call adds nothing."""
+    return unusual_cost.watch_run(table, client, result, moment=moment)
 
 
 def skip_run(client, run_id: str, request: dict, decision, *, now: Callable[[], str]) -> dict:
@@ -285,13 +285,18 @@ def handoff_of(request: dict) -> dict[str, str] | None:
 def run_procedure_request(request: dict, *, client, policy: Gate, execute: Callable[..., dict], seconds_available: float,
                           environment: dict, now: Callable[[], str] = utc_now, workroot: Path | None = None,
                           run_started: Callable[[str], None] | None = None, receive_count: int = 1,
-                          schedule_continuation: Callable[[dict, str, str], None] | None = None, spend_brake: Any = None) -> dict:
+                          schedule_continuation: Callable[[dict, str, str], None] | None = None, spend_brake: Any = None,
+                          spend_stop: Any = None) -> dict:
     request = validate_request(request)
     started = start_run_record(client, request)   # the record exists, `started`, before any procedure is loaded
     run_id = started["runId"]
     attempt = 1
-    if started["duplicate"]:   # this wake already has its run: nothing more happens for it, unless the queue says the first attempt died
-        existing_run = client.get_record(run_settle.RUN_MODEL, run_id) if receive_count >= run_settle.SETTLING_RECEIPT else None
+    waiting = False   # this wake waited for the budget cycle and has come again (spend_stop.py, PPY-9376f8)
+    if started["duplicate"]:   # this wake already has its run: nothing more happens for it, unless the queue says the first attempt died or it waited
+        reads_record = receive_count >= run_settle.SETTLING_RECEIPT or spend_stop is not None
+        existing_run = client.get_record(run_settle.RUN_MODEL, run_id) if reads_record else None
+        waiting = spend_stop is not None and spend_stop.is_waiting(existing_run)
+    if started["duplicate"] and not waiting:
         if not run_settle.first_attempt_died(existing_run, receive_count):
             return {"runId": run_id, "procedureKey": request["procedureKey"], "wakeKey": request["wakeKey"], "duplicate": True,
                     "runStatus": DUPLICATE, "outcome": None, "outcomeReason": None, "error": None}
@@ -307,8 +312,13 @@ def run_procedure_request(request: dict, *, client, policy: Gate, execute: Calla
         not_started.run_id = run_id
         raise not_started from error
     if not decision.start:
+        if waiting:
+            spend_stop.clear_wait(client, run_id)
         return skip_run(client, run_id, request, decision, now=now)
     stop = spend_brake.stop_for(request, decision) if spend_brake is not None else None
+    held = spend_stop.settle(client, run_id, request, decision, stop, waiting=waiting) if spend_stop is not None else None
+    if held is not None:   # at the budget a paid wake waits for the next cycle, or this wake released the waiting ones
+        return held
     if stop is not None:
         print(json.dumps({"spendBrake": stop.reason_code, "tenantId": request.get("tenantId"), "runId": run_id, "wakeKey": request.get("wakeKey")}))
         return skip_run(client, run_id, request, RunDecision(False, decision.responsibility, decision.rung, decision.policy_version, stop.reason_code, stop.reason), now=now)
@@ -440,6 +450,11 @@ def child_environment(request: dict, openai_api_key: str | None) -> dict:
     publication = str(request.get("publicationId") or "")
     if re.fullmatch(r"[a-z0-9-]{1,40}", publication):
         environment["X_BROADCAST_FUNCTION"] = f"papyrus-notifications-broadcast-{publication}"
+    # The site whose follow-up timers a procedure sets (a Delivery's release and lock times, a soft review's deadline): the schedule group and wake queue are named from it.
+    # The account and partition come from the runner's own environment (papyrus-procedure-runner.yaml).
+    environment.pop("PAPYRUS_AGENT_PUBLICATION_ID", None)
+    if re.fullmatch(r"[A-Za-z0-9._-]{1,64}", publication):
+        environment["PAPYRUS_AGENT_PUBLICATION_ID"] = publication
     environment.pop("SITE_ORIGIN", None)
     if is_plain_https_origin(request.get("siteOrigin")):
         environment["SITE_ORIGIN"] = request["siteOrigin"]
@@ -483,6 +498,7 @@ def handler(event, context):
     table_name = os.environ.get("TRIGGER_TABLE_NAME")
     table = boto3.resource("dynamodb").Table(table_name) if table_name else None
     trigger = request.get("trigger") if isinstance(request.get("trigger"), dict) else None
+    client = None   # a run that spent anything had a client; a wake refused before one existed has no spend to record
     try:
         request = validate_request(request)
         openai_api_key = None
@@ -503,7 +519,8 @@ def handler(event, context):
                                        environment=child_environment(request, openai_api_key), workroot=Path("/tmp"),
                                        run_started=lambda run_id: record_trigger_run(table, trigger, run_id),
                                        receive_count=agent_wakes.receive_count(event),
-                                       schedule_continuation=continuation_scheduler(request, context), spend_brake=SpendBrake(table))
+                                       schedule_continuation=continuation_scheduler(request, context), spend_brake=SpendBrake(table),
+                                       spend_stop=SpendStop(timers=runner_timers(context), send=agent_wakes.wake_sender()))
     except ProcedureNotRunnable as error:
         result = {"runStatus": "notRunnable", "runId": error.run_id, "outcome": "failed", "outcomeReason": run_outcomes.NOT_RUNNABLE,
                   "error": str(error)}
@@ -515,8 +532,8 @@ def handler(event, context):
     if result.get("duplicate"):
         return result   # the first delivery of this wake already recorded its trigger row and ran what follows a run
     record_trigger_outcome(table, trigger, result)
-    record_spend(table, result)   # after the trigger row, so a ledger error never leaves a finished run's row looking unfinished
-    if result.get("skipped") or result.get("settled"):
+    record_spend(table, client, result)   # after the trigger row, so a ledger error never leaves a finished run's row looking unfinished
+    if result.get("skipped") or result.get("settled") or result.get("waiting") or result.get("released"):
         return result   # the policy started nothing, or the run was settled unknown: no run happened: no story is advanced and no stage trigger fires for a run that did not happen
     if table is not None and isinstance(trigger, dict) and trigger.get("event") == "story.stage_entered":
         finish_story_stage_run(table, trigger, result)

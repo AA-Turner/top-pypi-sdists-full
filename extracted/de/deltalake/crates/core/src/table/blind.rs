@@ -28,7 +28,7 @@ use delta_kernel::engine::arrow_conversion::TryIntoArrow;
 use delta_kernel::engine::arrow_data::ArrowEngineData;
 use delta_kernel::schema::SchemaRef as KernelSchemaRef;
 use delta_kernel::table_properties::TableProperties;
-use delta_kernel::transaction::CommitResult;
+use delta_kernel::transaction::{CommitResult, UpdateTableOperation};
 use url::Url;
 
 use super::builder::ensure_table_uri;
@@ -122,7 +122,7 @@ impl BlindDeltaTable {
 
     /// Get a reference to the object store.
     pub fn object_store(&self) -> ObjectStoreRef {
-        self.log_store.object_store(None)
+        self.log_store.object_store()
     }
 
     /// Get the table URL.
@@ -189,31 +189,33 @@ impl BlindDeltaTable {
         let add_files_batch = adds_to_record_batch(&adds)?;
 
         let kernel_snapshot = self.snapshot.inner.clone();
-        let engine = self.log_store.engine(None);
+        let engine = self.log_store.engine();
 
         let commit_version = spawn_blocking_with_span(move || {
             let committer = Box::new(FileSystemCommitter::new());
             let mut txn = kernel_snapshot
-                .transaction(committer, engine.as_ref())
-                .map_err(DeltaTableError::from)?
-                .with_operation("WRITE".to_string())
-                .with_engine_info(format!("delta-rs:{}", env!("CARGO_PKG_VERSION")))
-                .with_data_change(true);
+                .update_table(
+                    UpdateTableOperation::Write,
+                    format!("delta-rs:{}", env!("CARGO_PKG_VERSION")),
+                    true,
+                )
+                .build(engine.as_ref(), committer)
+                .map_err(DeltaTableError::from)?;
 
             txn.add_files(Box::new(ArrowEngineData::new(add_files_batch)));
 
             let mut retries = 0;
             loop {
                 match txn.commit(engine.as_ref()) {
-                    Ok(CommitResult::CommittedTransaction(committed)) => {
+                    Ok(CommitResult::Committed(committed)) => {
                         return Ok(committed.commit_version());
                     }
-                    Ok(CommitResult::ConflictedTransaction(conflict)) => {
+                    Ok(CommitResult::Conflicted(conflict)) => {
                         return Err(DeltaTableError::VersionAlreadyExists(
                             conflict.conflict_version(),
                         ));
                     }
-                    Ok(CommitResult::RetryableTransaction(retryable)) => {
+                    Ok(CommitResult::Retryable(retryable)) => {
                         retries += 1;
                         if retries >= BLIND_COMMIT_MAX_RETRIES {
                             return Err(DeltaTableError::Generic(format!(

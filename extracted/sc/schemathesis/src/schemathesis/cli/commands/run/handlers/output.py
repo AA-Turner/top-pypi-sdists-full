@@ -43,14 +43,14 @@ from schemathesis.core import SpecificationFeature
 from schemathesis.core.failures import case_header, reason_phrase
 from schemathesis.core.output import format_response_payload, pluralize
 from schemathesis.core.output.sanitization import sanitized
-from schemathesis.core.result import Ok
 from schemathesis.core.timing import Instant
-from schemathesis.core.transport import StatusClass
+from schemathesis.core.transport import StatusClass, status_label
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.errors import never_reached_server
 from schemathesis.engine.run import ELASTIC_PHASES, INTERNAL_PHASES, UNIT_PHASES, PhaseName
 from schemathesis.engine.run.auth_bootstrap import AuthBootstrapPayload
+from schemathesis.engine.run.dictionary_loading import MAX_SOURCE_REQUESTS, DictionaryLoad
 from schemathesis.engine.run.probes import ProbeOutcome, ProbeRun
 from schemathesis.engine.summary import WarningBlock, WarningGroup, WarningItem
 
@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from schemathesis.cli.commands.run.context import ExecutionContext
     from schemathesis.core.spec import AuthFlowSteps
     from schemathesis.engine.run.cache import CacheReport
+    from schemathesis.engine.run.setup import SetupPayload
     from schemathesis.generation.stateful.state_machine import ExtractionFailure
 
 DICTIONARY_MISMATCH_REASON = "with entries that mostly fail the bound parameter's schema"
@@ -89,6 +90,29 @@ def _auth_bootstrap_line(payload: AuthBootstrapPayload, spec: AuthFlowSteps) -> 
         text += "; continuing without authentication"
     return Text.assemble(
         (icon, Style(color=color)), ("Auth: ", Style(color="bright_white", bold=True)), (text, Style(color=color))
+    )
+
+
+def _dictionary_load_line(load: DictionaryLoad) -> Text:
+    from rich.style import Style
+    from rich.text import Text
+
+    text = f"{pluralize(load.entries, 'value')} from {load.operation}"
+    details = [
+        detail
+        for detail, applies in (
+            (f"{load.requests} requests", load.requests > 1),
+            (f"{load.failed} failed", load.failed > 0),
+            (f"capped at {MAX_SOURCE_REQUESTS}", load.capped),
+        )
+        if applies
+    ]
+    if details:
+        text += f" ({', '.join(details)})"
+    return Text.assemble(
+        ("✅  ", Style(color="green")),
+        (f"Dictionary `{load.dictionary}`: ", Style(color="bright_white", bold=True)),
+        (text, Style(color="green")),
     )
 
 
@@ -170,8 +194,7 @@ def _status_name(ctx: ExecutionContext, status_code: int) -> str:
 
 
 def _short_status(ctx: ExecutionContext, status_code: int) -> str:
-    name = ctx.status_name(status_code)
-    return str(status_code) if name is None else name
+    return status_label(status_code, ctx.status_name)
 
 
 def _status_codes_are_uninformative(ctx: ExecutionContext) -> bool:
@@ -580,12 +603,80 @@ def extraction_failure_steps(failure: ExtractionFailure) -> list[tuple[int, str]
     ]
 
 
+def skipped_checks_lines(event: events.EngineFinished) -> list[str]:
+    """Name the checks whose `after_run` an early stop left unrun, and why the run stopped."""
+    if not event.skipped_checks:
+        return []
+    methods = ", ".join(f"{name}.after_run" for name in event.skipped_checks)
+    return [style(f"  ⏭  Skipped {methods} ({event.stop_reason.skip_explanation})", fg="yellow")]
+
+
+def display_setup(console: Console, payload: SetupPayload) -> None:
+    """Print what setup learned about the API: probed capabilities, the cache, and sign-up."""
+    from rich.style import Style
+    from rich.table import Table
+    from rich.text import Text
+
+    cache_row = _format_cache_row(payload.cache)
+    # Specifications without HTTP probes have nothing to report unless the cache does.
+    if payload.probes or cache_row is not None:
+        unreachable = _server_unreachable(payload.probes)
+        if unreachable:
+            header = Text.assemble(
+                ("⚠️  ", Style(color="yellow")),
+                ("API capabilities: unknown, server unreachable", Style(color="bright_white")),
+            )
+        else:
+            header = Text.assemble(
+                ("✅  ", Style(color="green")),
+                ("API capabilities:", Style(color="bright_white")),
+            )
+        console.print(Indent(header))
+        console.print()
+
+        table = Table(
+            show_header=False,
+            box=None,
+            padding=(0, 4),
+            collapse_padding=True,
+        )
+        table.add_column("Capability", style=Style(color="bright_white", bold=True), no_wrap=True)
+        table.add_column("Status", style="cyan")
+        # Without a response, a probe measured nothing about the API.
+        for probe_run in [] if unreachable else payload.probes:
+            icon, style = {
+                ProbeOutcome.SUCCESS: ("✓", Style(color="green")),
+                ProbeOutcome.FAILURE: ("✘", Style(color="red")),
+                ProbeOutcome.SKIP: ("⊘", Style(color="yellow")),
+            }[probe_run.outcome]
+
+            table.add_row(f"{probe_run.probe.name}:", Text(icon, style=style))
+
+        if cache_row is not None:
+            table.add_row("Cache:", cache_row)
+
+        if table.row_count:
+            console.print(Indent(table))
+            console.print()
+    auth = payload.auth
+    # Users who supply credentials gain nothing from hearing that sign-up was skipped.
+    if auth is not None and auth.spec is not None and auth.status != Status.SKIP:
+        console.print(Indent(_auth_bootstrap_line(auth, auth.spec)))
+        console.print()
+    # Failed loads reach the Errors section instead.
+    loaded = [load for load in payload.dictionaries if load.error is None]
+    for load in loaded:
+        console.print(Indent(_dictionary_load_line(load)))
+    if loaded:
+        console.print()
+
+
 @dataclass(slots=True)
-class ProbingProgressManager(SpinnerProgressManager):
+class SetupProgressManager(SpinnerProgressManager):
     def __init__(self, console: Console) -> None:
         from rich.text import Text
 
-        SpinnerProgressManager.__init__(self, console, Text("Probing API capabilities", style="bright_white"))
+        SpinnerProgressManager.__init__(self, console, Text("Setting up", style="bright_white"))
 
     def get_completion_message(self) -> Text:
         """Generate completion message including duration."""
@@ -596,7 +687,7 @@ class ProbingProgressManager(SpinnerProgressManager):
         if self.is_interrupted:
             return Text.assemble(
                 ("⚡  ", Style(color="yellow")),
-                (f"API probing interrupted after {duration}", Style(color="white")),
+                (f"Setup interrupted after {duration}", Style(color="white")),
             )
         return Text.assemble(
             ("✅  ", Style(color="green")),
@@ -1008,7 +1099,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
     config: ProjectConfig
 
     loading_manager: LoadingProgressManager | None = None
-    probing_manager: ProbingProgressManager | None = None
+    setup_manager: SetupProgressManager | None = None
     unit_tests_manager: UnitTestProgressManager | None = None
     stateful_tests_manager: StatefulProgressManager | None = None
     # How many times each phase has started; under a time limit they repeat.
@@ -1074,8 +1165,8 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             self.stateful_tests_manager.stop()
         if self.loading_manager is not None:
             self.loading_manager.stop()
-        if self.probing_manager is not None:
-            self.probing_manager.stop()
+        if self.setup_manager is not None:
+            self.setup_manager.stop()
 
     def _on_non_fatal_error(self, event: events.NonFatalError) -> None:
         from schemathesis.engine.errors import ServerUnavailable
@@ -1102,7 +1193,11 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         table.add_column("Field", style=Style(color="bright_white", bold=True))
         table.add_column("Value", style="cyan", overflow="fold")
 
-        table.add_row("Base URL:", sanitized(event.base_url, ctx.config.output.sanitization))
+        if event.config.app is not None:
+            # Requests go to the application directly; there is no address to show
+            table.add_row("Application:", event.config.app)
+        else:
+            table.add_row("Base URL:", sanitized(event.base_url, ctx.config.output.sanitization))
         table.add_row("Specification:", event.specification.name)
         statistic = event.statistic.operations
         table.add_row("Operations:", f"{statistic.selected} selected / {statistic.total} total")
@@ -1132,8 +1227,8 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
 
     def _on_phase_started(self, ctx: ExecutionContext, event: events.PhaseStarted) -> None:
         phase = event.phase
-        if phase.name == PhaseName.PROBING and phase.is_enabled:
-            self._start_probing()
+        if phase.name == PhaseName.SETUP and phase.is_enabled:
+            self._start_setup()
         elif phase.name in UNIT_PHASES and phase.is_enabled:
             self._start_unit_tests(ctx, event)
         elif phase.name == PhaseName.STATEFUL_TESTING and phase.is_enabled and phase.skip_reason is None:
@@ -1208,9 +1303,9 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             self.pending_coverage = None
             self._print_unit_completion(manager, self.repeat_statuses.pop(PhaseName.COVERAGE))
 
-    def _start_probing(self) -> None:
-        self.probing_manager = ProbingProgressManager(console=self.console)
-        self.probing_manager.start()
+    def _start_setup(self) -> None:
+        self.setup_manager = SetupProgressManager(console=self.console)
+        self.setup_manager.start()
 
     def _start_unit_tests(self, ctx: ExecutionContext, event: events.PhaseStarted) -> None:
         assert ctx.api_statistic is not None
@@ -1281,69 +1376,15 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         self.stateful_tests_manager.start(show_live=not in_cycle and self.cycle_live is None)
 
     def _on_phase_finished(self, ctx: ExecutionContext, event: events.PhaseFinished) -> None:
-        from rich.style import Style
-        from rich.table import Table
-        from rich.text import Text
-
         phase = event.phase
 
-        if phase.name == PhaseName.PROBING:
-            assert self.probing_manager is not None
-            self.probing_manager.stop()
-            self.probing_manager = None
-
-            if event.status == Status.SUCCESS:
-                assert isinstance(event.payload, Ok)
-                payload = event.payload.ok()
-                cache_row = _format_cache_row(payload.cache)
-                # Specifications without HTTP probes have nothing to report unless the cache does.
-                if payload.probes or cache_row is not None:
-                    unreachable = _server_unreachable(payload.probes)
-                    if unreachable:
-                        header = Text.assemble(
-                            ("⚠️  ", Style(color="yellow")),
-                            ("API capabilities: unknown, server unreachable", Style(color="bright_white")),
-                        )
-                    else:
-                        header = Text.assemble(
-                            ("✅  ", Style(color="green")),
-                            ("API capabilities:", Style(color="bright_white")),
-                        )
-                    self.console.print(Indent(header))
-                    self.console.print()
-
-                    table = Table(
-                        show_header=False,
-                        box=None,
-                        padding=(0, 4),
-                        collapse_padding=True,
-                    )
-                    table.add_column("Capability", style=Style(color="bright_white", bold=True), no_wrap=True)
-                    table.add_column("Status", style="cyan")
-                    # Without a response, a probe measured nothing about the API.
-                    for probe_run in [] if unreachable else payload.probes:
-                        icon, style = {
-                            ProbeOutcome.SUCCESS: ("✓", Style(color="green")),
-                            ProbeOutcome.FAILURE: ("✘", Style(color="red")),
-                            ProbeOutcome.SKIP: ("⊘", Style(color="yellow")),
-                        }[probe_run.outcome]
-
-                        table.add_row(f"{probe_run.probe.name}:", Text(icon, style=style))
-
-                    if cache_row is not None:
-                        table.add_row("Cache:", cache_row)
-
-                    if table.row_count:
-                        self.console.print(Indent(table))
-                        self.console.print()
-        elif (
-            isinstance(event.payload, AuthBootstrapPayload)
-            and event.payload.spec is not None
-            # Users who supply credentials gain nothing from hearing that sign-up was skipped.
-            and event.status != Status.SKIP
-        ):
-            self.console.print(Indent(_auth_bootstrap_line(event.payload, event.payload.spec)))
-            self.console.print()
+        if phase.name == PhaseName.SETUP:
+            # An interrupt has already closed the setup progress
+            if self.setup_manager is not None:
+                self.setup_manager.stop()
+                self.setup_manager = None
+            if event.payload is not None:
+                display_setup(self.console, event.payload)
         elif phase.name == PhaseName.STATEFUL_TESTING and phase.is_enabled and self.stateful_tests_manager is not None:
             manager = self.stateful_tests_manager
             self.stateful_tests_manager = None
@@ -1363,7 +1404,8 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 self.cycle_phase = self.cycle_phase_before_coverage
                 self.cycle_phase_before_coverage = None
                 return
-            if phase.name == PhaseName.COVERAGE and self.config.max_time is not None:
+            # Another coverage pass may follow, so the block is printed once the next phase starts.
+            if phase.name == PhaseName.COVERAGE:
                 unit_manager.stop()
                 unit_manager.end_pass()
                 self._merge_status(phase.name, event.status)
@@ -1493,12 +1535,12 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             message = Indent(self.loading_manager.get_completion_message())
             self.console.print(message)
             self.console.print()
-        elif self.probing_manager is not None:
-            self.probing_manager.interrupt()
-            message = Indent(self.probing_manager.get_completion_message())
+        elif self.setup_manager is not None:
+            self.setup_manager.interrupt()
+            message = Indent(self.setup_manager.get_completion_message())
             self.console.print(message)
             self.console.print()
-            self.probing_manager = None
+            self.setup_manager = None
 
     def display_warnings(self, ctx: ExecutionContext) -> None:
         display_warning_blocks(warning_blocks(ctx))
@@ -1532,11 +1574,10 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
     def display_phases(self, ctx: ExecutionContext) -> None:
         click.echo(style("Test Phases:", bold=True))
 
-        for phase in PhaseName:
+        for phase, (status, skip_reason) in ctx.phases.items():
             if phase in INTERNAL_PHASES:
                 # Internal phases are not part of the test phase summary
                 continue
-            status, skip_reason = ctx.phases[phase]
 
             if status == Status.SKIP:
                 click.echo(style(f"  ⏭  {phase.display}", fg="yellow"), nl=False)
@@ -1580,11 +1621,11 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         self._flush_coverage()
         self._stop_cycle_line()
         assert self.loading_manager is None
-        assert self.probing_manager is None
+        assert self.setup_manager is None
         assert self.unit_tests_manager is None
         assert self.stateful_tests_manager is None
         if ctx.errors:
-            display_errors(ctx.errors, base_url_is_set=ctx.base_url_is_set)
+            display_errors(ctx.errors, base_url_is_set=ctx.base_url_is_set, sanitization=ctx.config.output.sanitization)
         display_failures(ctx.statistic, ctx.config.output, record_crashes=ctx.config.cache.enabled)
         if not ctx.warnings.is_empty:
             self.display_warnings(ctx)
@@ -1606,5 +1647,6 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             self.display_warnings_summary(ctx)
 
         ctx.summary_lines.extend(reauth_summary_lines(event.payload))
+        ctx.summary_lines.extend(skipped_checks_lines(event))
         display_summary_footer(ctx, summary)
         self.display_final_line(ctx, event)

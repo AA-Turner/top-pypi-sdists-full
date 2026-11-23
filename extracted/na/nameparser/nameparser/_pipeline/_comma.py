@@ -49,7 +49,7 @@ from nameparser._pipeline._state import (
 from nameparser._pipeline._vocab import (
     ROMAN, caps_shape_candidate, claimed_as_non_name,
     composed_len, delimiter_cores, ends_in_a_generation, glued_cores,
-    glued_stem, glues, is_caps_word,
+    glued_stem, glues, is_caps_word, is_mixed_caps_word,
     is_letter_run, is_paired_initials, is_single_letter_numeral,
     is_wholly_suffix, _joined_chunks, _listed_whole,
     name_reading, name_word_count, reads_as_generation, suffix_reading,
@@ -279,7 +279,7 @@ def _behind_a_generation(state: ParseState, seg0: Sequence[int],
         # a title reads as a title, a word or a run a connective joins
         # ('Mr. and Mrs.', a dual inside it included); a lone dual of
         # the title and the suffix vocabulary is the suffix here, the
-        # slot being postnominal ('John Smith Jr., AD RA'): C13's two
+        # slot being postnominal ('John Smith Jr., AD VC'): C13's two
         # predicates, asked in C13's order
         title = (not is_suffix_piece(p, pt, tokens)
                  and is_title_piece(p, pt, tokens))
@@ -415,7 +415,7 @@ def _company(state: ParseState, seg0: Sequence[int], p: Sequence[int],
         return True
     if (state.one_case
             or not caps_shape_candidate(text, state.lexicon, state.policy,
-                                        one_case=False)):
+                                        one_case=False, mixed_case=True)):
         return False
     if not contrast:
         contrast.append(_name_contrast(state, seg0))
@@ -750,7 +750,13 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
              or len(p) == 1
              and (AMBIGUOUS_ACRONYM_TAG in (tags := tokens[p[0]].tags)
                   or ("vocab:suffix" not in tags
-                      and (texts[p[0]].isupper()
+                      # capitals, or the mixed case `_mixed_capitals`
+                      # reads, asked here in C by its two ends ('MRes',
+                      # 'AuD'; not 'McDonald', which pays no count);
+                      # `caps_shape_candidate` decides
+                      and ((texts[p[0]].isupper()
+                            or texts[p[0]][:2].isupper()
+                            or texts[p[0]][-1:].isupper())
                            and (texts[p[0]].isalpha()
                                 # the joined spelling ('PU-PH'), the
                                 # predicate's other half (rules/S9)
@@ -758,15 +764,23 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                                 or "/" in texts[p[0]])
                            or not unicodedata.is_normalized(
                                "NFC", texts[p[0]])
-                           and is_caps_word(texts[p[0]]))))]
+                           and (is_caps_word(texts[p[0]])
+                                or is_mixed_caps_word(texts[p[0]])))))]
     # rules/C16: "behind one word, initials run together are the given
     # name whatever they spell" -- the runs that spell a listed
     # credential ('J.P.', 'M.A.'), joined to the class so C4's count is
-    # taken (decisions/C16 (#1238)). Gathered only
+    # taken where the head may be one word (decisions/C16 (#1238),
+    # #1435). Gathered only
     # where the part holds a full stop, so 'Smith, John' pays no frame;
     # a part whose other words are all credentials is C8's run
     # ('Smith, M.D. Ph.D.').
     initials_at: int | None = None
+    # whether the run is the part's only entry in `maybe` (no word of
+    # the class and no caps-shape candidate beside it), and, asked only
+    # then, whether the head is one word as C16 reads it (`_lone_word`;
+    # None where not asked, the reading's own test asking it instead)
+    run_alone = False
+    lone_head: bool | None = None
     for at, p in enumerate(p1):
         if len(p) == 1 and "." in (text := texts[p[0]]):
             tags = tokens[p[0]].tags
@@ -787,6 +801,10 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                 initials_at = p[0]
                 break
     contrast_box: list[bool] = []
+    # the unlisted capitals words the run's company admitted, marked as
+    # caps-shape credentials below as the count's own are, so case
+    # repair keeps them ('Smith, M.B. ChB' keeps 'ChB' forced, rules/R4)
+    company_caps: list[int] = []
     if initials_at is not None:
         # titles in front of the run are the given part's (C16);
         # behind it a credential is company: a title/suffix dual only in
@@ -800,7 +818,15 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
         if rest and all(_company(state, seg0, p, pt, texts, contrast_box)
                         for p, pt in rest):
             initials_at = None
+            # `_company` admits a single unlisted word by the caps shape
+            # alone (its last test)
+            company_caps = [
+                p[0] for p, pt in rest
+                if len(p) == 1 and "split" not in pt
+                and "vocab:suffix" not in tokens[p[0]].tags
+                and AMBIGUOUS_ACRONYM_TAG not in tokens[p[0]].tags]
         elif initials_at not in maybe:
+            run_alone = not maybe
             maybe.append(initials_at)
     # rules/C8: "a part that is nothing but suffix words is the
     # credential run and reads as suffixes, whole" -- the reading below.
@@ -838,13 +864,23 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
         if listing and not generation:
             return state
     names = 0
-    caps: set[int] = set()
+    caps: set[int] = set(company_caps)
     licensed: set[int] = set()
     run = False
     # a pair a later comma part's credential spoke for (rules/C5), whose
     # flip is reported as the count's, dotted or not
     later = False
-    if maybe:
+    # C16's run alone in `maybe`, behind a head that is not one word,
+    # asks no count and keeps no books (#1435): the run reads as
+    # initials only behind one word, and with nothing else in `maybe`
+    # the count licenses nothing, `head_named` meets no member and the books find
+    # none, so the reading is the one the count would give ('John
+    # Smith, M.D.'). The run stays in `maybe`, so the part is still read
+    # below as the count's part, never the listing form's
+    if run_alone:
+        lone_head = _lone_word(state, seg0)
+    counted = bool(maybe) and lone_head is not False
+    if counted:
         # `_members` inline: a frame here is paid by every name with the
         # ambiguous class after its comma ('John Smith, MA')
         split_at: set[int] = set()
@@ -855,8 +891,12 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                                 letters_one_case=state.one_case,
                                 members=split_at)
     if names >= 2:
-        # rules/C6: "An unlisted all-caps word joins the ambiguous
-        # credential class [...] only where the name carries the contrast"
+        # rules/C6: "an unlisted word in the caps shape (S9), written in
+        # capitals or in a credential's mixed case, joins the ambiguous
+        # credential class (C4, S9) in the part after the comma only where
+        # the name carries the contrast" -- the part after the comma's
+        # half, read once two name words stand before it (decisions/C6
+        # (#564, #1517))
         for i in maybe:
             text = texts[i]
             if SHAPE_ACRONYM_TAG in tokens[i].tags:
@@ -867,7 +907,8 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                 continue
             if (AMBIGUOUS_ACRONYM_TAG not in tokens[i].tags
                     and pol.unlisted_caps_suffixes is not CapsSuffixes.OFF
-                    and caps_shape_candidate(text, lex, pol, one_case=False)):
+                    and caps_shape_candidate(text, lex, pol, one_case=False,
+                                             mixed_case=True)):
                 if contrast is None:
                     contrast = _name_contrast(state, seg0)
                     # the box the helpers below read, empty until now
@@ -915,7 +956,7 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
             # it stands behind that word, so one scan answers every
             # pair. Asked per pair, the scan re-walked every word in
             # front of each one, quadratic in the part ('John Smith, ' +
-            # 'RA '*k + 'G.J. '*k, the duals never ending it; #563's
+            # 'VC '*k + 'G.J. '*k, the duals never ending it; #563's
             # shape, back in #613 and caught in review)
             speaker = -1
             for k, p in enumerate(p1):
@@ -966,7 +1007,8 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                     caps.discard(i)
     if maybe:
         lone = (initials_at is not None and names < 2
-                and _lone_word(state, seg0))
+                and (lone_head if lone_head is not None
+                     else _lone_word(state, seg0)))
         reading = segment_suffix_reading(
             p1, pt1, tokens, pol.lenient_comma_suffixes, state.one_case,
             anchored, absorbed, licensed, head_named=names >= 2,
@@ -1022,6 +1064,12 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
                             and (text.isupper()
                                  and (text.isalpha() or "-" in text
                                       or "/" in text)
+                                 # the mixed case C12 reads where the
+                                 # count marked nothing ('Dr. Smith
+                                 # Jr., AuD', #1517)
+                                 or not text.islower()
+                                 and not text.istitle()
+                                 and is_mixed_caps_word(text)
                                  or not unicodedata.is_normalized(
                                      "NFC", text) and is_caps_word(text))):
                         caps.add(i)
@@ -1060,7 +1108,7 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
     members: list[int] = []
     listed: list[int] = []
     settled = pair_only = False
-    if maybe:
+    if counted:
         members = [p[0] for p in p1 if len(p) == 1
                    and AMBIGUOUS_ACRONYM_TAG in tokens[p[0]].tags]
         listed = [i for i in members

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 from typing import (
     Any,
     Callable,
@@ -25,6 +26,7 @@ from .exceptions import OutputNotFoundException as OutputNotFoundException
 from .job_directory import RemoteJobDirectory
 from .setup_handler import build as build_setup_handler
 from .util import (
+    add_executable_bits,
     copy,
     ensure_directory,
     hardlink,
@@ -37,6 +39,8 @@ from .util import (
 log = logging.getLogger(__name__)
 
 CACHE_WAIT_SECONDS = 3
+DEFAULT_OUTPUT_COLLECTION_RETRIES = 3
+OUTPUT_COLLECTION_RETRY_SLEEP = 2
 CONTAINER_STAGING_DIRECTORY = "/pulsar_staging/"
 
 
@@ -64,6 +68,9 @@ class BaseJobClient:
         self.token_endpoint = destination_params.get("token_endpoint", None)
         self.external_id = destination_params.get("external_id", None)
         self.resubmission_count = destination_params.get("resubmission_count", 0)
+        self.output_collection_retries = int(
+            destination_params.get("output_collection_retries", DEFAULT_OUTPUT_COLLECTION_RETRIES)
+        )
 
         default_file_action = self.destination_params.get("default_file_action", "transfer")
         if default_file_action not in actions:
@@ -210,7 +217,7 @@ class JobClient(BaseJobClient):
         """
         return self._raw_execute("setup", setup_args)
 
-    def put_file(self, path, input_type, name=None, contents=None, action_type='transfer'):
+    def put_file(self, path, input_type, name=None, contents=None, action_type='transfer', executable=False):
         if not name:
             name = os.path.basename(path)
         args = {"job_id": self.job_id, "name": name, "type": input_type}
@@ -224,11 +231,19 @@ class JobClient(BaseJobClient):
                 contents = contents.encode("utf-8")
             message = "Uploading path [%s] (action_type: [%s])"
             log.debug(message, path, action_type)
+            if executable:
+                # Older servers ignore this argument.
+                args["executable"] = True
             return self._upload_file(args, contents, input_path)
         elif action_type in ('copy', 'hardlink'):
             path_response = self._raw_execute('path', args)
             pulsar_path = json_loads(path_response)['path']
-            (hardlink if action_type == 'hardlink' else _copy)(path, pulsar_path)
+            if action_type == 'hardlink':
+                hardlink(path, pulsar_path)
+            else:
+                _copy(path, pulsar_path)
+                if executable:
+                    add_executable_bits(pulsar_path)
             return {'path': pulsar_path}
 
     def fetch_output(self, path, name, working_directory, action_type, output_type):
@@ -275,7 +290,32 @@ class JobClient(BaseJobClient):
             self.__raw_download_output(name, self.job_id, path_type, output_path)
         elif action_type in ('copy', 'hardlink'):
             pulsar_path = self._output_path(name, self.job_id, path_type)['path']
-            (hardlink if action_type == 'hardlink' else _copy)(pulsar_path, output_path)
+            stage_out = hardlink if action_type == 'hardlink' else _copy
+            self._retry_missing_source(stage_out, pulsar_path, output_path)
+
+    def _retry_missing_source(self, stage_out, source, destination):
+        """Stage out a local file, retrying while the source looks missing.
+
+        A file the compute node wrote moments ago may not be visible yet if this
+        host's NFS client cached the directory, so FileNotFoundError is retried
+        ``output_collection_retries`` times before it propagates.
+        """
+        for attempt in range(self.output_collection_retries + 1):
+            try:
+                stage_out(source, destination)
+                return
+            except FileNotFoundError:
+                if attempt == self.output_collection_retries:
+                    raise
+                log.debug("Output source [%s] not found, retrying (%d/%d)",
+                          source, attempt + 1, self.output_collection_retries)
+                time.sleep(OUTPUT_COLLECTION_RETRY_SLEEP)
+                # Opening the directory makes the NFS client revalidate it
+                # (close-to-open), which drops cached negative lookups.
+                try:
+                    os.listdir(os.path.dirname(source))
+                except OSError:
+                    pass
 
     @parseJson()
     def _upload_file(self, args, contents, input_path):

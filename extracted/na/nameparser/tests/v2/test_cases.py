@@ -71,6 +71,8 @@ def test_case(case: Case) -> None:
     pn = parser.parse(case.text)
     actual = {f: getattr(pn, f) for f in _FIELDS if getattr(pn, f)}
     assert actual == case.expect, f"{case.text!r} ({case.classification})"
+    assert {view: getattr(pn, view) for view, _ in case.views} == dict(
+        case.views), f"{case.text!r} ({case.classification})"
     kinds = sorted(a.kind.value for a in pn.ambiguities)
     assert kinds == sorted(case.ambiguities), \
         f"{case.text!r} ({case.classification})"
@@ -488,10 +490,62 @@ def test_the_field_sweep_sees_the_claims_it_checks() -> None:
     # 2086, the coordinator's review: 'Jane Doe, MH, Mc, PhD' and 'Jane
     # Doe, VI, PhD' under three orders (the vi row is not swept); 2086
     # -> 2098, the third review's four rows under three orders; 2098 ->
-    # 2101, 'Jane Doe, A.L., PhD' under three orders.
-    assert claims == 2101, (
-        f"the field sweep checks {claims} claims, recorded as 2101 on "
-        f"2026-11-15")
+    # 2101, 'Jane Doe, A.L., PhD' under three orders; 2101 -> 2107 on
+    # 2026-11-18, #1455's 'Oude Luttikhuis' and 'Luttikhuis, Piet Oude',
+    # each reporting particle-or-given under three orders; 2107 -> 2187
+    # the same day, #1394's rows under three orders or once where a row
+    # declares a policy: the decline's report on each moved row, and
+    # its boundary rows' run reports; 2187 -> 2191 on 2026-11-19,
+    # #1468's 'Anak Agung Made Putra' reporting particle-or-given under
+    # three orders and 'Kwame Mensah Anak' under FAMILY_FIRST; 2191 -> 2192
+    # the same day, its review's FAMILY_FIRST row of that name, once under
+    # its declared policy; 2192 -> 2195 the same day, #1471's 'Emerita
+    # Smith' reporting title-or-name under three orders; 2195 -> 2198 the
+    # same day, #1457's 'Mr Masters' reporting title-or-name under three
+    # orders; 2198 -> 2201 the same day, #1467's 'Nur Aina bt Rosli'
+    # reporting suffix-or-name under three orders; 2201 -> 2205 the same
+    # day, #1464's 'Ali Abdul Rahim VI' under three orders and 'Ram Abdul
+    # Bahadur B.K.' under its declared policy, each reporting
+    # suffix-or-name; 2205 -> 2208 the same day, #1464's 'Dr. Al Amin
+    # Abdul Rahman' reporting particle-or-given; 2208 -> 2211 the same
+    # day, #1149's 'جورج و. بوش' reporting given-or-family under three
+    # orders; 2211 -> 2214 on 2026-11-20, #1149's 'Dr/' (rules/T9's
+    # boundary, no name after the slash) reporting given-or-family under
+    # three orders; 2214 -> 2217 the same day, its review's 'Dr/ Dean
+    # Smith' reporting title-or-name under three orders; 2217 -> 2238
+    # the same day, #1164's alias rows ('Rahim Osman @ Jaki V', 'Ali @ X
+    # @ Y Z V', 'Osman, Rahim @ Jaki PhD Ali', 'Jane née Jones @ JJ V',
+    # 'Dr née Jones @ JJ V', 'Rahim Osman @ Jaki Jr. née Smith', 'Jane
+    # Smith @ JJ Jr. née') under three orders; 2238 -> 2242 the same day,
+    # #1239's 'Broeck, Pieter Vanden' under three orders and 'Vanden
+    # Broeck Pieter' under its declared policy, each reporting
+    # particle-or-given; 2242 -> 2257 the same day, #1361's, #1284's
+    # and #1392's rows under three orders (the bchir rows' suffix-or-name
+    # and given-or-family, 'Aus Rahman's particle-or-given, and the two
+    # 'Jane Doe, BM, ...' rows); 2257 -> 2272 the same day, #969's DiS
+    # rows' suffix-or-name under three orders; 2272 -> 2275 the same day,
+    # its review's 'PETR JAN DIS' under three orders; 2275 -> 2278 the
+    # same day, its second review's 'Jan DIS' under three orders; 2278
+    # -> 2296 on 2026-11-21, #1517's six caps-shape rows reporting
+    # suffix-or-name under three orders; 2296 -> 2321 the same day, its
+    # test review's eight rows under three orders and its family-first
+    # row under its declared policy; 2321 -> 2330 the same day, #1128's
+    # reporting rows; 2330 -> 2342 the same day, #1483's `ra` rows
+    # reporting suffix-or-name; 2342 -> 2367 the same day, its review's
+    # comma, order and spelling rows; 2367 -> 2373 the same day, its
+    # second review's 'SMITH, RA MD' and 'Smith, RA John'; 2373 -> 2382
+    # the same day, #1178's review's `ab` rows reporting suffix-or-name
+    # ('Ab. Smith, Ed', 'Vice Ab. Smith, Ed', 'Ali Budi Santoso.AB');
+    # 2382 -> 2397 the same day, #1206's five Imam and Sheriff rows
+    # reporting title-or-name under three orders; 2397 -> 2419 the same
+    # day, its review's reporting rows (the word alone, in lower case,
+    # before another gated word and in a third comma part, and a
+    # family-first row under its declared policy); 2419 -> 2425 the same
+    # day, its second review's 'Imam Dr. Musa Bello' and 'Sheriff Deputy
+    # John Smith' under three orders.
+    assert claims == 2425, (
+        f"the field sweep checks {claims} claims, recorded as 2425 on "
+        f"2026-11-21")
 
 
 #: The kinds that report a fork between two readings of a word, so carry
@@ -565,6 +619,20 @@ _STAND_IN_REREADS = {
     ("Rahman, Md Sheikh Karim", None), ("Rahman, Md Sheikh Karim", 1),
     ("Rahman, Md Sheikh Karim", 2),
     ("Rahman, Md Dean", None), ("Rahman, Md Dean", 1), ("Rahman, Md Dean", 2),
+    # a name word in the maiden marker's or the numeral's place makes an
+    # 'MD' in capitals, or an 'Md', Muhammad written short (rules/S8,
+    # #1394)
+    ("JOHN SMITH MD NÉE JONES", None), ("JOHN SMITH MD NÉE JONES", 2),
+    ("JOHN SMITH MD VI JONES", None), ("JOHN SMITH MD VI JONES", 2),
+    ("John Smith Md VI Jones", None), ("John Smith Md VI Jones", 2),
+    ("JOHN SMITH MD (B) VI JONES", None),
+    ("JOHN SMITH MD (B) VI JONES", 2),
+    ("John Smith MA VI Jones", None), ("John Smith MA VI Jones", 2),
+    # a name word in a mixed-case credential's place leaves the initials
+    # in front of it no company, so they are the given name (rules/C16,
+    # #1517)
+    ("Smith, M.B. ChB", None), ("Smith, M.B. ChB", 1),
+    ("Smith, M.B. ChB", 2),
 }
 
 #: Reports whose deferred field assign could not name: the particle the
@@ -953,8 +1021,35 @@ def test_the_alternative_sweep_sees_the_fields_it_checks() -> None:
     # as the undotted ones do, and one boundary row's stand-in lands in
     # the other field; 453 -> 456, the second code review's glued row;
     # 456 -> 462, the coordinator's review's two rows; 462 -> 474, the
-    # third review's four; 474 -> 477, the 'A.L.' row
-    assert (checked, skipped) == (595, 477), (checked, skipped)
+    # third review's four; 474 -> 477, the 'A.L.' row; 595 -> 598 on
+    # 2026-11-18, #1455's 'Luttikhuis, Piet Oude' under the three orders,
+    # P6's report, each stand-in landing in the alternative's field;
+    # 477 -> 494 and 598 -> 603 the same day, #1394's rows under the
+    # three orders, the declines' reports and the boundary rows' run
+    # reports, three of them stand-in rereads; 603 -> 604 on 2026-11-19,
+    # #1468's 'Kwame Mensah Anak' under FAMILY_FIRST, a `name` stand-in;
+    # the 'Anak Agung Made Putra' reports name a patronymic alternative,
+    # which has no stand-in; 604 -> 605 the same day, its review's
+    # FAMILY_FIRST row of that name; 494 -> 497 the same day, #1467's
+    # 'Nur Aina bt Rosli' under the three orders, its suffix-or-name
+    # reports all skipped
+    # 605 -> 608 the same day, from #1464's two suffix-or-name rows
+    # ('Ali Abdul Rahim VI', 'Ram Abdul Bahadur B.K.'); 608 -> 611 on
+    # 2026-11-20, from #1164's alias rows' three reports ('Rahim Osman @
+    # Jaki V', 'Ali @ X @ Y Z V'); 611 -> 614 and 497 -> 500 the same
+    # day, from its fix review's three suffix-or-name rows; 500 -> 509
+    # the same day, its second fix review's two rows, their reports all
+    # skipped; 614 -> 617 the same day, #1239's 'Broeck, Pieter Vanden'
+    # under three orders; 617 -> 620 and 509 -> 512 the same day, #1361's
+    # and #1284's rows under three orders; 620 -> 629 the same day, #969's
+    # three DiS rows after a comma under three orders; 629 -> 632 the same
+    # day, its review's 'PETR JAN DIS' under three orders; 632 -> 647 on
+    # 2026-11-21, #1517's five caps-shape rows under three orders,
+    # 'Smith, M.B. ChB' being a stand-in reread; 647 -> 669 the same
+    # day, its test review's rows; 669 -> 672 the same day, #1483's
+    # `ra` rows reporting suffix-or-name; 672 -> 675 the same day, its
+    # review's rows; 675 -> 684 the same day, #1178's review's `ab` rows
+    assert (checked, skipped) == (684, 512), (checked, skipped)
 
 
 def test_every_case_name_is_unique() -> None:

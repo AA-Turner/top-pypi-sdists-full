@@ -33,19 +33,20 @@ use crate::SyntaxKind;
 /// Use the [`Output::iter`] method to iterate over traversal steps and consume
 /// a syntax tree.
 ///
-/// In a sense, this is just a sequence of [`SyntaxKind`]-colored parenthesis
+/// In a sense, this is just a sequence of [`SyntaxKind`]-colored parentheses
 /// interspersed into the original [`crate::Input`]. The output is fundamentally
 /// coordinated with the input and `n_input_tokens` refers to the number of
 /// times [`crate::Input::push`] was called.
 #[derive(Default)]
 pub struct Output {
     /// 32-bit encoding of events. If LSB is zero, then that's an index into the
-    /// error vector. Otherwise, it's one of the thee other variants, with data encoded as
+    /// error vector. Otherwise, it's one of the three other variants, with data encoded as
     ///
     ///     |16 bit kind|8 bit n_input_tokens|4 bit tag|4 bit leftover|
     ///
     event: Vec<u32>,
     error: Vec<String>,
+    node_count: usize,
 }
 
 #[derive(Debug)]
@@ -78,6 +79,18 @@ impl Output {
     const ENTER_EVENT: u8 = 1;
     const EXIT_EVENT: u8 = 2;
 
+    pub(crate) fn new(event: Vec<u32>, error: Vec<String>, node_count: usize) -> Self {
+        Output {
+            event,
+            error,
+            node_count,
+        }
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.node_count
+    }
+
     pub(crate) fn iter(&self) -> impl Iterator<Item = Step<'_>> {
         self.event.iter().map(|&event| {
             if event & Self::EVENT_MASK == 0 {
@@ -108,29 +121,34 @@ impl Output {
         })
     }
 
-    pub(crate) fn token(&mut self, kind: SyntaxKind, n_tokens: u8) {
-        let e = (u32::from(kind as u16) << Self::KIND_SHIFT)
-            | (u32::from(n_tokens) << Self::N_INPUT_TOKEN_SHIFT)
-            | Self::EVENT_MASK;
-        self.event.push(e);
+    pub(crate) const fn token_event(kind: SyntaxKind, n_tokens: u8) -> u32 {
+        ((kind as u32) << Self::KIND_SHIFT)
+            | ((n_tokens as u32) << Self::N_INPUT_TOKEN_SHIFT)
+            | Self::EVENT_MASK
     }
 
-    pub(crate) fn enter_node(&mut self, kind: SyntaxKind) {
-        let e = (u32::from(kind as u16) << Self::KIND_SHIFT)
-            | (u32::from(Self::ENTER_EVENT) << Self::TAG_SHIFT)
-            | Self::EVENT_MASK;
-        self.event.push(e);
+    pub(crate) const fn enter_event(kind: SyntaxKind) -> u32 {
+        ((kind as u32) << Self::KIND_SHIFT)
+            | ((Self::ENTER_EVENT as u32) << Self::TAG_SHIFT)
+            | Self::EVENT_MASK
     }
 
-    pub(crate) fn leave_node(&mut self) {
-        let e = u32::from(Self::EXIT_EVENT) << Self::TAG_SHIFT | Self::EVENT_MASK;
-        self.event.push(e);
+    pub(crate) const EXIT: u32 = ((Self::EXIT_EVENT as u32) << Self::TAG_SHIFT) | Self::EVENT_MASK;
+
+    pub(crate) fn error_event(index: u32) -> u32 {
+        assert!(
+            index < 1 << (u32::BITS - Self::ERROR_SHIFT),
+            "too many parse errors"
+        );
+        index << Self::ERROR_SHIFT
     }
 
-    pub(crate) fn error(&mut self, error: String) {
-        let idx = self.error.len();
-        self.error.push(error);
-        let e = u32::try_from(idx).unwrap() << Self::ERROR_SHIFT;
-        self.event.push(e);
+    pub(crate) const fn is_enter_event(event: u32) -> bool {
+        event & (Self::TAG_MASK | Self::EVENT_MASK)
+            == ((Self::ENTER_EVENT as u32) << Self::TAG_SHIFT) | Self::EVENT_MASK
+    }
+
+    pub(crate) const fn event_kind(event: u32) -> u16 {
+        ((event & Self::KIND_MASK) >> Self::KIND_SHIFT) as u16
     }
 }

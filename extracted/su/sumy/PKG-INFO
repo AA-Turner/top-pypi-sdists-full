@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sumy
-Version: 0.13.0
+Version: 0.14.0
 Summary: Module for automatic summarization of text documents and HTML pages.
 Project-URL: Homepage, https://github.com/miso-belica/sumy
 Project-URL: Repository, https://github.com/miso-belica/sumy
@@ -39,6 +39,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Education
@@ -48,14 +49,12 @@ Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.8
-Requires-Dist: breadability>=0.1.20
+Requires-Dist: breadability>=0.1.21
 Requires-Dist: docopt-ng>=0.6.3
 Requires-Dist: lxml-html-clean>=0.1.0
 Requires-Dist: nltk!=3.10.1,>=3.9.1
 Requires-Dist: pycountry>=18.2.23
 Requires-Dist: requests>=2.32.4
-Requires-Dist: setuptools<82,>=70.0.0
-Requires-Dist: setuptools<82,>=78.1.1; python_version >= '3.9'
 Provides-Extra: arabic
 Requires-Dist: pyarabic>=0.6.14; extra == 'arabic'
 Provides-Extra: chinese
@@ -66,6 +65,8 @@ Provides-Extra: hebrew
 Requires-Dist: hebrew-tokenizer>=2.3.0; extra == 'hebrew'
 Provides-Extra: japanese
 Requires-Dist: tinysegmenter>=0.3; extra == 'japanese'
+Provides-Extra: kl
+Requires-Dist: numpy>=1.17.3; extra == 'kl'
 Provides-Extra: korean
 Requires-Dist: konlpy>=0.6.0; extra == 'korean'
 Provides-Extra: lexrank

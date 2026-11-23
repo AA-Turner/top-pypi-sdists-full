@@ -124,7 +124,7 @@ env "${server_environment[@]}" lmcache server \
     --l1-size-gb "$CPU_BUFFER_SIZE" \
     --eviction-policy noop \
     --l2-store-policy skip_l1 \
-    --l2-prefetch-policy default \
+    --l2-prefetch-policy skip_l1 \
     --l2-adapter "$L2_ADAPTER_JSON" \
     --max-workers "$MAX_WORKERS" \
     --metrics-sample-rate 1.0 \
@@ -176,7 +176,7 @@ run_long_doc_qa() {
     echo "--- Running long_doc_qa ($description) on port $port ---"
     local output_file="$L2_RESULTS_DIR/${description}_output.txt"
 
-    python3 "$LMCACHE_DIR/benchmarks/inprocess/long_doc_qa/long_doc_qa.py" \
+    python3 "$LMCACHE_DIR/benchmarks/long_doc_qa/long_doc_qa.py" \
         --port "$port" \
         --model "$MODEL" \
         --document-length "$DOCUMENT_LENGTH" \

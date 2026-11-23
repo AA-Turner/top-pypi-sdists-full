@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blosc2
-Version: 4.15.0
+Version: 4.16.1
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: homepage, https://github.com/Blosc/python-blosc2
 Project-URL: documentation, https://www.blosc.org/python-blosc2/python-blosc2.html
 Requires-Python: >=3.11
@@ -101,6 +102,10 @@ Conda users can install from conda-forge:
 .. code-block:: console
 
     conda install -c conda-forge python-blosc2
+
+Python-Blosc2 4.16 requires C-Blosc2 3.7.0 or newer. Wheels bundle the native
+library; source builds using ``USE_SYSTEM_BLOSC2`` must provide compatible
+headers and libraries.
 
 Command line tools
 ==================

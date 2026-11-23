@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 import sys
 from copy import deepcopy
+from functools import partial
 from operator import truth
 from string import whitespace
 from typing import TYPE_CHECKING
@@ -29,6 +30,7 @@ from xhtml2pdf.bidi import (
     mirrored,
     needs_bidi,
 )
+from xhtml2pdf.builders.opacity import paint_with_opacity
 from xhtml2pdf.util import (
     drawBoxBackground,
     drawBoxBorders,
@@ -206,24 +208,26 @@ def imgVRange(h, va, fontSize, line_ascent=None, line_descent=None):
     return iyo, iyo + h
 
 
-_56 = 5.0 / 6
-_16 = 1.0 / 6
-
-
-def _maxLeadingExtent(line, leading):
+def _strut(style, leading) -> tuple[float, float]:
     """
-    The ascent and descent a line is given with autoLeading "max": the
-    leading split 5/6 above the baseline and 1/6 below, each part widened to
-    the font's own where that is taller.
-
-    One function for drawing (_putFragLine) and for measuring (wrap, split).
-    They used to measure max(ascent - descent, leading) instead, which is
-    less whenever the font's ascent wins above and its descent below -- a
-    TTF taller than 1.2em with a line-height over 1.2 -- so a paragraph was
-    drawn taller than it said it was, and the next block ran over its last
-    lines, by about a point per line.
+    The paragraph font's ascent and descent with the leading shared out as
+    CSS does: half of what the leading has beyond the font above, half below.
     """
-    return max(_56 * leading, line.ascent), max(_16 * leading, -line.descent)
+    ascent, descent = getAscentDescent(style.fontName, style.fontSize)
+    half = (leading - (ascent - descent)) / 2
+    return ascent + half, -descent + half
+
+
+def _maxLeadingExtent(line, strut):
+    """
+    The ascent and descent a line is given with autoLeading "max": those of
+    the paragraph's strut, each widened to the line's own where that is
+    taller, so a bigger font in the line makes it taller.
+
+    One function for drawing (_putFragLine) and for measuring (wrap, split),
+    so a paragraph is drawn exactly as tall as it says it is.
+    """
+    return max(strut[0], line.ascent), max(strut[1], -line.descent)
 
 
 def _flush_text_object(tx, x0, cur_y):
@@ -250,6 +254,16 @@ def _flush_text_object(tx, x0, cur_y):
     tx.XtraState.textColor = None
 
 
+def _paintInlineImage(canvas, image, drawing, box) -> None:
+    """Draw an inline image in `box` (x, y, w, h): its vectors, or its bitmap."""
+    x, y, w, h = box
+    with roundedClip(canvas, image, x, y, w, h):
+        if drawing:
+            renderPDF.draw(drawing, canvas, x, y)
+        else:
+            canvas.drawImage(image.getImage(), x, y, w, h, mask="auto")
+
+
 def _putFragLine(cur_x, tx, line):
     xs = tx.XtraState
     cur_y = xs.cur_y
@@ -261,7 +275,7 @@ def _putFragLine(cur_x, tx, line):
     dal = autoLeading in {"min", "max"}
     if dal:
         if autoLeading == "max":
-            ascent, descent = _maxLeadingExtent(line, leading)
+            ascent, descent = _maxLeadingExtent(line, _strut(xs.style, leading))
         else:
             ascent = line.ascent
             descent = -line.descent
@@ -326,18 +340,19 @@ def _putFragLine(cur_x, tx, line):
                 )
                 cur_x_s = cur_x + nSpaces * ws
                 drawing = cbDefn.image.getDrawing(w, h)
-                with roundedClip(tx._canvas, cbDefn.image, cur_x_s, cur_y + iy0, w, h):
-                    if drawing:
-                        renderPDF.draw(drawing, tx._canvas, cur_x_s, cur_y + iy0)
-                    else:
-                        tx._canvas.drawImage(
-                            cbDefn.image.getImage(),
-                            cur_x_s,
-                            cur_y + iy0,
-                            w,
-                            h,
-                            mask="auto",
-                        )
+
+                image = cbDefn.image
+                paint_with_opacity(
+                    tx._canvas,
+                    getattr(image, "opacity", 1.0),
+                    partial(
+                        _paintInlineImage,
+                        tx._canvas,
+                        image,
+                        drawing,
+                        (cur_x_s, cur_y + iy0, w, h),
+                    ),
+                )
                 # An image inside <a href>. The links of a line are gathered
                 # from its text, and an image has none, so a linked image
                 # made no link at all; its own rectangle is the link.
@@ -518,6 +533,29 @@ def _putFragLine(cur_x, tx, line):
                     xs.strikeColor = xs.textColor
                     xs.strikeFontSize = f.fontSize
                     xs.strike_x = cur_x_s
+            # Overline
+            overline = getattr(f, "overline", 0)
+            if not getattr(xs, "overline", 0) and overline:
+                xs.overline = 1
+                xs.overline_x = cur_x_s
+                xs.overlineColor = f.textColor
+                xs.overlineFontSize = f.fontSize
+            elif getattr(xs, "overline", 0):
+                if not overline:
+                    xs.overline = 0
+                    xs.overlines.append(
+                        (xs.overline_x, cur_x_s, xs.overlineColor, xs.overlineFontSize)
+                    )
+                elif (
+                    xs.textColor != xs.overlineColor
+                    or f.fontSize != xs.overlineFontSize
+                ):
+                    xs.overlines.append(
+                        (xs.overline_x, cur_x_s, xs.overlineColor, xs.overlineFontSize)
+                    )
+                    xs.overlineColor = xs.textColor
+                    xs.overlineFontSize = f.fontSize
+                    xs.overline_x = cur_x_s
             if f.link and not xs.link:
                 if not xs.link:
                     xs.link = f.link
@@ -557,6 +595,11 @@ def _putFragLine(cur_x, tx, line):
     # Strike
     if xs.strike:
         xs.strikes.append((xs.strike_x, cur_x_s, xs.strikeColor, xs.strikeFontSize))
+
+    if getattr(xs, "overline", 0):
+        xs.overlines.append(
+            (xs.overline_x, cur_x_s, xs.overlineColor, xs.overlineFontSize)
+        )
 
     if xs.link:
         xs.links.append((xs.link_x, cur_x_s, xs.link, xs.linkColor))
@@ -634,6 +677,7 @@ _SAME_FRAG_ATTRIBUTES = (
     "rise",
     "underline",
     "strike",
+    "overline",
     "link",
 )
 
@@ -1215,6 +1259,37 @@ def _paired_edges(visual: list) -> list:
     return result
 
 
+#: Line width of a hollow marker's outline, as a fraction of its font size:
+#: a 1px ring at 16px, as Chrome draws a circle marker.
+HOLLOW_MARKER_STROKE = 1 / 16
+
+
+def _markerTextOut(tx2, f) -> None:
+    """Write one text fragment of a marker, in outline when it is hollow."""
+    tx2.setFont(f.fontName, f.fontSize)
+    tx2.setFillColor(f.textColor)
+    if getattr(f, "hollow", False):
+        tx2.setStrokeColor(f.textColor)
+        tx2._code.append(f"{f.fontSize * HOLLOW_MARKER_STROKE:.4g} w")
+        tx2.setTextRenderMode(1)
+        tx2.textOut(f.text)
+        tx2.setTextRenderMode(0)
+    else:
+        tx2.textOut(f.text)
+
+
+def _drawMarkerText(canvas, tx2, bulletText) -> None:
+    """Draw a marker's text object; a hollow one keeps its stroke to itself."""
+    hollow = not isinstance(bulletText, str) and any(
+        getattr(f, "hollow", False) for f in bulletText
+    )
+    if hollow:
+        canvas.saveState()
+    canvas.drawText(tx2)
+    if hollow:
+        canvas.restoreState()
+
+
 def _bulletWidth(bulletText, style) -> float:
     if isinstance(bulletText, str):
         return stringWidth(bulletText, style.bulletFontName, style.bulletFontSize)
@@ -1267,10 +1342,8 @@ def _drawBulletRTL(canvas, offset, cur_y, bulletText, style, width):
                 )
                 tx2.moveCursor(image.drawWidth, 0)
             else:
-                tx2.setFont(f.fontName, f.fontSize)
-                tx2.setFillColor(f.textColor)
-                tx2.textOut(f.text)
-    canvas.drawText(tx2)
+                _markerTextOut(tx2, f)
+    _drawMarkerText(canvas, tx2, bulletText)
     return offset
 
 
@@ -1301,10 +1374,8 @@ def _drawBullet(canvas, offset, cur_y, bulletText, style):
                 else:
                     canvas.drawImage(image.getImage(), x, y, width, height)
             else:
-                tx2.setFont(f.fontName, f.fontSize)
-                tx2.setFillColor(f.textColor)
-                tx2.textOut(f.text)
-    canvas.drawText(tx2)
+                _markerTextOut(tx2, f)
+    _drawMarkerText(canvas, tx2, bulletText)
     # AR making definition lists a bit less ugly
     # bulletEnd = tx2.getX()
     bulletEnd = tx2.getX() + style.bulletFontSize * 0.6
@@ -1402,6 +1473,13 @@ def splitLines0(frags, widths):
                 line.append(g)
             if j == lim:
                 i += 1
+
+
+#: Height of an overline above the baseline, in ems. A browser draws it at
+#: the font's ascent, about 0.9 em in common Latin fonts; the ascent ReportLab
+#: reports is closer to the cap height, which would put the line on the
+#: capitals.
+OVERLINE_RISE = 0.9
 
 
 def _do_under_line(i, t_off, ws, tx, lm=-0.125):
@@ -1562,6 +1640,18 @@ def _do_post_text(tx):
     xs.strikes = []
     xs.strike = 0
     xs.strikeColor = None
+
+    # Overline, at the top of each span's font
+    for x1, x2, c, fs in getattr(xs, "overlines", ()):
+        yo = y0 + OVERLINE_RISE * fs
+        if c != csc:
+            tx._canvas.setStrokeColor(c)
+            csc = c
+        tx._canvas.setLineWidth(fs * 0.125 * 0.75)
+        tx._canvas.line(x1, yo, x2, yo)
+    xs.overlines = []
+    xs.overline = 0
+    xs.overlineColor = None
 
     yl = y + leading
     for x1, x2, link, _c in xs.links:
@@ -1862,8 +1952,9 @@ class Paragraph(Flowable):
         if blPara.kind == 1 and autoLeading not in {"", "off"}:
             height = 0
             if autoLeading == "max":
+                strut = _strut(style, leading)
                 for line in blPara.lines:
-                    height += sum(_maxLeadingExtent(line, leading))
+                    height += sum(_maxLeadingExtent(line, strut))
             elif autoLeading == "min":
                 for line in blPara.lines:
                     height += line.ascent - line.descent
@@ -1978,8 +2069,9 @@ class Paragraph(Flowable):
         if blPara.kind == 1 and autoLeading not in {"", "off"}:
             s = height = 0
             if autoLeading == "max":
+                strut = _strut(style, leading)
                 for i, line in enumerate(blPara.lines):
-                    h = sum(_maxLeadingExtent(line, leading))
+                    h = sum(_maxLeadingExtent(line, strut))
                     n = height + h
                     if n > availHeight + 1e-8:
                         break
@@ -2455,6 +2547,32 @@ class Paragraph(Flowable):
         self._displayCache = (blPara, base_dir, lines)
         return lines
 
+    def _firstBaseline(self) -> float:
+        """
+        Distance from the top of the wrapped paragraph to its first baseline.
+
+        The leading is shared above and below the text as CSS does, so a
+        line's text sits in the middle of its line box rather than at the
+        top of it. With autoLeading "min" a line is only as tall as its
+        font, and the text starts at the top.
+        """
+        blPara = self.blPara
+        style = self.style
+        leading = style.leading
+        autoLeading = getattr(self, "autoLeading", getattr(style, "autoLeading", ""))
+        if blPara.kind == 1:
+            line = blPara.lines[0]
+            if autoLeading == "min":
+                return line.ascent
+            return _maxLeadingExtent(line, _strut(style, leading))[0]
+        ascent = getattr(blPara, "ascent", blPara.fontSize)
+        if autoLeading == "min":
+            return ascent
+        if autoLeading == "max":
+            leading = max(leading, LEADING_FACTOR * style.fontSize)
+        descent = getattr(blPara, "descent", -0.2 * blPara.fontSize)
+        return ascent + (leading - (ascent - descent)) / 2
+
     def drawPara(self, debug=0):
         """
         Draws a paragraph according to the given style.
@@ -2533,9 +2651,7 @@ class Paragraph(Flowable):
                 elif self.style.alignment == TA_JUSTIFY:
                     dpl = _justifyDrawParaLine
                 f = blPara
-                cur_y = self.height - getattr(
-                    f, "ascent", f.fontSize
-                )  # TODO fix XPreformatted to remove this hack
+                cur_y = self.height - self._firstBaseline()
                 if bulletText:
                     if self.dir == "rtl":
                         offset = _drawBulletRTL(
@@ -2557,10 +2673,8 @@ class Paragraph(Flowable):
                 tx.setFont(f.fontName, f.fontSize, leading)
                 ws = getattr(tx, "_wordSpace", 0)
                 t_off = dpl(tx, offset, ws, lines[0][1], noJustifyLast and nLines == 1)
-                if (
-                    (hasattr(f, "underline") and f.underline)
-                    or f.link
-                    or (hasattr(f, "strike") and f.strike)
+                if f.link or any(
+                    getattr(f, name, 0) for name in ("underline", "strike", "overline")
                 ):
                     xs = tx.XtraState = ABag()
                     xs.cur_y = cur_y
@@ -2586,11 +2700,14 @@ class Paragraph(Flowable):
                     # XXX Never underline!
                     underline = f.underline
                     strike = f.strike
+                    overline = getattr(f, "overline", 0)
                     link = f.link
                     if underline:
                         _do_under_line(0, dx, ws, tx)
                     if strike:
                         _do_under_line(0, dx, ws, tx, lm=0.125)
+                    if overline:
+                        _do_under_line(0, dx, ws, tx, lm=OVERLINE_RISE)
                     if link:
                         _do_link_line(0, dx, ws, tx)
 
@@ -2606,6 +2723,10 @@ class Paragraph(Flowable):
                             _do_under_line(i, t_off + leftIndent, ws, tx)
                         if strike:
                             _do_under_line(i, t_off + leftIndent, ws, tx, lm=0.125)
+                        if overline:
+                            _do_under_line(
+                                i, t_off + leftIndent, ws, tx, lm=OVERLINE_RISE
+                            )
                         if link:
                             _do_link_line(i, t_off + leftIndent, ws, tx)
                 else:
@@ -2619,9 +2740,7 @@ class Paragraph(Flowable):
                         )
             else:
                 f = lines[0]
-                cur_y = self.height - getattr(
-                    f, "ascent", f.fontSize
-                )  # TODO fix XPreformatted to remove this hack
+                cur_y = self.height - self._firstBaseline()
                 # default?
                 dpl = _leftDrawParaLineX
                 if bulletText:
@@ -2662,6 +2781,9 @@ class Paragraph(Flowable):
                 xs.strikeColor = None
                 # XXX Modified for XHTML2PDF
                 xs.strikeFontSize = None
+                xs.overline = 0
+                xs.overlines = []
+                xs.overlineColor = None
                 xs.links = []
                 xs.link = None
                 # XXX Modified for XHTML2PDF: inline boxes, open across lines

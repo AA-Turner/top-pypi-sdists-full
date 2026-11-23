@@ -24,6 +24,7 @@ pub mod specs_adapter_tests {
                 spec: "bg_sync_1".to_string(),
                 last_updated: 2,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
         data_store
@@ -107,6 +108,7 @@ pub mod specs_adapter_tests {
                 spec: "bg_sync_1".to_string(),
                 last_updated: 2,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
 
@@ -126,6 +128,7 @@ pub mod specs_adapter_tests {
                 spec: "bg_sync_2".to_string(),
                 last_updated: 3,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
         let mut received_update_2 = mock_listener.wait_for_next_update().await.unwrap();

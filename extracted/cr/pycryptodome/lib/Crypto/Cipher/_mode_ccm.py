@@ -19,13 +19,12 @@ from Crypto import MessageTooLongError
 from Crypto.Cipher._state_machine import Method
 from Crypto.Random import get_random_bytes
 from Crypto.Util._raw_api import is_writeable_buffer
+from Crypto.Util._typing import Buffer
 from Crypto.Util.number import long_to_bytes
 from Crypto.Util.strxor import strxor
 
 if TYPE_CHECKING:
     from types import ModuleType
-
-Buffer = Union[bytes, bytearray, memoryview]
 
 
 def enum(**enums):
@@ -622,6 +621,7 @@ class CcmMode:
             output (bytearray/memoryview):
                 The location where the plaintext must be written to.
                 If ``None``, the plaintext is returned.
+                If the MAC does not match, the location is filled with zeroes.
         Returns:
             the plaintext as ``bytes`` or ``None`` when the ``output``
             parameter specified a location for the result.
@@ -632,7 +632,13 @@ class CcmMode:
         """
 
         plaintext = self.decrypt(ciphertext, output=output)
-        self.verify(received_mac_tag)
+        try:
+            self.verify(received_mac_tag)
+        except ValueError:
+            # Do not leave unauthenticated plaintext in the output
+            if output is not None:
+                output[:] = bytes(len(output))
+            raise
         return plaintext
 
 

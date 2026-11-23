@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use crate::{
     SyntaxKind, SyntaxNode,
@@ -29,12 +29,18 @@ pub enum ColumnNameValue {
     Syntax(SyntaxNode),
 }
 
+impl ColumnNameValue {
+    pub fn text(&self) -> Cow<'_, str> {
+        match self {
+            Self::Static(name) => Cow::Borrowed(name),
+            Self::Syntax(node) => ast::normalize_name_node(node),
+        }
+    }
+}
+
 impl fmt::Display for ColumnNameValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Static(name) => f.write_str(name),
-            Self::Syntax(node) => f.write_str(&ast::normalize_name_node(node)),
-        }
+        f.write_str(&self.text())
     }
 }
 
@@ -52,7 +58,7 @@ impl ColumnName {
         Self::inferred_from_target(target)
     }
 
-    // Ignore any aliases, just infer the what the column name.
+    // Ignore any aliases, just infer the column name.
     pub fn inferred_from_target(target: &ast::Target) -> Option<(ColumnName, SyntaxNode)> {
         if let Some(expr) = target.expr()
             && let Some(name) = name_from_expr(expr, false)
@@ -88,15 +94,19 @@ impl ColumnName {
         ColumnName::Column(ColumnNameValue::Syntax(node.clone()))
     }
 
-    pub fn to_string(&self) -> Option<String> {
+    pub fn text(&self) -> Option<Cow<'_, str>> {
         match self {
-            ColumnName::Column(name) => Some(name.to_string()),
+            ColumnName::Column(name) => Some(name.text()),
             ColumnName::Star => None,
             ColumnName::UnknownColumn(name) => Some(
                 name.as_ref()
-                    .map_or_else(|| "?column?".to_owned(), ColumnNameValue::to_string),
+                    .map_or(Cow::Borrowed("?column?"), ColumnNameValue::text),
             ),
         }
+    }
+
+    pub fn to_string(&self) -> Option<String> {
+        self.text().map(Cow::into_owned)
     }
 }
 
@@ -113,69 +123,28 @@ fn name_from_type(ty: ast::Type, unknown_column: bool) -> Option<(ColumnName, Sy
                 return Some((column, node));
             }
         }
-        ast::Type::BitType(bit_type) => {
-            return Some((
-                ColumnName::new_static("bit", unknown_column),
-                bit_type.syntax().clone(),
-            ));
-        }
-        ast::Type::BitVaryingType(bit_varying_type) => {
-            return Some((
-                ColumnName::new_static("varbit", unknown_column),
-                bit_varying_type.syntax().clone(),
-            ));
-        }
-        ast::Type::VarcharType(varchar_type) => {
-            return Some((
-                ColumnName::new_static("varchar", unknown_column),
-                varchar_type.syntax().clone(),
-            ));
-        }
-        ast::Type::CharacterType(character_type) => {
-            return Some((
-                ColumnName::new_static("bpchar", unknown_column),
-                character_type.syntax().clone(),
-            ));
-        }
-        ast::Type::DoubleType(double_type) => {
-            return Some((
-                ColumnName::new_static("float8", unknown_column),
-                double_type.syntax().clone(),
-            ));
-        }
-        ast::Type::IntervalType(interval_type) => {
-            return Some((
-                ColumnName::new_static("interval", unknown_column),
-                interval_type.syntax().clone(),
-            ));
-        }
-        ast::Type::TimeType(time_type) => {
-            let name = if matches!(time_type.timezone(), Some(ast::Timezone::WithTimezone(_))) {
-                "timetz"
-            } else {
-                "time"
-            };
-            return Some((
-                ColumnName::new_static(name, unknown_column),
-                time_type.syntax().clone(),
-            ));
-        }
-        ast::Type::TimestampType(timestamp_type) => {
-            let name = if matches!(
-                timestamp_type.timezone(),
-                Some(ast::Timezone::WithTimezone(_))
-            ) {
-                "timestamptz"
-            } else {
-                "timestamp"
-            };
-            return Some((
-                ColumnName::new_static(name, unknown_column),
-                timestamp_type.syntax().clone(),
-            ));
+        ast::Type::BitType(_)
+        | ast::Type::BitVaryingType(_)
+        | ast::Type::CharacterType(_)
+        | ast::Type::DoubleType(_)
+        | ast::Type::IntervalType(_)
+        | ast::Type::TimeType(_)
+        | ast::Type::TimestampType(_)
+        | ast::Type::VarcharType(_) => {
+            if let Some(name) = ty.builtin_type_name() {
+                return Some((
+                    ColumnName::new_static(name, unknown_column),
+                    ty.syntax().clone(),
+                ));
+            }
         }
         ast::Type::ArrayType(array_type) => {
             if let Some(inner_ty) = array_type.ty() {
+                return name_from_type(inner_ty, unknown_column);
+            }
+        }
+        ast::Type::SetofType(setof_type) => {
+            if let Some(inner_ty) = setof_type.ty() {
                 return name_from_type(inner_ty, unknown_column);
             }
         }
@@ -412,7 +381,9 @@ fn name_from_expr(expr: ast::Expr, in_type: bool) -> Option<(ColumnName, SyntaxN
                     | ast::Expr::PrefixExpr(_)
                     | ast::Expr::TupleExpr(_)
                     | ast::Expr::IndexExpr(_)
-                    | ast::Expr::SliceExpr(_) => unreachable!("not possible in the grammar"),
+                    | ast::Expr::SliceExpr(_) => {
+                        return Some((ColumnName::UnknownColumn(None), node));
+                    }
                     ast::Expr::FieldExpr(field_expr) => {
                         if let Some(name_ref) = field_expr.field() {
                             return Some(name_from_name_ref(&name_ref, in_type, None));

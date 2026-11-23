@@ -284,15 +284,18 @@ def _stable_class(node: ast.ClassDef, context: PythonFileContext, provenance: Re
 
 def _safe_class_use(read: ast.Name, context: PythonFileContext) -> bool:
     parent = context.parents.get(read)
-    if isinstance(parent, ast.Call) and parent.func is read:
-        return True
-    if isinstance(parent, (ast.arg, ast.AnnAssign)) and parent.annotation is read:
-        return True
-    if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.returns is read:
-        return True
-    if isinstance(parent, ast.Attribute) and parent.value is read and parent.attr in _MODEL_APIS:
-        owner = context.parents.get(parent)
-        return isinstance(owner, ast.Call) and owner.func is parent
+    match parent:
+        case ast.Call() if parent.func is read:
+            return True
+        case ast.arg() | ast.AnnAssign() if parent.annotation is read:
+            return True
+        case ast.FunctionDef() | ast.AsyncFunctionDef() if parent.returns is read:
+            return True
+        case ast.Attribute() if parent.value is read and parent.attr in _MODEL_APIS:
+            owner = context.parents.get(parent)
+            return isinstance(owner, ast.Call) and owner.func is parent
+        case _:
+            pass
     return False
 
 
@@ -312,21 +315,20 @@ def _passive_configuration(node: ast.ClassDef, context: PythonFileContext) -> bo
 def _configuration_options(
     value: ast.expr | None, context: PythonFileContext
 ) -> list[tuple[str | None, ast.expr]] | None:
-    if isinstance(value, ast.Dict):
-        options: list[tuple[str | None, ast.expr]] = [
-            (key.value, item)
-            for key, item in zip(value.keys, value.values, strict=True)
-            if isinstance(key, ast.Constant) and isinstance(key.value, str)
-        ]
-        return options if len(options) == len(value.keys) else None
-    if (
-        isinstance(value, ast.Call)
-        and not value.args
-        and context.imports.resolves(
+    match value:
+        case ast.Dict():
+            options: list[tuple[str | None, ast.expr]] = [
+                (key.value, item)
+                for key, item in zip(value.keys, value.values, strict=True)
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            ]
+            return options if len(options) == len(value.keys) else None
+        case ast.Call() if not value.args and context.imports.resolves(
             value.func, sources=frozenset({"pydantic", "pydantic.config"}), symbol="ConfigDict"
-        )
-    ):
-        return [(keyword.arg, keyword.value) for keyword in value.keywords]
+        ):
+            return [(keyword.arg, keyword.value) for keyword in value.keywords]
+        case _:
+            pass
     return None
 
 

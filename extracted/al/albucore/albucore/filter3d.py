@@ -4,21 +4,26 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast, overload
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore.sampling3d import _restore_uint8
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from albucore.utils import _LINUX_X86_64, get_opencv_max_channels
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from albucore._types import ImageArrayT
 
-__all__ = ["gaussian_blur3d", "separable_filter3d"]
+__all__ = ["gaussian_blur3d"]
 
 
 _AXES = (2, 3, 4)
+_OPENCV_MAX_CHANNELS = get_opencv_max_channels()
+_IDENTITY_KERNEL = np.ones(1, dtype=np.float32)
 
 
 def _three_axis_values(value: float | Sequence[float]) -> tuple[float, float, float]:
@@ -55,11 +60,6 @@ def _gaussian_kernel_1d(sigma: float, kernel_size: int) -> np.ndarray:
 def _is_identity_kernel(kernel: np.ndarray) -> bool:
     """Recognize only the exact one-element identity, which is safe to alias."""
     return kernel.shape == (1,) and bool(kernel[0] == np.float32(1.0))
-
-
-def _float32_kernel(kernel: np.ndarray) -> np.ndarray:
-    """Keep the float32 kernel contract without copying an already compatible kernel."""
-    return kernel if kernel.dtype == np.float32 else kernel.astype(np.float32)
 
 
 def _reflect101_indices(size: int, radius: int) -> torch.Tensor:
@@ -104,11 +104,6 @@ def _apply_axis_filter(volume: torch.Tensor, kernel: np.ndarray, axis: int) -> t
     return torch_f.conv3d(padded, weights, groups=volume.shape[1])
 
 
-def _restore_uint8(result: torch.Tensor) -> torch.Tensor:
-    """Round and saturate the one final float32 filtering result."""
-    return torch.clamp(result, 0.0, 255.0).add_(0.5).to(torch.uint8)
-
-
 def _separable_filter3d_torch_cpu(
     volume: torch.Tensor,
     kernels: tuple[np.ndarray, np.ndarray, np.ndarray],
@@ -134,45 +129,39 @@ def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.
     return tensor_to_numpy_channel_last(result, "CDHW")
 
 
-def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
-    """Keep documented no-op inputs by identity and match the float32 working-type fallback otherwise."""
-    if isinstance(volume, np.ndarray):
-        if volume.dtype in (np.uint8, np.float16, np.float32):
-            return volume
-        return volume.astype(np.float32, copy=False)
-    if volume.dtype in (torch.uint8, torch.float16, torch.float32):
-        return volume
-    return volume.to(torch.float32)
+def _separable_filter3d_numpy_opencv_xy_torch_depth(
+    volume: np.ndarray,
+    kernels: tuple[np.ndarray, np.ndarray, np.ndarray],
+) -> np.ndarray:
+    depth, height, width, channels = volume.shape
+    working = volume.astype(np.float32, copy=False)
+    packed = np.ascontiguousarray(working.transpose(1, 2, 0, 3).reshape(height, width, depth * channels))
+    if np.shares_memory(packed, volume):
+        packed = packed.copy()
+    del working
+    cv2.sepFilter2D(
+        packed,
+        ddepth=-1,
+        kernelX=kernels[2],
+        kernelY=kernels[1],
+        dst=packed,
+        borderType=cv2.BORDER_REFLECT_101,
+    )
+    filtered = packed.reshape(height, width, depth, channels).transpose(2, 0, 1, 3)
+    tensor = torch.from_numpy(filtered).permute(3, 0, 1, 2)
+    result = _separable_filter3d_torch_cpu(tensor, (kernels[0], _IDENTITY_KERNEL, _IDENTITY_KERNEL))
+    if volume.dtype == np.uint8:
+        result = _restore_uint8(result)
+    return result.permute(1, 2, 3, 0).numpy()
 
 
-@overload
-def separable_filter3d(volume: ImageArrayT, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> ImageArrayT: ...
-
-
-@overload
-def separable_filter3d(volume: torch.Tensor, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> torch.Tensor: ...
-
-
-def separable_filter3d(
+def _separable_filter3d(
     volume: np.ndarray | torch.Tensor,
     kernels: tuple[np.ndarray, np.ndarray, np.ndarray],
 ) -> np.ndarray | torch.Tensor:
-    """Apply separable D/H/W filtering to one NumPy or CPU Torch volume.
-
-    NumPy uses channel-last ``(D, H, W, C)`` layout; Torch uses channel-first ``(C, D, H, W)``.
-    The three prevalidated odd-length kernels are applied in ``(depth, height, width)`` order with
-    OpenCV-compatible ``BORDER_REFLECT_101`` padding. The router runs in float32 and restores uint8
-    once after all three passes. Kernels are converted once to float32. It preserves container,
-    layout, and channels. Supported ``uint8`` and ``float32`` input preserve their dtype;
-    unexpected ``float64`` input is converted to and returned as ``float32``. Three exact
-    one-element identity kernels return a supported input ``volume`` itself.
-
-    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Target-level masks
-    are intentionally outside this single-volume primitive.
-    """
-    kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
+    """Apply float32 ``(depth, height, width)`` kernels; three exact identities return ``volume``."""
     if all(_is_identity_kernel(kernel) for kernel in kernels):
-        return _identity_result(volume)
+        return volume
     if isinstance(volume, np.ndarray):
         return _separable_filter3d_numpy(volume, kernels)
     return _separable_filter3d_torch_cpu(volume, kernels)
@@ -204,8 +193,15 @@ def gaussian_blur3d(
     ``sigma`` and ``kernel_size`` are scalar-isotropic or explicit ``(depth, height, width)``
     controls. A zero sigma skips that axis. A zero kernel-size selects
     ``int(sigma * 3.5) * 2 + 1`` for that axis, matching Albumentations' existing Gaussian
-    kernel convention; explicit sizes must be positive and odd. See :func:`separable_filter3d`
-    for container layouts, dtype support, borders, and the intentional single-volume scope.
+    kernel convention; explicit sizes must be positive and odd.
+
+    NumPy uses channel-last ``(D, H, W, C)`` layout; Torch uses channel-first ``(C, D, H, W)``.
+    Borders use OpenCV-compatible ``BORDER_REFLECT_101`` padding. The filter runs in float32 and
+    restores uint8 once after all three passes. It preserves container, layout, channels, and the
+    ``uint8``, ``float16``, or ``float32`` dtype. Zero sigma on every axis returns ``volume`` itself.
+
+    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Target-level masks
+    are intentionally outside this single-volume primitive.
     """
     sigmas = _three_axis_values(sigma)
     kernel_sizes = _three_axis_kernel_sizes(kernel_size)
@@ -214,4 +210,28 @@ def gaussian_blur3d(
         _gaussian_kernel_1d(sigmas[1], kernel_sizes[1]),
         _gaussian_kernel_1d(sigmas[2], kernel_sizes[2]),
     )
-    return separable_filter3d(volume, kernels)
+    if _LINUX_X86_64 and all(kernel.size > 1 for kernel in kernels):
+        if (
+            isinstance(volume, np.ndarray)
+            and volume.dtype in (np.uint8, np.float32)
+            and volume.flags.c_contiguous
+            and volume.shape[-1] in (1, 3, 5, 9)
+            and volume.shape[0] * volume.shape[-1] <= _OPENCV_MAX_CHANNELS
+        ):
+            return _separable_filter3d_numpy_opencv_xy_torch_depth(volume, kernels)
+        if (
+            isinstance(volume, torch.Tensor)
+            and volume.dtype in (torch.uint8, torch.float32)
+            and volume.shape[0] * volume.shape[1] <= _OPENCV_MAX_CHANNELS
+        ):
+            channel_last = volume.permute(1, 2, 3, 0)
+            contiguous_cdhw = volume.is_contiguous() and volume.shape[0] in (1, 3, 5)
+            contiguous_dhwc = (
+                channel_last.is_contiguous()
+                and volume.shape[0] in (1, 3, 5, 9)
+                and (volume.dtype == torch.uint8 or volume.shape[0] in (1, 3, 9))
+            )
+            if contiguous_cdhw or contiguous_dhwc:
+                result = _separable_filter3d_numpy_opencv_xy_torch_depth(channel_last.numpy(), kernels)
+                return torch.from_numpy(result).permute(3, 0, 1, 2).contiguous()
+    return _separable_filter3d(volume, kernels)

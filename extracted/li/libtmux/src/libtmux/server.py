@@ -17,14 +17,28 @@ import warnings
 
 from libtmux import exc
 from libtmux._internal.env import (
+    TMUX,
+    TMUX_TMPDIR,
+    check_socket_path_length,
     resolve_ambient_socket_path,
+    resolve_socket_path,
     socket_path_from_env,
 )
 from libtmux._internal.query_list import QueryList
 from libtmux._internal.support.capabilities import capability_since
 from libtmux.client import Client
-from libtmux.common import get_version, has_gte_version, raise_if_stderr, tmux_cmd
+from libtmux.common import (
+    _format_arg,
+    _format_path_arg,
+    _format_text,
+    _literal,
+    get_version,
+    has_gte_version,
+    raise_if_stderr,
+    tmux_cmd,
+)
 from libtmux.constants import OptionScope
+from libtmux.formats import Format
 from libtmux.hooks import HooksMixin
 from libtmux.neo import fetch_objs, get_output_format, parse_output
 from libtmux.pane import Pane
@@ -101,6 +115,21 @@ class Server(
           - :class:`Pane`
 
     When instantiated stores information on live, running tmux server.
+
+    A tmux socket is a UNIX domain socket, so its path is capped by
+    ``sockaddr_un`` -- 107 bytes on Linux, 103 on macOS. An explicit
+    *socket_path* is handed to tmux unchanged, so it is measured here and an
+    over-long one raises :exc:`~libtmux.exc.SocketPathTooLong` from the
+    constructor.
+
+    Naming a server is free. A *socket_name* resolves against ``$TMUX_TMPDIR``
+    when tmux runs, so it is measured then rather than now: a named or bare
+    :class:`Server` can always be constructed and asked :meth:`is_alive`, and
+    the first command that would have to bind the socket is what raises. When
+    the depth is not yours to choose -- a pytest ``tmp_path``, a nested
+    worktree, a CI checkout under a long workspace prefix -- put the socket
+    under :func:`tempfile.mkdtemp` or point ``$TMUX_TMPDIR`` at something
+    short.
 
     **Connecting.** Constructing a :class:`~libtmux.Server` runs no tmux command
     of its own; it records the socket and settings every later call uses.
@@ -252,6 +281,42 @@ class Server(
     ...     # Do work with the session
     ...     # Server will be killed automatically when exiting the context
 
+    A ``socket_path`` is handed to tmux unchanged, so one that cannot fit in a
+    UNIX socket address is refused where it was written:
+
+    >>> from libtmux.server import Server as TmuxServer
+    >>> try:
+    ...     TmuxServer(socket_path="/tmp/" + "d" * 120 + "/sock")
+    ... except exc.SocketPathTooLong as e:
+    ...     print(e.length)
+    130
+
+    A name resolves against ``$TMUX_TMPDIR``, which tmux re-reads when it runs,
+    so its length is only knowable at dispatch. The directory has to exist:
+    tmux falls back to ``/tmp`` when it cannot resolve one, and a socket it
+    never binds is not worth measuring. The server builds, and one at an
+    unbindable address is simply not alive:
+
+    >>> deep = request.getfixturevalue("tmp_path") / ("d" * 120)
+    >>> deep.mkdir()
+
+    >>> with monkeypatch.context() as m:
+    ...     m.setenv("TMUX_TMPDIR", str(deep))
+    ...     named = TmuxServer(socket_name="dev")
+    ...     named.is_alive()
+    False
+
+    The command that would have had to bind it says so, with the byte count
+    tmux would not have given:
+
+    >>> with monkeypatch.context() as m:
+    ...     m.setenv("TMUX_TMPDIR", str(deep))
+    ...     try:
+    ...         named.cmd("list-sessions")
+    ...     except exc.SocketPathTooLong as e:
+    ...         print(e.socket_name)
+    dev
+
     References
     ----------
     .. [server_manual] CLIENTS AND SESSIONS. openbsd manpage for TMUX(1)
@@ -303,6 +368,13 @@ class Server(
         self._panes: list[PaneDict] = []
 
         if socket_path is not None:
+            # ``socket_path`` is the one socket libtmux passes through
+            # unchanged, as ``-S<path>``, so its length is settled here and
+            # measuring it now costs the caller nothing it can still change.
+            # A name or a bare server resolves against the environment tmux
+            # reads at exec, which is not knowable yet -- those are measured in
+            # :meth:`_socket_args`.
+            check_socket_path_length(socket_path)
             self.socket_path = socket_path
         elif socket_name is not None:
             self.socket_name = socket_name
@@ -409,8 +481,24 @@ class Server(
     def is_alive(self) -> bool:
         """Return True if tmux server alive.
 
+        Every way of failing to reach the server is a ``False`` here, so this
+        stays answerable for any :class:`Server` that exists. Callers who need
+        the reason use :meth:`raise_if_dead`.
+
         >>> tmux = Server(socket_name="no_exist")
         >>> assert not tmux.is_alive()
+
+        A socket path too long to bind is one of those ways -- nothing can be
+        listening at an address the kernel cannot hold:
+
+        >>> from libtmux.server import Server as TmuxServer
+        >>> deep = request.getfixturevalue("tmp_path") / ("d" * 120)
+        >>> deep.mkdir()
+
+        >>> with monkeypatch.context() as m:
+        ...     m.delenv("TMUX", raising=False)
+        ...     m.setenv("TMUX_TMPDIR", str(deep))
+        ...     assert not TmuxServer(socket_name="unbindable").is_alive()
         """
         try:
             res = self.cmd("list-sessions")
@@ -425,6 +513,9 @@ class Server(
         ------
         :exc:`exc.TmuxCommandNotFound`
             When the tmux binary cannot be found or executed.
+        :exc:`~libtmux.exc.SocketPathTooLong`
+            When the socket this server names cannot fit in a UNIX socket
+            address, so no tmux command could ever reach it.
         :class:`subprocess.CalledProcessError`
             When the tmux server is not running (non-zero exit from
             ``list-sessions``).
@@ -440,11 +531,7 @@ class Server(
         if resolved is None:
             raise exc.TmuxCommandNotFound
 
-        cmd_args: list[str] = ["list-sessions"]
-        if self.socket_name:
-            cmd_args.insert(0, f"-L{self.socket_name}")
-        if self.socket_path:
-            cmd_args.insert(0, f"-S{self.socket_path}")
+        cmd_args: list[str] = [*self._socket_args(), "list-sessions"]
         if self.config_file:
             cmd_args.insert(0, f"-f{self.config_file}")
 
@@ -456,6 +543,93 @@ class Server(
     #
     # Command
     #
+    def _socket_args(self) -> list[str]:
+        """Return this server's ``-S``/``-L`` flags, measuring the socket path.
+
+        Every path that spawns tmux for this server builds its argv from here,
+        which is what makes the measurement total: a socket flag cannot reach
+        tmux without having been measured on the way.
+
+        A tmux socket is a UNIX domain socket, so its path has to fit in
+        :data:`~libtmux._internal.env.SOCKET_PATH_MAX_BYTES`. An explicit
+        :attr:`socket_path` is settled the moment it is passed and is measured
+        in ``__init__``; measuring it again here is free and keeps this method
+        total over every flag it renders.
+
+        A name or a bare server is different, and is measured only here, for
+        the same reason ``colors`` is checked at this point: naming a server is
+        not using one, so :meth:`is_alive` has to stay answerable for a server
+        that cannot be reached. It also reads ``$TMUX_TMPDIR`` at the moment
+        the tmux binary would read it, so an environment changed after
+        construction is measured as tmux sees it rather than as it once was.
+
+        Returns
+        -------
+        list[str]
+            ``["-S<path>"]``, ``["-L<name>"]``, or ``[]`` for a bare server,
+            which leaves tmux to pick the socket itself -- ``$TMUX`` inside a
+            pane, and a path under ``$TMUX_TMPDIR`` outside one.
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.SocketPathTooLong`
+            When the socket path -- given, or resolved from ``socket_name`` --
+            cannot fit in a UNIX socket address.
+
+        Examples
+        --------
+        >>> server._socket_args()
+        ['-Llibtmux_test...']
+
+        >>> from libtmux.server import Server as TmuxServer
+        >>> TmuxServer(socket_path="/tmp/short/sock")._socket_args()
+        ['-S/tmp/short/sock']
+
+        A bare server names no socket, and tmux falls back to its own default:
+
+        >>> TmuxServer()._socket_args()
+        []
+
+        A path too long to bind is refused here, before tmux is spawned:
+
+        >>> try:
+        ...     TmuxServer(socket_path="/tmp/" + "d" * 120 + "/sock")._socket_args()
+        ... except exc.SocketPathTooLong as e:
+        ...     print(e.length)
+        130
+
+        .. versionadded:: 0.63
+        """
+        tmpdir = os.environ.get(TMUX_TMPDIR) or None
+
+        if self.socket_path:
+            check_socket_path_length(self.socket_path)
+        elif self.socket_name:
+            # ``-L`` sends tmux to ``$TMUX_TMPDIR`` whatever ``$TMUX`` says, so
+            # the name resolves against the directory even inside a pane.
+            check_socket_path_length(
+                resolve_socket_path(self.socket_name),
+                socket_name=self.socket_name,
+                env_var=TMUX_TMPDIR if tmpdir else None,
+                env_value=tmpdir,
+            )
+        else:
+            # A bare client prefers the pane's own socket and only computes a
+            # path under ``$TMUX_TMPDIR`` when there is no pane to inherit.
+            inside_pane = bool(os.environ.get(TMUX))
+            check_socket_path_length(
+                resolve_ambient_socket_path(),
+                env_var=TMUX_TMPDIR if tmpdir and not inside_pane else None,
+                env_value=None if inside_pane else tmpdir,
+            )
+
+        args: list[str] = []
+        if self.socket_path:
+            args.append(f"-S{self.socket_path}")
+        if self.socket_name:
+            args.append(f"-L{self.socket_name}")
+        return args
+
     def cmd(
         self,
         cmd: str,
@@ -503,6 +677,14 @@ class Server(
         -------
         :class:`common.tmux_cmd`
 
+        Raises
+        ------
+        :exc:`~libtmux.exc.SocketPathTooLong`
+            When the socket path -- given, or resolved from ``socket_name`` --
+            cannot fit in a UNIX socket address. See :meth:`_socket_args`.
+        :exc:`~libtmux.exc.UnknownColorOption`
+            When ``colors`` is neither 88 nor 256.
+
         Notes
         -----
         Arguments reach tmux unchanged. tmux ends a command at an argument
@@ -520,12 +702,8 @@ class Server(
 
             Renamed from ``.tmux`` to ``.cmd``.
         """
-        svr_args: list[str | int] = [cmd]
+        svr_args: list[str | int] = [*self._socket_args(), cmd]
         cmd_args: list[str | int] = []
-        if self.socket_name:
-            svr_args.insert(0, f"-L{self.socket_name}")
-        if self.socket_path:
-            svr_args.insert(0, f"-S{self.socket_path}")
         if self.config_file:
             svr_args.insert(0, f"-f{self.config_file}")
         if self.colors:
@@ -610,14 +788,53 @@ class Server(
             raise exc.LibTmuxException(proc.stderr)
         logger.info("server killed", extra={"tmux_subcommand": "kill-server"})
 
-    def kill_session(self, target_session: str | int) -> Server:
+    def _session_target(
+        self,
+        target_session: str | int,
+        exact: bool | None,
+    ) -> str | int:
+        """Return the tmux target for a session name, honouring ``exact``.
+
+        ``exact=True`` always sends ``=name``; ``exact=False`` sends the bare
+        name and keeps tmux's exact, prefix, then ``fnmatch(3)`` resolution.
+        ``exact=None`` behaves like ``False`` and warns only when the bare name
+        has no exact match but tmux would still resolve it.
+        """
+        if isinstance(target_session, int) or target_session.startswith(("$", "=")):
+            return target_session
+        if exact:
+            return f"={target_session}"
+        if exact is False:
+            return target_session
+        if self.has_session(target_session, exact=True):
+            return f"={target_session}"
+        if self.has_session(target_session, exact=False):
+            warnings.warn(
+                f"session target {target_session!r} matches by prefix or "
+                "pattern; a future release matches names exactly. Pass "
+                "exact=True to opt in now, or exact=False to keep it.",
+                FutureWarning,
+                stacklevel=3,
+            )
+            return target_session
+        return f"={target_session}"
+
+    def kill_session(
+        self,
+        target_session: str | int,
+        exact: bool | None = None,
+    ) -> Server:
         """Kill tmux session.
 
         Parameters
         ----------
-        target_session : str, optional
-            target_session: str. note this accepts ``fnmatch(3)``. 'asdf' will
-            kill 'asdfasd'.
+        target_session : str or int
+            Session name or id such as ``$1``.
+        exact : bool, optional
+            ``True`` matches the name exactly. ``False`` keeps tmux's exact,
+            prefix, then ``fnmatch(3)`` match. ``None`` (default) acts like
+            ``False``, and warns with :class:`FutureWarning` when only a prefix
+            or pattern matches.
 
         Returns
         -------
@@ -627,7 +844,10 @@ class Server(
         ------
         :exc:`exc.BadSessionName`
         """
-        proc = self.cmd("kill-session", target=target_session)
+        proc = self.cmd(
+            "kill-session",
+            target=self._session_target(target_session, exact),
+        )
 
         raise_if_stderr(proc, "kill-session")
 
@@ -635,13 +855,13 @@ class Server(
 
     def run_shell(
         self,
-        command: str,
+        command: str | Format,
         *,
         background: bool | None = None,
         delay: str | None = None,
         as_tmux_command: bool | None = None,
         target_pane: str | None = None,
-        cwd: StrPath | None = None,
+        cwd: StrPath | Format | None = None,
         show_stderr: bool | None = None,
         args: list[str] | None = None,
     ) -> list[str] | None:
@@ -649,8 +869,9 @@ class Server(
 
         Parameters
         ----------
-        command : str
-            Shell command to execute.
+        command : str or Format
+            Shell command to execute. tmux expands it as a format either way;
+            a :class:`~libtmux.Format` keeps text added to it literal.
         background : bool, optional
             Run in background (``-b`` flag).
         delay : str, optional
@@ -660,11 +881,12 @@ class Server(
             (``-C`` flag).
         target_pane : str, optional
             Target pane for output (``-t`` flag).
-        cwd : str or PathLike, optional
+        cwd : str, PathLike or Format, optional
             Start directory for the shell command (``-c`` flag). When
             omitted, tmux uses the target client's current working
             directory. Requires tmux 3.4+; on older tmux a warning is
             emitted and the kwarg is ignored.
+            A :class:`~libtmux.Format` is expanded by tmux; a path is used as typed.
 
             Note: tmux's ``-c`` is a *start directory*, not subprocess
             semantics. If ``chdir(cwd)`` fails, tmux falls back to the
@@ -711,15 +933,27 @@ class Server(
             tmux_args += ("-t", target_pane)
 
         if cwd is not None:
-            if has_gte_version(
+            expands_cwd = has_gte_version(
+                capability_since("run-shell-start-directory-format"),
+                tmux_bin=self.tmux_bin,
+            )
+            if isinstance(cwd, Format) and not expands_cwd:
+                # Before 3.8, tmux uses run-shell -c as given, without expanding it.
+                msg = "cwd=Format(...) requires tmux 3.8+"
+                raise exc.LibTmuxException(msg)
+            if not has_gte_version(
                 capability_since("run-shell-start-directory"), tmux_bin=self.tmux_bin
             ):
-                tmux_args += ("-c", str(cwd))
-            else:
                 warnings.warn(
                     "cwd requires tmux 3.4+, ignoring",
                     stacklevel=2,
                 )
+            elif expands_cwd:
+                # From 3.8, tmux expands run-shell -c as a format.
+                start = cwd.template if isinstance(cwd, Format) else _literal(str(cwd))
+                tmux_args += ("-c", start)
+            else:
+                tmux_args += ("-c", str(cwd))
 
         if show_stderr:
             if has_gte_version(
@@ -732,7 +966,7 @@ class Server(
                     stacklevel=2,
                 )
 
-        tmux_args += ("--", command)
+        tmux_args += ("--", _format_text(command))
 
         if args:
             if has_gte_version(
@@ -1455,7 +1689,7 @@ class Server(
     def display_menu(
         self,
         *items: str,
-        title: str | None = None,
+        title: str | Format | None = None,
         target_pane: str | None = None,
         target_client: str | None = None,
         x: int | str | None = None,
@@ -1479,9 +1713,13 @@ class Server(
         ----------
         *items : str
             Menu items as positional args in tmux's ``name key command``
-            triple format. Use empty strings for separators.
-        title : str, optional
+            triple format. Use empty strings for separators. tmux expands
+            item names as formats, so a name such as
+            ``#{?pane_marked,Unmark,Mark}`` changes with the pane, and a name
+            that expands to nothing hides its item.
+        title : str or Format, optional
             Menu title (``-T`` flag).
+            A :class:`~libtmux.Format` is expanded by tmux; a ``str`` is used as typed.
         target_pane : str, optional
             Target pane for format expansion (``-t`` flag).
         target_client : str, optional
@@ -1526,7 +1764,7 @@ class Server(
         tmux_args: tuple[str, ...] = ()
 
         if title is not None:
-            tmux_args += ("-T", escape_trailing_separator(title))
+            tmux_args += ("-T", escape_trailing_separator(_format_arg(title)))
 
         if target_client is not None:
             tmux_args += ("-c", target_client)
@@ -1680,7 +1918,7 @@ class Server(
     @t.overload
     def display_message(
         self,
-        cmd: str,
+        cmd: str | Format,
         get_text: t.Literal[True],
         *,
         format_string: str | None = ...,
@@ -1695,7 +1933,7 @@ class Server(
     @t.overload
     def display_message(
         self,
-        cmd: str,
+        cmd: str | Format,
         get_text: t.Literal[False] = ...,
         *,
         format_string: str | None = ...,
@@ -1709,7 +1947,7 @@ class Server(
 
     def display_message(
         self,
-        cmd: str,
+        cmd: str | Format,
         get_text: bool = False,
         *,
         format_string: str | None = None,
@@ -1745,10 +1983,13 @@ class Server(
 
         Parameters
         ----------
-        cmd : str
+        cmd : str or Format
             Format string to display or evaluate (e.g. ``"#{version}"``).
             Pass ``""`` together with ``all_formats=True`` to dump every
             variable.
+            tmux expands it as a format either way; a :class:`~libtmux.Format`
+            keeps text added to it literal, as in
+            ``Format("Saved: ") + filename``.
 
             .. versionadded:: 0.57
         get_text : bool, optional
@@ -1838,7 +2079,7 @@ class Server(
             tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if cmd:
-            tmux_args += ("--", escape_trailing_separator(cmd))
+            tmux_args += ("--", escape_trailing_separator(_format_text(cmd)))
 
         proc = self.cmd("display-message", *tmux_args)
         if proc.stderr:
@@ -2015,7 +2256,9 @@ class Server(
         Parameters
         ----------
         path : str or PathLike
-            File path to save the buffer to.
+            File path to save the buffer to, used as typed. A file this call creates is
+            readable and writable by its owner only; an existing file keeps
+            its permissions.
         buffer_name : str, optional
             Name of the buffer (``-b`` flag). Defaults to the most recent.
         append : bool, optional
@@ -2036,15 +2279,33 @@ class Server(
         if buffer_name is not None:
             tmux_args += ("-b", buffer_name)
 
-        tmux_args += (str(pathlib.Path(path).expanduser()),)
+        destination = pathlib.Path(path).expanduser()
+        # tmux expands the path as a format; keep it literal.
+        tmux_args += (_literal(str(destination)),)
+
+        # tmux creates the file world-readable under the usual umask. Create
+        # it first so a new file is owner-only; "-" is tmux's stdout.
+        created = False
+        if str(path) != "-":
+            try:
+                os.close(
+                    os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
+                )
+                created = True
+            except OSError:
+                # It exists and keeps its mode, or tmux reports the problem.
+                pass
 
         proc = self.cmd("save-buffer", *tmux_args)
+
+        if proc.stderr and created:
+            destination.unlink(missing_ok=True)
 
         raise_if_stderr(proc, "save-buffer")
 
     def load_buffer(
         self,
-        path: StrPath,
+        path: StrPath | Format,
         *,
         buffer_name: str | None = None,
     ) -> None:
@@ -2052,8 +2313,9 @@ class Server(
 
         Parameters
         ----------
-        path : str or PathLike
+        path : str, PathLike or Format
             File path to load into the buffer.
+            A :class:`~libtmux.Format` is expanded by tmux; a path is used as typed.
         buffer_name : str, optional
             Name of the buffer (``-b`` flag).
 
@@ -2069,7 +2331,7 @@ class Server(
         if buffer_name is not None:
             tmux_args += ("-b", buffer_name)
 
-        tmux_args += (str(pathlib.Path(path).expanduser()),)
+        tmux_args += (_format_path_arg(path),)
 
         proc = self.cmd("load-buffer", *tmux_args)
 
@@ -2079,7 +2341,7 @@ class Server(
         self,
         *,
         format_string: str | None = None,
-        filter: str | None = None,  # noqa: A002
+        filter: str | Format | None = None,  # noqa: A002
     ) -> list[str]:
         """List paste buffers via ``$ tmux list-buffers``.
 
@@ -2095,7 +2357,7 @@ class Server(
             raw names only.
 
             .. versionadded:: 0.57
-        filter : str, optional
+        filter : str or Format, optional
             Filter expression evaluated by tmux (``-f`` flag). Buffers for
             which the expanded expression is false are omitted. Example:
             ``"#{m:libtmux_mcp_*,#{buffer_name}}"``.
@@ -2150,7 +2412,7 @@ class Server(
             tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if filter is not None:
-            tmux_args += ("-f", filter)
+            tmux_args += ("-f", _format_text(filter))
 
         proc = self.cmd("list-buffers", *tmux_args)
 
@@ -2160,7 +2422,7 @@ class Server(
 
     def if_shell(
         self,
-        shell_command: str,
+        shell_command: str | Format,
         tmux_command: str,
         *,
         else_command: str | None = None,
@@ -2171,8 +2433,10 @@ class Server(
 
         Parameters
         ----------
-        shell_command : str
+        shell_command : str or Format
             Shell command whose exit status determines which tmux command runs.
+            tmux expands it as a format either way; a :class:`~libtmux.Format`
+            keeps text added to it literal.
         tmux_command : str
             Tmux command to run if *shell_command* succeeds (exit 0).
         else_command : str, optional
@@ -2196,7 +2460,7 @@ class Server(
         if target_pane is not None:
             tmux_args += ("-t", target_pane)
 
-        tmux_args += (shell_command, tmux_command)
+        tmux_args += (_format_text(shell_command), tmux_command)
 
         if else_command is not None:
             tmux_args += (else_command,)
@@ -2269,13 +2533,18 @@ class Server(
 
         return proc.stdout
 
-    def switch_client(self, target_session: str) -> None:
+    def switch_client(self, target_session: str, exact: bool | None = None) -> None:
         """Switch tmux client.
 
         Parameters
         ----------
         target_session : str
-            name of the session. fnmatch(3) works.
+            name of the session.
+        exact : bool, optional
+            ``True`` matches the name exactly. ``False`` keeps tmux's exact,
+            prefix, then ``fnmatch(3)`` match. ``None`` (default) acts like
+            ``False``, and warns with :class:`FutureWarning` when only a prefix
+            or pattern matches.
 
         Raises
         ------
@@ -2283,34 +2552,49 @@ class Server(
         """
         session_check_name(target_session)
 
-        proc = self.cmd("switch-client", target=target_session)
+        proc = self.cmd(
+            "switch-client",
+            target=self._session_target(target_session, exact),
+        )
 
         raise_if_stderr(proc, "switch-client")
 
-    def attach_session(self, target_session: str | None = None) -> None:
+    def attach_session(
+        self,
+        target_session: str | None = None,
+        exact: bool | None = None,
+    ) -> None:
         """Attach tmux session.
 
         Parameters
         ----------
         target_session : str
-            name of the session. fnmatch(3) works.
+            name of the session.
+        exact : bool, optional
+            ``True`` matches the name exactly. ``False`` keeps tmux's exact,
+            prefix, then ``fnmatch(3)`` match. ``None`` (default) acts like
+            ``False``, and warns with :class:`FutureWarning` when only a prefix
+            or pattern matches.
 
         Raises
         ------
         :exc:`exc.BadSessionName`
         """
         session_check_name(target_session)
-        proc = self.cmd("attach-session", target=target_session)
+        target: str | int | None = target_session
+        if target_session is not None:
+            target = self._session_target(target_session, exact)
+        proc = self.cmd("attach-session", target=target)
 
         raise_if_stderr(proc, "attach-session")
 
     def new_session(
         self,
-        session_name: str | None = None,
+        session_name: str | Format | None = None,
         kill_session: bool = False,
         attach: bool = False,
-        start_directory: StrPath | None = None,
-        window_name: str | None = None,
+        start_directory: StrPath | Format | None = None,
+        window_name: str | Format | None = None,
         window_command: str | None = None,
         x: int | DashLiteral | None = None,
         y: int | DashLiteral | None = None,
@@ -2332,7 +2616,8 @@ class Server(
 
         Parameters
         ----------
-        session_name : str, optional
+        session_name : str or Format, optional
+            A :class:`~libtmux.Format` is expanded by tmux; a ``str`` is used as typed.
             ::
 
                 $ tmux new-session -s <session_name>
@@ -2346,11 +2631,15 @@ class Server(
         ----------------
         kill_session : bool, optional
             Kill current session if ``$ tmux has-session``.
-            Useful for testing workspaces.
-        start_directory : str or PathLike, optional
+            Useful for testing workspaces. Needs a plain ``str``
+            *session_name*; with a :class:`~libtmux.Format` it raises
+            :exc:`ValueError`.
+        start_directory : str, PathLike or Format, optional
             specifies the working directory in which the
             new session is created.
-        window_name : str, optional
+            A :class:`~libtmux.Format` is expanded by tmux; a path is used as typed.
+        window_name : str or Format, optional
+            A :class:`~libtmux.Format` is expanded by tmux; a ``str`` is used as typed.
             ::
 
                 $ tmux new-session -n <window_name>
@@ -2404,12 +2693,21 @@ class Server(
         >>> server.new_session(session_name='my session')
         Session($4 my session)
         """
-        if session_name is not None:
+        if isinstance(session_name, Format) and kill_session:
+            msg = (
+                "kill_session=True needs a plain session name: a Format's name "
+                "is known only after tmux creates the session"
+            )
+            raise ValueError(msg)
+
+        # A Format's name is known only after tmux expands it; tmux validates
+        # it then and refuses a duplicate itself.
+        if isinstance(session_name, str):
             session_check_name(session_name)
 
             if self.has_session(session_name):
                 if kill_session:
-                    proc = self.cmd("kill-session", target=session_name)
+                    proc = self.cmd("kill-session", target=f"={session_name}")
                     raise_if_stderr(proc, "kill-session")
                     logger.info(
                         "existing session killed",
@@ -2455,20 +2753,21 @@ class Server(
                 tmux_args += ("-f", client_flags)
 
             if session_name is not None:
-                tmux_args += (escape_trailing_separator(f"-s{session_name}"),)
+                tmux_args += (
+                    escape_trailing_separator(f"-s{_format_arg(session_name)}"),
+                )
 
             if not attach:
                 tmux_args += ("-d",)
 
             if start_directory:
-                start_directory = pathlib.Path(start_directory).expanduser()
                 tmux_args += (
                     "-c",
-                    escape_trailing_separator(str(start_directory)),
+                    escape_trailing_separator(_format_path_arg(start_directory)),
                 )
 
             if window_name:
-                tmux_args += ("-n", escape_trailing_separator(window_name))
+                tmux_args += ("-n", escape_trailing_separator(_format_arg(window_name)))
 
             if x is not None:
                 tmux_args += ("-x", x)
@@ -2607,7 +2906,7 @@ class Server(
     def search_sessions(
         self,
         *,
-        filter: str | None = None,  # noqa: A002
+        filter: str | Format | None = None,  # noqa: A002
     ) -> QueryList[Session]:
         """Sessions, optionally filtered by tmux before rows are returned.
 
@@ -2616,7 +2915,7 @@ class Server(
 
         Parameters
         ----------
-        filter : str, optional
+        filter : str or Format, optional
             tmux format expression (``-f`` flag). tmux omits sessions whose
             expanded expression is false before libtmux builds objects.
 
@@ -2665,7 +2964,7 @@ class Server(
     def search_windows(
         self,
         *,
-        filter: str | None = None,  # noqa: A002
+        filter: str | Format | None = None,  # noqa: A002
     ) -> QueryList[Window]:
         """All windows across sessions, optionally filtered by tmux.
 
@@ -2674,7 +2973,7 @@ class Server(
 
         Parameters
         ----------
-        filter : str, optional
+        filter : str or Format, optional
             tmux format expression (``-f`` flag).
 
             .. warning::
@@ -2722,7 +3021,7 @@ class Server(
     def search_panes(
         self,
         *,
-        filter: str | None = None,  # noqa: A002
+        filter: str | Format | None = None,  # noqa: A002
     ) -> QueryList[Pane]:
         """All panes across the server, optionally filtered by tmux.
 
@@ -2732,7 +3031,7 @@ class Server(
 
         Parameters
         ----------
-        filter : str, optional
+        filter : str or Format, optional
             tmux format expression (``-f`` flag). Example:
             ``'#{m:%5,#{pane_id}}'`` (id match) or
             ``'#{C/i:libtmux,#{pane_current_command}}'`` (case-insensitive
@@ -2813,16 +3112,16 @@ class Server(
 
         >>> with monkeypatch.context() as m:
         ...     m.delenv("TMUX", raising=False)
-        ...     m.setenv("TMUX_TMPDIR", "/run/user/1000")
+        ...     m.setenv("TMUX_TMPDIR", "/usr")
         ...     Server()
-        Server(socket_path=/run/user/1000/tmux-.../default)
+        Server(socket_path=/usr/tmux-.../default)
 
         Inside one, ``$TMUX`` names the socket outright and the directory is
         not consulted:
 
         >>> with monkeypatch.context() as m:
         ...     m.setenv("TMUX", "/tmp/tmux-1000/inherited,8421,0")
-        ...     m.setenv("TMUX_TMPDIR", "/run/user/1000")
+        ...     m.setenv("TMUX_TMPDIR", "/usr")
         ...     Server()
         Server(socket_path=/tmp/tmux-1000/inherited)
         """

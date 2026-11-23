@@ -29,8 +29,8 @@ class DataReceived(H3Event):
 @dataclass
 class DatagramReceived(H3Event):
     """
-    The DatagramReceived is fired whenever a datagram is received from the
-    the remote peer.
+    The DatagramReceived event is fired when a datagram is received for a stream
+    whose headers have been received and whose receive side is open.
     """
 
     data: bytes
@@ -71,6 +71,9 @@ class HeadersReceived(H3Event):
     stream_ended: bool
     "Whether the STREAM frame had the FIN bit set."
 
+    is_trailers: bool = False
+    "Whether the headers are the trailers, which follow the message's body."
+
 
 @dataclass
 class PushPromiseReceived(H3Event):
@@ -81,6 +84,38 @@ class PushPromiseReceived(H3Event):
     headers: Headers
     push_id: int
     stream_id: int
+
+
+@dataclass
+class ResetReceived(H3Event):
+    """
+    The ResetReceived event is fired when the peer abandons the message it was
+    sending on a request stream, once headers were sent or received on it.
+    """
+
+    error_code: int
+    "The error code the peer gave."
+
+    stream_id: int
+    "The ID of the stream which was reset."
+
+
+@dataclass
+class StopReceived(H3Event):
+    """
+    The StopReceived event is fired when the peer asks us to stop sending on a
+    request stream, once headers were sent or received on it.
+
+    This is not always an error: a server which sent a complete response can stop
+    the rest of the request with ``H3_NO_ERROR``, and the event can then arrive
+    before the response (RFC 9114 section 4.1).
+    """
+
+    error_code: int
+    "The error code the peer gave."
+
+    stream_id: int
+    "The ID of the stream which was stopped."
 
 
 @dataclass

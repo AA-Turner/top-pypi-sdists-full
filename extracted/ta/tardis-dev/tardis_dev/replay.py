@@ -78,6 +78,7 @@ async def replay(
         normalized_filters,
     )
 
+    slice_arrived = asyncio.Event()
     fetch_data_task = asyncio.create_task(
         _fetch_data_to_replay(
             exchange=exchange,
@@ -92,8 +93,10 @@ async def replay(
             filters_hash=filters_hash,
             compression=compression,
             cached_slices=cached_slices,
+            slice_arrived=slice_arrived,
         )
     )
+    fetch_data_task.add_done_callback(lambda _: slice_arrived.set())
 
     try:
         while current_slice_date < parsed_to_date:
@@ -107,7 +110,10 @@ async def replay(
 
                 current_slice = cached_slices.get(current_slice_date)
                 if current_slice is None:
-                    await asyncio.sleep(0.1)
+                    if fetch_data_task.done():
+                        raise RuntimeError(f"Replay data fetch finished without slice {current_slice_date.isoformat()}")
+                    slice_arrived.clear()
+                    await slice_arrived.wait()
 
             current_slice_path = current_slice.path
             for line in _iterate_slice_lines(current_slice_path):
@@ -172,6 +178,7 @@ async def _fetch_data_to_replay(
     filters_hash: str,
     compression: ReplayCompression = "zstd",
     cached_slices: Optional[Dict[datetime, CachedSlice]] = None,
+    slice_arrived: Optional[asyncio.Event] = None,
 ) -> None:
     minutes_diff = int(round((to_date - from_date).total_seconds() / 60))
     concurrency_limit = 60
@@ -183,38 +190,51 @@ async def _fetch_data_to_replay(
         replay_cached_slices = cached_slices if cached_slices is not None else {}
         fetch_data_tasks = set()
         try:
-            last_slice = await _fetch_slice_if_not_cached(
-                session=session,
-                endpoint=endpoint,
-                cache_dir=cache_dir,
-                exchange=exchange,
-                from_date=from_date,
-                offset=minutes_diff - 1,
-                filters=filters,
-                http_proxy=http_proxy,
-                filters_hash=filters_hash,
-                cached_slices=replay_cached_slices,
-                requested_slice_size=DEFAULT_DATA_FEED_SLICE_SIZE,
-                use_cache=False,
-            )
-            first_slice = (
-                last_slice
-                if minutes_diff == 1
-                else await _fetch_slice_if_not_cached(
+            boundary_slices: Dict[datetime, CachedSlice] = {}
+            last_task = asyncio.create_task(
+                _fetch_slice_if_not_cached(
                     session=session,
                     endpoint=endpoint,
                     cache_dir=cache_dir,
                     exchange=exchange,
                     from_date=from_date,
-                    offset=0,
+                    offset=minutes_diff - 1,
                     filters=filters,
                     http_proxy=http_proxy,
                     filters_hash=filters_hash,
-                    cached_slices=replay_cached_slices,
+                    cached_slices=boundary_slices,
                     requested_slice_size=DEFAULT_DATA_FEED_SLICE_SIZE,
                     use_cache=False,
                 )
             )
+            first_task = (
+                last_task
+                if minutes_diff == 1
+                else asyncio.create_task(
+                    _fetch_slice_if_not_cached(
+                        session=session,
+                        endpoint=endpoint,
+                        cache_dir=cache_dir,
+                        exchange=exchange,
+                        from_date=from_date,
+                        offset=0,
+                        filters=filters,
+                        http_proxy=http_proxy,
+                        filters_hash=filters_hash,
+                        cached_slices=boundary_slices,
+                        requested_slice_size=DEFAULT_DATA_FEED_SLICE_SIZE,
+                        use_cache=False,
+                    )
+                )
+            )
+            fetch_data_tasks.update((last_task, first_task))
+            last_slice = await last_task
+            first_slice = await first_task
+            fetch_data_tasks.clear()
+            # Publish only after both boundary checks succeed so a denied range never yields partial data.
+            replay_cached_slices.update(boundary_slices)
+            if slice_arrived is not None:
+                slice_arrived.set()
 
             replay_slice_size = (
                 DEFAULT_DATA_FEED_SLICE_SIZE
@@ -230,24 +250,25 @@ async def _fetch_data_to_replay(
                     for task in done:
                         task.result()
 
-                fetch_data_tasks.add(
-                    asyncio.create_task(
-                        _fetch_slice_if_not_cached(
-                            session=session,
-                            endpoint=endpoint,
-                            cache_dir=cache_dir,
-                            exchange=exchange,
-                            from_date=from_date,
-                            offset=offset,
-                            filters=filters,
-                            http_proxy=http_proxy,
-                            filters_hash=filters_hash,
-                            cached_slices=replay_cached_slices,
-                            requested_slice_size=requested_slice_size,
-                            use_cache=True,
-                        )
+                task = asyncio.create_task(
+                    _fetch_slice_if_not_cached(
+                        session=session,
+                        endpoint=endpoint,
+                        cache_dir=cache_dir,
+                        exchange=exchange,
+                        from_date=from_date,
+                        offset=offset,
+                        filters=filters,
+                        http_proxy=http_proxy,
+                        filters_hash=filters_hash,
+                        cached_slices=replay_cached_slices,
+                        requested_slice_size=requested_slice_size,
+                        use_cache=True,
                     )
                 )
+                if slice_arrived is not None:
+                    task.add_done_callback(lambda _: slice_arrived.set())
+                fetch_data_tasks.add(task)
                 offset += requested_slice_size
 
             await asyncio.gather(*fetch_data_tasks)

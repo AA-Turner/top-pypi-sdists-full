@@ -4,7 +4,7 @@ from typing import Any, Callable, Generic, Literal, Optional, TypeVar
 _TypedConfigValue = TypeVar("_TypedConfigValue")
 
 _FeatureGateParts = tuple[
-    bool, str, Optional[str], str, Optional[int], Optional[int], Optional[int]
+    bool, str, Optional[str], str, Optional[int], Optional[int], Optional[int], Optional[int]
 ]
 
 
@@ -17,6 +17,7 @@ class EvaluationDetails:
     lcut: Optional[int]
     received_at: Optional[int]
     version: Optional[int]
+    served_version: Optional[int]
 
     def __init__(self, data: Optional[dict]):
         data = data or {}
@@ -25,16 +26,20 @@ class EvaluationDetails:
             self.lcut = data.get("lcut")
             self.received_at = data.get("received_at")
             self.version = data.get("version")
+            self.served_version = data.get("served_version")
         except Exception as error:
             _log_error("EvaluationDetails", f"Failed to parse. {error}")
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "reason": self.reason,
             "lcut": self.lcut,
             "received_at": self.received_at,
             "version": self.version,
         }
+        if self.served_version is not None:
+            data["served_version"] = self.served_version
+        return data
 
 
 class BaseEvaluation:
@@ -106,12 +111,13 @@ class FeatureGate(BaseEvaluation):
     @classmethod
     def _from_parts(cls, name: str, parts: _FeatureGateParts) -> "FeatureGate":
         """Build the public mutable result from trusted native fields."""
-        value, rule_id, id_type, reason, lcut, received_at, version = parts
+        value, rule_id, id_type, reason, lcut, received_at, version, served_version = parts
         details = EvaluationDetails.__new__(EvaluationDetails)
         details.reason = reason or ""
         details.lcut = lcut
         details.received_at = received_at
         details.version = version
+        details.served_version = served_version
         gate = cls.__new__(cls)
         gate.name = name
         gate.rule_id = rule_id or ""

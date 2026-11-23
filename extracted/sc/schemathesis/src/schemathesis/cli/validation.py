@@ -38,6 +38,14 @@ WFC_USER_REQUIRES_PATH_MESSAGE = "--auth-wfc-user requires --auth-wfc or path un
 MISSING_TLS_VERIFY_FILE_MESSAGE = "TLS verification CA bundle does not exist: `{}`"
 
 
+def validate_baseline_flags(baseline: str | None, *, update: bool, prune: bool) -> None:
+    if baseline is None and (update or prune):
+        flag = "--baseline-update" if update else "--baseline-prune"
+        raise click.UsageError(
+            f"{flag} needs a baseline file - pass `--baseline PATH` or set `baseline` in your configuration file"
+        )
+
+
 def validate_wfc_user(config: SchemathesisConfig, path: str | None, user: str | None) -> None:
     if user is None or path is not None:
         return
@@ -62,6 +70,10 @@ def validate_schema_location(ctx: click.core.Context, param: click.core.Paramete
     if "\x00" in location or not location:
         raise click.UsageError(INVALID_SCHEMA_MESSAGE)
     exists = file_exists(location)
+    # With an in-process app, anything that is not a file is a path the app serves its schema at
+    config = ctx.find_object(SchemathesisConfig)
+    if not exists and (ctx.params.get("app") is not None or (config is not None and config.app is not None)):
+        return location
     if exists or bool(pathlib.Path(location).suffix):
         if not exists:
             raise click.UsageError(FILE_DOES_NOT_EXIST_MESSAGE)
@@ -149,16 +161,11 @@ def validate_auth(
 def validate_auth_overlap(auth: tuple[str, str] | None, headers: dict[str, str]) -> None:
     auth_is_set = auth is not None
     header_is_set = "authorization" in {header.lower() for header in headers}
-    if len([is_set for is_set in (auth_is_set, header_is_set) if is_set]) > 1:
-        message = "The "
-        used = []
-        if auth_is_set:
-            used.append("`--auth`")
-        if header_is_set:
-            used.append("`--header`")
-        message += " and ".join(used)
-        message += " options were both used to set the 'Authorization' header, which is not permitted."
-        raise click.BadParameter(message)
+    if auth_is_set and header_is_set:
+        raise click.BadParameter(
+            "The `--auth` and `--header` options were both used to set the 'Authorization' header, "
+            "which is not permitted."
+        )
 
 
 def validate_filter_expression(

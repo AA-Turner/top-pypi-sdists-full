@@ -32,7 +32,7 @@ import pytest
 
 from tests.checkout import require_checkout
 
-from nameparser import parse
+from nameparser import locales, parse, parser_for
 from nameparser._lexicon import Lexicon
 
 from ._differential_fixtures import load_by_path
@@ -158,7 +158,7 @@ def test_a_reading_off_by_default_compiles_to_nothing() -> None:
     both = build.compile_files({
         "en.toml": _w('[[word]]\ntext = "zzq"\ngeneration = {}'),
         "de.toml": _w('[[word]]\ntext = "zzq"\ncredential = { default = false }'),
-        "hr.toml": _w('[[word]]\ntext = "zzr"\nexcluded = { generation = "x" }'),
+        "sr.toml": _w('[[word]]\ntext = "zzr"\nexcluded = { generation = "x" }'),
         "pl.toml": _w('[[word]]\ntext = "zzr"\ngeneration = { default = false }'),
     })
     assert "zzq" in both["SUFFIX_WORDS"] and "zzq" not in both["SUFFIX_ACRONYMS"]
@@ -296,10 +296,11 @@ def test_the_shipped_short_forms_of_muhammad() -> None:
 
 #: The credential `md` in the shapes a plain given reading moved (#1383's
 #: measurement, the committed corpora and ClinicalTrials.gov), each read
-#: as on master 3dadc263 save the glued `MD.NOOR` (below), which is
-#: left wrong as before (#1394), and `Md` opening the part after a family
-#: comma, which #1393 reads as the given name (the case table's `md_*`
-#: rows, rules/C13).
+#: as on master 3dadc263 save `Md` opening the part after a family
+#: comma, which #1393 reads as the given name, and `MD` before a name
+#: word in a name of one case (the glued `MD.NOOR` among them), which
+#: #1394 reads as one (the case table's `md_*` rows, rules/C13 and
+#: rules/S8).
 #: (Accepted, decisions/vocabulary-model 2026-11-13 #1383).
 _MD_KEEPS_ITS_CREDENTIAL = (
     ("BERGER, MD", {"family": "BERGER", "suffix": "MD"}),
@@ -316,9 +317,6 @@ _MD_KEEPS_ITS_CREDENTIAL = (
      {"given": "John", "family": "Smith", "suffix": "MD Jones"}),
     ("Dr. Pope MD", {"title": "Dr.", "family": "Pope", "suffix": "MD"}),
     ("Md Rahman, PhD", {"given": "Md", "family": "Rahman", "suffix": "PhD"}),
-    # left wrong as before, not moved by #1383 (#1394)
-    ("SITI AMINAH MD.NOOR",
-     {"given": "SITI", "family": "AMINAH", "suffix": "MD. NOOR"}),
 )
 
 
@@ -330,9 +328,10 @@ def test_md_written_short_leaves_its_credential_reading(
     # on 2026-11-13): with `md` put back among the ambiguous acronyms
     # (the plain given reading of #1383's shape (a)), 10 of the 11 rows
     # move, all but `Md Rahman, PhD`; so do the case table's `John Smith
-    # Md` and `Smith (MD), John`. The glued `MD.NOOR` is the one shape
-    # the change moves (its stop now divides the word, the suffix still
-    # holding both halves)
+    # Md` and `Smith (MD), John`. 9 of 10 on 2026-11-18, the glued
+    # `SITI AMINAH MD.NOOR` gone to the case table, which #1394 reads as
+    # a name word (`Lexicon.default().add("md", kind="given",
+    # same_as=None)` as the mutation)
     got = {k: v for k, v in parse(text).as_dict().items() if v}
     assert got == fields, text
 
@@ -486,6 +485,20 @@ MUTATIONS = [
     ("attaches-a-suffix-kind", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["credential"] }')}, "attaches names 'credential', which is not a title kind"),
     ("attaches-the-generic-kind", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["title"] }')}, "attaches names 'title', which is not a title kind"),
     ("attaches-a-word-with-no-title-reading", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["zzq"] }')}, "attaches names 'zzq', which is no title kind and no title word"),
+    # an off-by-default reading may name a partner off by default in its
+    # own file (#1180), but not one with no title reading at all, nor one
+    # whose title only another file's choice turns on: no single choice
+    # would hold the phrase
+    ("attaches-off-by-default-a-word-with-no-title-reading", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { default = false, attaches = ["zzq"] }')}, "attaches names 'zzq', which is no title kind and no title word on by default or in en.toml"),
+    ("attaches-off-by-default-a-partner-another-file-turns-on", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { default = false, attaches = ["zzq"] }'), "fr.toml": _w('[[word]]\ntext = "zzq"\noffice = { default = false }')}, "attaches names 'zzq', which is no title kind and no title word on by default or in en.toml"),
+    ("attaches-off-by-default-a-partner-with-only-a-name-reading-in-its-file", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { default = false, attaches = ["zzq"] }\n\n[[word]]\ntext = "zzq"\ngiven = { note = "x" }')}, "attaches names 'zzq', which is no title kind and no title word on by default or in en.toml"),
+    # the case the narrower check refused that matters most: a reading on
+    # by default naming a partner off by default, in the same file; the
+    # end anchor holds that no hint about the file is given
+    ("attaches-a-partner-off-by-default-beside-a-reading-on-by-default", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["zzq"] }\n\n[[word]]\ntext = "zzq"\noffice = { default = false }')}, "attaches names 'zzq', which is no title kind and no title word$"),
+    # the same two halves through the kind-name branch: 'saint' names a
+    # particle kind too, and its title only another file turns on
+    ("attaches-off-by-default-a-kind-name-another-file-turns-on", {"en.toml": _w('[[word]]\ntext = "zzq"\nreligious = { default = false, attaches = ["saint"] }'), "fr.toml": _w('[[word]]\ntext = "saint"\nreligious = { default = false }')}, "attaches names 'saint', which is not a title kind or a title word on by default or in en.toml"),
     ("attaches-on-a-suffix", {"en.toml": _w('[[word]]\ntext = "phd"\ncredential = { attaches = ["office"] }')}, "unknown key 'attaches'"),
     ("attaches-differs-between-files", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["military"] }'), "fr.toml": _w('[[word]]\ntext = "chief"\noffice = {}')}, "attaches"),
     ("reserved-separators", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { separators = [] }')}, "reserved, unbuilt, for 3.x"),
@@ -689,6 +702,20 @@ MUTATIONS = [
     # (BEHAVIORAL), so any other refuses it as unknown
     ("dotted-not-true", {"en.toml": _w('[[word]]\ntext = "us"\nmodifier = { dotted = false }')}, "dotted must be true, or left unwritten"),
     ("dotted-on-a-suffix-reading", {"en.toml": _w('[[word]]\ntext = "zzq"\ncredential = { dotted = true }')}, "dotted"),
+    # rules/P12's completes on a bound_second reading: a list of single
+    # folded words, and a bound_second reading's alone (#1072)
+    ("completes-not-a-list", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_second = { completes = "zzr" }')}, "completes must be a non-empty list"),
+    ("completes-two-words", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_second = { completes = ["zzr zzs"] }')}, "completes must be a non-empty list"),
+    ("completes-empty", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_second = { completes = [] }')}, "completes must be a non-empty list"),
+    ("completes-unfolded", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_second = { completes = ["Zzr"] }')}, "completes must be a non-empty list"),
+    ("completes-duplicate", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_second = { completes = ["zzr", "zzr"] }')}, "completes must be a non-empty list"),
+    ("completes-on-a-bound-given", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completes = ["zzr"] }')}, "completes"),
+    # rules/P12's completes_any and long_names_only: true or unwritten,
+    # and long_names_only only beside completes_any, which it narrows
+    # (#1464)
+    ("completes-any-not-true", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completes_any = false }')}, "completes_any must be true, or left unwritten"),
+    ("long-names-only-not-true", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completes_any = true, long_names_only = 1 }')}, "long_names_only must be true, or left unwritten"),
+    ("long-names-only-alone", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { long_names_only = true }')}, "long_names_only narrows completes_any"),
 ]
 
 
@@ -739,7 +766,7 @@ def test_every_mutation_starts_from_a_pool_the_checks_accept() -> None:
         # given reading beside a particle is fine once another given
         # reading of the word is on
         {"en.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\nfamily = { note = "x", default = false }')},
-        {"pt-BR.toml": _w('[[word]]\ntext = "zzq"\nagnomen = { default = false }\nfamily = { note = "x", default = false }')},
+        {"pt-AO.toml": _w('[[word]]\ntext = "zzq"\nagnomen = { default = false }\nfamily = { note = "x", default = false }')},
         {"nl.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x", default = false }\npreposition = {}'),
          "en.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x" }\nexcluded = { title = "x" }')},
         # check 11 met: a particle beside a given reading states nothing,
@@ -787,7 +814,7 @@ def test_every_mutation_starts_from_a_pool_the_checks_accept() -> None:
         # refusing the generation word leaves an acronym reading free
         {"fr.toml": _w('[[word]]\ntext = "fils"\nexcluded = { generation = "Marie Fils" }'),
          "und.toml": _w('[[word]]\ntext = "fils"\ncredential = {}')},
-        {"pt-BR.toml": OK, "zh-Hant.toml": _w('[[word]]\ntext = "社長"\nprofessional_honorific = {}'),
+        {"pt-AO.toml": OK, "zh-Hant.toml": _w('[[word]]\ntext = "社長"\nprofessional_honorific = {}'),
          "es-419.toml": _w('[[word]]\ntext = "sr"\ngeneration = {}')},
         # check 10's order, met: kinds in CATEGORY order, a head before
         # its spellings, a refusal under the kind it refuses, a name
@@ -1272,10 +1299,13 @@ def _sets_fed(kind: str, props: str = "{}", text: str = "zzq",
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", build.VocabWarning)  # a name reading is inert
         compiled = build.compile_files(files)
-    # a word is in a set of phrases where it opens one (TITLE_PHRASES),
-    # and in SAME_AS where a group of it holds the word
+    # a word is in a set of phrases where it opens one (TITLE_PHRASES)
+    # or ends one (BOUND_SECOND_PHRASES, #1072), and in SAME_AS where a
+    # group of it holds the word
     return {name for name, value in compiled.items()
-            if text in value or any(isinstance(v, str) and v.startswith(text + " ")
+            if text in value or any(isinstance(v, str)
+                                    and (v.startswith(text + " ")
+                                         or v.endswith(" " + text))
                                     for v in value)
             or (isinstance(value, dict) and any(
                 isinstance(g, dict) and text in g for g in value.values()))}
@@ -1301,6 +1331,11 @@ _PROPERTY_PROBES = {
     "capital_opening": ("preposition", "{ capital_opening = true }", "zzq"),
     "dotted": ("modifier", "{ dotted = true }", "zzq"),
     "completed_by": ("bound_given", '{ completed_by = ["zzr"] }', "zzq"),
+    "completes_any": ("bound_given", "{ completes_any = true }", "zzq"),
+    "completes": ("bound_second", '{ completes = ["zzr"] }', "zzq"),
+    "long_names_only": ("bound_given",
+                        "{ completes_any = true, long_names_only = true }",
+                        "zzq"),
     # a phrase needs the head it attaches to: a second title word
     "attaches": ("office", '{ attaches = ["occupation"] }', "zzq",
                  '\n\n[[word]]\ntext = "zzr"\noccupation = {}'),
@@ -1561,6 +1596,37 @@ def test_attaches_may_name_a_title_word_that_is_also_another_kind() -> None:
     assert c["TITLE_PHRASES"] == frozenset({"zzq saint"})
 
 
+@pytest.mark.parametrize("partner", ["zzr", "saint"])
+def test_an_off_by_default_phrase_may_name_a_partner_off_by_default_in_its_file(
+        partner: str) -> None:
+    # the case the check admits since #1180: both readings off by
+    # default in one file, so the default holds no phrase and the one
+    # choice of that file turns both on (ms.toml's puan and sri); a
+    # choice of another file turns on neither. Through both branches of
+    # the check: a plain word, and 'saint', which names a kind too
+    entries = sorted([
+        (partner, '{ default = false }'),
+        ("zzq", f'{{ default = false, attaches = ["{partner}"] }}')])
+    files = {
+        "en.toml": _w("\n\n".join(
+            f'[[word]]\ntext = "{t}"\nreligious = {r}' for t, r in entries)),
+        "fr.toml": _w('[[word]]\ntext = "zzs"\nreligious = {}')}
+    assert _compile(files)["TITLE_PHRASES"] == frozenset()
+    rows = build.index_rows(build.load(files))
+    ri = sys.modules[type(rows[0]).__module__]
+    assert ri.compile_readings(ri.choose(rows, frozenset({"en"})))[
+        "TITLE_PHRASES"] == frozenset({f"zzq {partner}"})
+    assert ri.compile_readings(ri.choose(rows, frozenset({"fr"})))[
+        "TITLE_PHRASES"] == frozenset()
+
+
+def test_the_malay_pack_compiles_its_phrases_and_the_default_none() -> None:
+    # the shipped witness of the case above
+    assert "puan sri" not in Lexicon.default()._sets.title_phrases
+    malay = parser_for(locales.MS).lexicon._sets.title_phrases
+    assert {"puan sri", "tan sri"} <= malay
+
+
 @pytest.mark.parametrize("saint", [
     "", '[[word]]\ntext = "saint"\nreligious = { default = false }\n\n'],
     ids=["no-title-word", "title-reading-off"])
@@ -1659,7 +1725,7 @@ def test_the_pack_roster_names_shipped_packs_their_files_compile_into() -> None:
     assert set(build.PACK_RULES.values()) <= set(locales._REGISTRY)
     for tag, attr in build.PACK_RULES.items():
         assert getattr(locales, attr).policy == rules_patch(tag), attr
-    with pytest.raises(KeyError, match="no vocabulary file 'en' holds a \\[rules\\] table; the files that do: cs, es, ne, ru, sk, tr, vi"):
+    with pytest.raises(KeyError, match="no vocabulary file 'en' holds a \\[rules\\] table; the files that do: cs, es, hr, ne, pt-BR, pt-PT, ru, sk, sl, tr, vi"):
         rules_patch("en")
 
 

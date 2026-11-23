@@ -604,6 +604,9 @@ class ConversionsResource:
         *,
         event_names: list[str] | None = None,
         sources: list[str] | None = None,
+        event_name_map: Any | None = None,
+        value_override: Any | None = None,
+        value_condition: Any | None = None,
         api_secret: str | None = None,
     ) -> dict[str, Any]:
         """Add a forwarding rule"""
@@ -614,16 +617,30 @@ class ConversionsResource:
                 "destinationId": destination_id,
                 "eventNames": event_names,
                 "sources": sources,
+                "eventNameMap": event_name_map,
+                "valueOverride": value_override,
+                "valueCondition": value_condition,
                 "apiSecret": api_secret,
             }
         )
         return self._client._post("/v1/events/forwarding-rules", data=payload)
 
-    def update_forwarding_rule(self, rule_id: str, api_secret: str) -> dict[str, Any]:
-        """Change a forwarding rule's API secret"""
+    def update_forwarding_rule(
+        self,
+        rule_id: str,
+        *,
+        api_secret: str | None = None,
+        event_name_map: Any | None = None,
+        value_override: Any | None = None,
+        value_condition: Any | None = None,
+    ) -> dict[str, Any]:
+        """Update a forwarding rule"""
         payload = self._build_body(
             {
                 "apiSecret": api_secret,
+                "eventNameMap": event_name_map,
+                "valueOverride": value_override,
+                "valueCondition": value_condition,
             }
         )
         return self._client._patch(
@@ -667,6 +684,8 @@ class ConversionsResource:
         site_id: str,
         *,
         name: str | None = None,
+        pixels: Any | None = None,
+        consent_mode_bridge: bool | None = None,
         domains: list[str] | None = None,
         consent_mode: Any | None = None,
         custom_hostname: Any | None = None,
@@ -677,6 +696,8 @@ class ConversionsResource:
         payload = self._build_body(
             {
                 "name": name,
+                "pixels": pixels,
+                "consentModeBridge": consent_mode_bridge,
                 "domains": domains,
                 "consentMode": consent_mode,
                 "customHostname": custom_hostname,
@@ -698,6 +719,10 @@ class ConversionsResource:
         return self._client._post(
             f"/v1/tracking-sites/{site_id}/rotate-key", headers=headers
         )
+
+    def check_tracking_site_proxy(self, site_id: str) -> dict[str, Any]:
+        """Check a tracking site's own-domain path"""
+        return self._client._post(f"/v1/tracking-sites/{site_id}/proxy-check")
 
     def list_ad_conversion_destinations(self, account_id: str) -> dict[str, Any]:
         """List conversion destinations"""
@@ -1611,6 +1636,9 @@ class ConversionsResource:
         *,
         event_names: list[str] | None = None,
         sources: list[str] | None = None,
+        event_name_map: Any | None = None,
+        value_override: Any | None = None,
+        value_condition: Any | None = None,
         api_secret: str | None = None,
     ) -> dict[str, Any]:
         """Add a forwarding rule (async)"""
@@ -1621,18 +1649,30 @@ class ConversionsResource:
                 "destinationId": destination_id,
                 "eventNames": event_names,
                 "sources": sources,
+                "eventNameMap": event_name_map,
+                "valueOverride": value_override,
+                "valueCondition": value_condition,
                 "apiSecret": api_secret,
             }
         )
         return await self._client._apost("/v1/events/forwarding-rules", data=payload)
 
     async def aupdate_forwarding_rule(
-        self, rule_id: str, api_secret: str
+        self,
+        rule_id: str,
+        *,
+        api_secret: str | None = None,
+        event_name_map: Any | None = None,
+        value_override: Any | None = None,
+        value_condition: Any | None = None,
     ) -> dict[str, Any]:
-        """Change a forwarding rule's API secret (async)"""
+        """Update a forwarding rule (async)"""
         payload = self._build_body(
             {
                 "apiSecret": api_secret,
+                "eventNameMap": event_name_map,
+                "valueOverride": value_override,
+                "valueCondition": value_condition,
             }
         )
         return await self._client._apatch(
@@ -1678,6 +1718,8 @@ class ConversionsResource:
         site_id: str,
         *,
         name: str | None = None,
+        pixels: Any | None = None,
+        consent_mode_bridge: bool | None = None,
         domains: list[str] | None = None,
         consent_mode: Any | None = None,
         custom_hostname: Any | None = None,
@@ -1688,6 +1730,8 @@ class ConversionsResource:
         payload = self._build_body(
             {
                 "name": name,
+                "pixels": pixels,
+                "consentModeBridge": consent_mode_bridge,
                 "domains": domains,
                 "consentMode": consent_mode,
                 "customHostname": custom_hostname,
@@ -1709,6 +1753,10 @@ class ConversionsResource:
         return await self._client._apost(
             f"/v1/tracking-sites/{site_id}/rotate-key", headers=headers
         )
+
+    async def acheck_tracking_site_proxy(self, site_id: str) -> dict[str, Any]:
+        """Check a tracking site's own-domain path (async)"""
+        return await self._client._apost(f"/v1/tracking-sites/{site_id}/proxy-check")
 
     async def alist_ad_conversion_destinations(self, account_id: str) -> dict[str, Any]:
         """List conversion destinations (async)"""

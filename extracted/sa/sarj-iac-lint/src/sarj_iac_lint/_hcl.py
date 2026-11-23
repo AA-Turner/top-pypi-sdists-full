@@ -367,7 +367,6 @@ def header_comment_lines(source: str, *, leading_only: bool = False) -> tuple[st
     return tuple(output)
 
 
-# Strings and heredocs are opaque spans; this regex handles the remaining simple tokens.
 _TOKEN_RE = re.compile(r"[A-Za-z_][\w.\-]*|==|!=|<=|>=|&&|\|\||[{}()\[\]=,]|\S")
 
 
@@ -416,13 +415,16 @@ def comma_parts(parts: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
     values: list[tuple[str, ...]] = []
     start, depth = 0, 0
     for index, part in enumerate(parts):
-        if part in {"(", "[", "{"}:
-            depth += 1
-        elif part in {")", "]", "}"}:
-            depth -= 1
-        elif part == "," and depth == 0:
-            values.append(parts[start:index])
-            start = index + 1
+        match part:
+            case "(" | "[" | "{":
+                depth += 1
+            case ")" | "]" | "}":
+                depth -= 1
+            case "," if depth == 0:
+                values.append(parts[start:index])
+                start = index + 1
+            case _:
+                pass
     if start < len(parts):
         values.append(parts[start:])
     return tuple(values)
@@ -545,8 +547,8 @@ def _json_unicode_escape(match: re.Match[str]) -> str:
 
 class _Tok(NamedTuple):
     text: str
-    line: int  # 1-based
-    col: int  # 1-based
+    line: int
+    col: int
     start: int
     end: int
 
@@ -564,7 +566,7 @@ class Attribute:
 class Block:
     type: str
     labels: tuple[str, ...]
-    depth: int  # 0 for a top-level block
+    depth: int
     line: int
     col: int
     end_line: int
@@ -710,8 +712,6 @@ def _read_value(toks: list[_Tok], i: int, source: str, newlines: tuple[int, ...]
                 break
             nest -= 1
         i += 1
-        # A value ends at the line break only once every bracket has closed;
-        # `deletion_protection = (\n  var.env == "prod"\n)` is one value.
         if nest == 0 and (i >= len(toks) or _has_newline(newlines, tok.end, toks[i].start)):
             break
     value_line = toks[start].line if start < len(toks) else 0

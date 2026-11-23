@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, final
 
 from sarj_python_lint.rules._declared_contracts import MODEL_BASES, SETTINGS_BASES, DeclaredContracts
 from sarj_python_lint.rules._native_object_contracts import NativeObjectContracts, builtin_object, source_position
+from sarj_python_lint.rules._suite_flow import control_condition, literal_truth, previous_statements, reachable_branch
 from sarj_python_lint.rules._test_composition import call_arguments, direct_nodes
 from sarj_python_lint.rules.require_pydantic_for_mapping_shape import MappingShapeFacts
 
@@ -199,12 +200,15 @@ class OpaqueContractFacts:
         for node in direct_nodes(function):
             if not self.reachable(node, function):
                 continue
-            if isinstance(node, ast.Return):
-                found.update(self._returned_parameters(node))
-                continue
-            if isinstance(node, ast.Call):
-                found.update(self._universal_inputs(node))
-                found.update(self._model_inputs(node))
+            match node:
+                case ast.Return():
+                    found.update(self._returned_parameters(node))
+                    continue
+                case ast.Call():
+                    found.update(self._universal_inputs(node))
+                    found.update(self._model_inputs(node))
+                case _:
+                    pass
             if self.context.parents.get(node) is function:
                 found.update(self._statement_parameters(node, terminal_rejection=terminal_rejection))
         found.update(self._identity_parameters(function))
@@ -304,20 +308,27 @@ class OpaqueContractFacts:
 
     def _key_read(self, read: ast.Name) -> bool:
         parent = self.context.parents.get(read)
-        if isinstance(parent, ast.Assign | ast.AnnAssign) and parent.value is read:
-            return True
-        if isinstance(parent, ast.Compare):
-            return all(isinstance(operator, ast.Is | ast.IsNot) for operator in parent.ops) or (
-                read in parent.comparators and all(isinstance(operator, ast.In | ast.NotIn) for operator in parent.ops)
-            )
+        match parent:
+            case ast.Assign() | ast.AnnAssign() if parent.value is read:
+                return True
+            case ast.Compare():
+                return all(isinstance(operator, ast.Is | ast.IsNot) for operator in parent.ops) or (
+                    read in parent.comparators
+                    and all(isinstance(operator, ast.In | ast.NotIn) for operator in parent.ops)
+                )
+            case _:
+                pass
         return self._key_operation(read)
 
     def _key_operation(self, read: ast.Name) -> bool:
         parent = self.context.parents.get(read)
-        if isinstance(parent, ast.For | ast.comprehension) and parent.iter is read:
-            return True
-        if isinstance(parent, ast.Attribute) and parent.value is read and parent.attr == "keys":
-            return True
+        match parent:
+            case ast.For() | ast.comprehension() if parent.iter is read:
+                return True
+            case ast.Attribute() if parent.value is read and parent.attr == "keys":
+                return True
+            case _:
+                pass
         return (
             isinstance(parent, ast.Call)
             and parent.args == [read]
@@ -361,22 +372,25 @@ class OpaqueContractFacts:
         return self.asserted_parameters[node]
 
     def _path_parameters(self, expression: ast.expr, *, positive: bool = True, depth: int = 0) -> set[ast.arg]:
-        if depth >= _MAX_DEPTH or _literal_truth(expression) is not None:
+        if depth >= _MAX_DEPTH or literal_truth(expression) is not None:
             return set()
-        if isinstance(expression, ast.UnaryOp) and isinstance(expression.op, ast.Not):
-            return self._path_parameters(expression.operand, positive=not positive, depth=depth + 1)
-        if isinstance(expression, ast.BoolOp):
-            paths = _boolean_paths(expression, positive=positive)
-            facts = [self._path_parameters(branch, positive=positive, depth=depth + 1) for branch in paths.branches]
-            if not facts:
-                return set()
-            result = set(facts[0])
-            for branch in facts[1:]:
-                if paths.all_required:
-                    result.update(branch)
-                else:
-                    result.intersection_update(branch)
-            return result
+        match expression:
+            case ast.UnaryOp() if isinstance(expression.op, ast.Not):
+                return self._path_parameters(expression.operand, positive=not positive, depth=depth + 1)
+            case ast.BoolOp():
+                paths = _boolean_paths(expression, positive=positive)
+                facts = [self._path_parameters(branch, positive=positive, depth=depth + 1) for branch in paths.branches]
+                if not facts:
+                    return set()
+                result = set(facts[0])
+                for branch in facts[1:]:
+                    if paths.all_required:
+                        result.update(branch)
+                    else:
+                        result.intersection_update(branch)
+                return result
+            case _:
+                pass
         return self._predicate(expression) if positive else set()
 
     def reachable(self, node: ast.AST, function: _Function) -> bool:
@@ -387,11 +401,7 @@ class OpaqueContractFacts:
 
     def _reachable_path(self, node: ast.AST, function: _Function) -> bool:
         while (parent := self.context.parents.get(node)) is not None:
-            if isinstance(node, ast.stmt) and any(
-                _stops_suite(sibling) for sibling in _previous_statements(node, parent)
-            ):
-                return False
-            if not _reachable_branch(node, parent):
+            if not reachable_branch(node, parent):
                 return False
             if parent is function:
                 return True
@@ -459,10 +469,13 @@ class OpaqueContractFacts:
         )
 
     def _predicate(self, expression: ast.expr) -> set[ast.arg]:
-        if isinstance(expression, ast.BoolOp):
-            return self._predicate(expression.values[0])
-        if isinstance(expression, ast.UnaryOp) and isinstance(expression.op, ast.Not):
-            expression = expression.operand
+        match expression:
+            case ast.BoolOp():
+                return self._predicate(expression.values[0])
+            case ast.UnaryOp() if isinstance(expression.op, ast.Not):
+                expression = expression.operand
+            case _:
+                pass
         if (parameter := self._type_comparison(expression, rejected=False)) is not None:
             return {parameter}
         if not isinstance(expression, ast.Call) or not expression.args:
@@ -599,23 +612,25 @@ class OpaqueContractFacts:
         parent = self.context.parents.get(read)
         if isinstance(parent, ast.keyword):
             parent = self.context.parents.get(parent)
-        if isinstance(parent, ast.Assign | ast.AnnAssign) and parent.value is read:
-            return True
-        if isinstance(parent, ast.Subscript) and parent.value is read:
-            return self._raw_annotation(self.parameter(read))
-        if isinstance(parent, ast.Attribute) and parent.value is read and parent.attr == "get":
-            return self._raw_annotation(self.parameter(read))
-        if isinstance(parent, ast.Attribute) and parent.value is read and parent.attr == "keys":
-            return self._raw_mapping(self.parameter(read))
-        if isinstance(parent, ast.Compare):
-            return self._comparison_read(read, parent)
-        if (
-            isinstance(parent, ast.Call)
-            and parent.args[:1] == [read]
-            and self._raw_mapping(self.parameter(read))
-            and any(self.facts.builtin(parent.func, name, parent) for name in ("set", "frozenset"))
-        ):
-            return True
+        match parent:
+            case ast.Assign() | ast.AnnAssign() if parent.value is read:
+                return True
+            case ast.Subscript() if parent.value is read:
+                return self._raw_annotation(self.parameter(read))
+            case ast.Attribute() if parent.value is read and parent.attr == "get":
+                return self._raw_annotation(self.parameter(read))
+            case ast.Attribute() if parent.value is read and parent.attr == "keys":
+                return self._raw_mapping(self.parameter(read))
+            case ast.Compare():
+                return self._comparison_read(read, parent)
+            case ast.Call() if (
+                parent.args[:1] == [read]
+                and self._raw_mapping(self.parameter(read))
+                and any(self.facts.builtin(parent.func, name, parent) for name in ("set", "frozenset"))
+            ):
+                return True
+            case _:
+                pass
         return isinstance(parent, ast.Call) and any(value is read for value in self._accepted_arguments(parent))
 
     def _comparison_read(self, read: ast.Name, parent: ast.Compare) -> bool:
@@ -789,7 +804,7 @@ class OpaqueContractFacts:
         conditions: list[tuple[ast.expr, bool]] = []
         current: ast.AST = value
         while (parent := self.context.parents.get(current)) is not None:
-            if (condition := _control_condition(current, parent)) is not None:
+            if (condition := control_condition(current, parent)) is not None:
                 conditions.append(condition)
             if isinstance(current, ast.stmt):
                 conditions.extend(_preceding_conditions(current, parent))
@@ -805,7 +820,7 @@ class OpaqueContractFacts:
         return None
 
     def _key_narrowing(self, test: ast.expr, value: ast.Name, *, positive: bool, depth: int = 0) -> _Origin | None:
-        if depth >= _MAX_DEPTH or _literal_truth(test) is not None:
+        if depth >= _MAX_DEPTH or literal_truth(test) is not None:
             return None
         if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
             return self._key_narrowing(test.operand, value, positive=not positive, depth=depth + 1)
@@ -822,7 +837,7 @@ class OpaqueContractFacts:
         return None
 
     def _narrowing(self, test: ast.expr, value: ast.expr, *, positive: bool, depth: int = 0) -> _Origin | None:
-        if depth >= _MAX_DEPTH or _literal_truth(test) is not None:
+        if depth >= _MAX_DEPTH or literal_truth(test) is not None:
             return None
         if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
             return self._narrowing(test.operand, value, positive=not positive, depth=depth + 1)
@@ -920,11 +935,14 @@ class OpaqueContractFacts:
         if not isinstance(receiver, ast.Name):
             return False
         binding = self.facts.provenance.runtime_binding(receiver.id, receiver)
-        if isinstance(binding, ast.arg) and binding.annotation is not None:
-            return self.facts.qualified(binding.annotation, binding.annotation) in _DECODERS
-        if isinstance(binding, ast.Name):
-            value = self.facts.provenance.assignment_value(binding, receiver)
-            return isinstance(value, ast.Call) and self.facts.qualified(value.func, value) in _DECODERS
+        match binding:
+            case ast.arg() if binding.annotation is not None:
+                return self.facts.qualified(binding.annotation, binding.annotation) in _DECODERS
+            case ast.Name():
+                value = self.facts.provenance.assignment_value(binding, receiver)
+                return isinstance(value, ast.Call) and self.facts.qualified(value.func, value) in _DECODERS
+            case _:
+                pass
         return False
 
 
@@ -977,12 +995,13 @@ class _RawOrigins:
         if not isinstance(binding, ast.Name):
             return None
         value = self.facts.assigned(binding, receiver)
-        if isinstance(value, ast.Dict | ast.List):
-            return binding
-        if isinstance(value, ast.Call) and any(
-            self.facts.facts.builtin(value.func, kind, value) for kind in ("dict", "list")
-        ):
-            return binding
+        match value:
+            case ast.Dict() | ast.List():
+                return binding
+            case ast.Call() if any(self.facts.facts.builtin(value.func, kind, value) for kind in ("dict", "list")):
+                return binding
+            case _:
+                pass
         return None
 
     def _iterator(self, node: ast.expr) -> tuple[_Origin, ...] | None:
@@ -1097,40 +1116,9 @@ def _projection_receiver(node: ast.expr) -> ast.expr | None:
             return None
 
 
-def _control_condition(node: ast.AST, parent: ast.AST) -> tuple[ast.expr, bool] | None:
-    match parent:
-        case ast.IfExp():
-            accepted, rejected = node is parent.body, node is parent.orelse
-        case ast.If():
-            accepted, rejected = node in parent.body, node in parent.orelse
-        case _:
-            return None
-    return (parent.test, accepted) if accepted or rejected else None
-
-
-def _literal_truth(node: ast.expr, *, depth: int = 0) -> bool | None:
-    if depth >= _MAX_DEPTH:
-        return None
-    if isinstance(node, ast.Constant):
-        if node.value is None:
-            return False
-        if isinstance(node.value, str | bytes | bool | int | float | complex):
-            return bool(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
-        truth = _literal_truth(node.operand, depth=depth + 1)
-        return not truth if truth is not None else None
-    if isinstance(node, ast.BoolOp):
-        truths = [_literal_truth(member, depth=depth + 1) for member in node.values]
-        decisive = isinstance(node.op, ast.Or)
-        if decisive in truths:
-            return decisive
-        return not decisive if all(truth is not None for truth in truths) else None
-    return None
-
-
 def _boolean_paths(node: ast.BoolOp, *, positive: bool) -> _BooleanPaths:
     required = isinstance(node.op, ast.And) is positive
-    branches = tuple(member for member in node.values if required or _literal_truth(member) is not (not positive))
+    branches = tuple(member for member in node.values if required or literal_truth(member) is not (not positive))
     return _BooleanPaths(all_required=required, branches=branches)
 
 
@@ -1144,28 +1132,6 @@ def _joined_narrowing(origins: list[_Origin | None], *, required: bool, unchecke
     if None in origins:
         return None
     return unchecked if unchecked in origins else _Origin.CHECKED_VALUE
-
-
-def _stops_suite(node: ast.stmt) -> bool:
-    return isinstance(node, ast.Return | ast.Raise | ast.Break | ast.Continue) or (
-        isinstance(node, ast.Assert) and _literal_truth(node.test) is False
-    )
-
-
-def _reachable_branch(node: ast.AST, parent: ast.AST) -> bool:
-    if isinstance(parent, ast.If | ast.IfExp):
-        condition = _control_condition(node, parent)
-        if condition is not None:
-            test, positive = condition
-            truth = _literal_truth(test)
-            return truth is None or truth is positive
-    if isinstance(parent, ast.While) and node in parent.body and _literal_truth(parent.test) is False:
-        return False
-    if isinstance(parent, ast.BoolOp) and isinstance(node, ast.expr) and node in parent.values:
-        preceding = parent.values[: parent.values.index(node)]
-        decisive = isinstance(parent.op, ast.Or)
-        return all(_literal_truth(member) is not decisive for member in preceding)
-    return True
 
 
 def _key_contract(refinement: _Refinement) -> _Origin | None:
@@ -1191,44 +1157,15 @@ def _key_contract(refinement: _Refinement) -> _Origin | None:
     return _Origin.UNKNOWN_VALUE if _unknown_slot(slots[0], facts, at) else _Origin.CHECKED_VALUE
 
 
-def _previous_statements(node: ast.stmt, parent: ast.AST) -> tuple[ast.stmt, ...]:
-    for statements in _statement_suites(parent):
-        if node in statements:
-            return tuple(statements[: statements.index(node)])
-    return ()
-
-
 def _preceding_conditions(node: ast.stmt, parent: ast.AST) -> Iterator[tuple[ast.expr, bool]]:
-    for sibling in reversed(_previous_statements(node, parent)):
-        if isinstance(sibling, ast.Assert):
-            yield sibling.test, True
-        elif isinstance(sibling, ast.If) and _rejects(sibling.body):
-            yield sibling.test, False
-
-
-def _statement_suites(parent: ast.AST) -> Iterator[list[ast.stmt]]:
-    match parent:
-        case ast.If() | ast.For() | ast.AsyncFor() | ast.While():
-            yield parent.body
-            yield parent.orelse
-        case ast.Try() | ast.TryStar():
-            yield parent.body
-            yield parent.orelse
-            yield parent.finalbody
-        case (
-            ast.Module()
-            | ast.Interactive()
-            | ast.FunctionDef()
-            | ast.AsyncFunctionDef()
-            | ast.ClassDef()
-            | ast.With()
-            | ast.AsyncWith()
-            | ast.ExceptHandler()
-            | ast.match_case()
-        ):
-            yield parent.body
-        case _:
-            return
+    for sibling in reversed(previous_statements(node, parent)):
+        match sibling:
+            case ast.Assert():
+                yield sibling.test, True
+            case ast.If() if _rejects(sibling.body):
+                yield sibling.test, False
+            case _:
+                pass
 
 
 def statement_dominates(statement: ast.stmt, at: ast.AST, context: PythonFileContext) -> bool:
@@ -1238,7 +1175,7 @@ def statement_dominates(statement: ast.stmt, at: ast.AST, context: PythonFileCon
     current = at
     while (parent := context.parents.get(current)) is not None:
         if parent is owner:
-            return isinstance(current, ast.stmt) and statement in _previous_statements(current, owner)
+            return isinstance(current, ast.stmt) and statement in previous_statements(current, owner)
         if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
             return False
         current = parent
@@ -1269,10 +1206,13 @@ def _container_kind(node: ast.expr, facts: MappingShapeFacts, at: ast.AST) -> st
 
 
 def _runtime_container(node: ast.expr, facts: MappingShapeFacts, at: ast.AST) -> bool:
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return _runtime_container(node.left, facts, at) and _runtime_container(node.right, facts, at)
-    if isinstance(node, ast.Tuple):
-        return bool(node.elts) and all(_runtime_container(member, facts, at) for member in node.elts)
+    match node:
+        case ast.BinOp() if isinstance(node.op, ast.BitOr):
+            return _runtime_container(node.left, facts, at) and _runtime_container(node.right, facts, at)
+        case ast.Tuple():
+            return bool(node.elts) and all(_runtime_container(member, facts, at) for member in node.elts)
+        case _:
+            pass
     return _container_kind(node, facts, at) is not None
 
 
@@ -1352,19 +1292,22 @@ def _class_pattern(pattern: ast.pattern) -> bool:
 def _fallback(node: ast.expr | None, context: PythonFileContext) -> bool:
     if node is None or isinstance(node, ast.Constant):
         return True
-    if isinstance(node, ast.Dict | ast.List | ast.Set | ast.Tuple):
-        return not (node.keys if isinstance(node, ast.Dict) else node.elts)
-    if isinstance(node, ast.Name):
-        provenance = context.static_resource_provenance
-        binding = provenance.runtime_binding(node.id, node)
-        if isinstance(binding, ast.Name):
-            value = provenance.assignment_value(binding, node)
-            return (
-                isinstance(value, ast.Call)
-                and not value.args
-                and not value.keywords
-                and context.imports.builtin_is_unshadowed("object")
-                and isinstance(value.func, ast.Name)
-                and value.func.id == "object"
-            )
+    match node:
+        case ast.Dict() | ast.List() | ast.Set() | ast.Tuple():
+            return not (node.keys if isinstance(node, ast.Dict) else node.elts)
+        case ast.Name():
+            provenance = context.static_resource_provenance
+            binding = provenance.runtime_binding(node.id, node)
+            if isinstance(binding, ast.Name):
+                value = provenance.assignment_value(binding, node)
+                return (
+                    isinstance(value, ast.Call)
+                    and not value.args
+                    and not value.keywords
+                    and context.imports.builtin_is_unshadowed("object")
+                    and isinstance(value.func, ast.Name)
+                    and value.func.id == "object"
+                )
+        case _:
+            pass
     return False

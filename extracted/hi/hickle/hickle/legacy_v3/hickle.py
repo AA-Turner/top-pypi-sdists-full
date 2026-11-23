@@ -25,7 +25,6 @@ h5py installed.
 from __future__ import absolute_import, division, print_function
 import sys
 import os
-from pkg_resources import get_distribution, DistributionNotFound
 from ast import literal_eval
 
 import numpy as np

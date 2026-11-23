@@ -5,7 +5,7 @@ from autumn_sdk.types import BaseModel, UNSET_SENTINEL
 from autumn_sdk.utils import FieldMetadata, HeaderMetadata
 import pydantic
 from pydantic import model_serializer
-from typing import List, Optional
+from typing import List, Literal, Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 
 
@@ -37,11 +37,22 @@ class ReleaseLicenseGlobals(BaseModel):
         return m
 
 
+At = Literal[
+    "immediate",
+    "end_of_cycle",
+]
+r"""When the seats are released. 'end_of_cycle' keeps each entity's access until the next renewal, then frees the seat."""
+
+
 class ReleaseLicenseParamsTypedDict(TypedDict):
     customer_id: str
     entity_ids: List[str]
     license_plan_id: NotRequired[str]
     r"""Scopes the release when an entity holds licenses of multiple plans."""
+    at: NotRequired[At]
+    r"""When the seats are released. 'end_of_cycle' keeps each entity's access until the next renewal, then frees the seat."""
+    reduce_quantity: NotRequired[bool]
+    r"""Also lower the license's paid seats by the number of seats released. With 'end_of_cycle' the lower seat count applies at the next renewal."""
 
 
 class ReleaseLicenseParams(BaseModel):
@@ -52,9 +63,15 @@ class ReleaseLicenseParams(BaseModel):
     license_plan_id: Optional[str] = None
     r"""Scopes the release when an entity holds licenses of multiple plans."""
 
+    at: Optional[At] = "immediate"
+    r"""When the seats are released. 'end_of_cycle' keeps each entity's access until the next renewal, then frees the seat."""
+
+    reduce_quantity: Optional[bool] = False
+    r"""Also lower the license's paid seats by the number of seats released. With 'end_of_cycle' the lower seat count applies at the next renewal."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["license_plan_id"])
+        optional_fields = set(["license_plan_id", "at", "reduce_quantity"])
         serialized = handler(self)
         m = {}
 

@@ -209,5 +209,7 @@ fn create_config_spec_request(sdk_key: &str, current_lcut: Option<u64>) -> Confi
         sdk_key: sdk_key.to_string(),
         version: Some(ApiVersion::V2 as i32),
         zstd_dict_id: None,
+        accept_deltas: None,
+        checksum: None,
     }
 }

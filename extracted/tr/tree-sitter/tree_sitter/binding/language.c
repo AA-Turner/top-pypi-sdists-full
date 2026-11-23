@@ -103,8 +103,15 @@ PyObject *language_get_supertypes(Language *self, void *Py_UNUSED(payload)) {
         return PyTuple_New(0);
     }
     PyObject *result = PyTuple_New(length);
+    if (result == NULL) {
+        return NULL;
+    }
     for (uint32_t i = 0; i < length; ++i) {
-        PyTuple_SetItem(result, i, PyLong_FromUnsignedLong(symbols[i]));
+        PyObject *value = PyLong_FromUnsignedLong(symbols[i]);
+        if (PyTuple_SetItem(result, i, value) < 0) {
+            Py_DECREF(result);
+            return NULL;
+        }
     }
     return result;
 }
@@ -120,8 +127,15 @@ PyObject *language_subtypes(Language *self, PyObject *args) {
         return PyTuple_New(0);
     }
     PyObject *result = PyTuple_New(length);
+    if (result == NULL) {
+        return NULL;
+    }
     for (uint32_t i = 0; i < length; ++i) {
-        PyTuple_SetItem(result, i, PyLong_FromUnsignedLong(symbols[i]));
+        PyObject *value = PyLong_FromUnsignedLong(symbols[i]);
+        if (PyTuple_SetItem(result, i, value) < 0) {
+            Py_DECREF(result);
+            return NULL;
+        }
     }
     return result;
 }
@@ -176,7 +190,7 @@ PyObject *language_node_kind_is_supertype(Language *self, PyObject *args) {
         return NULL;
     }
     TSSymbolType symbol_type = ts_language_symbol_type(self->language, symbol);
-    return PyBool_FromLong(symbol_type <= TSSymbolTypeSupertype);
+    return PyBool_FromLong(symbol_type == TSSymbolTypeSupertype);
 }
 
 PyObject *language_field_name_for_id(Language *self, PyObject *args) {
@@ -226,11 +240,12 @@ PyObject *language_lookahead_iterator(Language *self, PyObject *args) {
     ModuleState *state = GET_MODULE_STATE(self);
     LookaheadIterator *iter = PyObject_New(LookaheadIterator, state->lookahead_iterator_type);
     if (iter == NULL) {
+        ts_lookahead_iterator_delete(lookahead_iterator);
         return NULL;
     }
     iter->language = Py_NewRef(self);
     iter->lookahead_iterator = lookahead_iterator;
-    return PyObject_Init((PyObject *)iter, state->lookahead_iterator_type);
+    return (PyObject *)iter;
 }
 
 PyObject *language_copy(Language *self, PyObject *Py_UNUSED(args)) {
@@ -239,8 +254,10 @@ PyObject *language_copy(Language *self, PyObject *Py_UNUSED(args)) {
     if (copied == NULL) {
         return NULL;
     }
+    copied->name = self->name;
+    copied->abi_version = self->abi_version;
     copied->language = (TSLanguage *)ts_language_copy(self->language);
-    return PyObject_Init((PyObject *)copied, state->language_type);
+    return (PyObject *)copied;
 }
 
 PyDoc_STRVAR(language_subtypes_doc, "subtypes(self, supertype, /)\n--\n\n"

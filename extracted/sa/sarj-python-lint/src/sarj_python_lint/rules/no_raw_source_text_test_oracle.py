@@ -273,15 +273,17 @@ def top_level_test_functions(tree: ast.Module, imports: ImportIndex | None = Non
     opted_out = _module_test_opt_outs(tree)
     functions: list[TestFunction] = []
     for statement in tree.body:
-        if (
-            isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef)
-            and statement.name.startswith("test")
-            and statement.name not in opted_out
-            and _safe_pytest_decorators(statement.decorator_list, resolved_imports)
-        ):
-            functions.append(TestFunction(statement, unittest_style=False))
-        elif isinstance(statement, ast.ClassDef):
-            functions.extend(_class_test_functions(statement, resolved_imports, opted_out))
+        match statement:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() if (
+                statement.name.startswith("test")
+                and statement.name not in opted_out
+                and _safe_pytest_decorators(statement.decorator_list, resolved_imports)
+            ):
+                functions.append(TestFunction(statement, unittest_style=False))
+            case ast.ClassDef():
+                functions.extend(_class_test_functions(statement, resolved_imports, opted_out))
+            case _:
+                pass
     return functions
 
 
@@ -347,7 +349,6 @@ def _eager_node_binds_test(node: ast.AST) -> bool:
 def _eager_scope_children(node: ast.AST) -> list[ast.AST]:
     match node:
         case ast.FunctionDef() | ast.AsyncFunctionDef():
-            # Headers run now; annotations and the body are deferred.
             return [*node.decorator_list, *_eager_argument_defaults(node.args)]
         case ast.ClassDef():
             return [*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords)]
@@ -370,7 +371,6 @@ def _eager_argument_defaults(arguments: ast.arguments) -> list[ast.AST]:
 
 
 def _comprehension_eager_children(node: ast.ListComp | ast.SetComp | ast.DictComp) -> list[ast.AST]:
-    # Iteration targets stay local; walrus bindings use the enclosing scope.
     children: list[ast.AST] = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
     children.extend(generator.iter for generator in node.generators)
     children.extend(condition for generator in node.generators for condition in generator.ifs)
@@ -387,10 +387,13 @@ def _class_declares_global_test(node: ast.ClassDef) -> bool:
     pending: list[ast.AST] = list(node.body)
     while pending:
         current = pending.pop()
-        if isinstance(current, ast.Global) and "__test__" in current.names:
-            return True
-        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
-            continue
+        match current:
+            case ast.Global() if "__test__" in current.names:
+                return True
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef() | ast.Lambda():
+                continue
+            case _:
+                pass
         pending.extend(ast.iter_child_nodes(current))
     return False
 
@@ -1120,13 +1123,16 @@ def _raw_text_expression(
         return node.id in flow.raw_names
     if _raw_source_read(node, flow.path_names, flow.ephemeral_path_names, flow.sources, flow.api):
         return True
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-        handle_reads = {"read", "readlines"}
-        if node.func.attr in handle_reads and isinstance(node.func.value, ast.Name):
-            return node.func.value.id in flow.raw_names
-        return node.func.attr in _TEXT_TRANSFORMS and _raw_text_expression(node.func.value, flow)
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _raw_text_expression(node.left, flow) or _raw_text_expression(node.right, flow)
+    match node:
+        case ast.Call() if isinstance(node.func, ast.Attribute):
+            handle_reads = {"read", "readlines"}
+            if node.func.attr in handle_reads and isinstance(node.func.value, ast.Name):
+                return node.func.value.id in flow.raw_names
+            return node.func.attr in _TEXT_TRANSFORMS and _raw_text_expression(node.func.value, flow)
+        case ast.BinOp() if isinstance(node.op, ast.Add):
+            return _raw_text_expression(node.left, flow) or _raw_text_expression(node.right, flow)
+        case _:
+            pass
     return False
 
 
@@ -1297,12 +1303,15 @@ def _expression_origins(
 ) -> set[int]:
     origins: set[int] = set()
     for child in walk_ast(node):
-        if isinstance(child, ast.Name):
-            origins.update(raw_origins.get(child.id, set()))
-        elif isinstance(child, ast.Call) and _raw_source_read(
-            child, flow.path_names, flow.ephemeral_path_names, flow.sources, flow.api
-        ):
-            origins.add(child.lineno)
+        match child:
+            case ast.Name():
+                origins.update(raw_origins.get(child.id, set()))
+            case ast.Call() if _raw_source_read(
+                child, flow.path_names, flow.ephemeral_path_names, flow.sources, flow.api
+            ):
+                origins.add(child.lineno)
+            case _:
+                pass
     return origins
 
 

@@ -12,6 +12,7 @@ class PublicErrorCode(str, Enum):
     NOT_FOUND = "not_found"
     PERMISSION_DENIED = "permission_denied"
     RATE_LIMITED = "rate_limited"
+    TENANT_BLOCKED = "tenant_blocked"
     UNAUTHENTICATED = "unauthenticated"
     UNAVAILABLE = "unavailable"
     UNIMPLEMENTED = "unimplemented"

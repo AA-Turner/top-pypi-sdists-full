@@ -56,6 +56,7 @@ from reportlab.platypus.tableofcontents import TableOfContents, drawPageNumbers
 from reportlab.platypus.tables import _SPECIALROWS, Table, TableStyle
 from reportlab.rl_config import register_reset
 
+from xhtml2pdf.builders.opacity import paint_with_opacity
 from xhtml2pdf.builders.printmarks import MarkedCanvas, begin_page, draw_marks
 from xhtml2pdf.config.resources import (
     ResourceAccessError,
@@ -243,6 +244,8 @@ class PmlBaseDoc(BaseDocTemplate):
         #: Counts the layout passes, for the containers' layout caches.
         self.layoutPass = getattr(self, "layoutPass", 0) + 1
         self.pageNumberResets = []
+        #: (page, name, value) for each string-set, as the pages are drawn.
+        self.stringSets: list[tuple[int, str, str]] = []
         self.pdfInserts = []
         self.pageTaken = False
 
@@ -298,6 +301,9 @@ class PmlBaseDoc(BaseDocTemplate):
             for drawn in inner:
                 self.afterFlowable(drawn)
             return
+        # The named strings it sets, with the page it is on, for string().
+        for name, value in getattr(flowable, "stringSets", ()):
+            self.stringSets.append((self.page, name, value))
         # Does the flowable contain fragments?
         if getattr(flowable, "outline", False):
             self.notify(
@@ -480,9 +486,11 @@ class PmlPageTemplate(PageTemplate):
     def afterDrawPage(self, canvas: Canvas, doc):
         # After the page's flow, before showPage: the absolute and fixed
         # boxes paint over everything in the flow, in z-index order.
+        from xhtml2pdf.builders.margin_boxes import paint_margin_boxes
         from xhtml2pdf.builders.position import paint_positioned
 
         paint_positioned(canvas, doc, self)
+        paint_margin_boxes(canvas, doc, self)
         draw_marks(canvas, self.pagesize, self.bleed, self.marks)
 
     def beforeDrawPage(self, canvas: Canvas, doc):
@@ -1108,8 +1116,14 @@ class PmlImage(Flowable, PmlMaxHeightMixIn):
         #     renderPDF.draw(drawing, self.canv, 0, 0)
         # else:
         img = self.getImage()
-        with roundedClip(self.canv, self, 0, 0, self.dWidth, self.dHeight):
-            self.canv.drawImage(img, 0, 0, self.dWidth, self.dHeight, mask=self._mask)
+
+        def paint() -> None:
+            with roundedClip(self.canv, self, 0, 0, self.dWidth, self.dHeight):
+                self.canv.drawImage(
+                    img, 0, 0, self.dWidth, self.dHeight, mask=self._mask
+                )
+
+        paint_with_opacity(self.canv, getattr(self, "opacity", 1.0), paint)
 
     def identity(self, maxLen=None):
         return Flowable.identity(self, maxLen)
@@ -1518,6 +1532,9 @@ class PmlTable(Table, PmlMaxHeightMixIn):
     #: Whether the table is as wide as its content rather than the frame:
     #: what an auto margin asks of a table with no width of its own (#562).
     shrinkToFit = False
+    #: Whether a flex item holds the table: its automatic columns follow
+    #: their content and share what room is left in proportion.
+    fitContent = False
     #: A CSS height, in points: the least the table is high. Rows shorter
     #: than that share the difference, as in a browser; content taller than
     #: that makes the table taller.
@@ -1570,6 +1587,10 @@ class PmlTable(Table, PmlMaxHeightMixIn):
         if not parts and self._mayCutInsideRow():
             parts = self._splitInsideRow(availWidth - self._margins(), availHeight)
             inRow = True
+            if not parts:
+                shrunk = self._shrinkSpannedRows(availWidth, availHeight)
+                if shrunk:
+                    return shrunk
         for part in parts:
             part.marginLeft, part.marginRight = self.marginLeft, self.marginRight
             part.splitInRow = 0
@@ -1659,6 +1680,67 @@ class PmlTable(Table, PmlMaxHeightMixIn):
             parts[0]._argH[-1] = None
             parts[1]._argH[self._repeatCount()] = None
         return parts
+
+    def _getFirstPossibleSplitRowPosition(self, availHeight, ignoreSpans=0):
+        """ReportLab's split row, unless _shrinkSpannedRows has chosen one."""
+        forced = getattr(self, "_forcedSplitRow", None)
+        if forced is not None:
+            return forced
+        return Table._getFirstPossibleSplitRowPosition(
+            self, availHeight, ignoreSpans=ignoreSpans
+        )
+
+    def _shrinkSpannedRows(self, availWidth, availHeight) -> list:
+        """
+        The rows a rowspan holds together, shrunk to fit, and the rest; or [].
+
+        For a row too tall for any page that a rowspan crosses: it cannot be
+        cut inside (see _splitInsideRow), nor can the table between the rows
+        the span joins, so the conversion used to stop with a LayoutError.
+        The table is cut after the last row of the span instead, and that
+        first part is shrunk to the room there is, with a warning.
+        """
+        n = self._getFirstPossibleSplitRowPosition(availHeight, ignoreSpans=1)
+        spans = [
+            span
+            for span in getattr(self, "_spanRanges", {}).values()
+            if span is not None and span[1] != span[3] and span[1] <= n <= span[3]
+        ]
+        if n >= self._nrows or not spans:
+            return []
+        end = max(span[3] for span in spans) + 1
+        log.warning(
+            "A table row too tall for a page is held to its neighbours by a"
+            " rowspan, so it cannot be cut: rows %d to %d are shrunk to fit",
+            min(span[1] for span in spans) + 1,
+            end,
+        )
+        self._forcedSplitRow = end
+        try:
+            parts = (
+                [self]
+                if end >= self._nrows
+                else Table.split(self, availWidth - self._margins(), 1e9)
+            )
+        finally:
+            del self._forcedSplitRow
+        if not parts:
+            return []
+        for part in parts:
+            part.marginLeft, part.marginRight = self.marginLeft, self.marginRight
+        head = parts[0]
+        if head is self:
+            head = copy.copy(self)
+            head.split = lambda *_args, **_kw: []
+        return [
+            PmlKeepInFrame(
+                maxWidth=availWidth,
+                maxHeight=availHeight,
+                content=[head],
+                mode="shrink",
+            ),
+            *parts[1:],
+        ]
 
     def _splitCell(self, value, style, oldHeight, newHeight, width):
         if hasattr(self, "_splitRow"):
@@ -1805,7 +1887,11 @@ class PmlTable(Table, PmlMaxHeightMixIn):
         return width + self._margins(), height
 
     def drawOn(self, canvas, x, y, _sW=0):
-        Table.drawOn(self, canvas, x + self.marginLeft, y, _sW)
+        paint_with_opacity(
+            canvas,
+            getattr(self, "opacity", 1.0),
+            lambda: Table.drawOn(self, canvas, x + self.marginLeft, y, _sW),
+        )
 
     def _contentColumnWidths(self, availWidth: float) -> list[float] | None:
         """
@@ -1841,6 +1927,22 @@ class PmlTable(Table, PmlMaxHeightMixIn):
                 result[i] = lows[i]
         return result
 
+    def _fillWidth(self, widths: list[float], availWidth: float) -> list[float]:
+        """
+        ``widths`` with the room they leave shared among the automatic
+        columns in proportion to their widths, so that the table fills
+        ``availWidth``; columns with a width of their own keep it.
+        """
+        auto = [i for i, w in enumerate(self._colWidths) if w is None]
+        grown = sum(widths[i] for i in auto)
+        room = availWidth - sum(widths)
+        if room <= 0 or grown <= 0:
+            return widths
+        result = list(widths)
+        for i in auto:
+            result[i] += room * widths[i] / grown
+        return result
+
     def _wrapInside(self, availWidth, availHeight):
         self.setMaxHeight(availHeight)
 
@@ -1849,9 +1951,11 @@ class PmlTable(Table, PmlMaxHeightMixIn):
             self.totalWidth = availWidth
 
         newColWidths = self._colWidths
-        if self.shrinkToFit and self.totalWidth is None:
+        if (self.shrinkToFit or self.fitContent) and self.totalWidth is None:
             content = self._contentColumnWidths(availWidth)
             if content is not None:
+                if self.fitContent:
+                    content = self._fillWidth(content, availWidth)
                 newColWidths[:] = content
                 self.totalWidth = min(sum(content), availWidth)
 

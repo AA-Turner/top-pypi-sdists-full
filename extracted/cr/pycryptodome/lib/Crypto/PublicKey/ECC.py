@@ -37,7 +37,6 @@ import struct
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Literal,
     Optional,
     TypedDict,
@@ -56,6 +55,7 @@ from Crypto.PublicKey import (
 )
 from Crypto.Random import get_random_bytes
 from Crypto.Util._bytes import tobytes
+from Crypto.Util._typing import RNG
 from Crypto.Util.asn1 import DerBitString, DerObjectId, DerOctetString, DerSequence
 
 from ._point import CurveID as _CurveID
@@ -66,7 +66,6 @@ if TYPE_CHECKING:
 
     from Crypto.IO._PBES import ProtParams
 
-RNG = Callable[[int], bytes]
 Int = Union[int, Integer]
 
 
@@ -768,6 +767,11 @@ def construct(**kwargs: Unpack[ConstructParams]) -> EccKey:
     else:
         if None not in (point_x, point_y):
             params["point"] = EccPoint(point_x, point_y, curve_name)
+            # SEC1 3.2.2.1: on the NIST P curves and secp256k1, the public key
+            # cannot be the point at infinity, which EccPoint represents as (0, 0).
+            # ECDSA would accept any (r, s) with r = x((z/s)G) for it.
+            if curve.is_weierstrass and params["point"].is_point_at_infinity():
+                raise ValueError("The point at infinity is not a valid public key")
         new_key = EccKey(**params)
 
         # Validate that the private key matches the public one

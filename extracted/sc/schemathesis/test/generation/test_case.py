@@ -1,8 +1,13 @@
 import copy
 import json
 import re
+import socket
+import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from unittest.mock import ANY
+from urllib.parse import urlsplit
 
 import fastapi
 import flask
@@ -19,14 +24,15 @@ from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transforms import merge_at
+from schemathesis.core.transforms import deepclone, merge_at
 from schemathesis.core.transport import USER_AGENT, Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.specs.openapi.checks import content_type_conformance, response_schema_conformance
 from schemathesis.transport.prepare import get_default_headers
 from test.apps.catalog.graphql.bookstore import books
-from test.utils import run_given
+from test.fixtures.app_runner import accept_connections
+from test.utils import refusing_url, run_given
 
 
 @pytest.fixture
@@ -64,25 +70,18 @@ def schema_with_payload(ctx):
 
 
 def test_make_case_explicit_media_type(schema_with_payload):
-    # When there is only one possible media type
-    # And the `media_type` argument is passed to `make_case` explicitly
     for method in ("POST", "PUT", "PATCH"):
         case = schema_with_payload["/data"][method].Case(body="<foo></foo>", media_type="text/xml")
-        # Then this explicit media type should be in `case`
         assert case.media_type == "text/xml"
 
 
 def test_make_case_automatic_media_type(schema_with_payload):
-    # When there is only one possible media type
-    # And the `media_type` argument is not passed to `make_case`
     for method in ("POST", "PUT", "PATCH"):
         case = schema_with_payload["/data"][method].Case(body="foo")
-        # Then it should be chosen automatically
         assert case.media_type == "text/plain"
 
 
 def test_make_case_missing_media_type(ctx):
-    # When there are multiple available media types
     schema = ctx.openapi.load_schema(
         {
             "/data": {
@@ -99,12 +98,11 @@ def test_make_case_missing_media_type(ctx):
             },
         }
     )
-    # And the `media_type` argument is not passed to `make_case`
-    # Then there should be a usage error
     with pytest.raises(IncorrectUsage):
         schema["/data"]["POST"].Case(body="foo")
 
 
+# Masking works on copies; the case keeps the values it sends.
 @pytest.mark.parametrize(
     ("kwargs", "expected"),
     [
@@ -113,12 +111,87 @@ def test_make_case_missing_media_type(ctx):
             {"path_parameters": {"name": "test"}, "query": {"q": 1}},
             "Case(path_parameters={'name': 'test'}, query={'q': 1})",
         ),
+        (
+            {"path_parameters": {"name": "test", "token": "abc"}},
+            "Case(path_parameters={'name': 'test', 'token': '[Filtered]'})",
+        ),
+        (
+            {"headers": {"Authorization": "Basic dXNlcjpwYXNz", "X-Trace": "1"}},
+            "Case(headers={'Authorization': '[Filtered]', 'X-Trace': '1'})",
+        ),
+        (
+            {"cookies": {"session": "abc", "theme": "dark"}},
+            "Case(cookies={'session': '[Filtered]', 'theme': 'dark'})",
+        ),
+        (
+            {"headers": {"Cookie": "session=abc; theme=dark"}},
+            "Case(headers={'Cookie': 'session=[Filtered]; theme=dark'})",
+        ),
+        (
+            {"query": {"api_key": "abc", "ids": [1, 2]}},
+            "Case(query={'api_key': '[Filtered]', 'ids': [1, 2]})",
+        ),
+        (
+            {"body": {"user": {"password": "abc", "name": "x"}, "tags": [{"secret": "abc"}]}},
+            "Case(body={'user': {'password': '[Filtered]', 'name': 'x'}, 'tags': [{'secret': '[Filtered]'}]})",
+        ),
+        ({"body": [{"password": "abc"}]}, "Case(body=[{'password': '[Filtered]'}])"),
+        ({"body": "password=abc"}, "Case(body='password=abc')"),
+        ({"body": {1: "x", "token": "s"}}, "Case(body={1: 'x', 'token': '[Filtered]'})"),
+    ],
+    ids=[
+        "path",
+        "path-and-query",
+        "sensitive-path",
+        "sensitive-header",
+        "sensitive-cookie",
+        "cookie-header",
+        "sensitive-query",
+        "nested-object-body",
+        "array-body",
+        "string-body",
+        "non-string-key-body",
     ],
 )
 def test_case_repr(ctx, kwargs, expected):
-    operation = ctx.openapi.load_operation("GET /users/{name}", {"responses": {"200": {"description": "OK"}}})
-    case = operation.Case(**kwargs)
-    assert repr(case) == expected
+    operation = ctx.openapi.load_operation(
+        "POST /users/{name}",
+        {
+            "requestBody": {"content": {"application/json": {"schema": {}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(**deepclone(kwargs))
+    assert (repr(case), {name: getattr(case, name) for name in kwargs}) == (expected, kwargs)
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (
+            {"auth": {"basic": {"username": "user", "password": "pass"}}},
+            "Case(headers={'Authorization': '[Filtered]'})",
+        ),
+        ({"headers": {"X-API-Key": "abc"}}, "Case(headers={'X-API-Key': '[Filtered]'})"),
+        (
+            {"headers": {"X-API-Key": "abc"}, "output": {"sanitization": {"replacement": "***"}}},
+            "Case(headers={'X-API-Key': '***'})",
+        ),
+        (
+            {
+                "auth": {"basic": {"username": "user", "password": "pass"}},
+                "output": {"sanitization": {"enabled": False}},
+            },
+            "Case(headers={'Authorization': 'Basic dXNlcjpwYXNz'})",
+        ),
+    ],
+    ids=["auth-basic", "headers", "custom-replacement", "sanitization-disabled"],
+)
+def test_generated_case_repr_follows_output_sanitization(ctx, config, expected):
+    operation = ctx.openapi.load_operation(
+        "GET /users", {"responses": {"200": {"description": "OK"}}}, config=schemathesis.Config.from_dict(config)
+    )
+    assert [repr(case) for case in generate_many(operation.as_strategy(), 1)] == [expected]
 
 
 @pytest.mark.parametrize("override", [False, True])
@@ -158,10 +231,8 @@ def test_mutate_body(ctx):
 
 def test_reserved_characters_in_operation_name(ctx):
     # See GH-992
-    # When an API operation name contains `:`
     operation = ctx.openapi.load_operation("GET /foo:bar", {"responses": {"200": {"description": "OK"}}})
     case = operation.Case()
-    # Then it should not be truncated during API call
     assert case.as_transport_kwargs("/")["url"] == "/foo:bar"
 
 
@@ -211,9 +282,7 @@ def test_as_transport_kwargs_override_content_type(ctx, header):
         }
     )
     case = schema["/data"]["post"].Case(body="<html></html>", media_type="text/plain")
-    # When the `Content-Type` header is explicitly passed
     data = case.as_transport_kwargs(headers={header: "text/html"})
-    # Then it should be used in network requests
     assert data == {
         "method": "POST",
         "data": b"<html></html>",
@@ -282,7 +351,6 @@ _GENERATED_BODIES = [None, {"name": 1}, b"generated bytes"]
 
 @pytest.fixture(params=["requests", "wsgi", "asgi"])
 def payload_target(request, ctx):
-    """The payload operation over each transport, and a reader for the body the application received."""
     if request.param == "asgi":
         received: list[bytes] = []
         app = FastAPI()
@@ -324,7 +392,6 @@ def test_metadata_has_only_relevant_components(ctx):
         max_examples=10,
     )
     def test(case):
-        # Metadata should only contain components relevant to the API operation
         assert len(case.meta.components) == 1
         assert ParameterLocation.QUERY in case.meta.components
 
@@ -414,6 +481,24 @@ def test_validate_response_no_errors(ctx, response_factory):
     assert case.validate_response(response_factory.requests(status_code=200)) is None
 
 
+@pytest.mark.parametrize(
+    "validate",
+    [
+        lambda case, response: case.validate_response(response),
+        lambda case, response: case.operation.validate_response(response),
+    ],
+    ids=["case", "operation"],
+)
+def test_validate_response_unsupported_response_type(ctx, validate):
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
+    with pytest.raises(IncorrectUsage) as exc_info:
+        validate(operation.Case(), {"status": 200})
+    assert str(exc_info.value) == (
+        "Unsupported response type: `dict`. Expected one of: `requests.Response`, `httpx.Response`, "
+        "`httpx2.Response`, `werkzeug.test.TestResponse` or `schemathesis.Response`."
+    )
+
+
 def test_validate_response_custom_check_raising_while_handling_error(ctx, response_factory):
     operation = ctx.openapi.load_operation("GET /x", {"responses": {"200": {"description": "OK"}}})
     case = operation.Case()
@@ -428,6 +513,118 @@ def test_validate_response_custom_check_raising_while_handling_error(ctx, respon
         case.validate_response(response_factory.requests(content=b"{}"), checks=[has_id])
     assert [(failure.title, failure.message) for failure in exc.value.exceptions] == [
         ("Custom check failed: `has_id`", "Missing `id`")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("id_message", "name_message", "expected"),
+    [
+        (
+            "Missing `id`",
+            "Missing `name`",
+            "Schemathesis found 4 distinct failures\n\n"
+            "- ST101 Server error\n\n"
+            "- ST901 Custom check failed: `has_id`\n\n"
+            "    Missing `id`\n\n"
+            "- ST901 Custom check failed: `has_name`\n\n"
+            "    Missing `name`\n\n"
+            "- ST103 Undocumented status code\n\n"
+            "    Received: 500\n"
+            "    Documented: 200\n\n"
+            "[500] Internal Server Error:\n\n"
+            "    `{}`\n\n"
+            "Reproduce with:\n\n"
+            "    curl -X GET --insecure http://127.0.0.1/items\n\n",
+        ),
+        (
+            "",
+            "",
+            "Schemathesis found 4 distinct failures\n\n"
+            "- ST101 Server error\n\n"
+            "- ST901 Custom check failed: `has_id`\n\n"
+            "- ST901 Custom check failed: `has_name`\n\n"
+            "- ST103 Undocumented status code\n\n"
+            "    Received: 500\n"
+            "    Documented: 200\n\n"
+            "[500] Internal Server Error:\n\n"
+            "    `{}`\n\n"
+            "Reproduce with:\n\n"
+            "    curl -X GET --insecure http://127.0.0.1/items\n\n",
+        ),
+    ],
+    ids=["distinct-messages", "equal-messages"],
+)
+def test_validate_response_orders_failures_by_severity_and_kind(
+    ctx, response_factory, id_message, name_message, expected
+):
+    operation = ctx.openapi.load_operation("GET /items", {"responses": {"200": {"description": "OK"}}})
+
+    def has_name(ctx, response, case):
+        raise AssertionError(name_message)
+
+    def has_id(ctx, response, case):
+        raise AssertionError(id_message)
+
+    with pytest.raises(FailureGroup) as exc:
+        operation.Case().validate_response(
+            response_factory.core(status_code=500, url="http://127.0.0.1/items"), additional_checks=[has_name, has_id]
+        )
+    assert (exc.value.message, [failure.title for failure in exc.value.exceptions]) == (
+        expected,
+        [
+            "Server error",
+            "Custom check failed: `has_id`",
+            "Custom check failed: `has_name`",
+            "Undocumented status code",
+        ],
+    )
+
+
+def validate_with_case(case, response):
+    case.validate_response(response, checks=[response_schema_conformance])
+
+
+def validate_with_operation(case, response):
+    case.operation.validate_response(response)
+
+
+@pytest.mark.parametrize("validate", [validate_with_case, validate_with_operation], ids=["case", "operation"])
+def test_failure_in_hypothesis_test_is_shrunk(ctx, response_factory, validate):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [{"name": "price", "in": "query", "required": True, "schema": {"type": "integer"}}],
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"low": {"maximum": 100}, "high": {"maximum": 100}},
+                            }
+                        }
+                    },
+                }
+            },
+        },
+    )
+
+    with pytest.raises(FailureGroup) as exc:
+
+        @run_given(
+            case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE),
+            max_examples=10,
+            derandomize=True,
+            phases=[Phase.generate, Phase.shrink],
+        )
+        def test(case):
+            price = case.query["price"]
+            validate(case, response_factory.requests(content=json.dumps({"low": price, "high": price}).encode()))
+
+    assert sorted((failure.instance_path, failure.instance) for failure in exc.value.exceptions) == [
+        (["high"], 101),
+        (["low"], 101),
     ]
 
 
@@ -525,9 +722,24 @@ def test_method_suggestion_without_parameters(swagger_20):
         swagger_20["/users"]["PUT"]
 
 
+@pytest.mark.parametrize("method", ["PUT", "MOVE"], ids=["standard", "non-standard"])
+def test_method_suggestion_lists_additional_operations(ctx, method):
+    schema = ctx.openapi.load_schema(
+        {
+            "/files": {
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "additionalOperations": {"COPY": {"responses": {"201": {"description": "Copied"}}}},
+            }
+        },
+        version="3.2.0",
+    )
+    with pytest.raises(LookupError, match=f"Method `{method}` not found. Available methods: GET, COPY$"):
+        schema["/files"][method]
+
+
 def test_method_lookup_on_path_without_operations(ctx):
     schema = ctx.openapi.load_schema({"/users": {"parameters": []}})
-    assert len(schema["/users"]) == 1
+    assert len(schema["/users"]) == 0
     with pytest.raises(LookupError, match="^Method `GET` not found.$"):
         schema["/users"]["GET"]
 
@@ -535,7 +747,6 @@ def test_method_lookup_on_path_without_operations(ctx):
 @pytest.mark.parametrize("mode", list(GenerationMode))
 @pytest.mark.hypothesis_nested
 def test_generation_mode_is_available(ctx, mode):
-    # When a new case is generated
     operation = ctx.openapi.load_operation(
         "POST /data",
         {
@@ -549,7 +760,6 @@ def test_generation_mode_is_available(ctx, mode):
 
     @run_given(case=operation.as_strategy(generation_mode=mode), max_examples=1)
     def test(case):
-        # Then its generator mode should be available
         assert case.meta.generation.mode == mode
 
 
@@ -620,12 +830,10 @@ def test_case_insensitive_headers(ctx):
             "responses": {"200": {"description": "OK"}},
         },
     )
-    # When headers are generated
 
     @run_given(case=operation.as_strategy(), max_examples=1)
     def test(case):
         assert "X-id" in case.headers
-        # Then they are case-insensitive
         case.headers["x-ID"] = "foo"
         assert len(case.headers) == 1
         assert case.headers["X-id"] == "foo"
@@ -661,7 +869,6 @@ def test_checks_errors_deduplication(ctx, response_factory, factory_type):
     )
     case = operation.Case()
     response = getattr(response_factory, factory_type)(content=b"42", content_type=None)
-    # When there are two checks that raise the same failure
     with pytest.raises(FailureGroup) as exc:
         case.validate_response(response, checks=(content_type_conformance, response_schema_conformance))
     assert len(exc.value.exceptions) == 1
@@ -675,7 +882,6 @@ def test_validate_response_failure_is_catchable_from_public_errors(ctx, response
 
 
 def test_operation_hash(openapi_30):
-    # API Operations should be hashable
     _ = {i.ok() for i in openapi_30.get_all_operations()}
 
 
@@ -854,6 +1060,58 @@ def test_call_timeout_override(app_runner, echo_app, with_config):
     assert case.call(timeout=42).status_code == 200
 
 
+@contextmanager
+def stalled_body_url() -> Iterator[str]:
+    release = threading.Event()
+
+    def stall(connection):
+        with connection:
+            connection.recv(65536)
+            connection.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 20\r\n\r\n{")
+            release.wait()
+
+    with socket.create_server(("127.0.0.1", 0)) as listener:
+        accept_connections(listener, stall)
+        try:
+            yield f"http://127.0.0.1:{listener.getsockname()[1]}"
+        finally:
+            release.set()
+
+
+@pytest.mark.parametrize(
+    ("server", "error", "expected"),
+    [
+        (
+            refusing_url,
+            requests.ConnectionError,
+            "HTTPConnectionPool(host='127.0.0.1', port={port}): Max retries exceeded with url: /items?api_key=%5BFiltered%5D",
+        ),
+        (
+            stalled_body_url,
+            requests.ReadTimeout,
+            "http://127.0.0.1:{port}/items?api_key=%5BFiltered%5D: Read timed out. (read timeout=0.5)",
+        ),
+    ],
+    ids=["refused", "body-timeout"],
+)
+def test_call_network_error_masks_sensitive_query(ctx, server, error, expected):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [{"name": "api_key", "in": "query", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    with server() as base_url, pytest.raises(error) as exc_info:
+        operation.Case(query={"api_key": "s3cr3t"}).call(base_url=base_url, timeout=0.5)
+    # The cause urllib3 appends to a connection error is worded differently on each platform
+    message = str(exc_info.value).partition(" (Caused by")[0]
+    assert [message, *exc_info.value.__notes__] == [
+        expected.format(port=urlsplit(base_url).port),
+        f"\nReproduce with:\n\n    curl -X GET '{base_url}/items?api_key=%5BFiltered%5D'",
+    ]
+
+
 def test_merge_at():
     data = {"params": {"A": 1}}
     merge_at(data, "params", {"B": 2})
@@ -992,10 +1250,11 @@ def test_parameter_containers_for_locations_without_parameters(ctx):
     assert list(operation.get_bodies_for_media_type("application/json")) == []
 
 
-def test_formatted_path(ctx):
+@pytest.mark.parametrize("value", ["test", "{x}", "a}b"], ids=["plain", "braces", "closing-brace"])
+def test_formatted_path(ctx, value):
     operation = ctx.openapi.load_operation("GET /users/{name}", {"responses": {"200": {"description": "OK"}}})
-    case = operation.Case(path_parameters={"name": "test"})
-    assert case.formatted_path == "/users/test"
+    case = operation.Case(path_parameters={"name": value})
+    assert case.formatted_path == f"/users/{value}"
 
 
 def test_formatted_path_missing_parameter(ctx):

@@ -1,4 +1,5 @@
 import dataclasses
+import re
 import unicodedata
 
 import pytest
@@ -11,7 +12,7 @@ from nameparser._pipeline._tokenize import tokenize
 from nameparser import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST,
                         Parser, _policy)
 from nameparser._policy import Policy, Script
-from nameparser._types import Role
+from nameparser._types import Role, Span
 
 
 def _tokenized(text: str, policy: Policy | None = None) -> ParseState:
@@ -94,6 +95,73 @@ def test_emoji_and_bidi_are_ignorable_by_policy() -> None:
     assert [t.text for t in out2.tokens] == ["John", "\U0001f600Smith"]
 
 
+
+def test_the_separator_classes_hold_their_parts_over_every_code_point() -> None:
+    # #1436: the ignorable set is a regex class built from its parts, so
+    # a region is scanned in C; held here, over every code point, to the
+    # parts as their own predicates state them (str.isspace, the two
+    # sets, the emoji ranges, _BIDI_CHARS), for each setting of the two
+    # strip switches, and the boundary class to the ignorable one plus
+    # the commas and transcription dots. Each class is matched whole, in
+    # C. It guards how the classes are ASSEMBLED, not which characters
+    # belong: the classes are built from _BIDI_CHARS too, so a mark
+    # dropped from it passes here.
+    from nameparser._pipeline._state import COMMA_CHARS
+    everything = "".join(map(chr, range(0x110000)))
+    space = {c for c, ch in enumerate(everything) if ch.isspace()}
+    bidi = {m.start() for m in re.finditer(f"[{_tokenize._BIDI_CHARS}]",
+                                           everything)}
+    emoji = {c for lo, hi in _tokenize._EMOJI_RANGES
+             for c in range(lo, hi + 1)}
+    always = space | {ord(ch) for ch in _tokenize._NAME_DOT_SEPARATORS
+                      | _tokenize._INVISIBLE_SEPARATORS}
+    context = {ord(ch) for ch in COMMA_CHARS | _tokenize._TRANSCRIPTION_DOTS}
+
+    def matched(pattern: re.Pattern[str] | None) -> set[int]:
+        return ({m.start() for m in pattern.finditer(everything)}
+                if pattern is not None else set())
+
+    for key in _tokenize._SWITCHES:
+        strip_bidi, strip_emoji = key
+        stripped = (bidi if strip_bidi else set()) | (
+            emoji if strip_emoji else set())
+        assert matched(_tokenize._STRIPPED[key]) == stripped, key
+        assert matched(_tokenize._IGNORABLE[key]) == always | stripped, key
+        assert matched(_tokenize._BOUNDARY[key]) == (
+            always | stripped | context), key
+    # the two readers of the classes, one member of each part and a
+    # letter, under every setting: the mixed two are where a reader
+    # picking its class by the switches in the wrong order shows
+    for strip_bidi, strip_emoji in _tokenize._SWITCHES:
+        policy = Policy(strip_bidi=strip_bidi, strip_emoji=strip_emoji)
+        state = ParseState(original="", lexicon=Lexicon.empty(),
+                           policy=policy)
+        for ch in (" ", "\u30fb", "\u200b", "\u200f", "\U0001f600", "a"):
+            assert _tokenize._ignorable(ch, state) == (
+                ord(ch) in always or (ord(ch) in bidi and policy.strip_bidi)
+                or (ord(ch) in emoji and policy.strip_emoji)), (policy, ch)
+            assert _tokenize._stripped(ch, policy) == (
+                (ord(ch) in bidi and policy.strip_bidi)
+                or (ord(ch) in emoji and policy.strip_emoji)), (policy, ch)
+
+
+def _region_bound(text: str, masked: tuple[Span, ...]) -> tuple[
+        list[str], tuple[int, ...]]:
+    state = tokenize(ParseState(original=text, lexicon=Lexicon.empty(),
+                                policy=Policy(), masked=masked))
+    return [t.text for t in state.tokens], state.interpunct_offsets
+
+
+def test_a_context_test_reads_no_character_across_a_region_edge() -> None:
+    # the dot's flanks and U+202F's two letters are read inside the
+    # region: a classified or Mongolian character on the far side of a
+    # mask seam is no neighbour (each row fails with the bound dropped)
+    assert _region_bound("威·廉", (Span(0, 1),)) == (["·廉"], ())
+    assert _region_bound("威·廉", (Span(2, 3),)) == (["威·"], ())
+    assert _region_bound("ᠴ\u202fᠪᠠ", (Span(0, 1),)) == (["ᠪᠠ"], ())
+    assert _region_bound("ᠴᠣ\u202fᠪ", (Span(3, 4),)) == (["ᠴᠣ"], ())
+
+
 _KEEP_ALL = Policy(strip_emoji=False, strip_bidi=False)
 
 
@@ -131,6 +199,18 @@ def test_joiners_and_soft_hyphen_stay_inside_the_word(ch: str) -> None:
     # Mongolian vowel separator shapes the letters beside it
     assert [t.text for t in _tokenized(f"ab{ch}cd ef").tokens] == [
         f"ab{ch}cd", "ef"]
+
+
+@pytest.mark.parametrize("text", [
+    "Dr\u200c John Smith",
+    # Malayalam writes a ZWJ at a word's end on purpose, an older
+    # spelling of its final consonants
+    "\u0d05\u0d28\u0d4d\u200d \u0d15\u0d41\u0d2e\u0d3e\u0d7c",
+])
+def test_an_edge_joiner_stays_in_the_token_text(text: str) -> None:
+    # #1335 drops an edge joiner where a word is LOOKED UP; the token
+    # still holds what the caller wrote
+    assert " ".join(t.text for t in _tokenized(text).tokens) == text
 
 
 def test_zero_width_space_defeats_the_flank_guard_like_a_space() -> None:
@@ -457,3 +537,20 @@ def test_full_name_before_an_ethiopic_suffix_comma(
         order: tuple[Role, Role, Role], expect: dict[str, str]) -> None:
     name = Parser(policy=Policy(name_order=order)).parse("አበበ ከበደ፣ Jr.")
     assert {k: v for k, v in name.as_dict().items() if v} == expect
+
+
+@pytest.mark.parametrize("text, held", [
+    ('Jon "Nick Smith', ['"Nick']),    # the offset opens its token
+    ('"John Smith', ['"John']),        # offset 0, the first token
+    ("John Smith)", ["Smith)"]),       # the offset ends its token
+    ('John Smith "', ['"']),           # a lone delimiter, the last token
+])
+def test_a_stray_delimiters_report_points_at_the_token_holding_it(
+        text: str, held: list[str]) -> None:
+    # extract reports a stray delimiter by its character offset, and
+    # tokenize rewrites the offset to the index of the token holding the
+    # character, by bisecting the token starts: a row at each end of a
+    # token, and at each end of the name
+    out = _tokenized(text)
+    assert [out.tokens[i].text for a in out.ambiguities
+            for i in a.indices] == held

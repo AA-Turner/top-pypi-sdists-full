@@ -28,7 +28,7 @@ def _family():
 
 def test_the_family_ships_on_the_eznec_client():
     family = _family()
-    assert "momwire-nec5" in family and "momwire-nec5-razor-2p" in family
+    assert "momwire-nec5" in family and "momwire-nec5-razor2p" in family
     assert set(family.values()) == {"momwire_eznec_client:main"}
 
 
@@ -41,7 +41,13 @@ def test_every_name_reads_as_a_nec5_engine_to_simnec():
 def test_no_name_offers_a_basis_that_refuses_nec5_decks():
     """NEC-5 drives at KNOTS; the centre-fed bases refuse every NEC-5 deck,
     so they get no nec5 name."""
-    bases = {mech.filename_basis(n, "nec5-") for n in _family()} - {None}
+    from momwire._basis_names import BASIS_ALIASES
+
+    # #2091's deprecated spellings resolve through the alias table.
+    bases = {
+        BASIS_ALIASES.get(b, b)
+        for b in (mech.filename_basis(n, "nec5-") for n in _family())
+    } - {None}
     assert bases <= set(BASES)
     assert not bases & {"sinusoidal", "pulse"}
 
@@ -50,11 +56,11 @@ def test_no_name_offers_a_basis_that_refuses_nec5_decks():
     ("prog", "basis"),
     [
         ("momwire-nec5", None),
-        ("momwire-nec5-razor-2p", "razor-2p"),
-        ("/usr/local/bin/momwire-nec5-bspline-d1", "bspline-d1"),
+        ("momwire-nec5-razor2p", "razor2p"),
+        ("/usr/local/bin/momwire-nec5-bs1", "bs1"),
         ("C:\\tools\\Momwire-Nec5-Razor-2p.exe", "razor-2p"),
         # The EZNEC spellings keep their meaning, the old alias included.
-        ("momwire-eznec-client-razor-2p", "razor-2p"),
+        ("momwire-eznec-client-razor2p", "razor2p"),
         ("momwire-eznec-client-razor-nec5", "razor-nec5"),
         ("momwire-eznec-client", None),
     ],
@@ -77,6 +83,6 @@ def test_the_basis_rides_on_the_name(prog, basis, monkeypatch, tmp_path):
 
 
 def test_the_version_probe_answers_under_a_nec5_name(capsys, monkeypatch):
-    monkeypatch.setattr("sys.argv", ["momwire-nec5-razor-2p", "-version"])
+    monkeypatch.setattr("sys.argv", ["momwire-nec5-razor2p", "-version"])
     assert eznec_client.main(None) == 0
-    assert capsys.readouterr().out.startswith("NEC5 momwire-nec5-razor-2p [sb] ")
+    assert capsys.readouterr().out.startswith("NEC5 momwire-nec5-razor2p [sb] ")

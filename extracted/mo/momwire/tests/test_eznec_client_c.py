@@ -55,8 +55,8 @@ DECKS = Path(__file__).resolve().parent / "fixtures" / "eznec" / "decks"
 # momwire#1583, and the client must never be called that — it would spawn
 # itself.
 CLIENT_NAME = "momwire-eznec"
-TWIN_NAME = "momwire-eznec-razor-nec5"
-TWIN_BASIS = "razor-nec5"
+TWIN_NAME = "momwire-eznec-razor2p"
+TWIN_BASIS = "razor2p"
 ENGINE_NAME = "momwire-engine"
 
 # A name that asked for a basis and spelt none: the marker with nothing after
@@ -68,7 +68,7 @@ EMPTY_NAME = "momwire-eznec-"
 # in the engine path, so the same launcher ships again under these names and
 # reads the basis past `nec5-` when `eznec-` is absent.
 NEC5_NAME = "momwire-nec5"
-NEC5_TWIN_NAME = "momwire-nec5-razor-2p"
+NEC5_TWIN_NAME = "momwire-nec5-razor2p"
 
 # smoke.py's gate-4 deck: a free-space dipole every basis hosts and on which
 # the two SHIPPED bases disagree — bspline answers 85.073+45.369j where
@@ -433,12 +433,12 @@ def test_a_variant_named_copy_answers_in_the_basis_its_name_claims(
 @pytest.mark.integration
 @pytest.mark.slow
 def test_a_nec5_named_copy_answers_in_the_basis_past_the_marker(client_exe, tmp_path):
-    """momwire#1239: ``momwire-nec5-razor-2p`` serves razor-2p, not the
+    """momwire#1239: ``momwire-nec5-razor2p`` serves razor2p, not the
     default — the same anti-coincidence pair as the EZNEC twin's gate."""
     bundle = _bundle(client_exe, _ENGINE_SHIM, names=(NEC5_TWIN_NAME,))
     room = _room()
     deck = _deck(BASIS_DECK)
-    expected = _oracle(deck, tmp_path, basis="razor-2p")
+    expected = _oracle(deck, tmp_path, basis="razor2p")
     assert expected != _oracle(deck, tmp_path), "the gate's deck stopped disagreeing"
     try:
         out = tmp_path / "nec5-twin.out"
@@ -529,7 +529,7 @@ def test_a_named_empty_basis_never_shares_the_defaults_server(client_exe, tmp_pa
         pytest.param(CLIENT_NAME, "default", id="unnamed"),
         # The nec5 names key the SAME servers as their EZNEC twins: the
         # element is the basis, never the spelling that selected it.
-        pytest.param(NEC5_TWIN_NAME, "basis=razor-2p", id="nec5-named"),
+        pytest.param(NEC5_TWIN_NAME, "basis=razor2p", id="nec5-named"),
         pytest.param(NEC5_NAME, "default", id="nec5-unnamed"),
     ],
 )
@@ -558,6 +558,7 @@ def test_the_key_is_the_d2_digest_and_not_a_private_hash(
             os.path.realpath(str(bundle / ENGINE_NAME)),
             repr(900.0),
             mech.WIRE,
+            mech.ADVISORIES_WIRE,
             basis_element,
             # momwire#1979: the environment this run inherits (an xdist
             # worker pins the thread counts), appended as Python appends it.
@@ -675,6 +676,7 @@ def test_a_nec4_named_copy_answers_the_nec42_slot_on_its_own_server(
             os.path.realpath(str(bundle / ENGINE_NAME)),
             repr(900.0),
             mech.WIRE,
+            mech.ADVISORIES_WIRE,
             "dialect=nec4",
             "basis=sinusoidal",
             *_python_env_elements(),
@@ -742,7 +744,7 @@ def _flag_value(args: list[str], flag: str) -> str | None:
         "momwire-nec4-sinusoidal",
         "momwire-nec4-",
         "momwire-nec43",
-        "momwire-nec5-razor-2p",
+        "momwire-nec5-razor2p",
     ],
 )
 def test_the_c_name_rule_is_the_stdlib_one(client_exe, tmp_path, monkeypatch, name):
@@ -809,7 +811,7 @@ def _4nec2_oracle(tmp_path: Path, basis: str | None) -> bytes:
 @pytest.mark.integration
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    ("name", "basis"), [(NEC5_NAME, None), (NEC5_TWIN_NAME, "razor-2p")]
+    ("name", "basis"), [(NEC5_NAME, None), (NEC5_TWIN_NAME, "razor2p")]
 )
 def test_the_c_client_reads_4nec2s_names_from_stdin(client_exe, tmp_path, name, basis):
     """``ENGINE < nec2d.tmp`` against a real daemon: the names arrive on
@@ -1229,6 +1231,7 @@ def _fixed_elements(bundle: Path, name: str) -> list[str]:
         os.path.realpath(str(bundle / ENGINE_NAME)),
         repr(900.0),
         mech.WIRE,
+        mech.ADVISORIES_WIRE,
     ]
     if name == NEC4_TWIN_NAME:
         return [*head, "dialect=nec4", "basis=sinusoidal"]
@@ -1296,6 +1299,68 @@ def test_a_warm_server_never_answers_a_call_under_another_feature(client_exe, tm
         call(4, threaded)
         assert len(_listening(room)) == 3, _listening(room)
         assert len(sorted(room.glob(f"*{suffix}"))) == 3
+    finally:
+        _stop(room)
+        shutil.rmtree(bundle, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# advisories on stderr (momwire#1673 reversed)
+# --------------------------------------------------------------------------
+
+
+def _c_bytes(name: str) -> bytes:
+    """A ``static const char NAME[] = "...";`` constant's bytes."""
+    match = re.search(
+        rf'static const char {name}\[\] = "((?:[^"\\]|\\.)*)";', SOURCE.read_text()
+    )
+    assert match is not None, name
+    return match[1].encode("latin-1").decode("unicode_escape").encode("latin-1")
+
+
+def test_the_c_advisories_constants_are_the_python_ones():
+    assert _c_string("ADVISORIES_ENV") == mech.ADVISORIES_ENV
+    assert _c_string("ADVISORIES_KEY_ELEMENT") == mech.ADVISORIES_WIRE
+    assert _c_bytes("ADVISORIES_REQUEST") == mech.ADVISORIES_REQUEST
+    assert _c_bytes("ADVISORIES_FRAME_START") == mech.ADVISORIES_FRAME_START
+    assert _c_bytes("ADVISORIES_FRAME_END") == mech.ADVISORIES_FRAME_END
+    off = _c_list("ADVISORIES_OFF")
+    assert set(off) == mech._ADVISORIES_OFF and len(off) == len(mech._ADVISORIES_OFF)
+    assert all(v == v.lower() for v in off)
+
+
+_DUP_DECK = DECKS.parent.parent / "razor_printout_small" / "dup_reversed_rp_ne_pq.nec"
+
+
+@pytest.mark.integration
+def test_a_served_deck_carries_its_advisories_to_the_c_clients_stderr(
+    client_exe, tmp_path, monkeypatch
+):
+    """The Windows drop-in's launcher: a deck the warm server answers raised
+    its advisories in the server's process, and they come back framed to
+    THIS process's stderr, the second warm deck's as well as the first's.
+    ``MOMWIRE_ADVISORIES=off`` sends no request and gets none back, and the
+    printout is the one-shot's either way."""
+    bundle = _bundle(client_exe, _ENGINE_SHIM, names=(NEC5_TWIN_NAME,))
+    room = _room()
+    expected = _oracle(_DUP_DECK, tmp_path, basis="razor2p")
+    try:
+        for index, setting in enumerate((None, None, "off")):
+            out = tmp_path / f"advised-{index}.out"
+            # `_run` passes this process's environment on
+            monkeypatch.delenv("PYTHONWARNINGS", raising=False)
+            if setting is None:
+                monkeypatch.delenv("MOMWIRE_ADVISORIES", raising=False)
+            else:
+                monkeypatch.setenv("MOMWIRE_ADVISORIES", setting)
+            proc = _run(bundle, NEC5_TWIN_NAME, [str(_DUP_DECK), str(out)], room)
+            assert proc.returncode == 0
+            assert len(_listening(room)) == 1, "the deck was not served warm"
+            assert out.read_bytes() == expected
+            if setting is None:
+                assert "DuplicateWire" in proc.stderr, (index, proc.stderr[:600])
+            else:
+                assert proc.stderr == "", proc.stderr[:600]
     finally:
         _stop(room)
         shutil.rmtree(bundle, ignore_errors=True)

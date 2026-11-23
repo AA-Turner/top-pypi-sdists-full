@@ -104,10 +104,9 @@ SPLIT_PAIR_OPENS = _PH
 
 # The codepoint table lives in _policy beside Script -- one copy
 # importable from the pipeline and the locale packs alike; everything
-# here DERIVES from it. (single_script's sweep was first written
-# per-char on the _EMOJI_RANGES precedent in _tokenize.py, on the
-# theory that a range test needs no regex; measured at token scale the
-# compiled regex wins by 3-9x, and by roughly 70x on long tokens.)
+# here DERIVES from it. (A compiled class, not a per-character range
+# test: decisions/parse-cost, 2026-07-28 a102c868, holds the
+# measurement.)
 # Derived, never hand-written -- even the class construction goes
 # through the shared factory: one wholly-of predicate per script, in
 # the table's key order -- the FIRST-covering-entry rule _classify
@@ -383,17 +382,20 @@ _ROMAN = re.compile(r'^(X|IX|IV|V?I{0,3})$', re.I)
 ROMAN = _ROMAN
 
 
-# Ported verbatim from v1's patterns (the 1.x and 2.x
+# Ported from v1's patterns (the 1.x and 2.x
 # nameparser.config.regexes, removed in 3.0, #1008), the RU and TR_AZ
 # packs' copies pinned to these by tests/v2/test_locales.py: the East
 # Slavic patronymic endings and the standalone Turkic patronymic
-# markers, which rules/O1's and O2's rotations and rules/R9's reading
-# ask through the two predicates below.
+# markers, which rules/O1's and O2's rotations, rules/R9's reading and
+# the group suggester's patronymic signal (nameparser/_suggest.py) ask
+# through the two predicates below. The Ukrainian Cyrillic endings are
+# decisions/O1's (#1212).
 _EAST_SLAVIC = re.compile(
     r"(ovich|ovna|evich|evna|ichna|ilyich|kuzmich|lukich|fomich|fokich|nikitich|savvich)$",
     re.I)
 _EAST_SLAVIC_CYR = re.compile(
-    r"(ович|овна|евич|евна|ична|ильич|кузьмич|лукич|фомич|фокич|никитич|саввич)$",
+    r"(ович|овна|евич|евна|ична|ильич|івна|ївна|євич|ілліч"
+    r"|кузьмич|лукич|фомич|фокич|никитич|саввич)$",
     re.I)
 _TURKIC = re.compile(
     r"^(oglu|oğlu|ogly|ogli|o['’ʻ‘ʼ`]g['’ʻ‘ʼ`]li"
@@ -405,7 +407,13 @@ _TURKIC_CYR = re.compile(
 def has_patronymic_ending(text: str) -> bool:
     """Whether `text` ends in an East Slavic patronymic ending, Latin or
     Cyrillic ("Ivanovich", "Петрович"): rules/O1's test and, under
-    `PatronymicRule.EAST_SLAVIC`, rules/R9's."""
+    `PatronymicRule.EAST_SLAVIC`, rules/R9's. Asked of the word
+    NFC-composed, as `is_patronymic_marker` is (#1316): the Ukrainian
+    `ї` of `-ївна` decomposes to і and a combining diaeresis (#1212);
+    the fold is inline behind `isascii()` so a plain word costs no
+    frame."""
+    if not text.isascii():
+        text = unicodedata.normalize("NFC", text)
     return bool(_EAST_SLAVIC.search(text) or _EAST_SLAVIC_CYR.search(text))
 
 
@@ -625,7 +633,7 @@ def reads_as_initials(word: str, kind: SetApartKind,
     name word of its comma part, as the initials the person goes by: a
     credential written in their shape that is no generation word, and a
     word that is a title too only written with a period after each
-    letter ('R.A.') or in capitals in a name of mixed case ('RA'),
+    letter ('V.C.') or in capitals in a name of mixed case ('VC'),
     Title case reading as the title it also is and capitals in a name
     written in one case saying nothing (S6); a title alone never. A
     member of the ambiguous class counts as the credential it is
@@ -955,24 +963,43 @@ def _dotted(text: str) -> bool:
             or _CHUNKED.fullmatch(text) is not None)
 
 
+# the combining marks (Mn) Unicode names ARABIC, every block's, which
+# `_LETTER` does not count (decisions/H2): the hamza a decomposed أ or إ
+# is written with, and the short vowels, so a title's chunk and the name
+# after its stop are found in NFD text ('أ.محمد', 'أ.د.أحمد') as in NFC
+# (#1149)
+_ARABIC_MARKS = "[" + "".join(re.escape(chr(c)) for c in range(0x0600, 0x10F00) if unicodedata.category(chr(c)) == "Mn" and unicodedata.name(chr(c), "").startswith("ARABIC")) + "]"  # noqa: E501
+# a letter as T8 reads one: `_LETTER`, an Arabic mark counted with it
+_GLUED_LETTER = r"[^\W\d_](?:" + _MARKS + "|" + _ARABIC_MARKS + ")*"
 # rules/T8: "glued to the next at its full stop" -- the shapes
 # `glued_cuts` reads (decisions/T8 (#1230, #1235)): one chunk of letters
 # closed by a stop with something after it
-_GLUED_CHUNK = re.compile(r"((?:" + _LETTER + r")+)\.(?=\S)")
+_GLUED_CHUNK = re.compile(r"((?:" + _GLUED_LETTER + r")+)\.(?=\S)")
 # a run of two or more single letters closed by stops, a letter after
 # it (the name is `glued_cuts`' to find)
-_GLUED_RUN = re.compile(r"(?:" + _LETTER + r"\.){2,}(?=[^\W\d_])")
+_GLUED_RUN = re.compile(r"(?:" + _GLUED_LETTER + r"\.){2,}(?=[^\W\d_])")
 #: a letter (its marks with it, so NFD text passes), a full stop and a
 #: letter: the C-level test `_script_segment` asks before `glued_cuts`
-GLUED_SHAPE = re.compile(_LETTER + r"\.[^\W\d_]")
+GLUED_SHAPE = re.compile(_GLUED_LETTER + r"\.[^\W\d_]")
 # the Thai vowel and tone marks (Mn), which `_LETTER` does not count:
 # nearly every Thai name writes one ('สุดา', 'ใจดี'), so without them the
 # name after a Thai title's stop is never found (#1166)
 _THAI_MARKS = "[\u0e31\u0e34-\u0e3a\u0e47-\u0e4e]"
 # one word of letters, apostrophes and hyphens: what can follow a chunk
-# and be a name
+# and be a name; a zero-width non-joiner or joiner between two letters
+# is part of the word, as Persian spells one ('محمد\u200cرضا', #1149)
 _GLUED_WORD = re.compile(
-    r"(?:" + _LETTER + r")(?:" + _LETTER + "|" + _THAI_MARKS + r"|['’\-])*")
+    r"(?:" + _LETTER + r")(?:" + _LETTER + "|" + _THAI_MARKS + "|"
+    + _ARABIC_MARKS + r"|['’\-]|[\u200c\u200d](?=[^\W\d_]))*")
+
+
+def is_name_word(text: str) -> bool:
+    """Whether `text` is wholly one name word as T8 reads the name after
+    a stop: letters, apostrophes and hyphens, a letter's marks counted
+    with it and a joiner between two letters. rules/T9 asks it of the
+    name after a title's slash, so a word holding a delimiter, a digit
+    or another slash is never cut."""
+    return _GLUED_WORD.fullmatch(text) is not None
 
 
 def _is_cased_letter(chunk: str) -> bool:
@@ -1973,11 +2000,14 @@ def ambiguous_class_member(text: str, lexicon: Lexicon) -> bool:
 # default-policy parse a frame it cannot use -- does not apply: the
 # trailing position is behind `CapsSuffixes.EVERYWHERE` (classify's
 # first conjunct), and the comma decision, which IS on by default,
-# asks C-level `isalpha()`/`isupper()` and the suffix tag first, so a
-# comma name with no unlisted all-caps word never reaches it.
+# asks C-level `isalpha()`/`isupper()` (and, for the mixed-case arm,
+# the case of the word's two ends) and the suffix tag first, so a comma
+# name with no unlisted word in capitals or in that mixed case never
+# reaches it.
 def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
-                         one_case: bool | None) -> bool:
-    """Whether TEXT is an UNLISTED all-caps credential candidate: two
+                         one_case: bool | None, *,
+                         mixed_case: bool) -> bool:
+    """Whether TEXT is an UNLISTED caps-shape credential candidate: two
     or more alphabetic characters, or letter chunks joined by '-' or
     '/' (`_joined_capitals`, #752), no period (a period fails
     `isalpha()` and the joined pattern outright, which is what excludes
@@ -2015,6 +2045,13 @@ def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
     `n not in suffix_acronyms_ambiguous`, `_comma.decide`'s
     AMBIGUOUS_ACRONYM_TAG test), so a listed member never pays for
     the call.
+
+    `mixed_case` admits a mixed-case word as well (`_mixed_capitals`:
+    'DClinPsy', 'AuD'): `_comma.decide` passes True for the part after
+    a comma (rules/C6, decisions/C6 (#1517)); classify passes False at
+    every slot it tags, `CapsSuffixes.EVERYWHERE`'s trailing positions
+    included, a surname typed without its apostrophe ('ONeill',
+    'DSouza') ending a name there.
     """
     if (policy.unlisted_caps_suffixes is CapsSuffixes.OFF
             or one_case is not False):
@@ -2022,9 +2059,24 @@ def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
     if not text.isascii():
         text = unicodedata.normalize("NFC", text)
     if not (len(text) >= 2 and text.isalpha() and text.isupper()
-            or _joined_capitals(text)):
+            or _joined_capitals(text)
+            or mixed_case and _mixed_capitals(text)):
         return False
     return not in_any_wordlist(_normalize(text), lexicon)
+
+
+def _mixed_capitals(text: str) -> bool:
+    """Whether TEXT is an alphabetic mixed-case word that opens with two
+    capitals ('DClinPsy', 'MRes') or ends in one ('AuD', 'PharmD'):
+    written neither in capitals nor the way a name is, so the caps
+    shape reads it after a comma. A capital only inside the word
+    ('LeBron', 'McKenzie') is a name's writing and stays out, and so
+    does a word holding anything but letters ('Pharm-D': a mixed-case
+    joined arm would catch given names such as 'Jay-R'). TEXT is
+    NFC-composed."""
+    return (len(text) >= 2 and text.isalpha() and not text.isupper()
+            and (text[0].isupper() and text[1].isupper()
+                 or text[-1].isupper()))
 
 
 #: A word of letter chunks joined by '-' or '/' ('PU-PH', 'MD/MBA').
@@ -2059,6 +2111,15 @@ def is_caps_word(text: str) -> bool:
     return composed.isalpha() and composed.isupper()
 
 
+def is_mixed_caps_word(text: str) -> bool:
+    """Whether TEXT, once NFC-composed, is the mixed-case word the caps
+    shape reads after a comma (`_mixed_capitals`: 'MRes', 'AuD'), for
+    the comma's C-level filters, which ask it of a word neither in one
+    case nor written the way a name is, or not NFC (#652)."""
+    return _mixed_capitals(text if text.isascii()
+                           else unicodedata.normalize("NFC", text))
+
+
 def composed(text: str) -> str:
     """TEXT NFC-composed where it is not ASCII, so a letter typed as its
     base and a combining mark is one letter, as the vocabulary lookup
@@ -2087,7 +2148,7 @@ def given_name_key(text: str) -> str:
     """`text` folded as `Lexicon.given_names` is matched: the
     `_normalize` fold, with the accents and the diaeresis dropped and
     the tilde on n and the cedilla on c kept. tools/es_given_names.py
-    writes the list with this same fold."""
+    and tools/pt_given_names.py write their lists with this same fold."""
     out: list[str] = []
     for ch in unicodedata.normalize("NFD", _normalize(text)):
         if unicodedata.combining(ch) and not (
@@ -2327,9 +2388,10 @@ def unit_ends(tags: Sequence[Set[str]], chain: bool = True) -> list[int]:
     order, partitioning `range(len(tags))`: one name word each, except
     where another rule has already made several words one name -- a
     particle and the words it chains (P2), a conjunction-joined run
-    (P3), and a bound given-name word with the word it completes (P5).
-    Each element is the tag set of one token, read for "particle",
-    "conjunction", "vocab:bound-given" and "vocab:suffix".
+    (P3), a bound given-name word with the word it completes (P5), and
+    a pair P12 joined from its second word (#1072). Each element is the
+    tag set of one token, read for "particle", "conjunction",
+    "vocab:bound-given", "vocab:bound-second" and "vocab:suffix".
 
     `chain` picks how far a particle reaches. True is P2's chain: the
     particle run and every word after it up to the next stop ("van der
@@ -2374,6 +2436,10 @@ def unit_ends(tags: Sequence[Set[str]], chain: bool = True) -> list[int]:
             end = i + 1
             if "vocab:bound-given" in tags[i] and end < n:
                 end = end_of(end)
+            elif "vocab:bound-second" in tags[i] and end < n:
+                # a pair joined from its second word: the word and the
+                # one word after it (rules/P12, #1072)
+                end += 1
         while end + 1 < n and "conjunction" in tags[end]:
             end = end_of(end + 1)
         return end
@@ -2961,8 +3027,10 @@ def comma_follows_marker(word: str) -> bool:
     delimited clause, opens with a comma -- standing alone (' , ') or
     glued to the name after it (' ,Jones'). A comma glued to the marker
     itself ('née,') needs no test: that word is no marker to begin with,
-    the vocabulary storing no comma. The one predicate for extract's M3
-    test over whitespace words and group's M1 drop over tokens, which
+    the vocabulary storing no comma (and an alias marker's, which classify
+    keeps on the word for that reason, rules/N4). The one predicate for
+    extract's M3 and N4 tests over whitespace words and group's M1 and
+    N4 drops over tokens, which
     since #653 hold the same comma
     (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
 

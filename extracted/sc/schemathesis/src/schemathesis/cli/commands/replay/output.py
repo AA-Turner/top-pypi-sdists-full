@@ -12,7 +12,6 @@ from schemathesis.cli.commands.replay.executor import (
     ReplayOutcome,
     ReplayStatus,
     bodies_equal,
-    status_label,
 )
 from schemathesis.cli.core import get_terminal_width
 from schemathesis.cli.output import (
@@ -26,8 +25,9 @@ from schemathesis.cli.output import (
 from schemathesis.core import NOT_SET
 from schemathesis.core.failures import case_header, format_failures
 from schemathesis.core.output import pluralize, truncate_text
+from schemathesis.core.output.sanitization import sanitized
 from schemathesis.core.transforms import UNRESOLVABLE
-from schemathesis.core.transport import StatusClass
+from schemathesis.core.transport import StatusClass, status_label
 from schemathesis.generation.meta import report_label
 from schemathesis.reporting.crashes import CrashFile, CrashStep
 
@@ -91,14 +91,15 @@ def render_replay(
 ) -> None:
     if console is None:
         console = make_console()
-    _print_run_header(console, count=len(crashes), source=source, base_url=base_url)
+    _print_run_header(
+        console, count=len(crashes), source=source, base_url=sanitized(base_url, output_config.sanitization)
+    )
 
     # One rollup line per case; multi-line entries set themselves off with a trailing blank.
     trailing_blank = False
     for crash, outcome in zip(crashes, outcomes, strict=True):
         trailing_blank = _print_compact_block(console, crash, outcome)
-    # Separate the rollup list from what follows, but only when it printed something
-    # (the run header already emits a trailing blank).
+    # Separate the rollup from what follows when it printed something; the run header already ends with a blank.
     if crashes and not trailing_blank:
         console.print()
 
@@ -236,8 +237,7 @@ def _print_step_chain(
 
     failing_index = len(sequence) - 1
     step_outcomes = outcome.step_outcomes
-    # Size each column to the content actually present (paths truncated to a terminal-derived cap),
-    # so short methods/paths don't leave a wide gap before the status.
+    # Size columns to the content present, with paths capped by terminal width, so short ones leave no wide gap.
     path_limit = min(STEP_PATH_MAX, max(20, get_terminal_width() - 36))
     paths = [truncate_text(_step_path(step), path_limit) for step in sequence]
     operation_labels: list[str | None] = []
@@ -279,12 +279,17 @@ def _print_step_chain(
         else:
             row.append(operation_label.ljust(path_column), style="white")
         row.append("  ")
-        # Show a single status when the step reproduced identically; only spell out
-        # `recorded -> replayed` when the status actually drifted.
-        row.append(status_label(schema, step.response_status), style=_status_style(schema, step.response_status))
+        # One status when the step reproduced it; `recorded -> replayed` only when it drifted.
+        row.append(
+            status_label(step.response_status, schema.status_name_for_code),
+            style=_status_style(schema, step.response_status),
+        )
         if actual.status_code != step.response_status:
             row.append(f" {ARROW} ", style="dim")
-            row.append(status_label(schema, actual.status_code), style=_status_style(schema, actual.status_code))
+            row.append(
+                status_label(actual.status_code, schema.status_name_for_code),
+                style=_status_style(schema, actual.status_code),
+            )
         if delta is not None:
             row.append("  ")
             row.append(GLYPH_CHANGED, style=delta)

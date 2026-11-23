@@ -162,7 +162,7 @@ from bitfab.sandbox import (
     sandbox_state,
     without_sandbox,
 )
-from bitfab.sandbox_modes import gmail_sandbox
+from bitfab.sandbox_modes import gmail_sandbox, slack_sandbox
 from bitfab.sandbox_stores import (
     SandboxStore,
     SandboxStoreEntry,
@@ -456,6 +456,7 @@ __all__ = [
     "sandbox_state",
     "seed_from_registry",
     "serialize_replay_result",
+    "slack_sandbox",
     "without_sandbox",
 ]
 

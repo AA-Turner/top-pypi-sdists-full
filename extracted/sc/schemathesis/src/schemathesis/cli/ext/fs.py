@@ -8,10 +8,12 @@ import click
 from schemathesis.core.output import escape_nonprintable
 
 if TYPE_CHECKING:
+    from schemathesis.baseline import Baseline
     from schemathesis.config import ProjectConfig
 
 
 def open_file(file: Path, option: str | None) -> None:
+    """Check that the report file can be written, leaving its contents and existence as they were."""
     try:
         file.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     except (OSError, ValueError) as exc:
@@ -19,12 +21,16 @@ def open_file(file: Path, option: str | None) -> None:
             f"Could not create parent directory for '{display_path(file)}': {describe_path_error(exc)}",
             param_hint=option,
         ) from exc
+    existed = file.exists()
     try:
-        file.open("w", encoding="utf-8")
+        file.open("a", encoding="utf-8").close()
     except (OSError, ValueError) as exc:
         raise click.BadParameter(
             f"Could not open file '{display_path(file)}': {describe_path_error(exc)}", param_hint=option
         ) from exc
+    # Report handlers create their own files; a run refused after this check must not leave an empty one.
+    if not existed:
+        file.unlink()
 
 
 def prepare_directory(directory: Path, option: str | None) -> None:
@@ -36,12 +42,12 @@ def prepare_directory(directory: Path, option: str | None) -> None:
         ) from exc
 
 
-def load_baseline(config: ProjectConfig) -> None:
+def load_baseline(config: ProjectConfig) -> Baseline | None:
     # Opening a directory fails with "Permission denied" on Windows, which hides the real problem.
     if config.baseline is not None and Path(config.baseline).is_dir():
         raise click.BadParameter(f"Could not load baseline file {config.baseline!r}: Is a directory")
     try:
-        config.load_baseline()
+        return config.load_baseline()
     except (OSError, ValueError) as exc:
         raise click.BadParameter(
             f"Could not load baseline file {config.baseline!r}: {describe_path_error(exc)}"

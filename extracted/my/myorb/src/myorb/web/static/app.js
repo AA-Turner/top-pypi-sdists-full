@@ -355,10 +355,16 @@ const watchEmailTops = () => document.querySelectorAll(".email-top").forEach((to
   const title = top.querySelector(".email-title");
   const actions = top.querySelector(".email-actions");
   if (!title || !actions) return;
-  new ResizeObserver(() => {
+  // A subject taking over a quarter of the window would leave too little of the email below
+  // it: then it goes up out of sight on a desktop too, as on a phone.
+  const measure = () => {
+    if (!top.isConnected) return window.removeEventListener("resize", measure);
     const height = actions.getBoundingClientRect().top - title.getBoundingClientRect().top;
     top.style.setProperty("--email-title-height", `${Math.max(0, Math.round(height))}px`);
-  }).observe(title);
+    top.classList.toggle("is-tall", height > window.innerHeight / 4);
+  };
+  new ResizeObserver(measure).observe(title);
+  window.addEventListener("resize", measure);
   const back = title.querySelector(".icon-btn");
   if (back) {
     new IntersectionObserver(([entry]) => {

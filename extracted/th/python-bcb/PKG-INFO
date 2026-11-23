@@ -1,9 +1,29 @@
 Metadata-Version: 2.5
 Name: python-bcb
-Version: 0.4.1
+Version: 0.4.2
 Summary: Interface Python para APIs de dados abertos do Banco Central do Brasil.
+Project-URL: Homepage, https://github.com/wilsonfreitas/python-bcb
+Project-URL: Documentation, https://wilsonfreitas.github.io/python-bcb/
+Project-URL: Repository, https://github.com/wilsonfreitas/python-bcb
+Project-URL: Issues, https://github.com/wilsonfreitas/python-bcb/issues
+Project-URL: Changelog, https://github.com/wilsonfreitas/python-bcb/blob/main/CHANGELOG.md
 Author-email: wilsonfreitas <wilson.freitas@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
+Keywords: banco central do brasil,bcb,dados abertos,economics,expectativas,finance,focus,ifdata,odata,open data,ptax,sgs,time series
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: Portuguese (Brazilian)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.24.0
 Requires-Dist: lxml>=4.9.2
@@ -221,6 +241,6 @@ A saída HTML é gerada em `docs/_build/html`. Edite os arquivos fonte em `docs/
 ### P: Onde encontro documentação mais detalhada?
 **R:**
 - [Documentação de API](https://wilsonfreitas.github.io/python-bcb/)
-- [Diretório de Exemplos](./examples/)
+- [Diretório de Exemplos](https://github.com/wilsonfreitas/python-bcb/tree/main/examples)
 - Docstrings inline: `help(bcb.sgs.get)`, `help(bcb.currency.get)`, etc.
 - [Portal de Dados Abertos BCB](https://dadosabertos.bcb.gov.br/)

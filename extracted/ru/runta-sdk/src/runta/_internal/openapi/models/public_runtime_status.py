@@ -4,6 +4,7 @@ from enum import Enum
 class PublicRuntimeStatus(str, Enum):
     CRASHED = "crashed"
     CREATING = "creating"
+    DELETED = "deleted"
     DELETING = "deleting"
     ERROR = "error"
     PAUSED = "paused"

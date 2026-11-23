@@ -116,6 +116,7 @@ impl StatsigForwardProxy for Service {
     ) -> Result<Response<ConfigSpecResponse>, Status> {
         assert_eq!(request.into_inner().sdk_key, "fake-sdk-key");
         Ok(Response::new(ConfigSpecResponse {
+            spec_bytes: None,
             spec: "test-specs".into(),
             last_updated: 42,
             zstd_dict_id: None,

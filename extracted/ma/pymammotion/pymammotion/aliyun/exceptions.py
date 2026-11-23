@@ -29,6 +29,10 @@ DEVICE_REMOVED_CODES = frozenset({50101})
 #: The cloud reached the device but it did not answer in time.
 GATEWAY_TIMEOUT_CODES = frozenset({20056})
 
+#: checkOrRefreshSession refused the IoT refresh token: the session must be rebuilt
+#: from the HTTP login (2401 "refreshToken invalid", 2460 "refreshToken expired").
+SESSION_REJECTED_CODES = frozenset({2401, 2460})
+
 #: Pairing attempted outside the device's bind window, or with a dead QR code
 #: (APK: BindCode.NOT_IN_BIND_WINDOW = 6618, MA_NOT_IN_BIND_WINDOW = 50105,
 #: QR_NOT_EXIT = 2067).  Recorded for completeness: this library discovers
@@ -41,7 +45,7 @@ class AuthRefreshException(SessionExpiredError):
     """The Aliyun refresh token itself has expired; the session must be re-minted.
 
     Subclasses :class:`SessionExpiredError` so the standard recovery path applies:
-    ``refresh_aliyun_credentials`` → ``connect_iot`` rebuilds the session from the
+    ``refresh_aliyun_credentials`` → ``establish_aliyun`` rebuilds the session from the
     healthy HTTP login's authCode chain.
     """
 

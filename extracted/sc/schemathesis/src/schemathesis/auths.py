@@ -1,7 +1,6 @@
-"""Support for custom API authentication mechanisms."""
-
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
@@ -38,11 +37,11 @@ if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation, BaseSchema
 
 DEFAULT_REFRESH_INTERVAL = 300
-# Consecutive failed re-logins before the breaker trips and disables reauth for the run. Not configurable.
+# Consecutive failed re-logins before the breaker trips and disables reauth for the run.
 REAUTH_BREAKER_THRESHOLD = 3
-# Consecutive failed token fetches before a caching provider stops hammering the login endpoint. Not configurable.
+# Consecutive failed token fetches before a caching provider stops hammering the login endpoint.
 TOKEN_FETCH_BREAKER_THRESHOLD = 3
-# Seconds a tripped token-fetch breaker waits before letting a single probe through. Not configurable.
+# Seconds a tripped token-fetch breaker waits before letting a single probe through.
 TOKEN_FETCH_BREAKER_COOLDOWN = 30.0
 AuthStorageMark = Mark["AuthStorage"](attr_name="auth_storage")
 Auth = TypeVar("Auth")
@@ -52,8 +51,7 @@ Auth = TypeVar("Auth")
 class AuthContext:
     """Runtime context passed to authentication providers during token generation.
 
-    Provides access to the current API operation and application instance when
-    auth providers need operation-specific tokens or application state.
+    Gives providers the current API operation and application instance, for operation-specific tokens or app state.
 
     Example:
         ```python
@@ -76,6 +74,8 @@ class AuthContext:
     """API operation currently being processed for authentication."""
     app: Any | None
     """Python application instance (ASGI/WSGI app) when using app integration, `None` otherwise."""
+    # The API rejected the cached credentials; a failed re-login must fail, not replay the request with them.
+    _reauth: bool = False
 
 
 @dataclass(slots=True)
@@ -228,8 +228,6 @@ class AuthProvider(Generic[Auth], Protocol):
 
 @dataclass
 class CacheEntry(Generic[Auth]):
-    """Cached auth data."""
-
     data: Auth
     expires: float
 
@@ -249,22 +247,31 @@ class RequestsAuth(Generic[Auth]):
 
 @dataclass
 class CachingAuthProvider(Generic[Auth]):
-    """Caches the underlying auth provider."""
-
     provider: AuthProvider
     refresh_interval: int = DEFAULT_REFRESH_INTERVAL
     cache_entry: CacheEntry[Auth] | None = None
-    # The timer exists here to simplify testing
+    # Injectable to simplify testing
     timer: Callable[[], float] = time.monotonic
-    # Status codes that should trigger a cache invalidation + refetch on the next request.
-    # `None` stands for the protocol's unauthenticated status.
+    # Statuses that invalidate the cache and refetch on the next request; `None` is the unauthenticated status.
     retry_on: list[int] | None = None
     _refresh_lock: threading.Lock = field(default_factory=threading.Lock)
     _fetch_failures: dict[str | int | None, int] = field(default_factory=dict)
     _fetch_disabled_until: dict[str | int | None, float] = field(default_factory=dict)
+    # Error that tripped the breaker, shown while its cooldown lasts.
+    _fetch_errors: dict[str | int | None, str] = field(default_factory=dict)
 
     def get(self, case: Case, context: AuthContext) -> Auth | None:
-        """Get cached auth value."""
+        __tracebackhide__ = True
+        try:
+            return self._get_or_fetch(case, context)
+        except AuthenticationError:
+            last = self._get_cache_entry(case, context)
+            # The API may still accept the last credentials, e.g. after a test changed the login password.
+            if last is None or context._reauth:
+                raise
+            return last.data
+
+    def _get_or_fetch(self, case: Case, context: AuthContext) -> Auth | None:
         __tracebackhide__ = True
         cache_entry = self._get_cache_entry(case, context)
         if cache_entry is None or self.timer() >= cache_entry.expires:
@@ -283,18 +290,19 @@ class CachingAuthProvider(Generic[Auth]):
                             self.provider.__class__.__name__,
                             "get",
                             f"Token fetch failed {TOKEN_FETCH_BREAKER_THRESHOLD} times in a row; "
-                            f"retrying after a {TOKEN_FETCH_BREAKER_COOLDOWN:.0f}s cooldown",
+                            f"retrying after a {TOKEN_FETCH_BREAKER_COOLDOWN:.0f}s cooldown\n\n"
+                            f"Last error: {self._fetch_errors[key]}",
                         )
                     # The cooldown elapsed, so a transient outage gets one probe.
                     del self._fetch_disabled_until[key]
-                # We know that optional auth is possible only inside a higher-level wrapper
+                # Optional auth exists only inside a higher-level wrapper
                 try:
                     data: Auth = self.provider.get(case, context)  # type: ignore[assignment]
-                except AuthenticationError:
-                    self._note_fetch_failure(key)
+                except AuthenticationError as exc:
+                    self._note_fetch_failure(key, exc.message)
                     raise
                 except Exception as exc:
-                    self._note_fetch_failure(key)
+                    self._note_fetch_failure(key, str(exc))
                     provider_name = self.provider.__class__.__name__
                     raise AuthenticationError(
                         provider_name,
@@ -311,11 +319,12 @@ class CachingAuthProvider(Generic[Auth]):
     def _fetch_key(self, case: Case, context: AuthContext) -> str | int | None:
         return None
 
-    def _note_fetch_failure(self, key: str | int | None) -> None:
+    def _note_fetch_failure(self, key: str | int | None, message: str) -> None:
         count = self._fetch_failures.get(key, 0) + 1
         self._fetch_failures[key] = count
         if count >= TOKEN_FETCH_BREAKER_THRESHOLD:
             self._fetch_disabled_until[key] = self.timer() + TOKEN_FETCH_BREAKER_COOLDOWN
+            self._fetch_errors[key] = message
 
     def _get_cache_entry(self, case: Case, context: AuthContext) -> CacheEntry[Auth] | None:
         return self.cache_entry
@@ -324,14 +333,12 @@ class CachingAuthProvider(Generic[Auth]):
         self.cache_entry = CacheEntry(data=data, expires=self.timer() + self.refresh_interval)
 
     def set(self, case: Case, data: Auth, context: AuthContext) -> None:
-        """Set auth data on the `Case` instance.
-
-        This implementation delegates this to the actual provider.
-        """
         self.provider.set(case, data, context)
 
     def invalidate(self) -> None:
-        self.cache_entry = None
+        # Expire without dropping, so a failed refetch can fall back to the last credentials.
+        if self.cache_entry is not None:
+            self.cache_entry.expires = -math.inf
 
 
 def _noop_key_function(case: Case, context: AuthContext) -> str:
@@ -356,7 +363,9 @@ class KeyedCachingAuthProvider(CachingAuthProvider[Auth]):
         return self.cache_by_key(case, context)
 
     def invalidate(self) -> None:
-        self.cache_entries.clear()
+        for entry in self.cache_entries.values():
+            if entry is not None:
+                entry.expires = -math.inf
 
 
 class _FilterChain(Protocol):
@@ -427,12 +436,10 @@ class SelectiveAuthProvider(Generic[Auth]):
             try:
                 return self.provider.get(case, context)
             except AuthenticationError:
-                # Already wrapped, re-raise as-is
                 raise
             except Exception as exc:
-                # Need to unwrap to get the actual provider class name
+                # Unwrap caching layers to name the actual provider class
                 provider = self.provider
-                # Unwrap caching providers
                 while isinstance(provider, CachingAuthProvider):
                     provider = provider.provider
                 provider_name = provider.__class__.__name__
@@ -452,13 +459,10 @@ class SelectiveAuthProvider(Generic[Auth]):
 
 @dataclass
 class AuthStorage(Generic[Auth]):
-    """Store and manage API authentication."""
-
     providers: list[AuthProvider] = field(default_factory=list)
 
     @property
     def is_defined(self) -> bool:
-        """Whether there is an auth provider set."""
         return bool(self.providers)
 
     @overload
@@ -522,7 +526,6 @@ class AuthStorage(Generic[Auth]):
                 f"See `schemathesis.AuthProvider` documentation for examples."
             )
         provider: AuthProvider
-        # Apply caching if desired
         instance = provider_class()
         if refresh_interval is not None:
             if cache_by_key is None:
@@ -536,7 +539,6 @@ class AuthStorage(Generic[Auth]):
                 )
         else:
             provider = instance
-        # Store filters if any
         if not filter_set.is_empty():
             provider = SelectiveAuthProvider(provider, filter_set)
         self.providers.append(provider)
@@ -566,10 +568,6 @@ class AuthStorage(Generic[Auth]):
         return wrapper  # type: ignore[return-value]
 
     def unregister(self) -> None:
-        """Unregister the currently registered auth provider.
-
-        No-op if there is no auth provider registered.
-        """
         self.providers = []
 
     def apply(
@@ -615,14 +613,6 @@ class AuthStorage(Generic[Auth]):
 
 
 def apply_basic_auth(case: Case, username: str, password: str) -> None:
-    """Apply HTTP Basic authentication to a case.
-
-    Args:
-        case: Test case to apply authentication to
-        username: Username for basic auth
-        password: Password for basic auth
-
-    """
     from requests.auth import _basic_auth_str
 
     case.headers["Authorization"] = _basic_auth_str(username, password)
@@ -630,7 +620,6 @@ def apply_basic_auth(case: Case, username: str, password: str) -> None:
 
 
 def _should_skip_auth_for_negative_testing(case: Case, param_name: str, param_location: ParameterLocation) -> bool:
-    """Check if auth should be skipped because the parameter was intentionally removed for testing."""
     return (param_name, param_location) in negated_parameters(case.meta)
 
 
@@ -657,27 +646,19 @@ def set_on_generated_case(
 
 
 def set_on_case(case: Case, context: AuthContext, auth_storage: AuthStorage | None) -> None:
-    """Set authentication data on this case.
-
-    Precedence order (highest to lowest):
-    1. Programmatic auth (@schemathesis.auth())
-    2. Generic auth (--auth CLI or [auth.basic] config)
-    3. Spec-specific auth (OpenAPI-aware [auth.openapi.*])
-    4. Global auth
-
-    If there is no auth defined, then this function is no-op.
-    """
+    """Set authentication data on this case from the highest-priority auth source that is defined."""
     __tracebackhide__ = True
-    # 1. Programmatic auth (highest priority)
+    # 1. Programmatic auth
     if auth_storage is not None:
+        # Credentials re-applied later must come from the same source.
+        case._auth_storage = auth_storage
         if not case.operation.schema.is_security_param_negated(case):
             auth_storage.set(case, context)
         return
 
-    # 2. Generic auth (CLI overrides or config - applies to all operations)
+    # 2. Generic auth (--auth CLI or [auth.basic] config), for all operations
     basic_auth = case.operation.schema.config.auth_for(operation=case.operation)
     if basic_auth is not None:
-        # Don't apply auth if Authorization was intentionally removed for negative testing
         if not _should_skip_auth_for_negative_testing(case, "Authorization", ParameterLocation.HEADER):
             apply_basic_auth(case, *basic_auth)
         return
@@ -687,11 +668,11 @@ def set_on_case(case: Case, context: AuthContext, auth_storage: AuthStorage | No
             case.operation.schema.auth.set(case, context)
         return
 
-    # 3. Spec-specific auth (OpenAPI-aware, more targeted)
+    # 3. Spec-specific auth (OpenAPI-aware [auth.openapi.*])
     if case.operation.schema.apply_auth(case, context):
         return
 
-    # 4. Global auth (fallback)
+    # 4. Global auth
     if GLOBAL_AUTH_STORAGE.is_defined and not case.operation.schema.is_security_param_negated(case):
         GLOBAL_AUTH_STORAGE.set(case, context)
 
@@ -740,7 +721,6 @@ def _fill_credential_containers(case: Case, containers: dict[ParameterLocation, 
         container.update(values)
 
 
-# Global auth API
 GLOBAL_AUTH_STORAGE: AuthStorage = AuthStorage()
 unregister = GLOBAL_AUTH_STORAGE.unregister
 
@@ -751,8 +731,7 @@ def _caching_providers_in(storage: AuthStorage) -> Iterator[CachingAuthProvider]
     for provider in storage.providers:
         if isinstance(provider, SelectiveAuthProvider):
             provider = provider.provider
-        # A provider holding one entry per identity keeps its cached tokens out of reach otherwise,
-        # leaving reactive reauth with nothing to refresh.
+        # Reach into per-identity entries, or reactive reauth finds no cached tokens to refresh.
         if isinstance(provider, EscalatingAuthProvider):
             yield from (entry for entry in provider.providers if isinstance(entry, CachingAuthProvider))
         elif isinstance(provider, CachingAuthProvider):
@@ -760,7 +739,9 @@ def _caching_providers_in(storage: AuthStorage) -> Iterator[CachingAuthProvider]
 
 
 def _iter_caching_providers(case: Case) -> Iterator[CachingAuthProvider]:
-    """Caching auth providers reachable for this case: config dynamic-token, schema-level and global ``@auth``."""
+    """Caching auth providers for this case: its own, config dynamic-token, schema-level and global ``@auth``."""
+    if case._auth_storage is not None:
+        yield from _caching_providers_in(case._auth_storage)
     for provider in case.operation.schema.security_auth_providers():
         if isinstance(provider, CachingAuthProvider):
             yield provider
@@ -769,16 +750,19 @@ def _iter_caching_providers(case: Case) -> Iterator[CachingAuthProvider]:
 
 
 def apply_configured_auth(case: Case) -> None:
-    """Set the credentials a run would send for `case`: auth providers, configured auth or the schema's security."""
-    set_on_case(case, AuthContext(operation=case.operation, app=case.operation.app), None)
+    """Set the credentials a run would send for `case`: auth providers, configured auth or the schema's security.
+
+    A case generated with its own auth storage gets credentials from that storage only.
+    """
+    set_on_case(case, AuthContext(operation=case.operation, app=case.operation.app), case._auth_storage)
 
 
 def refresh_auth(case: Case) -> None:
     """Invalidate cached auth for `case` and re-apply it, so the next request carries a fresh token."""
-    # Concurrent callers coalesce onto one refetch via CachingAuthProvider.get's lock; invalidate only clears.
+    # Concurrent callers share one refetch behind the provider's lock; invalidating only expires the cache.
     for provider in _iter_caching_providers(case):
         provider.invalidate()
-    apply_configured_auth(case)
+    set_on_case(case, AuthContext(operation=case.operation, app=case.operation.app, _reauth=True), case._auth_storage)
 
 
 @dataclass(slots=True)
@@ -787,7 +771,7 @@ class ReauthState:
 
     retry_on_statuses: frozenset[int]
     reauth_count: int = 0
-    # Breaker tripped: gate that stops further reauth attempts.
+    # Set when the breaker trips; stops further reauth attempts.
     disabled: bool = False
     # A re-login failed at least once (for reporting).
     broke: bool = False
@@ -815,24 +799,39 @@ class ReauthState:
                 self._token_independent.add(label)
 
 
+def _retry_on_statuses_in(storage: AuthStorage, schema: BaseSchema) -> set[int]:
+    statuses: set[int] = set()
+    for provider in _caching_providers_in(storage):
+        if provider.retry_on is None:
+            statuses.add(schema.status_code_for(StatusClass.UNAUTHENTICATED))
+        else:
+            statuses.update(provider.retry_on)
+    return statuses
+
+
 def compute_retry_on_statuses(schema: BaseSchema) -> frozenset[int]:
     """Union of `retry_on` across configured dynamic schemes and registered `@auth` providers; empty means off."""
     statuses: set[int] = set()
     for scheme in schema.config.auth.dynamic.schemes.values():
         statuses.update(scheme.retry_on)
-    for provider in (*_caching_providers_in(schema.auth), *_caching_providers_in(GLOBAL_AUTH_STORAGE)):
-        if provider.retry_on is None:
-            statuses.add(schema.status_code_for(StatusClass.UNAUTHENTICATED))
-        else:
-            statuses.update(provider.retry_on)
+    statuses.update(_retry_on_statuses_in(schema.auth, schema))
+    statuses.update(_retry_on_statuses_in(GLOBAL_AUTH_STORAGE, schema))
     return frozenset(statuses)
 
 
-def reauth_and_replay(case: Case, response: Response, state: ReauthState, recall: Callable[[], Response]) -> Response:
-    """Refresh auth and replay the request once if `response` signals an expired token.
+def reauth_state_for(case: Case) -> ReauthState:
+    """Fresh reauth state for one call of `case`, adding `retry_on` of the auth the case was generated with."""
+    schema = case.operation.schema
+    statuses = schema.reauth_retry_statuses
+    if case._auth_storage is not None:
+        statuses |= _retry_on_statuses_in(case._auth_storage, schema)
+    return ReauthState(retry_on_statuses=statuses)
 
-    Returns the replay (if a refresh happened) or the original response unchanged. `recall`
-    performs one fresh request. Negated-security cases keep their expected 401 and are skipped.
+
+def reauth_and_replay(case: Case, response: Response, state: ReauthState, recall: Callable[[], Response]) -> Response:
+    """Refresh auth and replay the request once via `recall` if `response` signals an expired token.
+
+    Return the replay, or `response` when nothing was refreshed; negated-security cases keep their expected 401.
     """
     if not (
         state.should_retry(response.status_code, case.operation.label)

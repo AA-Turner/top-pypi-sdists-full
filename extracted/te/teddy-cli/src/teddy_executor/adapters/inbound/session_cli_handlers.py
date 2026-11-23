@@ -14,6 +14,10 @@ from teddy_executor.core.ports.inbound.init import IInitUseCase
 from teddy_executor.core.ports.inbound.run_plan_use_case import IRunPlanUseCase
 from teddy_executor.core.ports.outbound.session_manager import ISessionManager
 from teddy_executor.core.ports.outbound.system_environment import ISystemEnvironment
+from teddy_executor.core.domain.models.config_schema import (
+    resolve_agent_llm_overrides,
+    resolve_effective_model,
+)
 from teddy_executor.core.domain.models.session import SessionOptions
 from teddy_executor.core.ports.outbound.user_interactor import IUserInteractor
 from teddy_executor.core.ports.outbound.session_loop_guard import ISessionLoopGuard
@@ -35,6 +39,7 @@ from teddy_executor.core.services.update_checker import (
     get_current_version,
     is_prerelease,
     read_update_cache,
+    resolve_index_url,
 )
 
 
@@ -406,17 +411,21 @@ def _update_cache_path() -> Path:
     return find_project_root() / ".teddy" / ".update_cache.json"
 
 
-def _start_background_update_check() -> None:
+def _start_background_update_check(container: Container) -> None:
     """Start the daemon version fetch that fills the cache for the next run.
 
-    The fetch never blocks startup and never prints. The startup preamble emits
-    the notice from the cache this fetch leaves behind.
+    The fetch never blocks startup and never prints. The configured source
+    resolves before the thread spawns, so the daemon never touches the
+    container. The startup preamble emits the notice from the cache this fetch
+    leaves behind.
     """
     import threading
 
+    config_service = container.resolve(IConfigService)
+    index_url = resolve_index_url(config_service.get_setting("update.index_url"))
     thread = threading.Thread(
         target=background_check,
-        args=(_update_cache_path(),),
+        args=(_update_cache_path(), index_url),
         daemon=True,
     )
     thread.start()
@@ -464,8 +473,19 @@ def _handle_startup_error(container: Container, error: Exception) -> None:
     """Print a startup error and exit with code 1 (shared by both entry points).
 
     A ``ConfigurationError`` additionally prints the configuration path hint.
+    An ``EOFError`` is the "no terminal to answer the opening prompt" outcome
+    rather than a defect, so it renders as the yellow not-started notice that
+    matches the session termination notices instead of an ``Error:`` line.
     """
     from teddy_executor.core.domain.models.exceptions import ConfigurationError
+
+    if isinstance(error, EOFError):
+        typer.secho(
+            "Session not started (no initial message).",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
     if isinstance(error, ConfigurationError):
         config_service = container.resolve(IConfigService)
@@ -789,9 +809,6 @@ def _display_update_notification(container: Container, cache_path: Path) -> list
             )
             return ["checks.update"]
     except Exception:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.debug("Failed to display update notification", exc_info=True)
     return []
 
@@ -812,7 +829,7 @@ def handle_new_session(  # noqa: PLR0913
     max_cost: Optional[float] = None,
 ):
     """Logic for the 'start' command."""
-    _start_background_update_check()
+    _start_background_update_check(container)
 
     try:
         # 0. An empty or whitespace-only -m means the flag was omitted: the
@@ -891,13 +908,23 @@ def _echo_config_success(
         container: The DI container with resolved services.
         agent: Optional agent name to display.
         model: Optional model override from CLI. If provided, this takes
-               precedence over the config file value.
+               precedence over the config file value. When omitted, a configured
+               ``agents.<persona>.model`` wins over ``llm.model``.
     """
     config_service = container.resolve(IConfigService)
-    if model:
-        resolved_model = model
-    else:
-        resolved_model = config_service.get_setting("llm.model", "unknown")
+    persona_model = None
+    if agent:
+        # Report the same effective model the planner resolves, so the
+        # persona's configured model is visible before the first turn.
+        overlay = resolve_agent_llm_overrides(
+            config_service.get_setting("agents", {}), agent
+        )
+        persona_model = overlay.get("model")
+    # One resolver owns the flag > persona > llm.model order for the banner too,
+    # so the display can never drift from the model the planner uses.
+    resolved_model = resolve_effective_model(
+        model, persona_model, config_service.get_setting("llm.model", "unknown")
+    )
     identity_lines: list[str] = []
     if agent:
         identity_lines.append(f"Agent: {canonical_agent_name(agent)}")
@@ -1390,6 +1417,18 @@ def detect_session_context() -> Optional[Dict[str, Sequence[str]]]:
     return None
 
 
+def detect_session_root() -> Optional[str]:
+    """Resolves the current session's root, or None outside a session.
+
+    Derives from `detect_session_context` so the three-file session gate lives
+    in one place. The scope map that function returns must not be reused as a
+    path source, because `--only` and `-c` override it.
+    """
+    if detect_session_context() is None:
+        return None
+    return str(Path.cwd().parent)
+
+
 def _default_context_paths(container: Container) -> list[str]:
     """Resolves the default `.teddy/*.context` entries outside a session."""
     file_system_manager = container.resolve(IFileSystemManager)
@@ -1425,7 +1464,9 @@ def handle_context_gathering(
 
     # Performance: Formatting context for Markdown doesn't use tokens, so we skip them.
     context_result = context_service.get_context(
-        context_files=context_files, include_tokens=False
+        context_files=context_files,
+        include_tokens=False,
+        session_root=detect_session_root(),
     )
     formatted_context = format_project_context(context_result)
     echo_and_copy(formatted_context, no_copy=no_copy)
@@ -1454,16 +1495,13 @@ def _sync_and_display_session_meta(
     model: Optional[str] = None,
     agent: Optional[str] = None,
 ) -> None:
-    """Reads latest turn meta.yaml, syncs config overrides, and clears actual_model.
+    """Reads latest turn meta.yaml, applies the resume --model override, and clears actual_model.
 
     The identity banner reflects the EFFECTIVE agent: the ``-a/--agent`` override
     when one was passed, otherwise the session's persisted ``agent_name``.
     """
-    from teddy_executor.core.ports.outbound.config_service import IConfigService
-
     session_manager = container.resolve(ISessionManager)
     repository: ISessionRepository = container.resolve(ISessionRepository)
-    config_service: IConfigService = container.resolve(IConfigService)
 
     latest_turn_path = session_manager.get_latest_turn(session_name)
     meta = repository.load_meta(latest_turn_path)
@@ -1477,13 +1515,13 @@ def _sync_and_display_session_meta(
 
     _echo_config_success(container, agent=agent or meta.get("agent_name"), model=model)
 
-    # Sync latest turn's meta.yaml with current config model/overrides
-    config_model = config_service.get_setting("llm.model", "unknown")
+    # Only an explicit --model writes metadata. A configuration-derived model
+    # must never be stamped into the per-turn record: resolution reads
+    # ``model_override`` and the persona re-resolves every turn, so a stamped
+    # ``model`` would mask the persona in the telemetry display line.
     if model:
         meta["model"] = model
-        changed = True
-    elif config_model != "unknown" and meta.get("model") != config_model:
-        meta["model"] = config_model
+        meta["model_override"] = model
         changed = True
     if changed:
         repository.save_meta(f"{latest_turn_path}/meta.yaml", meta)
@@ -1504,7 +1542,7 @@ def handle_resume_session(  # noqa: PLR0913
     max_cost: Optional[float] = None,
 ):
     """Logic for the 'resume' command."""
-    _start_background_update_check()
+    _start_background_update_check(container)
 
     try:
         # 1. Shared startup preamble (preflight only; workspace repairs are start-only)

@@ -111,8 +111,7 @@ SCHEMA_WITH_PARAMETER_AND_SECURITY_SCHEME = {
     ],
 )
 def test_name_clash(ctx, kwargs, expected):
-    # Operation definition should take precedence over security schemes
-    # Explicit headers should take precedence over everything else
+    # The operation's parameter beats the security scheme; explicit headers beat both.
     schema = ctx.openapi.load_schema(
         SCHEMA_WITH_PARAMETER_AND_SECURITY_SCHEME["paths"],
         components=SCHEMA_WITH_PARAMETER_AND_SECURITY_SCHEME["components"],
@@ -147,7 +146,6 @@ def test_without_security_parameters(ctx, with_security_parameters):
 
 @pytest.mark.parametrize("version", ["2.0", "3.0.2"])
 def test_undefined_security_scheme_is_ignored(ctx, version):
-    # When a security requirement references a scheme that is NOT defined in securitySchemes/securityDefinitions
     schema = ctx.openapi.load_schema(
         {
             "/users": {
@@ -160,12 +158,10 @@ def test_undefined_security_scheme_is_ignored(ctx, version):
         version=version,
     )
     operation = schema["/users"]["get"]
-    # Then it should be ignored
     assert not list(operation.security.iter_parameters())
 
 
 def test_invalid_security_requirement_types_are_ignored(ctx):
-    # When security requirements contain non-dict elements
     operation = ctx.openapi.load_operation(
         "GET /test",
         {
@@ -174,7 +170,6 @@ def test_invalid_security_requirement_types_are_ignored(ctx):
                 123,
                 ["invalid", "list"],
                 None,
-                # Valid: should be processed
                 {"ApiKeyAuth": []},
             ],
             "responses": {"200": {"description": "OK"}},
@@ -186,9 +181,7 @@ def test_invalid_security_requirement_types_are_ignored(ctx):
         },
     )
 
-    # Should not crash and should extract parameters from the valid requirement
     params = list(operation.security.iter_parameters())
-    # Only the valid ApiKeyAuth requirement should be processed
     assert len(params) == 1
     assert params[0].name == "X-API-Key"
     assert params[0].location == "header"
@@ -313,6 +306,43 @@ def test_only_schemes_demanded_by_every_alternative_are_required(ctx, version, s
     assert {
         parameter.name: parameter.definition["required"] for parameter in operation.security.iter_parameters()
     } == expected
+
+
+API_KEY_SCHEMES = {
+    "AccessHeader": {"type": "apiKey", "name": "X-Access", "in": "header"},
+    "QueryKey": {"type": "apiKey", "name": "k", "in": "query"},
+}
+
+
+@pytest.mark.parametrize(
+    ("version", "definitions", "sanitization"),
+    [
+        ("2.0", {"basePath": "/", "securityDefinitions": API_KEY_SCHEMES}, {}),
+        ("3.0.2", {"components": {"securitySchemes": API_KEY_SCHEMES}}, {}),
+        (
+            "3.0.2",
+            {
+                "components": {
+                    "securitySchemes": {name: {"$ref": f"#/components/x-schemes/{name}"} for name in API_KEY_SCHEMES},
+                    "x-schemes": API_KEY_SCHEMES,
+                }
+            },
+            {},
+        ),
+        ("3.0.2", {"components": {"securitySchemes": API_KEY_SCHEMES}}, {"keys-to-sanitize": ["lang"]}),
+    ],
+    ids=["swagger-2.0", "openapi-3.0", "referenced-schemes", "custom-keys"],
+)
+def test_api_key_credentials_are_sanitized(ctx, version, definitions, sanitization):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {"responses": {"200": {"description": "OK"}}},
+        version=version,
+        config=schemathesis.Config.from_dict({"output": {"sanitization": sanitization}}),
+        **definitions,
+    )
+    case = operation.Case(headers={"X-Access": "secret"}, query={"k": "secret"})
+    assert case.as_curl_command() == "curl -X GET -H 'X-Access: [Filtered]' 'http://localhost/items?k=%5BFiltered%5D'"
 
 
 AUTH_CONFIGS = {
@@ -735,7 +765,7 @@ def test_no_security_requirements(ctx, cli, snapshot_cli):
     def public_endpoint():
         return jsonify({"status": "ok"})
 
-    # Auth is configured but should not be applied since no security requirements
+    # Configured auth stays unused without security requirements.
     assert (
         cli.run_openapi_app(
             app,
@@ -767,7 +797,7 @@ def test_auth_with_invalid_scheme_in_schema(ctx, cli, snapshot_cli):
         },
         components={
             "securitySchemes": {
-                # OAuth2 is not currently supported
+                # Schemathesis does not support OAuth2
                 "OAuth2": {
                     "type": "oauth2",
                     "flows": {
@@ -787,7 +817,7 @@ def test_auth_with_invalid_scheme_in_schema(ctx, cli, snapshot_cli):
     def protected():
         return jsonify({"error": "unauthorized"}), 401
 
-    # OAuth2 scheme exists but isn't supported - should fall back to CLI auth if provided
+    # Unsupported OAuth2 falls back to CLI auth when provided.
     assert (
         cli.run_openapi_app(
             app,

@@ -23,7 +23,7 @@ import pycodestyle  # type: ignore
 from attrs import define, field
 from flake8.exceptions import PluginExecutionFailed
 
-__version__ = "26.11.16"
+__version__ = "26.11.22"
 
 LOG = logging.getLogger("flake8.bugbear")
 CONTEXTFUL_NODES = (
@@ -129,6 +129,10 @@ class BugBearChecker:
     max_line_length: int = field(default=79)
     visitor: type[BugBearVisitor] = field(init=False, factory=lambda: BugBearVisitor)
     options: Namespace | None = field(default=None)
+    # flake8 passes the tokens it already has, so B914 doesn't tokenize again
+    file_tokens: list[tokenize.TokenInfo] | None = field(
+        default=None, repr=False, eq=False
+    )
 
     def run(self) -> Iterable[tuple[int, int, str, type]]:
         if not self.tree or not self.lines:
@@ -156,7 +160,11 @@ class BugBearChecker:
             visitor.visit(self.tree)
         except RecursionError as exc:
             raise PluginExecutionFailed(self.filename, self.name, exc) from exc
-        for e in itertools.chain(visitor.errors, self.gen_line_based_checks()):
+        for e in itertools.chain(
+            visitor.errors,
+            self.gen_line_based_checks(),
+            self.gen_token_based_checks(),
+        ):
             if self.should_warn(e.message[:4]):
                 yield self.adapt_error(e)
 
@@ -247,6 +255,24 @@ class BugBearChecker:
                     continue
 
                 yield error_codes["B950"](lineno, length, vars=(length, max_length))
+
+    def gen_token_based_checks(self) -> Iterator["error"]:
+        """B914 looks at the tokens, since the AST has no trace of an implicit
+        concatenation. It is only run when the check is selected."""
+        if self.lines is None:
+            return
+        # `should_warn` reads `options.select`, so skip options that don't have it
+        if self.options is not None and not hasattr(self.options, "select"):
+            return
+        if not self.should_warn("B914"):
+            return
+        positions = (
+            _ImplicitConcatenationFinder().find(self.file_tokens)
+            if self.file_tokens is not None
+            else _implicit_string_concatenations("".join(self.lines))
+        )
+        for lineno, col in positions:
+            yield error_codes["B914"](lineno, col)
 
     @classmethod
     def adapt_error(cls, e: error) -> tuple[int, int, str, type]:
@@ -526,33 +552,28 @@ B040_HANDLED_EXCEPTION_CALLS = {
     ("sys", "exc_info"),
     ("sys", "exception"),
 }
+B040_HANDLED_EXCEPTION_NAMES = {name for _, name in B040_HANDLED_EXCEPTION_CALLS}
 
 
 def _reports_handled_exception(node: ast.Call) -> bool:
+    for kw in node.keywords:
+        if kw.arg == "exc_info" and isinstance(kw.value, ast.Constant):
+            # logger.error(..., exc_info=True); exc_info=False logs no traceback
+            return bool(kw.value.value)
     func = node.func
     if isinstance(func, ast.Attribute):
-        # logging.exception(...) / logger.exception(...) / sys.exception()
-        if func.attr == "exception":
-            return True
-        if (
-            isinstance(func.value, ast.Name)
-            and (func.value.id, func.attr) in B040_HANDLED_EXCEPTION_CALLS
+        if isinstance(func.value, ast.Name) and (
+            (func.value.id, func.attr) in B040_HANDLED_EXCEPTION_CALLS
         ):
             return True
-    elif isinstance(func, ast.Name) and func.id in (
-        "print_exc",
-        "format_exc",
-        "exc_info",
-    ):
-        # from traceback import print_exc / from sys import exc_info
-        return True
-    # logger.error(..., exc_info=True)
-    return any(
-        kw.arg == "exc_info"
-        and isinstance(kw.value, ast.Constant)
-        and kw.value.value is True
-        for kw in node.keywords
-    )
+        # logging.exception(msg) / logger.exception(msg), including a **kwargs
+        # splat that may carry msg. Not fut.exception(), which returns the
+        # future's exception instead.
+        return func.attr == "exception" and bool(
+            node.args or any(kw.arg in ("msg", None) for kw in node.keywords)
+        )
+    # from traceback import print_exc / from sys import exc_info
+    return isinstance(func, ast.Name) and func.id in B040_HANDLED_EXCEPTION_NAMES
 
 
 class B041UnhandledKeyType:
@@ -813,6 +834,17 @@ def _module_scope_nodes(node: ast.AST) -> Iterator[ast.AST]:
             yield from _module_scope_nodes(child)
 
 
+def _module_import_names(module: ast.Module, source: str) -> set[str]:
+    """Names that ``import <source>`` or ``import <source> as ...`` bind."""
+    return {
+        alias.asname or alias.name
+        for node in ast.walk(module)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == source
+    }
+
+
 def _module_binding_is_from(
     module: ast.Module, source: str, name: str, unbound: bool = False
 ) -> bool:
@@ -825,13 +857,7 @@ def _module_binding_is_from(
     binds ``name``, the result is ``unbound``, or ``True`` when a function or
     class binds it from ``<source>``.
     """
-    source_modules = {
-        alias.asname or alias.name
-        for node in ast.walk(module)
-        if isinstance(node, ast.Import)
-        for alias in node.names
-        if alias.name == source
-    }
+    source_modules = _module_import_names(module, source)
     is_from: bool | None = None
     for stmt in module.body:
         if any(
@@ -872,7 +898,7 @@ def _module_name_is_from(module: ast.Module, source: str, name: str) -> bool:
             isinstance(node, ast.Name)
             and node.id == name
             and isinstance(node.ctx, ast.Store)
-        ):
+        ) or (isinstance(node, ast.arg) and node.arg == name):
             bound = True
         elif (
             isinstance(node, (ast.MatchAs, ast.MatchStar, ast.ExceptHandler))
@@ -914,6 +940,8 @@ class BugBearVisitor(ast.NodeVisitor):
     # Bare names (groupby, batched, map) already resolved for this module, keyed
     # by the module they are expected to come from.
     _bare_names: dict[tuple[str, str, bool], bool] = field(factory=dict, init=False)
+    # Names a module (itertools) is imported as in this module.
+    _module_names: dict[str, set[str]] = field(factory=dict, init=False)
 
     # set to "*" when inside a try/except*, for correctly printing errors
     in_trystar: str = field(default="")
@@ -1131,6 +1159,7 @@ class BugBearVisitor(ast.NodeVisitor):
                     and isinstance(node.args[1], ast.Constant)
                     and isinstance(node.args[1].value, str)
                     and not iskeyword(node.args[1].value)
+                    and not self._is_mangled_in_class(node.args[1].value)
                 ):
                     self.add_error("B009", node)
                 elif (
@@ -1141,6 +1170,7 @@ class BugBearVisitor(ast.NodeVisitor):
                     and isinstance(node.args[1], ast.Constant)
                     and isinstance(node.args[1].value, str)
                     and not iskeyword(node.args[1].value)
+                    and not self._is_mangled_in_class(node.args[1].value)
                 ):
                     self.add_error("B010", node)
                 elif (
@@ -1150,6 +1180,7 @@ class BugBearVisitor(ast.NodeVisitor):
                     and isinstance(node.args[1], ast.Constant)
                     and isinstance(node.args[1].value, str)
                     and not iskeyword(node.args[1].value)
+                    and not self._is_mangled_in_class(node.args[1].value)
                 ):
                     self.add_error("B043", node)
 
@@ -1178,6 +1209,13 @@ class BugBearVisitor(ast.NodeVisitor):
             # Avoid nested calls within the parameter list using the variable itself.
             # e.g. `e.add_note(str(e))`
             self.b040_caught_exception = current_b040_caught_exception
+
+    def _is_mangled_in_class(self, name: str) -> bool:
+        return (
+            name.startswith("__")
+            and not name.endswith("__")
+            and any(isinstance(context.node, ast.ClassDef) for context in self.contexts)
+        )
 
     def visit_Module(self, node: ast.Module) -> None:
         self.generic_visit(node)
@@ -1220,6 +1258,8 @@ class BugBearVisitor(ast.NodeVisitor):
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
         self.check_for_b045(node)
+        self.check_for_b007(node)
+        self.check_for_b020(node)
         self.check_for_b023(node)
         self.generic_visit(node)
 
@@ -1542,7 +1582,7 @@ class BugBearVisitor(ast.NodeVisitor):
         visitor.visit(kw.value)
         self.errors.extend(visitor.errors)
 
-    def check_for_b007(self, node: ast.For) -> None:
+    def check_for_b007(self, node: ast.For | ast.AsyncFor) -> None:
         targets = NameFinder()
         targets.visit(node.target)
         ctrl_names = set(filter(lambda s: not s.startswith("_"), targets.names))
@@ -1715,40 +1755,41 @@ class BugBearVisitor(ast.NodeVisitor):
         is called, or a function is called with an invalid dictionary key
         lookup.
         """
-        item = node.items[0]
-        item_context = item.context_expr
+        for item in node.items:
+            item_context = item.context_expr
 
-        if (
-            isinstance(item_context, ast.Call)
-            and (
-                (
-                    isinstance(item_context.func, ast.Attribute)
-                    and (
-                        item_context.func.attr == "assertRaises"
-                        or (
-                            item_context.func.attr == "raises"
-                            and isinstance(item_context.func.value, ast.Name)
-                            and item_context.func.value.id == "pytest"
-                            and "match" not in (
-                                kwd.arg for kwd in item_context.keywords
+            if (
+                isinstance(item_context, ast.Call)
+                and (
+                    (
+                        isinstance(item_context.func, ast.Attribute)
+                        and (
+                            item_context.func.attr == "assertRaises"
+                            or (
+                                item_context.func.attr == "raises"
+                                and isinstance(item_context.func.value, ast.Name)
+                                and item_context.func.value.id == "pytest"
+                                and "match" not in (
+                                    kwd.arg for kwd in item_context.keywords
+                                )
                             )
                         )
                     )
+                    or (
+                        isinstance(item_context.func, ast.Name)
+                        and item_context.func.id == "raises"
+                        and isinstance(item_context.func.ctx, ast.Load)
+                        and "pytest.raises" in self._b005_imports
+                        and "match" not in (kwd.arg for kwd in item_context.keywords)
+                    )
                 )
-                or (
-                    isinstance(item_context.func, ast.Name)
-                    and item_context.func.id == "raises"
-                    and isinstance(item_context.func.ctx, ast.Load)
-                    and "pytest.raises" in self._b005_imports
-                    and "match" not in (kwd.arg for kwd in item_context.keywords)
-                )
-            )
-            and len(item_context.args) == 1
-            and isinstance(item_context.args[0], ast.Name)
-            and item_context.args[0].id in {"Exception", "BaseException"}
-            and not item.optional_vars
-        ):
-            self.add_error("B017", node)
+                and len(item_context.args) == 1
+                and isinstance(item_context.args[0], ast.Name)
+                and item_context.args[0].id in {"Exception", "BaseException"}
+                and not item.optional_vars
+            ):
+                self.add_error("B017", node)
+                return
 
     def check_for_b019(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if (
@@ -1790,7 +1831,7 @@ class BugBearVisitor(ast.NodeVisitor):
                 self.add_error("B049", abstract_decorator, path)
                 return
 
-    def check_for_b020(self, node: ast.For) -> None:
+    def check_for_b020(self, node: ast.For | ast.AsyncFor) -> None:
         iterset = B020AttributeFinder()
         iterset.visit(node.iter)
         iterset_names = set(iterset.names)
@@ -1871,6 +1912,13 @@ class BugBearVisitor(ast.NodeVisitor):
                     for arg in node.args:
                         if isinstance(arg, FUNCTION_NODES):
                             safe_functions.append(arg)
+
+                # an immediately-invoked lambda runs before the iteration ends
+                if isinstance(node.func, ast.Lambda) and not any(
+                    isinstance(child, (ast.Yield, ast.YieldFrom, ast.GeneratorExp))
+                    for child in ast.walk(node.func.body)
+                ):
+                    safe_functions.append(node.func)
 
                 # check for key=
                 for keyword in node.keywords:
@@ -2301,6 +2349,25 @@ class BugBearVisitor(ast.NodeVisitor):
                 self._bare_names[key] = _module_name_is_from(module, source, name)
         return self._bare_names[key]
 
+    def _is_module_name(self, node: ast.expr, source: str) -> bool:
+        """Whether ``node`` is ``<source>`` or a name it is imported as.
+
+        ``it`` counts after ``import itertools as it``. ``<source>`` itself always
+        counts, even without an import.
+        """
+        if not isinstance(node, ast.Name):
+            return False
+        if node.id == source:
+            return True
+        if source not in self._module_names:
+            module = self.contexts[0].node if self.contexts else None
+            self._module_names[source] = (
+                _module_import_names(module, source)
+                if isinstance(module, ast.Module)
+                else set()
+            )
+        return node.id in self._module_names[source]
+
     def check_for_b031(self, loop_node: ast.For) -> None:  # noqa: C901
         """Check that `itertools.groupby` isn't iterated over more than once.
 
@@ -2318,16 +2385,17 @@ class BugBearVisitor(ast.NodeVisitor):
             ) or (
                 isinstance(node.func, ast.Attribute)
                 and node.func.attr == "groupby"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "itertools"
+                and self._is_module_name(node.func.value, "itertools")
             ):
                 # We have an invocation of groupby which is a simple unpacking
-                if isinstance(loop_node.target, ast.Tuple) and isinstance(
-                    loop_node.target.elts[1], ast.Name
+                if (
+                    isinstance(loop_node.target, (ast.Tuple, ast.List))
+                    and len(loop_node.target.elts) == 2
+                    and isinstance(loop_node.target.elts[1], ast.Name)
                 ):
                     group_name = loop_node.target.elts[1].id
                 else:
-                    # Ignore any `groupby()` invocation that isn't unpacked
+                    # Ignore any `groupby()` invocation that isn't a 2-target unpacking
                     return
 
                 self._check_b031_group_usages(loop_node.body, group_name)
@@ -2728,17 +2796,18 @@ class BugBearVisitor(ast.NodeVisitor):
             self.add_error("B021", node.body[0].value)
 
     def check_for_b022(self, node: ast.With) -> None:
-        item = node.items[0]
-        item_context = item.context_expr
-        if (
-            isinstance(item_context, ast.Call)
-            and isinstance(item_context.func, ast.Attribute)
-            and isinstance(item_context.func.value, ast.Name)
-            and item_context.func.value.id == "contextlib"
-            and item_context.func.attr == "suppress"
-            and len(item_context.args) == 0
-        ):
-            self.add_error("B022", node)
+        for item in node.items:
+            item_context = item.context_expr
+            if (
+                isinstance(item_context, ast.Call)
+                and isinstance(item_context.func, ast.Attribute)
+                and isinstance(item_context.func.value, ast.Name)
+                and item_context.func.value.id == "contextlib"
+                and item_context.func.attr == "suppress"
+                and len(item_context.args) == 0
+            ):
+                self.add_error("B022", node)
+                return
 
     @staticmethod
     def _is_assertRaises_like(node: ast.withitem) -> bool:
@@ -2825,13 +2894,11 @@ class BugBearVisitor(ast.NodeVisitor):
                 current.append((name, exc))
             caught.extend(current)
 
-    @staticmethod
-    def _is_infinite_iterator(node: ast.expr) -> bool:
+    def _is_infinite_iterator(self, node: ast.expr) -> bool:
         if not (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "itertools"
+            and self._is_module_name(node.func.value, "itertools")
         ):
             return False
         if node.func.attr in {"cycle", "count"}:
@@ -3483,8 +3550,7 @@ class BugBearVisitor(ast.NodeVisitor):
             or (
                 isinstance(node.func, ast.Attribute)
                 and node.func.attr == "batched"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "itertools"
+                and self._is_module_name(node.func.value, "itertools")
             )
         ) and not any(kw.arg == "strict" for kw in node.keywords):
             self.add_error("B911", node)
@@ -3539,20 +3605,32 @@ class B909Checker(ast.NodeVisitor):
         self.key = key
         self.check_subscript_assignments = check_subscript_assignments
         self.mutations: dict[
-            int, list[ast.Assign | ast.AugAssign | ast.Delete | ast.Call]
+            int,
+            list[ast.Assign | ast.AnnAssign | ast.AugAssign | ast.Delete | ast.Call],
         ] = defaultdict(list)
         self._conditional_block = 0
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        for target in node.targets:
+        self._track_subscript_assignments(node, node.targets)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value is not None:
+            self._track_subscript_assignments(node, [node.target])
+        self.generic_visit(node)
+
+    def _track_subscript_assignments(
+        self, node: ast.Assign | ast.AnnAssign, targets: list[ast.expr]
+    ) -> None:
+        if not self.check_subscript_assignments:
+            return
+        for target in targets:
             if (
-                self.check_subscript_assignments
-                and isinstance(target, ast.Subscript)
+                isinstance(target, ast.Subscript)
                 and _to_name_str(target.value) == self.name
                 and (self.key is None or _to_name_str(target.slice) != self.key)
             ):
                 self.mutations[self._conditional_block].append(node)
-        self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         if _to_name_str(node.target) == self.name:
@@ -3604,6 +3682,164 @@ class B909Checker(ast.NodeVisitor):
                 self.mutations[self._conditional_block].clear()
             self.visit(elem)
         return node
+
+
+_STRING_START_TOKENS = {
+    getattr(tokenize, name)
+    for name in ("FSTRING_START", "TSTRING_START")
+    if hasattr(tokenize, name)
+}
+_STRING_END_TOKENS = {
+    getattr(tokenize, name)
+    for name in ("FSTRING_END", "TSTRING_END")
+    if hasattr(tokenize, name)
+}
+
+
+class _Bracket:
+    """An open bracket, while looking for B914."""
+
+    def __init__(self, char: str, is_call: bool) -> None:
+        self.char = char
+        # `f(...)`, as opposed to `(...)`, which groups an expression or is a tuple
+        self.is_call = is_call
+        self.has_content = False
+
+
+class _ImplicitConcatenationFinder:
+    """Find the string literals that are implicitly concatenated, see B914."""
+
+    def __init__(self) -> None:
+        self.brackets: list[_Bracket] = []
+        # (start, end) of the strings that follow each other, with only newlines
+        # and comments between them
+        self.run: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        # whether the parentheses the run is in held anything before it
+        self.run_after_content = False
+        # nesting of f-strings and t-strings
+        self.string_depth = 0
+        # the last token that is not a NL or a COMMENT
+        self.previous: tokenize.TokenInfo | None = None
+        # whether `previous` is the first token of a statement
+        self.previous_starts_statement = False
+
+    def find(self, tokens: Iterable[tokenize.TokenInfo]) -> Iterator[tuple[int, int]]:
+        for token in tokens:
+            if token.type in (tokenize.NL, tokenize.COMMENT):
+                continue
+            if self._in_string(token):
+                continue
+            if token.type == tokenize.STRING or token.type in _STRING_START_TOKENS:
+                if not self.run and self.brackets:
+                    self.run_after_content = self.brackets[-1].has_content
+                self.run.append((token.start, token.end))
+            else:
+                if self.run:
+                    position = self._end_run(token)
+                    if position is not None:
+                        yield position
+                self._track_brackets(token)
+            self._set_previous(token)
+
+    def _set_previous(self, token: tokenize.TokenInfo) -> None:
+        previous = self.previous
+        self.previous_starts_statement = previous is None or previous.type in (
+            tokenize.NEWLINE,
+            tokenize.INDENT,
+            tokenize.DEDENT,
+        )
+        self.previous = token
+
+    def _in_string(self, token: tokenize.TokenInfo) -> bool:
+        """Whether `token` is part of an f-string, other than its start. Keep the end
+        of the outermost one as the end of the last string of the run."""
+        if token.type in _STRING_START_TOKENS:
+            self.string_depth += 1
+            return self.string_depth > 1
+        if token.type in _STRING_END_TOKENS:
+            self.string_depth -= 1
+            if self.string_depth == 0:
+                self.run[-1] = (self.run[-1][0], token.end)
+                self._set_previous(token)
+            return True
+        return self.string_depth > 0
+
+    def _end_run(self, token: tokenize.TokenInfo) -> tuple[int, int] | None:
+        """The start of the run, if it is to be reported. `token` follows it."""
+        run, self.run = self.run, []
+        if self.brackets:
+            self.brackets[-1].has_content = True
+        if not self.brackets:
+            return None
+        # strings on the same line, as in `["a", "b" "c"]`: report the first of them
+        # (the run may start lines before) so that `# noqa` goes on that line
+        position = next(
+            (
+                first[0]
+                for first, second in itertools.pairwise(run)
+                if first[1][0] == second[0][0]
+            ),
+            None,
+        )
+        if position is None:
+            return None
+        bracket = self.brackets[-1]
+        # `("a" "b")` is written that way on purpose
+        if (
+            bracket.char == "("
+            and not bracket.is_call
+            and not self.run_after_content
+            and token.type == tokenize.OP
+            and token.string == ")"
+        ):
+            return None
+        return position
+
+    def _track_brackets(self, token: tokenize.TokenInfo) -> None:
+        if token.type != tokenize.OP:
+            if self.brackets and token.type not in (tokenize.INDENT, tokenize.DEDENT):
+                self.brackets[-1].has_content = True
+            return
+        if token.string in ("(", "[", "{"):
+            if self.brackets:
+                self.brackets[-1].has_content = True
+            self.brackets.append(_Bracket(token.string, self._follows_expression()))
+        elif token.string in (")", "]", "}"):
+            if self.brackets:
+                self.brackets.pop()
+            if self.brackets:
+                self.brackets[-1].has_content = True
+        elif self.brackets:
+            self.brackets[-1].has_content = True
+
+    def _follows_expression(self) -> bool:
+        """Whether the bracket that opens now is a call or a subscript, as opposed
+        to one that starts a display or groups an expression."""
+        previous = self.previous
+        if previous is None:
+            return False
+        if previous.type == tokenize.NAME:
+            # `match (x):` and `case (x):` are statements, not calls. This misses a
+            # call to a function named `match` that is a statement of its own.
+            if previous.string in ("match", "case") and self.previous_starts_statement:
+                return False
+            return not iskeyword(previous.string)
+        return previous.type == tokenize.OP and previous.string in (")", "]")
+
+
+def _implicit_string_concatenations(source: str) -> Iterator[tuple[int, int]]:
+    """Yield the position of string literals that are implicitly concatenated on a
+    line, inside brackets, as in `["a", "b" "c"]`: a comma is probably missing.
+
+    A concatenation that is the only thing between a pair of parentheses is
+    written that way on purpose, so it is skipped: `("a" "b")`. The same goes for
+    one that is not in brackets at all.
+    """
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return
+    yield from _ImplicitConcatenationFinder().find(tokens)
 
 
 def _is_useless_operation(node: ast.expr) -> bool:
@@ -4452,6 +4688,12 @@ error_codes = {
             "variables; otherwise remove the arguments and targets."
         )
     ),
+    "B914": Error(
+        message=(
+            "B914 Implicit string concatenation inside brackets. Is a comma missing? "
+            "Join the strings with `+`, or wrap them in parentheses if this is intended."
+        )
+    ),
     "B950": Error(message="B950 line too long ({} > {} characters)"),
 }
 
@@ -4469,5 +4711,6 @@ disabled_by_default = [
     "B911",
     "B912",
     "B913",
+    "B914",
     "B950",
 ]

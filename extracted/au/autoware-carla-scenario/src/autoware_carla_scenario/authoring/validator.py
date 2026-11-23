@@ -29,7 +29,7 @@ from .models import (
     actor_kind,
     condition_refs,
 )
-from ..route.model import anchor_problem, parse_anchor, parse_route_search
+from ..route.model import anchor_problem, parse_route_search
 from ..trajectory.authoring import (
     parse_relative_vertices,
     parse_route_vertices,
@@ -39,13 +39,24 @@ from ..trajectory.authoring import (
 )
 from ..constants import MIN_BACKGROUND_SPEED_KMH
 from ..scaffold.names import SCENARIO_NAME_PATTERN
+from .field_bounds import bounds_text, within_bounds
+from .field_bounds import traffic_mean_bounds as _traffic_mean_bounds
 from .hydra_config import MAP_EXCLUSION_REF
 from .package_names import framework_name_problem, scenario_id_problem
+from .route_progress_checks import route_bound, route_progress_warning
 from ._builders_generated import (
     FAILURE_ONLY_CONDITIONS,
     ONCE_ACTIONS,
     OVERRIDING_ACTIONS,
     POST_RUN_CONDITIONS,
+)
+from .span_checks import check_spans, check_vertex_times
+from .signal_checks import (
+    SignalController,
+    SignalGroup,
+    SignalPhase,
+    SignalState,
+    check_signal_table,
 )
 from .registry import (
     EQUAL_TO_DEFAULT_TOLERANCE,
@@ -65,11 +76,6 @@ from .registry import (
 __all__ = ["Issue", "Severity", "ValidationReport", "validate_document"]
 
 Severity = Literal["error", "warning"]
-
-#: The signal states that let traffic through.  Amber is one of them: a junction
-#: showing amber to one movement still has vehicles in it, which is exactly why
-#: a real one never shows amber to a movement that crosses it either.
-PERMISSIVE_SIGNAL_STATES = frozenset({"green", "yellow"})
 
 #: The rule an action or condition node id follows (#1889): the one entity ids
 #: and the document id follow (``models._ID_PATTERN``), since a node id is a
@@ -349,49 +355,12 @@ def _check_bounds(
     says it as the constructor does: "must be positive" for a bound above 0,
     "must not be negative" for one at 0.
     """
-    low, high = spec.exclusive_minimum, spec.maximum
-    inclusive = spec.minimum
-    if (
-        (low is None or number > low)
-        and (inclusive is None or number >= inclusive)
-        and (high is None or number <= high)
-    ):
+    if within_bounds(number, spec.exclusive_minimum, spec.minimum, spec.maximum):
         return
-    out.error(f"{path}.{spec.name}", f"{spec.label} {_bounds_text(spec)}.", object_id)
-
-
-def _bound_text(spec: FieldSpec, bound: float) -> str:
-    """*bound* as the message prints it: a whole number field's in full (a
-    seed's ``2147483647``, not ``2.14748e+09``), any other's with ``:g``."""
-    if spec.kind == "int" and float(bound).is_integer():
-        return str(int(bound))
-    return f"{bound:g}"
-
-
-def _bounds_text(spec: FieldSpec) -> str:
-    """What :func:`_check_bounds` asks of *spec*'s value, as a predicate."""
-    low, inclusive, high = spec.exclusive_minimum, spec.minimum, spec.maximum
-    if high is not None and (low is not None or inclusive is not None):
-        if low is not None:
-            opening = f"({_bound_text(spec, low)}"
-        else:
-            assert inclusive is not None  # noqa: S101 -- by the test above
-            opening = f"[{_bound_text(spec, inclusive)}"
-        return f"must be in {opening}, {_bound_text(spec, high)}]"
-    if high is not None:
-        return f"must be at most {_bound_text(spec, high)}"
-    if low is not None:
-        return (
-            "must be positive"
-            if low == 0
-            else f"must be above {_bound_text(spec, low)}"
-        )
-    assert inclusive is not None  # noqa: S101 -- only called out of bounds
-    return (
-        "must not be negative"
-        if inclusive == 0
-        else f"must be at least {_bound_text(spec, inclusive)}"
+    text = bounds_text(
+        spec.kind == "int", spec.exclusive_minimum, spec.minimum, spec.maximum
     )
+    out.error(f"{path}.{spec.name}", f"{spec.label} {text}.", object_id)
 
 
 def _check_records(
@@ -926,32 +895,17 @@ def _check_vertex_times(
     """The timing rules of a trajectory, on the card's time conditions.
 
     Once any vertex departs at a time, every vertex departs on a condition
-    (a time or another), and the times do not decrease along the path.
+    (a time or another), and the times do not decrease along the path: the
+    checked :func:`~.span_checks.check_vertex_times`' (#2386), over the
+    vertices with a condition and each time (``None`` for one that is not a
+    finite number).
     """
-    times = _vertex_times(node)
-    if not times or count < 2:
-        return
+    times: dict[int, Optional[float]] = {
+        vertex: float(time) if _coercible_float(time) else None
+        for vertex, time in _vertex_times(node).items()
+    }
     gated = {gate.vertex for gate in node.advance_conditions}
-    bare = [vertex for vertex in range(1, count + 1) if vertex not in gated]
-    if bare:
-        out.error(
-            f"{path}.advance_conditions",
-            "Either every vertex has a time or none has (a vertex with another "
-            f"waypoint condition counts as having one): vertex {bare[0]} has "
-            "none.",
-            node.id,
-        )
-    ordered = [
-        float(times[vertex])
-        for vertex in sorted(times)
-        if vertex <= count and _coercible_float(times[vertex])
-    ]
-    if any(later < earlier for earlier, later in zip(ordered, ordered[1:])):
-        out.error(
-            f"{path}.advance_conditions",
-            "The vertex times decrease along the path.",
-            node.id,
-        )
+    _report(out, check_vertex_times(path, count, gated, times), node.id)
 
 
 def _vertex_count(node: ActionNode) -> Optional[int]:
@@ -1159,61 +1113,50 @@ def _number(params: dict[str, Any], key: str) -> Optional[float]:
 def _check_spans(out: _Collector, path: str, node: ActionNode) -> None:
     """A construction zone ends after it starts, along its lane and in time;
     a stalled object is taken away after it is put down, as the actions ask
-    (an end of ``1e9`` s or more is "never", which the empty field says)."""
-    if node.type != "stalled_object":
-        # Read with their defaults, as the compiler builds them (#2281): an
-        # end_s of 50 before the default start_s of 100 is no zone either.
-        start_s, end_s = _node_number(node, "start_s"), _node_number(node, "end_s")
-        if start_s is not None and end_s is not None and not end_s > start_s:
-            out.error(
-                f"{path}.end_s",
-                "The zone's end (end_s) must be further along than its start "
-                "(start_s).",
-                node.id,
-            )
-        elif start_s is not None and end_s is not None:
-            if node.type == "construction_zone":
-                _check_highway_zone_length(out, path, node, end_s - start_s)
-    start, end = _node_number(node, "start_time"), _node_number(node, "end_time")
-    if start is None or end is None:
-        return
-    if not end > start:
-        out.error(
-            f"{path}.end_time",
-            "The end time must be after the start time; leave it empty for never.",
-            node.id,
-        )
-    elif node.type == "stalled_object" and end > _stalled_forever_s():
-        out.error(
-            f"{path}.end_time",
-            f"An end time past {_stalled_forever_s():g} s is never: leave it empty.",
-            node.id,
-        )
+    (an end of ``1e9`` s or more is "never", which the empty field says).
 
+    The checked :func:`~.span_checks.check_spans`' (#2386), with a highway
+    zone's length against its tapers and buffer, over the numbers read with
+    their defaults, as the compiler builds them (#2281): an end_s of 50
+    before the default start_s of 100 is no zone either.
 
-def _check_highway_zone_length(
-    out: _Collector, path: str, node: ActionNode, length: float
-) -> None:
-    """Warn of a construction zone shorter than its tapers and buffer: it has
-    no work zone, and the three are shortened to fit it (#2263), as
-    ``construction_zones`` does."""
-    parts: list[tuple[str, float]] = []
-    for key in ("taper_length_in", "buffer_zone_length", "taper_length_out"):
-        value = _node_number(node, key)
-        if value is None:
-            return
-        parts.append((key, value))
-    needed = sum(value for _, value in parts)
-    if not length < needed:
-        return
-    named = " + ".join(f"{key} {value:g} m" for key, value in parts)
-    out.warn(
-        f"{path}.end_s",
-        f"The zone is {length:g} m long (start_s to end_s), shorter than "
-        f"{named} = {needed:g} m: it has no work zone, and the tapers and "
-        "the buffer are shortened in proportion to fit it.",
-        node.id,
+    ``FOREVER_S`` is read only when it is compared, for a stalled object
+    that ends after it starts: its lazy import pulls in the actions (and
+    CARLA), which a card with no end time never needed.
+    """
+    start_time = _node_number(node, "start_time")
+    end_time = _node_number(node, "end_time")
+    compared = (
+        node.type == "stalled_object"
+        and start_time is not None
+        and end_time is not None
+        and end_time > start_time
     )
+    found = check_spans(
+        path,
+        node.type,
+        _node_number(node, "start_s"),
+        _node_number(node, "end_s"),
+        start_time,
+        end_time,
+        _node_number(node, "taper_length_in"),
+        _node_number(node, "buffer_zone_length"),
+        _node_number(node, "taper_length_out"),
+        _stalled_forever_s() if compared else math.inf,
+    )
+    _report(out, found, node.id)
+
+
+def _report(
+    out: _Collector, found: "list[tuple[str, str, str]]", object_id: str
+) -> None:
+    """Turn a checked module's ``(severity, path, message)`` triples into
+    issues of *object_id*, in the order they were found."""
+    for severity, where, message in found:
+        if severity == "error":
+            out.error(where, message, object_id)
+        else:
+            out.warn(where, message, object_id)
 
 
 def _stalled_forever_s() -> float:
@@ -1264,31 +1207,6 @@ def _check_traffic_parameters(out: _Collector, path: str, node: ActionNode) -> N
             f"at least {low:g}" if math.isinf(high) else f"within [{low:g}, {high:g}]"
         )
         out.error(f"{path}.{name}", f"{labels[name]} must be {wanted}.", node.id)
-
-
-def _traffic_mean_bounds() -> dict[str, tuple[float, float]]:
-    """``*_mean`` field of a Traffic/Vehicle Parameters card -> the
-    ``(low, high)`` its parameter's mean must lie in.
-
-    The bounds are the runtime's own tables (``VEHICLE_BOUNDS`` and the
-    rest), which the parameter classes check every mean against when the
-    action is built; the field names are what ``traffic.authoring`` maps
-    onto them (a pedestrian's gap is ``pedestrian_min_gap_m``, every bicycle
-    field ``bicycle_*``).
-    """
-    from ..traffic.parameters import (  # noqa: PLC0415
-        BICYCLE_BOUNDS,
-        PEDESTRIAN_BOUNDS,
-        VEHICLE_BOUNDS,
-    )
-
-    bounds = {f"{name}_mean": span for name, span in VEHICLE_BOUNDS.items()}
-    for name, span in PEDESTRIAN_BOUNDS.items():
-        field_name = "pedestrian_min_gap_m" if name == "min_gap_m" else name
-        bounds[f"{field_name}_mean"] = span
-    for name, span in BICYCLE_BOUNDS.items():
-        bounds[f"bicycle_{name}_mean"] = span
-    return bounds
 
 
 def _check_traffic_constraints(out: _Collector, path: str, node: ActionNode) -> None:
@@ -2245,31 +2163,13 @@ def _check_route(out: _Collector, document: ScenarioDocument) -> None:
 
 def _route_bound(anchor: Any, route: RouteSearch) -> Optional[str]:
     """``"start"`` when *anchor* is route s 0 on every match of *route*,
-    ``"end"`` when it is the route's length on every match, else ``None``.
-
-    The route's length is only known once the search runs on a map, but its
-    first segment always starts at 0 and its last always ends at the length,
-    so these anchors are pinned to a bound whatever the map.
-    """
-    text = "start" if anchor is None or not str(anchor).strip() else str(anchor)
-    try:
-        kind, index, end = parse_anchor(text)
-    except ValueError:
-        return None
-    if kind in ("start", "end"):
-        return kind
-    if kind == "junction":
-        junction_at = [
-            k for k, segment in enumerate(route.segments) if segment.kind == "junction"
-        ]
-        if index >= len(junction_at):
-            return None
-        index = junction_at[index]
-    if index == 0 and end in ("start", "entry"):
-        return "start"
-    if index == len(route.segments) - 1 and end in ("end", "exit"):
-        return "end"
-    return None
+    ``"end"`` when it is the route's length on every match, else ``None``:
+    the checked :func:`~.route_progress_checks.route_bound`' (#2386), over
+    the anchor's text and the route's segment kinds."""
+    return route_bound(
+        "" if anchor is None else str(anchor),
+        [str(segment.kind) for segment in route.segments],
+    )
 
 
 def _check_route_progress_bounds(
@@ -2277,74 +2177,28 @@ def _check_route_progress_bounds(
 ) -> None:
     """Warn about a ``route_progress`` whose target lies off the route (#1385).
 
-    An entity's route s is clamped to ``[0, length]``, so a target before the
-    route's start or past its end is one the rule always or never meets: from
-    ``start - 15 m``, ``>=`` holds from the first tick the entity is on the map
-    (one not spawned yet, or hidden below the route, has no progress), even
-    behind the start; to ``end + 5 m`` it never holds, and a waypoint waiting
-    on it never departs.  A target exactly on a bound with a strict rule
-    pointing off the route never holds either (#1389): ``<`` the start, ``>``
-    the end.  The other rules there -- the default ``>=`` the start, and
-    ``<=`` the end, ``>`` the start, ``<`` the end, ``=`` either -- can all
-    hold.  Only an anchor pinned to a bound (:func:`_route_bound`) is judged,
+    The warning is the checked
+    :func:`~.route_progress_checks.route_progress_warning`' (#2386): a
+    target before the route's start or past its end, or on a bound with a
+    strict rule pointing off the route, is one the rule always or never
+    meets.  Only an anchor pinned to a bound (:func:`_route_bound`) is judged,
     the length being the map's.  A warning, not an error, as for the other
     conditions that never fire (:func:`_check_persistent_child`,
     :func:`_check_equal_tolerance`): the document builds and runs as it did.
     """
-    params = node.params
     value = _node_number(node, "value")
     if value is None:
         return
-    bound = _route_bound(params.get("anchor"), route)
     rule = str(_value(node, "rule") or "greater_than_or_equal")
-    hint = "Give a distance that puts the target on the route."
-    if bound == "start" and value < 0:
-        where = f"{-value:g} m before the route's start"
-        below = True
-    elif bound == "end" and value > 0:
-        where = f"{value:g} m past the route's end"
-        below = False
-    elif bound == "start" and value == 0 and rule == "less_than":
-        where = "the route's start"
-        below = True
-        hint = 'Use "less than or equal" (or a positive distance) instead.'
-    elif bound == "end" and value == 0 and rule == "greater_than":
-        where = "the route's end"
-        below = False
-        hint = 'Use "greater than or equal" (or a negative distance) instead.'
-    else:
-        return
-    rising = rule in ("greater_than", "greater_than_or_equal")
-    falling = rule in ("less_than", "less_than_or_equal")
-    if rule == "equal_to":
-        tolerance = _node_number(node, "tolerance")
-        if tolerance is None:
-            tolerance = EQUAL_TO_DEFAULT_TOLERANCE
-        if abs(value) <= tolerance:
-            return
-        always = False
-    elif rising or falling:
-        always = rising == below
-    else:
-        return  # an unknown rule is the field check's
-    reading = rule.replace("_", " ")
-    if always:
-        extreme = "behind the route's start" if below else "at the route's end"
-        verdict = (
-            f'"{reading}" holds from the first tick the entity is on the map, '
-            f"even for one {extreme}"
-        )
-    else:
-        verdict = (
-            f'"{reading}" can never hold: an action waiting on it never '
-            "fires, and a waypoint never departs"
-        )
-    out.warn(
-        node.id,
-        f"Route progress: the target is {where}. Progress is clamped to the "
-        f"route, from 0 to its length, so {verdict}. {hint}",
-        node.id,
+    message = route_progress_warning(
+        value,
+        _route_bound(node.params.get("anchor"), route),
+        rule,
+        _node_number(node, "tolerance") if rule == "equal_to" else None,
+        EQUAL_TO_DEFAULT_TOLERANCE,
     )
+    if message is not None:
+        out.warn(node.id, message, node.id)
 
 
 def _check_lanelet_slots(out: _Collector, document: ScenarioDocument) -> None:
@@ -2488,409 +2342,56 @@ def _check_signal_controllers(out: _Collector, document: ScenarioDocument) -> No
     checked against each other here, while the document is being written,
     rather than discovered as a run that timed out for no stated reason.
 
-    The groups come first because the phases are checked against them -- both
-    for a name that resolves and for the one rule the grouping exists to make
-    checkable: that no phase lets two crossing movements through at once.
+    The groups and the controllers are checked by the checked
+    :func:`~.signal_checks.check_signal_table` (#2364), over plain copies of
+    the document's models, and its findings reported in the order it found
+    them; the actions and conditions naming a controller and a phase are
+    checked here, against the controllers it resolved the names to.
     """
-    groups = _check_signal_groups(out, document)
     declared = document.map.traffic_signal_controllers
-    by_name: dict[str, Any] = {}
-
-    for index, controller in enumerate(declared):
-        path = f"map.traffic_signal_controllers[{index}]"
-        name = (controller.name or "").strip()
-        if not name:
-            out.error(path, "A signal controller needs a name.")
-        elif name in by_name:
-            out.error(path, f"Duplicate signal controller name {name!r}.")
-        else:
-            by_name[name] = controller
-
-        _check_signal_phases(out, path, controller, groups)
-        _check_signal_offset(out, path, controller)
-
-    _check_signal_reference_targets(out, declared, by_name)
-    _check_signal_reference_cycles(out, declared, by_name)
-    _check_signal_uses(out, document, by_name)
-
-
-@dataclass(frozen=True)
-class _SignalGroups:
-    """The map's signal groups, resolved for the phase checks that follow.
-
-    Attributes:
-        members: Group name -> the regulatory element ids it drives.
-        conflicts: Group name -> the groups whose movements cross it.  Closed
-            symmetrically, so a crossing declared on one side only is still
-            caught from the other.
-    """
-
-    members: "dict[str, set[int]]" = field(default_factory=dict)
-    conflicts: "dict[str, set[str]]" = field(default_factory=dict)
-
-
-def _check_signal_groups(out: _Collector, document: ScenarioDocument) -> _SignalGroups:
-    """Check ``map.signal_groups`` and return it resolved.
-
-    A group is a claim about the road -- these signals change together, those
-    two movements cross -- so the mistakes worth catching here are the ones that
-    make the claim incoherent.  The one that matters most is a signal in two
-    groups: a phase could then ask for two colours on one light, and which it
-    ended up showing would depend on the order the states happened to be written
-    in.
-    """
-    declared = document.map.signal_groups
-    members: "dict[str, set[int]]" = {}
-    #: Which declaration each name came from, so the conflicts pass can tell a
-    #: duplicate's entries from the ones belonging to the group that kept it.
-    declared_at: "dict[str, int]" = {}
-    owner_of: "dict[int, str]" = {}
-
-    for index, group in enumerate(declared):
-        path = f"map.signal_groups[{index}]"
-        name = (group.name or "").strip()
-        if not name:
-            out.error(path, "A signal group needs a name, since phases call it by one.")
-            continue
-        if name in members:
-            out.error(
-                path,
-                f"Duplicate signal group name {name!r}; a phase naming it would "
-                "be ambiguous.",
+    checked = check_signal_table(
+        [
+            SignalGroup(
+                name=group.name,
+                regulatory_element_ids=list(group.lanelet2_regulatory_element_ids),
+                conflicts_with=[str(other) for other in group.conflicts_with],
             )
-            continue
-
-        ids = set(group.lanelet2_regulatory_element_ids)
-        if not ids:
-            out.error(
-                f"{path}.lanelet2_regulatory_element_ids",
-                f"Signal group {name!r} drives no signal, so a phase naming it "
-                "would set nothing.",
-            )
-        if len(ids) != len(group.lanelet2_regulatory_element_ids):
-            out.warn(
-                f"{path}.lanelet2_regulatory_element_ids",
-                f"Signal group {name!r} names the same regulatory element more "
-                "than once.",
-            )
-        for signal in sorted(ids):
-            existing = owner_of.get(signal)
-            if existing is not None:
-                out.error(
-                    f"{path}.lanelet2_regulatory_element_ids",
-                    f"Regulatory element {signal} is in both signal group "
-                    f"{existing!r} and {name!r}. A signal shows one colour, so "
-                    "a phase naming both groups would not say which.",
-                )
-                continue
-            owner_of[signal] = name
-        members[name] = ids
-        declared_at[name] = index
-
-    conflicts = _check_signal_group_conflicts(out, declared, members, declared_at)
-    return _SignalGroups(members=members, conflicts=conflicts)
-
-
-def _check_signal_group_conflicts(
-    out: _Collector,
-    declared: "list[Any]",
-    members: "dict[str, set[int]]",
-    declared_at: "dict[str, int]",
-) -> "dict[str, set[str]]":
-    """Resolve ``conflicts_with`` into a symmetric relation, reporting bad names.
-
-    Symmetric because a crossing is not directional: an author who wrote it once
-    has said everything there is to say, and demanding the mirror entry would
-    only create a second place for it to be forgotten.
-    """
-    conflicts: "dict[str, set[str]]" = {name: set() for name in members}
-    for index, group in enumerate(declared):
-        name = (group.name or "").strip()
-        if declared_at.get(name) != index:
-            # Nameless, or a duplicate that lost the name.  Already reported, and
-            # its conflicts are not the surviving group's to inherit.
-            continue
-        for other in group.conflicts_with:
-            other = str(other).strip()
-            path = f"map.signal_groups[{index}].conflicts_with"
-            if other == name:
-                out.error(
-                    path,
-                    f"Signal group {name!r} conflicts with itself, which would "
-                    "leave no phase able to let it through.",
-                )
-                continue
-            if other not in members:
-                out.error(
-                    path,
-                    f"Signal group {name!r} conflicts with {other!r}, which this "
-                    "map does not declare.",
-                )
-                continue
-            conflicts[name].add(other)
-            conflicts[other].add(name)
-    return conflicts
-
-
-def _check_signal_phases(
-    out: _Collector, path: str, controller: Any, groups: _SignalGroups
-) -> None:
-    """Check one controller's cycle: its phases, their durations and states."""
-    if not controller.phases:
-        out.error(
-            f"{path}.phases",
-            f"Signal controller {controller.name!r} declares no phases, so it "
-            "would never show anything.",
-        )
-        return
-
-    seen: set[str] = set()
-    for index, phase in enumerate(controller.phases):
-        phase_path = f"{path}.phases[{index}]"
-        name = (phase.name or "").strip()
-        if not name:
-            out.error(phase_path, "A phase needs a name, since actions call it by one.")
-        elif name in seen:
-            out.error(
-                phase_path,
-                f"Signal controller {controller.name!r} declares two phases "
-                f"named {name!r}; an action naming it would be ambiguous.",
-            )
-        seen.add(name)
-
-        if not math.isfinite(phase.duration_seconds) or phase.duration_seconds < 0:
-            out.error(
-                f"{phase_path}.duration_seconds",
-                "A phase duration cannot be negative, and must be finite.",
-            )
-
-        if not phase.states:
-            # Not an error: a phase that holds the junction unchanged for a
-            # while is a legitimate thing to write, even if it is rarely what
-            # was meant.
-            out.warn(
-                f"{phase_path}.states",
-                f"Phase {phase.name!r} sets no signal, so it only spends time.",
-            )
-
-        for state_index, entry in enumerate(phase.states):
-            if str(entry.state).lower() not in SIGNAL_STATE_NAMES:
-                out.error(
-                    f"{phase_path}.states[{state_index}].state",
-                    f"Unknown signal state {entry.state!r}; expected one of "
-                    + ", ".join(sorted(SIGNAL_STATE_NAMES)),
-                )
-            _check_signal_phase_subject(
-                out, f"{phase_path}.states[{state_index}]", phase, entry, groups
-            )
-
-        _check_signal_phase_agrees_with_itself(out, phase_path, phase, groups)
-        _check_signal_phase_lets_no_conflict_through(out, phase_path, phase, groups)
-
-
-def _check_signal_phase_subject(
-    out: _Collector, path: str, phase: Any, entry: Any, groups: _SignalGroups
-) -> None:
-    """Every state names exactly one subject, and a named group must exist.
-
-    Both at once is refused rather than resolved by precedence: a rule about
-    which of the two wins is a rule nobody reading the document would know, and
-    the author who wrote both did not have one in mind either.
-    """
-    # A blank is what a form submits for an untouched field, so it reads as
-    # "not named" rather than as a group called "".
-    group = (entry.group or "").strip()
-    signal = entry.lanelet2_regulatory_element_id
-
-    if group and signal is not None:
-        out.error(
-            path,
-            f"Phase {phase.name!r} names both signal group {group!r} and "
-            f"regulatory element {signal} in one state. Name one: the group for "
-            "the movement, the element for a single light.",
-        )
-        return
-    if not group and signal is None:
-        out.error(
-            path,
-            f"Phase {phase.name!r} has a state that names no signal -- give it "
-            "either a signal group or a regulatory element id.",
-        )
-        return
-    if group and group not in groups.members:
-        out.error(
-            f"{path}.group",
-            f"Phase {phase.name!r} names signal group {group!r}, which "
-            "map.signal_groups does not declare."
-            + (
-                " Declared: " + ", ".join(repr(n) for n in sorted(groups.members))
-                if groups.members
-                else " This map declares none."
-            ),
-        )
-
-
-def _check_signal_phase_agrees_with_itself(
-    out: _Collector, path: str, phase: Any, groups: _SignalGroups
-) -> None:
-    """One phase must not ask for two colours on the same signal.
-
-    Applying a phase walks its states in order, so a repeat is not ambiguous at
-    runtime -- the last one wins.  It is ambiguous to the reader, which is the
-    problem: a phase is meant to be readable as the junction's whole state.
-    """
-    seen_groups: set[str] = set()
-    seen_signals: set[int] = set()
-    for entry in phase.states:
-        group = (entry.group or "").strip()
-        if group:
-            if group in seen_groups:
-                out.error(
-                    f"{path}.states",
-                    f"Phase {phase.name!r} sets signal group {group!r} twice.",
-                )
-            seen_groups.add(group)
-            continue
-        if entry.lanelet2_regulatory_element_id is None:
-            continue
-        signal = int(entry.lanelet2_regulatory_element_id)
-        if signal in seen_signals:
-            out.error(
-                f"{path}.states",
-                f"Phase {phase.name!r} sets regulatory element {signal} twice.",
-            )
-        seen_signals.add(signal)
-
-    # A bare element that one of the named groups also covers is the one overlap
-    # that is legitimate: overriding a single light out of a movement.  It is
-    # worth saying out loud, because it only works in the order it is written.
-    covered = {
-        signal for group in seen_groups for signal in groups.members.get(group, set())
-    }
-    for signal in sorted(seen_signals & covered):
-        out.warn(
-            f"{path}.states",
-            f"Phase {phase.name!r} sets regulatory element {signal} on its own "
-            "as well as through a signal group that covers it; whichever is "
-            "written last is what the light shows.",
-        )
-
-
-def _check_signal_phase_lets_no_conflict_through(
-    out: _Collector, path: str, phase: Any, groups: _SignalGroups
-) -> None:
-    """No phase may let two conflicting movements through at once.
-
-    This is the rule the whole grouping exists for.  Two conflicting approaches
-    green is the state a junction assembled one light at a time can reach and a
-    real road cannot, and until the map said which movements cross, nothing
-    could check it -- an author listing twelve regulatory elements per phase had
-    only their own care to rely on.
-
-    It reads the groups a phase names, not the signals it ends up setting, and
-    that is deliberate: naming a group is how an author invokes the map's
-    statement about that movement, including this rule.  A scenario whose
-    subject *is* a junction in an impossible state names the regulatory elements
-    directly and is left alone.
-    """
-    permissive: "dict[str, str]" = {}
-    for entry in phase.states:
-        group = (entry.group or "").strip()
-        if not group or group not in groups.members:
-            continue
-        state = str(entry.state).lower()
-        if state in PERMISSIVE_SIGNAL_STATES:
-            permissive.setdefault(group, state)
-
-    reported: "set[tuple[str, str]]" = set()
-    for group in sorted(permissive):
-        for other in sorted(groups.conflicts.get(group, set())):
-            if other not in permissive:
-                continue
-            first, second = sorted((group, other))
-            if (first, second) in reported:
-                continue
-            reported.add((first, second))
-            out.error(
-                f"{path}.states",
-                f"Phase {phase.name!r} shows {permissive[first]} to signal group "
-                f"{first!r} and {permissive[second]} to {second!r} at the same "
-                "time, but the map declares their movements as crossing. Real "
-                "junctions put an all-red clearance between them. If a junction "
-                "in this state is what the scenario tests, name the regulatory "
-                "elements directly instead of the groups.",
-            )
-
-
-def _check_signal_offset(out: _Collector, path: str, controller: Any) -> None:
-    """Check the controller's offset from another one.
-
-    A delay measures from the moment its reference started, so a delay with
-    nothing to measure from is not a controller that starts late -- it is one
-    whose author expected an offset that silently does not exist.
-    """
-    if not math.isfinite(controller.delay_seconds) or controller.delay_seconds < 0:
-        out.error(
-            f"{path}.delay_seconds",
-            "A start delay cannot be negative, and must be finite.",
-        )
-    if controller.delay_seconds and controller.reference is None:
-        out.error(
-            f"{path}.delay_seconds",
-            f"Signal controller {controller.name!r} declares a start delay but "
-            "no reference controller to measure it from.",
-        )
-
-
-def _check_signal_reference_targets(
-    out: _Collector, declared: "list[Any]", by_name: "dict[str, Any]"
-) -> None:
-    """Every ``reference`` must name a controller this map declares."""
-    for index, controller in enumerate(declared):
-        reference = controller.reference
-        if reference is None:
-            continue
-        if reference == controller.name:
-            out.error(
-                f"map.traffic_signal_controllers[{index}].reference",
-                f"Signal controller {controller.name!r} is offset from itself.",
-            )
-        elif reference not in by_name:
-            out.error(
-                f"map.traffic_signal_controllers[{index}].reference",
-                f"Signal controller {controller.name!r} is offset from "
-                f"{reference!r}, which this scenario does not declare.",
-            )
-
-
-def _check_signal_reference_cycles(
-    out: _Collector, declared: "list[Any]", by_name: "dict[str, Any]"
-) -> None:
-    """Reject controllers that wait on each other.
-
-    Each controller starts once the one it references has, so a loop is a set
-    of junctions none of which can ever begin -- a run where every light in the
-    corridor stays on CARLA's own cycle and nothing says why.
-    """
-    reported: set[str] = set()
-    for controller in declared:
-        walked: list[str] = []
-        current = controller
-        while current is not None and current.reference is not None:
-            if current.name in walked:
-                loop = walked[walked.index(current.name) :]
-                key = " -> ".join(sorted(loop))
-                if key not in reported:
-                    reported.add(key)
-                    out.error(
-                        "map.traffic_signal_controllers",
-                        "These signal controllers are offset from each other in "
-                        "a loop, so none of them can start: "
-                        + " -> ".join(loop + [current.name]),
+            for group in document.map.signal_groups
+        ],
+        [
+            SignalController(
+                name=controller.name,
+                phases=[
+                    SignalPhase(
+                        name=phase.name,
+                        duration_seconds=phase.duration_seconds,
+                        states=[
+                            SignalState(
+                                group=entry.group,
+                                regulatory_element_id=entry.lanelet2_regulatory_element_id,
+                                state=str(entry.state),
+                            )
+                            for entry in phase.states
+                        ],
                     )
-                break
-            walked.append(current.name)
-            current = by_name.get(current.reference)
+                    for phase in controller.phases
+                ],
+                delay_seconds=controller.delay_seconds,
+                reference=controller.reference,
+            )
+            for controller in declared
+        ],
+        list(SIGNAL_STATE_NAMES),
+    )
+    for severity, path, message in checked.issues:
+        if severity == "error":
+            out.error(path, message)
+        else:
+            out.warn(path, message)
+    by_name: dict[str, Any] = {
+        name: declared[index] for name, index in checked.controller_index.items()
+    }
+    _check_signal_uses(out, document, by_name)
 
 
 def _check_signal_uses(

@@ -1,23 +1,12 @@
-use rustc_hash::FxHashSet;
-
-use rowan::TextRange;
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_diagnostics::{Edit, Fix};
+use squawk_rowan::TextRange;
+use squawk_syntax::ast::{self, AstNode};
 
 use crate::visitors::check_not_allowed_types;
-use crate::{Edit, Fix, Linter, Rule, Violation};
-
-use std::sync::OnceLock;
-
-fn char_types() -> &'static FxHashSet<&'static str> {
-    static CHAR_TYPES: OnceLock<FxHashSet<&'static str>> = OnceLock::new();
-    CHAR_TYPES.get_or_init(|| FxHashSet::from_iter(["char", "character", "bpchar"]))
-}
+use crate::{Linter, Rule, Violation};
 
 fn is_char_type(x: &str) -> bool {
-    char_types().contains(x.to_ascii_lowercase().as_str())
+    x.eq_ignore_ascii_case("character") || x.eq_ignore_ascii_case("bpchar")
 }
 
 fn create_fix(range: TextRange, args: Option<ast::ArgList>) -> Fix {
@@ -57,16 +46,7 @@ fn check_character_type(ctx: &mut Linter, character_type: &ast::CharacterType) {
 }
 
 fn check_ty(ctx: &mut Linter, ty: Option<ast::Type>) {
-    match ty {
-        Some(ast::Type::ArrayType(array_type)) => match array_type.ty() {
-            Some(ast::Type::CharacterType(character_type)) => {
-                check_character_type(ctx, &character_type);
-            }
-            Some(ast::Type::PathType(path_type)) => {
-                check_path_type(ctx, &path_type);
-            }
-            _ => (),
-        },
+    match ty.and_then(|ty| ty.element_type()) {
         Some(ast::Type::PathType(path_type)) => {
             check_path_type(ctx, &path_type);
         }
@@ -77,9 +57,8 @@ fn check_ty(ctx: &mut Linter, ty: Option<ast::Type>) {
     }
 }
 
-pub(crate) fn ban_char_field(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    let file = parse.tree();
-    check_not_allowed_types(ctx, &file, check_ty);
+pub(crate) fn ban_char_field(ctx: &mut Linter, file: &ast::SourceFile) {
+    check_not_allowed_types(ctx, file, check_ty);
 }
 
 #[cfg(test)]
@@ -109,7 +88,6 @@ mod test {
         assert_snapshot!(fix("CREATE TABLE t (c character(255));"), @"CREATE TABLE t (c varchar(255));");
         assert_snapshot!(fix("CREATE TABLE t (c bpchar(50));"), @"CREATE TABLE t (c varchar(50));");
 
-        assert_snapshot!(fix(r#"CREATE TABLE t (c "char"(100));"#), @"CREATE TABLE t (c varchar(100));");
         assert_snapshot!(fix(r#"CREATE TABLE t (c "character"(255));"#), @"CREATE TABLE t (c varchar(255));");
         assert_snapshot!(fix(r#"CREATE TABLE t (c "bpchar"(50));"#), @"CREATE TABLE t (c varchar(50));");
     }
@@ -186,6 +164,14 @@ create table t (
 );
         "#;
         assert_snapshot!(lint_errors(sql, Rule::BanCharField));
+    }
+
+    #[test]
+    fn internal_char_type_ok() {
+        let sql = r#"
+create table t (a "char", b pg_catalog.char, c "char"[]);
+        "#;
+        lint_ok(sql, Rule::BanCharField);
     }
 
     #[test]

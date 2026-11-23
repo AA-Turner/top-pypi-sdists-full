@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import inspect
 from collections import defaultdict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, unique
 from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast
 
-from schemathesis.config import SchemathesisConfig
-from schemathesis.core.errors import HookExecutionError
+from schemathesis.config import ConfigError, SchemathesisConfig
+from schemathesis.config._parameters import validate_binding_key
+from schemathesis.core.errors import HookExecutionError, format_exception
 from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.core.marks import Mark
 from schemathesis.core.transport import Response
 from schemathesis.filters import FilterSet, attach_filter_chain
+from schemathesis.generation.suggestions import DEFAULT_PROBABILITY, HOOKS_SOURCE
 
 if TYPE_CHECKING:
     import requests
@@ -53,9 +55,38 @@ class HookContext:
 
     operation: APIOperation | None
     """API operation that is currently being processed."""
+    _schema: SchemaMetadata | None
+    # The hook being called, to tell which extension a suggestion comes from
+    _hook: Callable | None
 
-    def __init__(self, *, operation: APIOperation | None = None) -> None:
+    def __init__(self, *, operation: APIOperation | None = None, schema: SchemaMetadata | None = None) -> None:
         self.operation = operation
+        self._schema = schema if schema is not None or operation is None else operation.schema
+        self._hook = None
+
+    def suggest(
+        self,
+        values: Iterable[str | int | float],
+        *,
+        parameter: str | None = None,
+        operation: str | None = None,
+        probability: float = DEFAULT_PROBABILITY,
+    ) -> None:
+        # `parameter` uses the keys of `[parameters]` in the config; without it the values go to every parameter of
+        # a matching type. `operation` is a label, by default the operation this hook runs for, or every operation.
+        if self._schema is None:
+            raise RuntimeError("`suggest` needs a loaded schema; `before_load_schema` runs before there is one")
+        if parameter is not None:
+            try:
+                validate_binding_key(parameter)
+            except ConfigError as error:
+                raise ValueError(str(error)) from None
+        if operation is None and self.operation is not None:
+            operation = self.operation.label
+        source = _extension_name(self._hook) if self._hook is not None else None
+        self._schema.suggestions.add(
+            values, source=source or HOOKS_SOURCE, operation=operation, parameter=parameter, probability=probability
+        )
 
 
 def to_filterable_hook(dispatcher: HookDispatcher) -> Callable:
@@ -295,10 +326,11 @@ def _dispatch_to_all(
 ) -> None:
     for dispatcher in dispatchers:
         for hook in dispatcher.applicable(name, context):
+            context._hook = hook
             try:
                 hook(context, *args)
             except (Exception, SystemExit) as exc:
-                raise HookExecutionError(name, exc) from exc
+                raise HookExecutionError(name, exc, extension=_extension_name(hook)) from exc
 
 
 def apply_to_all_dispatchers(
@@ -330,7 +362,7 @@ def validate_filterable_hook(hook: str | Callable) -> None:
         name = hook.__name__
     else:
         name = hook
-    if name in ("before_process_path", "before_load_schema", "after_load_schema"):
+    if name in ("before_process_path", "before_load_schema", "after_load_schema", "setup", "teardown"):
         raise ValueError(f"Filters are not applicable to this hook: `{name}`")
 
 
@@ -390,8 +422,32 @@ def load_with_hooks(
     project_config = config.projects.get(raw_schema)
     instance = build(project_config)
     instance.filter_set = project_config.operations.filter_set_with(include=instance.filter_set)
+    context._schema = instance
     dispatch_after_load_schema(GLOBAL_HOOK_DISPATCHER, context=context, schema=instance)
     return instance
+
+
+def dispatch_setup(schema: SchemaMetadata) -> None:
+    _dispatch_schema_cascade(schema, "setup", HookContext(schema=schema), schema)
+
+
+def defines_teardown(schema: SchemaMetadata) -> bool:
+    return any(dispatcher.defines("teardown") for dispatcher in schema_hook_dispatchers(schema))
+
+
+def dispatch_teardown(schema: SchemaMetadata) -> list[HookExecutionError]:
+    """Run every `teardown` hook, even after one fails, and return the errors they raised."""
+    context = HookContext(schema=schema)
+    errors = []
+    # A later hook may build on what an earlier one set up, so it is torn down first.
+    for dispatcher in reversed(schema_hook_dispatchers(schema)):
+        for hook in reversed(dispatcher.get_all_by_name("teardown")):
+            context._hook = hook
+            try:
+                hook(context, schema)
+            except (Exception, SystemExit) as exc:
+                errors.append(HookExecutionError("teardown", exc, extension=_extension_name(hook)))
+    return errors
 
 
 def dispatch_before_add_examples(*dispatchers: HookDispatcher, context: HookContext, examples: list[Case]) -> None:
@@ -404,6 +460,7 @@ def dispatch_before_call(
     name = "before_call"
     for dispatcher in dispatchers:
         for hook in dispatcher.applicable(name, context):
+            context._hook = hook
             try:
                 # Support both `def before_call(ctx, case, kwargs)` and `def before_call(ctx, case, **kwargs)`.
                 if has_var_keyword(hook):
@@ -411,7 +468,7 @@ def dispatch_before_call(
                 else:
                     hook(context, case, kwargs)
             except (Exception, SystemExit) as exc:
-                raise HookExecutionError(name, exc) from exc
+                raise HookExecutionError(name, exc, extension=_extension_name(hook)) from exc
 
 
 def dispatch_after_call(*dispatchers: HookDispatcher, context: HookContext, case: Case, response: Response) -> None:
@@ -433,11 +490,12 @@ def should_keep_failure(failure: Failure, case: Case, response: Response) -> boo
     context = HookContext(operation=case.operation)
     for dispatcher in dispatchers:
         for hook in dispatcher.applicable(name, context):
+            context._hook = hook
             try:
                 if not hook(context, failure, case, response):
                     return False
             except (Exception, SystemExit) as exc:
-                raise HookExecutionError(name, exc) from exc
+                raise HookExecutionError(name, exc, extension=_extension_name(hook)) from exc
     return True
 
 
@@ -494,3 +552,148 @@ def hook(hook: str | Callable) -> Callable:
 
 
 hook.__dict__ = GLOBAL_HOOK_DISPATCHER.hook.__dict__
+
+
+# Registered extension classes by name, in registration order.
+EXTENSIONS: dict[str, type] = {}
+
+
+def extension(name: str) -> Callable[[type], type]:
+    """Register a class whose methods are hooks; each `st run` / `st fuzz` gets one instance.
+
+    The instance is created with the `[extensions.<name>]` table from the config as a dict.
+    Public methods must be hook names or `handle_event`, which receives CLI events.
+
+    Example:
+        ```python
+        @schemathesis.extension("taint")
+        class Taint:
+            def __init__(self, settings):
+                self.depth = settings.get("depth", 3)
+
+            def after_call(self, context, case, response):
+                ...
+        ```
+
+    """
+    if not isinstance(name, str):
+        raise TypeError('Extension name is missing; use `@schemathesis.extension("name")`')
+
+    def register(cls: type) -> type:
+        if not isinstance(cls, type):
+            raise TypeError(f"Extension `{name}` must be a class, got `{type(cls).__name__}`")
+        registered = EXTENSIONS.get(name)
+        if registered is cls:
+            return cls
+        if registered is not None:
+            raise ValueError(f"Extension `{name}` is already registered by `{registered.__qualname__}`")
+        other = next((other for other, existing in EXTENSIONS.items() if existing is cls), None)
+        if other is not None:
+            raise ValueError(f"`{cls.__qualname__}` is already registered as extension `{other}`")
+        for attribute in _hook_methods(cls):
+            _validate_extension_method(cls, attribute)
+        _validate_arguments(cls, 1, f"`{cls.__qualname__}` must take the settings table: `__init__(self, settings)`")
+        handle_event = getattr(cls, "handle_event", None)
+        if handle_event is not None:
+            _validate_arguments(handle_event, 3, f"`{cls.__qualname__}.handle_event` must take `(self, ctx, event)`")
+        EXTENSIONS[name] = cls
+        if _extension_listener is not None:
+            _extension_listener(name, cls)
+        return cls
+
+    return register
+
+
+_extension_listener: Callable[[str, type], None] | None = None
+
+
+def set_extension_listener(listener: Callable[[str, type], None] | None) -> Callable[[str, type], None] | None:
+    """Call `listener` with every extension registered from now on; returns the listener it replaces."""
+    global _extension_listener
+    previous, _extension_listener = _extension_listener, listener
+    return previous
+
+
+def _signature(target: Callable) -> inspect.Signature | None:
+    try:
+        return inspect.signature(target)
+    except (TypeError, ValueError):
+        # Native callables may not expose a signature
+        return None
+
+
+def _validate_arguments(target: Callable, count: int, message: str) -> None:
+    signature = _signature(target)
+    if signature is not None:
+        try:
+            signature.bind(*[None] * count)
+        except TypeError:
+            raise TypeError(message) from None
+
+
+def _hook_methods(cls: type) -> Iterator[str]:
+    for attribute in dir(cls):
+        if not attribute.startswith("_") and attribute != "handle_event" and callable(getattr(cls, attribute)):
+            yield attribute
+
+
+def _validate_extension_method(cls: type, attribute: str) -> None:
+    spec = HookDispatcher._specs.get(attribute)
+    qualname = f"{cls.__qualname__}.{attribute}"
+    if spec is None or HookScope.GLOBAL not in spec.scopes:
+        raise TypeError(f"`{qualname}` is not a hook; extension methods must be hooks or `handle_event`")
+    signature = _signature(getattr(cls, attribute))
+    if signature is None:
+        return
+    defined = len(signature.parameters) - 1
+    expected = len(spec.signature.parameters)
+    if defined != expected:
+        raise TypeError(f"`{qualname}` takes {defined} arguments, but the `{attribute}` hook passes {expected}")
+
+
+def _extension_name(hook: Callable) -> str | None:
+    owner = type(getattr(hook, "__self__", None))
+    return next((name for name, cls in EXTENSIONS.items() if cls is owner), None)
+
+
+def check_extension_tables(settings: dict[str, dict[str, object]]) -> None:
+    for name in settings:
+        if name not in EXTENSIONS:
+            if EXTENSIONS:
+                hint = "loaded: " + ", ".join(f"`{loaded}`" for loaded in EXTENSIONS)
+            else:
+                hint = "add the extension's module to `hooks`"
+            raise ConfigError(f"`[extensions.{name}]` matches no loaded extension; {hint}")
+
+
+def create_extension(name: str, cls: type, settings: dict[str, object]) -> object:
+    try:
+        return cls(settings)
+    except ValueError as exc:
+        raise ConfigError(f"Extension `{name}` rejected its settings: {exc}") from exc
+    except Exception as exc:
+        trace = format_exception(exc, with_traceback=True, skip_frames=1)
+        raise ConfigError(f"Extension `{name}` failed to start\n\n{trace}") from exc
+
+
+def bind_extension(instance: object) -> None:
+    """Register the hook methods of an extension instance globally."""
+    for attribute in _hook_methods(type(instance)):
+        # Validated at registration; native methods may lack the signature that plain hook registration checks
+        GLOBAL_HOOK_DISPATCHER._hooks[attribute].append(getattr(instance, attribute))
+
+
+def bind_extensions(settings: dict[str, dict[str, object]]) -> dict[str, object]:
+    """Create every registered extension for one run and register its hook methods globally."""
+    check_extension_tables(settings)
+    instances = {name: create_extension(name, cls, settings.get(name, {})) for name, cls in EXTENSIONS.items()}
+    for instance in instances.values():
+        bind_extension(instance)
+    return instances
+
+
+def unbind_extensions(instances: dict[str, object]) -> None:
+    """Remove the hook methods of these extension instances."""
+    owners = list(instances.values())
+    for hooks in GLOBAL_HOOK_DISPATCHER._hooks.values():
+        hooks[:] = [hook for hook in hooks if not any(getattr(hook, "__self__", None) is owner for owner in owners)]

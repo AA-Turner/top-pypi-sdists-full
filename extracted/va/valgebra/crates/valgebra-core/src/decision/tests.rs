@@ -1132,6 +1132,20 @@ fn a_record_meet_is_empty_only_where_a_required_key_cannot_hold() {
         closed(vec![field("a", Schema::Int, true)]),
         closed(vec![field("b", Schema::Int, true)]),
     ]));
+    // Rule two reads no type: a key one map alone gives a type has no meet to
+    // read, the map's own rule reading that type, so the rule spends no step.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        keyed_map_meet_verdict(
+            &[
+                closed(vec![field("a", Schema::Int, true)]),
+                closed(vec![field("b", Schema::Int, true)]),
+            ],
+            &mut Cx::new(&NoLeafRelations, &[], &budget),
+        ),
+        Verdict::Empty
+    );
+    assert_eq!(budget.left(), DECISION_BUDGET, "a lone type is met");
     // The map that lacks the key must be closed. A clause admits keys the
     // field list does not name, so an open map is no obstacle.
     assert!(!meet_is_empty(&[
@@ -7485,7 +7499,8 @@ fn a_value_of_no_kind_refutes_past_a_cut() {
 /// pool of [`GOALS_WORK`](super::GOALS_WORK) units between them: a query whose
 /// pool is spent reads no such goal by the sets and leaves it unknown, a reading
 /// draws the pool down by what its builds spent, and the next query starts a
-/// pool of its own. A goal holding no reference draws on no pool.
+/// pool of its own. A goal holding a reference on either side draws on it, and
+/// one holding none draws on no pool.
 #[test]
 fn a_query_s_declined_goals_are_lowered_from_one_pool() {
     use super::goal_tests::goals::pairs_read_by_the_sets;
@@ -7511,6 +7526,14 @@ fn a_query_s_declined_goals_are_lowered_from_one_pool() {
         before,
         "a spent pool reads nothing"
     );
+    for (one, other) in [(&subject, &plain_other), (&plain, &supertype)] {
+        assert_eq!(one.a_goal_declined(other, &mut cx), Relation::Unknown);
+        assert_eq!(
+            pairs_read_by_the_sets(),
+            before,
+            "a reference on one side draws on the pool"
+        );
+    }
     assert_eq!(
         plain.a_goal_declined(&plain_other, &mut cx),
         Relation::Fails,
@@ -14351,6 +14374,36 @@ mod leaves {
         );
     }
 
+    /// A union is empty where each member is, read a member at a time where the
+    /// set of the whole is refused, and a product holding it is empty by that
+    /// component: the union of two patterns sharing no word, which only the sets
+    /// empty, and of a product beside a string of at most 584 code points, which
+    /// only its components do, holds no value, so a tuple of it holds none either.
+    #[test]
+    fn a_union_beside_a_component_past_the_bounds_is_empty_by_its_members() {
+        let none = Schema::meet([pattern("a+"), pattern("b+")]);
+        let words = Schema::refine(Schema::Str, vec![Constraint::MaxLen(584)]);
+        let pair = Schema::tuple(SeqShape::fixed([words, none.clone()]));
+        let either = Schema::union([none, pair]);
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&Pure, &[], &budget);
+        assert_eq!(
+            either.verdict_rec(&mut cx),
+            Verdict::Unknown,
+            "the rules leave it open"
+        );
+        assert!(
+            !either.denotes_no_value(&Pure, &[]),
+            "and the sets refuse it whole"
+        );
+        let holding = Schema::tuple(SeqShape::fixed([either]));
+        assert!(holding.is_empty_with(&Pure, &[]));
+        assert_eq!(
+            holding.subtype_relation_under(&Schema::Nothing, &Pure, &[]),
+            Relation::Holds
+        );
+    }
+
     /// A value the sets read is held for the query and charged each time it is asked,
     /// so the memo changes no allowance, and what is held is what is read back.
     #[test]
@@ -14933,6 +14986,9 @@ mod one_member {
         let required = Schema::keyed_map(vec![field("a", Schema::Int, true)], Vec::new());
         let exactly = Schema::refine(required, vec![Constraint::MinLen(1), Constraint::MaxLen(1)]);
         assert_eq!(holding(&exactly), Relation::Fails);
+        // The rules read it so before any reading of the leaves: a greatest
+        // length equal to the required count admits them.
+        assert_eq!(exactly.verdict_under(&Pure), Verdict::Inhabited);
         // A maximum past the required fields leaves them the value.
         let at_most = Schema::refine(optional.clone(), vec![Constraint::MaxLen(1)]);
         assert_eq!(holding(&at_most), Relation::Fails);
@@ -16787,6 +16843,22 @@ mod readings_another_route_shadows {
         assert_ne!(both.decided_as_respelled(&word(0), &cx), Relation::Holds);
     }
 
+    /// A meet with the table's complement the rules read empty proves the
+    /// subject below the table where the subject holds a complement of its own,
+    /// which leaves two in the meet and no one set to read the subject below:
+    /// `a | b | c` less `c` against `a | b`.
+    #[test]
+    fn a_meet_with_the_tables_complement_proves_beside_a_complement_of_its_own() {
+        let budget = Budget::new(DECISION_BUDGET);
+        let cx = Cx::new(&a_plain_value::Table, &[], &budget);
+        let less = Schema::meet([
+            Schema::union([word(0), word(1), word(2)]),
+            word(2).complement(),
+        ]);
+        let table = Schema::union([word(0), word(1)]);
+        assert_eq!(less.decided_as_respelled(&table, &cx), Relation::Holds);
+    }
+
     /// A collection holds the empty one whatever its element, and no bound on
     /// how many: one value at least.
     #[test]
@@ -16854,6 +16926,32 @@ mod readings_another_route_shadows {
             &field(Schema::Int),
             &cx
         ));
+    }
+
+    /// A subject sharing no value with any branch of a union is refuted below
+    /// it, by the cheap disjointness and by the full reading alike, where the
+    /// union of no branches left is a pair the rules decline: a pattern's words
+    /// against `int | float`.
+    #[test]
+    fn a_subject_meeting_no_branch_is_refuted_below_the_union() {
+        let words = refine(Schema::Str, Constraint::Regex("a+".into()));
+        let branches = [Schema::Int, Schema::Float];
+        for full in [false, true] {
+            let budget = Budget::new(DECISION_BUDGET);
+            let mut cx = Cx::new(&NoLeafRelations, &[], &budget);
+            assert_eq!(
+                words.below_the_branches_it_can_meet(&branches, full, &mut cx),
+                Relation::Fails,
+                "full: {full}"
+            );
+        }
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&NoLeafRelations, &[], &budget);
+        assert_eq!(
+            words.is_subtype_rec(&Schema::Union(Vec::new().into()), &mut cx),
+            Relation::Unknown,
+            "the union of no branch is declined"
+        );
     }
 }
 
@@ -17551,5 +17649,339 @@ mod a_meet_of_sequences {
             words.subtype_relation(&at_least(any(), 2), &NoLeafRelations, &defs, &budget),
             Relation::Fails
         );
+    }
+}
+
+/// Patterns over `{a, b}`: letters, a class, an empty branch, concatenation,
+/// alternation and every repetition, the shapes whose lengths a table reads.
+fn a_pattern_over_two_letters() -> impl Strategy<Value = String> {
+    let leaf = prop_oneof![
+        Just(String::new()),
+        Just("a".to_owned()),
+        Just("b".to_owned()),
+        Just("[ab]".to_owned()),
+    ];
+    leaf.prop_recursive(3, 12, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone()).prop_map(|(x, y)| format!("{x}{y}")),
+            (inner.clone(), inner.clone()).prop_map(|(x, y)| format!("(?:{x}|{y})")),
+            (
+                inner,
+                prop::sample::select(vec!["*", "+", "?", "{1,2}", "{2}"])
+            )
+                .prop_map(|(x, quantifier)| format!("(?:{x}){quantifier}")),
+        ]
+    })
+}
+
+proptest! {
+    /// A pattern against a length bound is answered by the pattern's lengths and
+    /// agrees with the walk: a proof leaves no word the pattern matches, of every
+    /// word over `{a, b}` up to eight letters, outside the bound, and a refutation
+    /// stands on one, or on a language of infinitely many words, which holds one
+    /// of every length past some. Where the pattern's lengths read, the pair is
+    /// decided.
+    #[test]
+    fn a_pattern_against_a_length_bound_is_decided_by_its_lengths(
+        pattern in a_pattern_over_two_letters(),
+        bound in 0usize..=6,
+        at_most in any::<bool>(),
+    ) {
+        let subject = Schema::refine(Schema::Str, vec![Constraint::Regex(pattern.clone())]);
+        let constraint = if at_most { Constraint::MaxLen(bound) } else { Constraint::MinLen(bound) };
+        let breaks = |length: usize| if at_most { length > bound } else { length < bound };
+        let supertype = Schema::refine(Schema::Str, vec![constraint]);
+        let matcher = regex::Regex::new(&format!(r"\A(?:{pattern})\z")).expect("a drawn pattern compiles");
+        let matched: Vec<usize> = (0..=8u32)
+            .flat_map(|length| {
+                (0..1u32 << length).map(move |bits| {
+                    (0..length).map(|at| if bits >> at & 1 == 1 { 'b' } else { 'a' }).collect::<String>()
+                })
+            })
+            .filter(|word| matcher.is_match(word))
+            .map(|word| word.len())
+            .collect();
+        let lengths = RegularSet::pattern(&pattern, Alphabet::Text)
+            .and_then(|set| set.lengths(Alphabet::Text));
+        let answer = subject.subtype_relation_under(&supertype, &ByIndex, &[]);
+        match answer {
+            Relation::Holds => prop_assert!(matched.iter().all(|&length| !breaks(length))),
+            Relation::Fails => prop_assert!(
+                matched.iter().any(|&length| breaks(length))
+                    || lengths.is_some_and(|lengths| at_most && lengths.most.is_none())
+            ),
+            Relation::Unknown => {}
+        }
+        if lengths.is_some() {
+            prop_assert_ne!(answer, Relation::Unknown);
+        }
+    }
+}
+
+/// A pattern beside a length bound it keeps to lowers as the pattern alone, at a
+/// bound the counted automaton past its states would refuse lowered on its own,
+/// in one refinement and in a meet of two.
+#[test]
+fn a_bound_a_pattern_keeps_to_lowers_as_the_pattern() {
+    let pattern = || Constraint::Regex("[a-f0-9]{24}".into());
+    let alone = Schema::refine(Schema::Str, vec![pattern()]);
+    let bound = Schema::refine(Schema::Str, vec![Constraint::MaxLen(5120)]);
+    let pool = NoLeafRelations;
+    assert!(
+        crate::descr::lower::lower(&bound, &pool).is_none(),
+        "the bound lowered alone fits no table"
+    );
+    let both = Schema::refine(Schema::Str, vec![pattern(), Constraint::MaxLen(5120)]);
+    let meet = Schema::meet([alone.clone(), bound]);
+    let lowered = crate::descr::lower::lower(&alone, &pool).expect("the pattern lowers");
+    assert_eq!(
+        crate::descr::lower::lower(&both, &pool).as_ref(),
+        Some(&lowered)
+    );
+    assert_eq!(
+        crate::descr::lower::lower(&meet, &pool).as_ref(),
+        Some(&lowered)
+    );
+}
+
+/// A pattern on a `str` entails a length bound its words keep to and refutes one
+/// a word breaks, read off its lengths: 24 characters, at and past each bound,
+/// and an unbounded tail, which keeps to no `MaxLen` and breaks every one.
+#[test]
+fn a_patterns_lengths_entail_and_break_bounds_at_their_edges() {
+    let hex = [Constraint::Regex("[a-f0-9]{24}".into())];
+    let tail = [Constraint::Regex(".*-x".into())];
+    let entails = |narrow: &[Constraint], wide: Constraint| {
+        constraints::constraint_entailed(&wide, &Schema::Str, narrow, &NoLeafRelations)
+    };
+    let breaks = |narrow: &[Constraint], wide: Constraint| {
+        constraints::a_word_breaks_a_length(&Schema::Str, narrow, &[wide])
+    };
+    for (bound, kept) in [(23, false), (24, true), (25, true)] {
+        assert_eq!(
+            entails(&hex, Constraint::MaxLen(bound)),
+            kept,
+            "MaxLen({bound})"
+        );
+        assert_eq!(
+            breaks(&hex, Constraint::MaxLen(bound)),
+            !kept,
+            "MaxLen({bound})"
+        );
+    }
+    for (bound, kept) in [(23, true), (24, true), (25, false)] {
+        assert_eq!(
+            entails(&hex, Constraint::MinLen(bound)),
+            kept,
+            "MinLen({bound})"
+        );
+        assert_eq!(
+            breaks(&hex, Constraint::MinLen(bound)),
+            !kept,
+            "MinLen({bound})"
+        );
+    }
+    assert!(!entails(&tail, Constraint::MaxLen(1_000_000)));
+    assert!(breaks(&tail, Constraint::MaxLen(1_000_000)));
+    assert!(entails(&tail, Constraint::MinLen(2)) && !entails(&tail, Constraint::MinLen(3)));
+    // Over `bytes`, or beside a second constraint, nothing is read.
+    assert!(!constraints::constraint_entailed(
+        &Constraint::MaxLen(30),
+        &Schema::Bytes,
+        &hex,
+        &NoLeafRelations
+    ));
+    let beside = [hex[0].clone(), Constraint::MinLen(1)];
+    assert!(!constraints::a_word_breaks_a_length(
+        &Schema::Str,
+        &beside,
+        &[Constraint::MaxLen(5)]
+    ));
+    // A pattern holding a word witnesses a refutation on it; one holding none does not.
+    let refined =
+        |pattern: &str| Schema::refine(Schema::Str, vec![Constraint::Regex(pattern.into())]);
+    assert!(constraints::a_pattern_holds_a_word(&refined(
+        "[a-f0-9]{24}"
+    )));
+    assert!(!constraints::a_pattern_holds_a_word(&refined("[a&&b]")));
+    assert!(!constraints::a_pattern_holds_a_word(&Schema::Str));
+}
+
+/// Past the counted automaton's states a length bound lowered alone fits no table,
+/// and the relation reads the pattern's lengths instead: a pattern of 24 characters
+/// is below every `MaxLen` from 24 and outside a `MinLen` past them, and an unbounded
+/// one outside every `MaxLen`.
+#[test]
+fn a_pattern_against_a_bound_past_the_counted_states_is_decided() {
+    let refined = |constraint: Constraint| Schema::refine(Schema::Str, vec![constraint]);
+    let hex = refined(Constraint::Regex("[a-f0-9]{24}".into()));
+    let tail = refined(Constraint::Regex(".*-x".into()));
+    let ask = |sub: &Schema, sup: &Schema| sub.subtype_relation_under(sup, &NoLeafRelations, &[]);
+    for bound in [581, 5120, 100_000] {
+        let at_most = refined(Constraint::MaxLen(bound));
+        assert_eq!(ask(&hex, &at_most), Relation::Holds, "MaxLen({bound})");
+        assert_eq!(ask(&tail, &at_most), Relation::Fails, "MaxLen({bound})");
+        assert_eq!(
+            ask(&hex, &refined(Constraint::MinLen(bound))),
+            Relation::Fails,
+            "MinLen({bound})"
+        );
+    }
+}
+
+/// A union's branch is one clause of the normal form where it holds no union and
+/// no meet: an atom, or a meet of atoms spliced into its clause. A branch that is
+/// a union, or a meet holding a union or a meet, is not, the tower the width
+/// bounds, and a product of widths past the bound is refused.
+// THEORY: a-meet-is-distributed-four-clauses-wide
+#[test]
+fn a_meet_of_atoms_is_one_clause_and_a_meet_of_unions_is_not() {
+    use super::emptiness::normal_form_within;
+    let union_of = |branches: Vec<Schema>| Schema::Union(branches.into());
+    let meet_of = |members: Vec<Schema>| Schema::Intersection(members.into());
+    let atoms = meet_of(vec![Schema::Int, Schema::Str]);
+    let pair = || union_of(vec![atoms.clone(), Schema::Bool]);
+    assert!(normal_form_within(&[pair(), pair()], 4));
+    assert!(!normal_form_within(&[pair(), pair(), pair()], 4));
+    let holding_a_union = meet_of(vec![Schema::Int, union_of(vec![Schema::Str, Schema::Bool])]);
+    assert!(!normal_form_within(
+        &[union_of(vec![holding_a_union, Schema::Bool])],
+        4
+    ));
+    let holding_a_meet = meet_of(vec![Schema::Int, atoms.clone()]);
+    assert!(!normal_form_within(
+        &[union_of(vec![holding_a_meet, Schema::Bool])],
+        4
+    ));
+    let nested = union_of(vec![union_of(vec![Schema::Int, Schema::Str]), Schema::Bool]);
+    assert!(!normal_form_within(&[nested], 4));
+}
+
+/// Records over objects as a translation from JSON Schema writes them: each holding
+/// `rest` at any other key and guarded to its kind with `| ~dict`, over two disjoint
+/// values,
+/// the condition `I` of an `if`, its branches `T` and `E`, and the record `Z` requiring
+/// both keys.
+fn guarded_records(rest: &Schema) -> [Schema; 6] {
+    let every_dict = Schema::mapping(MapClause {
+        key: Schema::ANYTHING,
+        value: Schema::ANYTHING,
+    })
+    .complement();
+    let guarded = |fields: Vec<Field>| {
+        Schema::union([
+            Schema::keyed_map(
+                fields,
+                vec![MapClause {
+                    key: Schema::Str,
+                    value: rest.clone(),
+                }],
+            ),
+            every_dict.clone(),
+        ])
+    };
+    let (x, y) = (Schema::Int, Schema::Str);
+    [
+        guarded(vec![
+            field("a", x.clone(), false),
+            field("b", x.clone(), false),
+        ]),
+        guarded(vec![
+            field("a", y.clone(), false),
+            field("b", y.clone(), false),
+        ]),
+        guarded(vec![field("a", x.clone(), false)]),
+        guarded(vec![field("b", x, false)]),
+        guarded(vec![field("b", y, false)]),
+        guarded(vec![
+            field("a", rest.clone(), true),
+            field("b", rest.clone(), true),
+        ]),
+    ]
+}
+
+/// A meet subject holding a union is below a supertype where each clause of its
+/// distribution is, the rule [BBC+26, (anyOf-l)] states: `Z & (X | Y)` is below `if
+/// a = x then b = x else b = y`, which no reading of the meet as written decides, and
+/// below the meet of that with `Z`, for records holding any value or the JSON values
+/// at their other keys. The further asking that distributes it is closed once it
+/// returns.
+// THEORY: a-meet-is-distributed-four-clauses-wide
+#[test]
+fn a_meet_holding_a_union_is_asked_as_its_clauses() {
+    let json = Schema::Ref(DefIx::new(0));
+    let defs = [Schema::union([
+        Schema::NoneType,
+        Schema::Bool,
+        Schema::Int,
+        Schema::Float,
+        Schema::Str,
+        Schema::list(SeqShape::homogeneous(json.clone())),
+        Schema::mapping(MapClause {
+            key: Schema::Str,
+            value: json.clone(),
+        }),
+    ])];
+    for rest in [Schema::ANYTHING, json] {
+        let [both_x, both_y, cond, then, otherwise, both] = guarded_records(&rest);
+        let ite = Schema::union([
+            Schema::meet([cond.clone(), then]),
+            Schema::meet([cond.complement(), otherwise]),
+        ]);
+        let subject = Schema::meet([both.clone(), Schema::union([both_x, both_y])]);
+        let ask = |sup: &Schema| subject.subtype_relation_under(sup, &NoLeafRelations, &defs);
+        assert_eq!(ask(&ite), Relation::Holds, "{rest:?}");
+        assert!(!DISTRIBUTING.with(Cell::get));
+        assert_eq!(ask(&Schema::meet([ite, both])), Relation::Holds, "{rest:?}");
+        assert!(!DISTRIBUTING.with(Cell::get));
+    }
+}
+
+/// The boundary page's meet of unions: for `a = μt. None | list[t]`, `(a | str) & (a |
+/// bytes)` is `a | (str & bytes)` by distributivity, which is `a`, and each clause is
+/// below `a`, the one beside `a` by its member and the other empty.
+// THEORY: a-meet-is-distributed-four-clauses-wide
+#[test]
+fn a_meet_of_unions_is_below_what_each_clause_is_below() {
+    let defs = [Schema::union([
+        Schema::NoneType,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ])];
+    let a = Schema::Ref(DefIx::new(0));
+    let subject = Schema::meet([
+        Schema::union([a.clone(), Schema::Str]),
+        Schema::union([a.clone(), Schema::Bytes]),
+    ]);
+    assert_eq!(
+        subject.subtype_relation_under(&a, &NoLeafRelations, &defs),
+        Relation::Holds
+    );
+    assert!(!DISTRIBUTING.with(Cell::get));
+    assert_eq!(
+        a.subtype_relation_under(&subject, &NoLeafRelations, &defs),
+        Relation::Holds
+    );
+}
+
+/// The deeper reading is asked only of a subject holding a reference, with the
+/// definitions it names: an undecided pair naming none reads the sets as often
+/// beside a definition as without one.
+#[test]
+fn a_subject_naming_no_definition_is_asked_no_deeper_reading() {
+    use super::goal_tests::goals::pairs_read_by_the_sets;
+    let literal = |at: usize| Schema::Literal(ConstIx::new(at));
+    let list_of = |item: Schema| Schema::list(SeqShape::homogeneous(item));
+    for (sub, sup) in [
+        (literal(0), literal(1)),
+        (list_of(literal(0)), list_of(literal(1))),
+    ] {
+        let reads = |defs: &[Schema]| {
+            let before = pairs_read_by_the_sets();
+            let answer = sub.subtype_relation_under(&sup, &NoLeafRelations, defs);
+            (answer, pairs_read_by_the_sets() - before)
+        };
+        let (alone, read_alone) = reads(&[]);
+        assert_eq!(alone, Relation::Unknown);
+        assert_eq!(reads(&[Schema::Int]), (alone, read_alone));
     }
 }

@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use super::{CompactionPolicy, DeltaChanges, IdListIds, Storage};
-use crate::id_lists_adapter::shared_id_list_delta::{MappedDelta, write_delta};
 use crate::id_lists_adapter::shared_id_list_format::{IdListImage, digest, write_list};
 
 fn seeded_pending(base: &Arc<IdListIds>, seed: u64) -> IdListIds {
@@ -19,7 +18,7 @@ fn seeded_pending(base: &Arc<IdListIds>, seed: u64) -> IdListIds {
     ids
 }
 
-fn mapped_base() -> (Arc<IdListIds>, String, HashSet<String>) {
+fn mapped_base() -> (Arc<IdListIds>, HashSet<String>) {
     let expected: HashSet<_> = (0..4096)
         .map(|i| format!("{i:08x}"))
         .chain(
@@ -36,7 +35,7 @@ fn mapped_base() -> (Arc<IdListIds>, String, HashSet<String>) {
         .collect();
     let owned: IdListIds = expected.iter().cloned().collect();
     let mut file = tempfile::NamedTempFile::new().unwrap();
-    let hash = write_list(
+    write_list(
         file.as_file_mut(),
         &digest(b"pending-ahash"),
         "members",
@@ -44,16 +43,12 @@ fn mapped_base() -> (Arc<IdListIds>, String, HashSet<String>) {
     )
     .unwrap();
     let mapped = IdListImage::open(file.path(), &digest(b"pending-ahash"), "members").unwrap();
-    (
-        Arc::new(IdListIds::from_image(mapped)),
-        format!("list-{hash}.ids"),
-        expected,
-    )
+    (Arc::new(IdListIds::from_image(mapped)), expected)
 }
 
 #[test]
 fn ahash_pending_normalization_matches_owned_reference_for_exact_key_partitions() {
-    let (base, _, mut expected) = mapped_base();
+    let (base, mut expected) = mapped_base();
     let mut pending = seeded_pending(&base, 7);
     let values = [
         "00000000",
@@ -173,8 +168,8 @@ fn ahash_pending_probe_collisions_keep_distinct_exact_keys_and_replacements() {
 }
 
 #[test]
-fn ahash_seed_and_insertion_order_do_not_change_delta_or_full_base_serialization() {
-    let (base, base_file, mut expected) = mapped_base();
+fn ahash_seed_and_insertion_order_do_not_change_full_base_serialization() {
+    let (base, mut expected) = mapped_base();
     let operations = [
         ("00000002", false),
         ("éééé", false),
@@ -198,30 +193,6 @@ fn ahash_seed_and_insertion_order_do_not_change_delta_or_full_base_serialization
     }
     assert_eq!(a, b);
     let namespace = digest(b"pending-ahash");
-    let mut delta_images = Vec::new();
-    for ids in [&a, &b] {
-        let Storage::Pending(pending) = &ids.storage else {
-            panic!("pending fixture")
-        };
-        let mut file = tempfile::NamedTempFile::new().unwrap();
-        let hash = write_delta(
-            file.as_file_mut(),
-            &namespace,
-            "members",
-            &base_file,
-            pending,
-        )
-        .unwrap();
-        let mapped = MappedDelta::open(file.path(), &namespace, "members", &base_file).unwrap();
-        mapped.validate_membership().unwrap();
-        let overlay = IdListIds::from_overlay(Arc::clone(&base), mapped);
-        assert_eq!(
-            overlay.iter().map(str::to_owned).collect::<HashSet<_>>(),
-            expected
-        );
-        delta_images.push((hash, std::fs::read(file.path()).unwrap()));
-    }
-    assert_eq!(delta_images[0], delta_images[1]);
     let eager: IdListIds = expected.into_iter().collect();
     let mut images = Vec::new();
     for ids in [&a, &b, &eager] {
@@ -231,20 +202,4 @@ fn ahash_seed_and_insertion_order_do_not_change_delta_or_full_base_serialization
     }
     assert_eq!(images[0], images[1]);
     assert_eq!(images[0], images[2]);
-}
-
-#[test]
-fn delta_encoder_borrows_fallback_keys_and_preserves_reversals() {
-    let (base, _, _) = mapped_base();
-    let mut ids = (*base).clone();
-    for key in ["added-fallback", "12345678", "長い値"] {
-        assert!(ids.set(key, true, CompactionPolicy::Batch));
-    }
-    assert!(ids.set("added-fallback", false, CompactionPolicy::Batch));
-    let pending = ids.pending().unwrap();
-    let (inline, other) = pending.changes.image_keys();
-    assert_eq!(inline, vec![*b"12345678"]);
-    assert_eq!(other, vec!["長い値"]);
-    let (stored, _) = pending.changes.other.get_key_value("長い値").unwrap();
-    assert_eq!(other[0].as_ptr(), stored.as_ptr());
 }

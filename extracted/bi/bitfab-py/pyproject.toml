@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bitfab-py"
-version = "0.80.3"
+version = "0.80.4"
 description = "Bitfab client for provider-based API calls with local BAML execution"
 authors = ["Harvest Team"]
 readme = "README.md"
@@ -51,6 +51,8 @@ ruff = ">=0.17.2,<1.0.0"
 deepagents = {version = ">=0.7.30", python = ">=3.11,<4.0"}
 braintrust = ">=0.49.2,<1.0.0"
 google-api-python-client = "^2.202.0"
+slack-sdk = "^3"
+aiohttp = "^3.14.5"
 
 [build-system]
 requires = ["poetry-core"]

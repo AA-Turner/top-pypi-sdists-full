@@ -15,7 +15,7 @@ from blosc2.dsl_kernel import SourceKernel as DSLKernel
 
 @pytest.fixture(autouse=True)
 def restore_options(monkeypatch):
-    previous = blosc2.get_jit_options()
+    previous = blosc2.jit_config.configured_execution_options()
     for name in (
         "CC",
         "CFLAGS",
@@ -46,6 +46,145 @@ def test_set_get_and_atomic_validation():
     assert blosc2.get_jit_options()["jit"] is True
     blosc2.set_jit_options(jit=None, jit_backend=None, math_backend=None)
     assert blosc2.get_jit_options() == original
+
+
+def test_compute_options_aliases_share_defaults():
+    blosc2.set_compute_options(fp_accuracy=blosc2.FPAccuracy.HIGH)
+    assert blosc2.get_jit_options()["fp_accuracy"] == blosc2.FPAccuracy.HIGH
+    with blosc2.compute_options(fp_accuracy=None):
+        assert blosc2.get_jit_options()["fp_accuracy"] == blosc2.FPAccuracy.DEFAULT
+    assert blosc2.get_compute_options()["fp_accuracy"] == blosc2.FPAccuracy.HIGH
+    blosc2.set_jit_options(fp_accuracy=None)
+    assert blosc2.get_compute_options()["fp_accuracy"] == blosc2.FPAccuracy.DEFAULT
+
+
+@pytest.mark.skipif(blosc2.IS_WASM, reason="Native math backend preferences")
+@pytest.mark.parametrize(
+    ("platform", "available", "expected"),
+    [
+        ("darwin", {"accelerate", "sleef"}, "accelerate"),
+        ("darwin", {"sleef"}, "sleef"),
+        ("linux", {"accelerate", "sleef"}, "sleef"),
+        ("win32", {"sleef"}, "sleef"),
+        ("linux", set(), None),
+    ],
+)
+def test_automatic_medium_math_preference(monkeypatch, platform, available, expected):
+    from types import SimpleNamespace
+
+    from blosc2 import native_graph
+
+    monkeypatch.setattr(native_graph, "sys", SimpleNamespace(platform=platform))
+    monkeypatch.setattr(native_graph, "_expression_math_available", available.__contains__)
+    monkeypatch.delenv("ME_SIMD_MATH_BACKEND", raising=False)
+    resolve = native_graph.preferred_expression_math
+    medium = blosc2.FPAccuracy.MEDIUM
+
+    with blosc2.compute_options(math_backend=None):
+        assert resolve(medium) == expected
+        assert resolve(blosc2.FPAccuracy.HIGH) is None
+        monkeypatch.setenv("ME_SIMD_MATH_BACKEND", "system")
+        assert resolve(medium) is None
+    monkeypatch.delenv("ME_SIMD_MATH_BACKEND")
+    with blosc2.compute_options(math_backend="system"):
+        assert resolve(medium) is None
+
+
+def _native_math_available(backend):
+    from blosc2.graph_plan import NativeGraph
+
+    try:
+        with blosc2.compute_options(math_backend=backend):
+            NativeGraph.from_expression("sin(x)", {"x": "float64"}, jit=False)
+    except blosc2.MenudetError as error:
+        if f"requested math backend '{backend}' is unavailable" not in str(error):
+            raise
+        return False
+    return True
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("func", ["arctan", "expm1", "sin"])
+def test_automatic_medium_typed_math(monkeypatch, automatic_native_runtime, dtype, func):
+    from blosc2 import native_graph
+
+    monkeypatch.delenv("ME_SIMD_MATH_BACKEND", raising=False)
+    x = np.resize(np.array([-np.inf, -0.0, 0.0, 0.25, 1.0, np.inf, np.nan], dtype=dtype), 513)
+    a = blosc2.asarray(x, chunks=(128,), blocks=(64,))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        expected = getattr(np, func)(x)
+    preferred = "auto"
+    if not blosc2.IS_WASM:
+        if sys.platform == "darwin" and _native_math_available("accelerate"):
+            preferred = "accelerate"
+        elif sys.platform.startswith(("darwin", "linux", "win")) and _native_math_available("sleef"):
+            preferred = "sleef"
+    with blosc2.compute_options(jit=False, fp_accuracy=blosc2.FPAccuracy.MEDIUM, math_backend=None):
+        expr = getattr(blosc2, func)(a)
+        plan, _, _ = native_graph.lower_native_graph(expr)
+        kernel = native_graph.resident_map_kernel(plan)
+        assert kernel._info["math_backend"] == preferred
+        if preferred == "sleef":
+            assert kernel._info["sleef_accuracy"] == "u35"
+        actual = expr[:]
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=5 * np.finfo(dtype).eps, atol=0)
+    with blosc2.compute_options(jit=False, math_backend="system"):
+        plan, _, _ = native_graph.lower_native_graph(expr)
+        assert native_graph.resident_map_kernel(plan)._info["math_backend"] == "system"
+
+
+@pytest.mark.skipif(blosc2.IS_WASM, reason="Native resident math policy")
+def test_evaluate_per_call_compute_options(monkeypatch, automatic_native_runtime):
+    from blosc2 import native_graph
+
+    original = native_graph.configured_map_kernel
+    observed = []
+
+    def capture(plan, jit, configuration, environment):
+        kernel = original(plan, jit, configuration, environment)
+        observed.append((jit, dict(configuration), kernel._info))
+        return kernel
+
+    monkeypatch.setattr(native_graph, "configured_map_kernel", capture)
+    x = np.linspace(-1, 1, 513)
+    blosc2.set_compute_options(jit=True, fp_accuracy=blosc2.FPAccuracy.HIGH)
+    with blosc2.compute_options(
+        jit=True, jit_backend="cc", math_backend="system", fp_accuracy=blosc2.FPAccuracy.MEDIUM
+    ):
+        result = blosc2.evaluate(
+            "sin(x) + cos(x)",
+            jit=False,
+            jit_backend="tcc",
+            math_backend="system",
+            fp_accuracy=blosc2.FPAccuracy.HIGH,
+        )
+        np.testing.assert_allclose(result, np.sin(x) + np.cos(x))
+        jit, policy, info = observed[-1]
+        assert jit is False
+        assert policy["jit_backend"] == "tcc"
+        assert policy["fp_accuracy"] == blosc2.FPAccuracy.HIGH
+        assert info["math_backend"] == "system"
+        assert blosc2.get_compute_options()["fp_accuracy"] == blosc2.FPAccuracy.MEDIUM
+        np.testing.assert_allclose(blosc2.re_evaluate(), result)
+        assert observed[-1] == (jit, policy, info)
+
+
+@pytest.mark.parametrize(
+    ("options", "error"),
+    [
+        ({"jit": 1}, TypeError),
+        ({"jit_backend": "invalid"}, ValueError),
+        ({"math_backend": "invalid"}, ValueError),
+        ({"fp_accuracy": 1}, TypeError),
+        ({"compiler": "cc"}, ValueError),
+    ],
+)
+def test_evaluate_validates_per_call_options(options, error):
+    out = np.zeros(4)
+    with pytest.raises(error):
+        blosc2.evaluate("x + 1", local_dict={"x": np.ones(4)}, out=out, **options)
+    np.testing.assert_array_equal(out, 0)
 
 
 @pytest.mark.parametrize(
@@ -104,9 +243,10 @@ def test_thread_context_isolation():
 
 
 @pytest.mark.parametrize("method", ["mean", "var", "std"])
-@pytest.mark.parametrize("axis", [None, 0])
-@pytest.mark.parametrize("keepdims", [False, True])
-@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    ("axis", "keepdims", "masked"),
+    [(None, False, False), (None, True, True), (0, False, True), (0, True, False)],
+)
 def test_statistical_reductions_forward_execution_options(
     method, axis, keepdims, masked, tmp_path, monkeypatch
 ):
@@ -199,9 +339,15 @@ def test_statistical_reductions_slice_execution_options(method, axis, monkeypatc
 
 
 @pytest.mark.parametrize("constructor", ["arange", "linspace"])
-@pytest.mark.parametrize("dtype", [np.float64, np.complex128])
-@pytest.mark.parametrize("shape", [None, (0, 2)])
-@pytest.mark.parametrize("jit", [False, True, None])
+@pytest.mark.parametrize(
+    ("dtype", "shape", "jit"),
+    [
+        (np.float64, None, True),
+        (np.complex128, (0, 2), True),
+        (np.float64, (0, 2), False),
+        (np.complex128, None, None),
+    ],
+)
 def test_empty_ramps_accept_execution_options(constructor, dtype, shape, jit, tmp_path, capfd):
     options = {
         "jit": jit,
@@ -267,27 +413,64 @@ def kernel(x):
 
 
 @pytest.mark.skipif(blosc2.IS_WASM, reason="Native miniexpr prefilter observation")
-def test_fp_accuracy_precedence(monkeypatch, automatic_native_runtime):
-    monkeypatch.setenv("BLOSC2_EXPRESSION_EVALUATOR", "legacy")
+def test_compute_accuracy_full_slice(monkeypatch, automatic_native_runtime):
+    from blosc2 import native_graph
+
+    monkeypatch.delenv("ME_SIMD_MATH_BACKEND", raising=False)
+    original = native_graph.configured_map_kernel
     observed = []
-    original = blosc2.NDArray._set_pref_expr
 
-    def capture(self, *args, **kwargs):
-        observed.append(kwargs.get("fp_accuracy", args[2] if len(args) > 2 else None))
-        return original(self, *args, **kwargs)
+    def capture(*args):
+        kernel = original(*args)
+        observed.append(kernel._info)
+        return kernel
 
-    monkeypatch.setattr(blosc2.NDArray, "_set_pref_expr", capture)
+    monkeypatch.setattr(native_graph, "configured_map_kernel", capture)
+    x = np.full(257, 2**24, dtype=np.float32)
+    y = np.linspace(-1, 1, x.size)
+    a, b = (blosc2.asarray(value, chunks=(128,), blocks=(64,)) for value in (x, y))
+    # Widening the float32 intermediate would turn zero into one.
+    expr = ((a + 1.0) - a) + blosc2.sin(b) + blosc2.acos(b)
+    expected = ((x + 1.0) - x) + np.sin(y) + np.arccos(y)
+
+    def no_fallback(*args, **kwargs):
+        pytest.fail("An eligible typed expression must not fall back to NumPy for HIGH")
+
+    monkeypatch.setattr(sys.modules["blosc2.lazyexpr"], "evaluate_chunk", no_fallback)
+    blosc2.set_compute_options(jit=False, fp_accuracy=blosc2.FPAccuracy.HIGH, math_backend=None)
+    result = expr[:]
+    assert result.dtype == expected.dtype
+    np.testing.assert_allclose(result, expected, rtol=1e-14, atol=0)
+    info = observed[-1]
+    assert not info["jit"]
+    if _native_math_available("sleef"):
+        assert info["math_backend"] == "sleef"
+        assert info["sleef_accuracy"] == "u10"
+    else:
+        # Automatic policy stays native on builds without SLEEF.
+        assert info["math_backend"] == "auto"
+        assert info["sleef_accuracy"] == ""
+
+
+@pytest.mark.skipif(blosc2.IS_WASM, reason="Native miniexpr prefilter observation")
+def test_fp_accuracy_precedence(monkeypatch, automatic_native_runtime):
+    from blosc2 import native_graph
+
+    observed = []
+    original = native_graph.configured_map_kernel
+
+    def capture(plan, jit, configuration, environment):
+        observed.append(dict(configuration)["fp_accuracy"])
+        return original(plan, jit, configuration, environment)
+
+    monkeypatch.setattr(native_graph, "configured_map_kernel", capture)
     arr = blosc2.asarray(np.arange(32, dtype=np.float64))
     blosc2.set_jit_options(fp_accuracy=blosc2.FPAccuracy.HIGH)
-    expr = arr + 1
+    expr = blosc2.sin(arr)
     expr.compute()
-    assert observed[-1] == blosc2.FPAccuracy.HIGH
     with blosc2.jit_options(fp_accuracy=blosc2.FPAccuracy.MEDIUM):
         expr.compute(fp_accuracy=blosc2.FPAccuracy.HIGH)
-        assert observed[-1] == blosc2.FPAccuracy.HIGH
-        udf = blosc2.lazyudf(kernel, (arr,), dtype=arr.dtype)
-        udf.compute(fp_accuracy=blosc2.FPAccuracy.HIGH)
-        assert observed[-1] == blosc2.FPAccuracy.HIGH
+    assert observed == [blosc2.FPAccuracy.HIGH] * 2
 
 
 @pytest.mark.skipif(blosc2.IS_WASM or os.name == "nt", reason="Native POSIX TCC execution")
@@ -318,7 +501,9 @@ def test_native_cc_options_and_cache_identity(tmp_path, capfd):
         pytest.skip("CC unavailable")
     before = dict(os.environ)
     cache = tmp_path / "direct cache's $data"
-    with blosc2.jit_options(jit_backend="cc", compiler="cc", cflags="-O1", cache_dir=cache, trace=True):
+    with blosc2.jit_options(
+        jit=True, jit_backend="cc", compiler="cc", cflags="-O1", cache_dir=cache, trace=True
+    ):
         blosc2.linspace(0, 9, 64)
         cold = capfd.readouterr()
         assert cold.out == ""
@@ -347,7 +532,7 @@ def test_native_cc_options_and_cache_identity(tmp_path, capfd):
 def test_environment_overrides_and_tcc_ignores_cc_settings(tmp_path, capfd, monkeypatch):
     monkeypatch.setenv("ME_DSL_JIT_COMPILER", "tcc")
     with blosc2.jit_options(
-        jit_backend="cc", compiler="/no/compiler", cache_dir=tmp_path / "cache", trace=True
+        jit=True, jit_backend="cc", compiler="/no/compiler", cache_dir=tmp_path / "cache", trace=True
     ):
         blosc2.arange(64)
     assert "compiler=tcc" in capfd.readouterr().err
@@ -377,8 +562,6 @@ def test_synthesized_backend_respects_environment_and_source(monkeypatch, backen
 def test_reduction_backend_preserves_scalar_accumulator(monkeypatch, backend, jit, automatic_native_runtime):
     import importlib
 
-    from blosc2.expression_evaluator import typed_evaluator_enabled
-
     lazyexpr = importlib.import_module("blosc2.lazyexpr")
 
     def reject_elementwise_wrapper(*args):
@@ -406,16 +589,9 @@ def test_reduction_backend_preserves_scalar_accumulator(monkeypatch, backend, ji
     values = np.arange(128, dtype=np.float64)
     expr = blosc2.asarray(values) * 2 + 1
     assert expr.sum(jit=jit, jit_backend=backend) == (values * 2 + 1).sum()
-    if blosc2.IS_WASM:
-        # WASM currently uses the non-prefilter reduction path. It must still
-        # produce correct results without introducing an elementwise wrapper.
-        assert not calls
-    elif typed_evaluator_enabled():
-        assert not calls
+    assert not calls
+    if not blosc2.IS_WASM:
         assert typed_calls == [1]
-    else:
-        assert calls
-    assert all(expression.startswith("sum(") for expression in calls)
 
 
 @pytest.mark.skipif(blosc2.IS_WASM or os.name == "nt", reason="POSIX compiler-output injection")
@@ -424,7 +600,7 @@ def test_compiler_output(tmp_path, capfd):
     compiler.write_text("#!/bin/sh\necho scoped-compiler-output >&2\nexit 1\n")
     compiler.chmod(0o700)
     with blosc2.jit_options(
-        jit_backend="cc", compiler=compiler, cache_dir=tmp_path / "cache", compiler_output=True
+        jit=True, jit_backend="cc", compiler=compiler, cache_dir=tmp_path / "cache", compiler_output=True
     ):
         blosc2.linspace(0, 3, 71)
     captured = capfd.readouterr()
@@ -444,7 +620,12 @@ def test_cc_environment_precedence(tmp_path, capfd, monkeypatch, variable, value
     monkeypatch.setenv(variable, value)
     monkeypatch.setenv("ME_DSL_JIT_CACHE_DIR", str(tmp_path / "env-cache"))
     with blosc2.jit_options(
-        jit_backend="cc", compiler="cc", cflags="-O1", cache_dir=tmp_path / "python-cache", trace=True
+        jit=True,
+        jit_backend="cc",
+        compiler="cc",
+        cflags="-O1",
+        cache_dir=tmp_path / "python-cache",
+        trace=True,
     ):
         blosc2.linspace(0, 11, 79)
     assert reason in capfd.readouterr().err

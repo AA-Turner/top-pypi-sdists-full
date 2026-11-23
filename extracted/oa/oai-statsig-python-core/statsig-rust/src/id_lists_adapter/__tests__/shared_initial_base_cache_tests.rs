@@ -2,16 +2,24 @@ use super::*;
 use crate::id_lists_adapter::{IdListEncoding, IdListUpdate};
 use tempfile::TempDir;
 
+impl SharedInitialBaseCache {
+    fn offer(&self, candidate: IdList) -> IdList {
+        let manifest_size = candidate.metadata.size;
+        self.offer_prefix(candidate, manifest_size)
+    }
+}
+
 fn options(dir: &TempDir) -> StatsigOptions {
     StatsigOptions {
-        experimental_flags: Some(["shared_initial_id_list_base".into()].into()),
         shared_id_lists_dir: Some(dir.path().display().to_string()),
-        enable_id_list_elias_fano: Some(true),
         ..Default::default()
     }
 }
+fn configured_cache(key: &str, options: &StatsigOptions) -> Option<SharedInitialBaseCache> {
+    SharedInitialBaseCache::from_options(key, options, &Arc::new(OpsStatsForInstance::disabled()))
+}
 fn cache(dir: &TempDir) -> SharedInitialBaseCache {
-    SharedInitialBaseCache::from_options("key", &options(dir)).unwrap()
+    configured_cache("key", &options(dir)).unwrap()
 }
 fn apply(list: &mut IdList, body: &str) {
     let update = IdListUpdate {
@@ -33,26 +41,38 @@ fn list() -> IdList {
 }
 
 #[test]
-fn initial_base_control_requires_exact_opt_in_for_both_encodings() {
+fn directory_and_access_settings_control_sharing() {
+    use crate::networking::proxy_config::ProxyConfig;
     let dir = TempDir::new().unwrap();
-    let mut opts = options(&dir);
-    for ef in [None, Some(false), Some(true)] {
-        opts.enable_id_list_elias_fano = ef;
-        assert!(SharedInitialBaseCache::from_options("key", &opts).is_some());
+    for directory in [None, Some(""), Some(" \t ")] {
+        let opts = StatsigOptions {
+            shared_id_lists_dir: directory.map(str::to_owned),
+            ..options(&dir)
+        };
+        assert!(configured_cache("key", &opts).is_none());
     }
-    for flags in [
-        None,
-        Some(Default::default()),
-        Some(
-            [
-                "SHARED_INITIAL_ID_LIST_BASE".into(),
-                "shared_initial_id_list_base=true".into(),
-            ]
-            .into(),
-        ),
+    let proxy = ProxyConfig {
+        proxy_host: Some("localhost".into()),
+        proxy_port: Some(8888),
+        proxy_protocol: None,
+        proxy_auth: None,
+        ca_cert_path: None,
+    };
+    for opts in [
+        StatsigOptions {
+            disable_disk_access: Some(true),
+            ..options(&dir)
+        },
+        StatsigOptions {
+            disable_network: Some(true),
+            ..options(&dir)
+        },
+        StatsigOptions {
+            proxy_config: Some(proxy),
+            ..options(&dir)
+        },
     ] {
-        opts.experimental_flags = flags;
-        assert!(SharedInitialBaseCache::from_options("key", &opts).is_none());
+        assert!(configured_cache("key", &opts).is_none());
     }
     assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
 }
@@ -65,7 +85,7 @@ fn initial_base_is_immutable_through_sparse_edits_and_private_compaction() {
             enable_id_list_elias_fano: Some(ef),
             ..options(&dir)
         };
-        let cache = SharedInitialBaseCache::from_options("key", &opts).unwrap();
+        let cache = configured_cache("key", &opts).unwrap();
         let apply = |list: &mut IdList, body: &str| {
             list.apply_update_with_encoding(
                 cache.encoding,
@@ -83,10 +103,10 @@ fn initial_base_is_immutable_through_sparse_edits_and_private_compaction() {
         assert_eq!(worker.metadata.url, target.url);
         assert_eq!(worker.metadata.size, 20);
         assert_eq!(worker.ids.has_compact_base(), ef);
-        let file = first.ids.base_file().unwrap();
+        let file = first.ids.base_digest().unwrap();
         apply(&mut worker, "-AAAAAAAA\n+BBBBBBBB\n");
         assert!(worker.ids.is_mapped());
-        assert_eq!(worker.ids.base_file().unwrap(), file);
+        assert_eq!(worker.ids.base_digest().unwrap(), file);
         assert!(!worker.ids.contains("AAAAAAAA"));
         assert!(worker.ids.contains("BBBBBBBB"));
         let mut edits = String::new();
@@ -102,35 +122,44 @@ fn initial_base_is_immutable_through_sparse_edits_and_private_compaction() {
         assert!(!worker.ids.contains("AAAAAAAA"));
         let latest = cache.lookup(&worker.metadata).unwrap();
         assert_eq!(latest.metadata.size, 20);
-        assert_eq!(latest.ids.base_file().unwrap(), file);
+        assert_eq!(latest.ids.base_digest().unwrap(), file);
         assert_eq!(latest.ids, first.ids);
     }
 }
 
 #[test]
-fn initial_base_preserves_candidates_on_contention_and_rejects_stale_offers() {
+fn initial_base_rechecks_visible_prefix_on_contention_and_rejects_stale_offers() {
     let dir = TempDir::new().unwrap();
     let cache = cache(&dir);
     let initial = list();
     let store = cache.store(&initial.metadata.name).unwrap();
-    let lease = store.try_acquire_lease().unwrap().unwrap();
+    let lock = store.try_lock().unwrap().unwrap();
     let loser = cache.offer(initial.clone());
     assert!(Arc::ptr_eq(&loser.ids, &initial.ids));
-    drop(lease);
+    drop(lock);
     let mapped = cache.offer(initial.clone());
     assert!(mapped.ids.is_mapped());
     let mut ahead = initial.clone();
     apply(&mut ahead, "+BBBBBBBB\n");
-    assert_eq!(cache.offer(ahead.clone()).metadata.size, 30);
-    assert_eq!(cache.lookup(&ahead.metadata).unwrap().metadata.size, 20);
+    let lock = store.try_lock().unwrap().unwrap();
+    let shared = cache.offer(ahead.clone());
+    assert_eq!(shared.metadata.size, 20);
+    assert_eq!(shared.ids.base_digest(), mapped.ids.base_digest());
+    assert!(!shared.ids.contains("BBBBBBBB"));
+    drop(lock);
     let mut next = ahead;
     next.metadata.creation_time += 1;
     next.metadata.file_id = Some("version2".into());
     assert!(cache.lookup(&next.metadata).is_none());
     let replacement = cache.offer(next.clone());
     assert!(replacement.ids.is_mapped());
-    assert_ne!(replacement.ids.base_file(), mapped.ids.base_file());
-    assert!(Arc::ptr_eq(&initial.ids, &cache.offer(initial.clone()).ids));
+    assert_ne!(replacement.ids.base_digest(), mapped.ids.base_digest());
+    let stale = cache.offer_prefix(initial.clone(), next.metadata.size);
+    assert!(Arc::ptr_eq(&initial.ids, &stale.ids));
+    let mut shorter = initial.clone();
+    shorter.metadata.file_id.clone_from(&next.metadata.file_id);
+    shorter.metadata.creation_time = next.metadata.creation_time;
+    assert!(Arc::ptr_eq(&shorter.ids, &cache.offer(shorter.clone()).ids));
     assert!(cache.lookup(&initial.metadata).is_none());
     assert!(
         cache
@@ -150,15 +179,15 @@ fn initial_base_binds_encoding_credential_source_name_generation_and_cursor() {
     let candidate = list();
     let mut target = candidate.metadata.clone();
     cache.offer(candidate.clone());
-    let make =
-        |key, opts: &StatsigOptions| SharedInitialBaseCache::from_options(key, opts).unwrap();
+    let make = |key, opts: &StatsigOptions| configured_cache(key, opts).unwrap();
     let mut opts = options(&dir);
-    opts.enable_id_list_elias_fano = None;
+    opts.enable_id_list_elias_fano = Some(false);
     let hash = make("key", &opts);
     assert!(hash.lookup(&target).is_none());
     assert!(!hash.offer(candidate.clone()).ids.has_compact_base());
     assert!(cache.lookup(&target).unwrap().ids.has_compact_base());
     opts.enable_id_list_elias_fano = Some(true);
+    assert!(make("key", &opts).lookup(&target).is_some());
     assert!(make("other", &opts).lookup(&target).is_none());
     opts.id_lists_url = Some("https://other.example/manifest".into());
     assert!(make("key", &opts).lookup(&target).is_none());
@@ -240,19 +269,59 @@ fn initial_base_unusable_directory_retains_private_result() {
 }
 
 #[test]
+fn failed_publication_reclaims_orphans_and_keeps_the_committed_base() {
+    use std::fs;
+
+    let dir = TempDir::new().unwrap();
+    let cache = cache(&dir);
+    let current = list();
+    let store = cache.store(&current.metadata.name).unwrap();
+    let lock = store.try_lock().unwrap().unwrap();
+    let temp = store.directory().join("tmp-id-list-interrupted");
+    let orphan = store
+        .directory()
+        .join(format!("list-{}.ids", "0".repeat(64)));
+    let manifest = store.directory().join("manifest.json");
+    let mut next = list();
+    next.metadata.creation_time += 1;
+    next.metadata.file_id = None; // Fails while staging the image.
+
+    let check_cleanup = || {
+        fs::write(&temp, b"incomplete").unwrap();
+        fs::write(&orphan, b"uncommitted").unwrap();
+        assert!(store.publish(&lock, &next).is_err());
+        assert!(!temp.exists());
+        assert!(!orphan.exists());
+    };
+    check_cleanup();
+    store.publish(&lock, &current).unwrap();
+    let committed = fs::read(&manifest).unwrap();
+    check_cleanup();
+    assert_eq!(fs::read(&manifest).unwrap(), committed);
+
+    fs::write(&manifest, b"{").unwrap();
+    assert!(store.publish(&lock, &next).is_err());
+    fs::write(&manifest, committed).unwrap();
+    assert_eq!(cache.lookup(&current.metadata).unwrap().ids, current.ids);
+}
+
+#[test]
 fn initial_base_filters_superseded_metadata_before_opening_image() {
     let dir = TempDir::new().unwrap();
     let cache = cache(&dir);
     let first = cache.offer(list());
     let store = cache.store(&first.metadata.name).unwrap();
-    let image = store.directory().join(first.ids.base_file().unwrap());
+    let image = store.directory().join(format!(
+        "list-{}.ids",
+        hex(&first.ids.base_digest().unwrap())
+    ));
     drop(first);
     std::fs::remove_file(&image).unwrap();
     assert!(
         store
-            .load_initial_base("users", |meta| meta.creation_time > 10)
+            .load("users", |meta| meta.creation_time > 10)
             .unwrap()
             .is_none()
     );
-    assert!(store.load_initial_base("users", |_| true).is_err());
+    assert!(store.load("users", |_| true).is_err());
 }

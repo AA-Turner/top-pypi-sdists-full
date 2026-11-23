@@ -200,8 +200,9 @@ async fn fetch_and_write_mmap_uses_header_auth_and_authoritative_storage_key() {
     let v2_path = mmap_v2_path_for_sdk_key(MMAP_FETCH_SDK_KEY);
     let manifest_path = mmap_manifest_path_for_sdk_key(MMAP_FETCH_SDK_KEY);
     let expected_v2_filename = format!(
-        "{}_v2_interned_store.mmap",
-        hashing::djb2(MMAP_FETCH_SDK_KEY)
+        "{}_v{}_interned_store.mmap",
+        hashing::djb2(MMAP_FETCH_SDK_KEY),
+        MmapDataV2::FORMAT_VERSION,
     );
     assert_eq!(
         v2_path.file_name().and_then(|name| name.to_str()),
@@ -1156,8 +1157,9 @@ async fn uid_10001_can_preload_artifact_written_by_uid_1000() {
         .path()
         .join("statsig-interned-store")
         .join(format!(
-            "{}_v2_interned_store.mmap",
-            hashing::djb2(MMAP_CROSS_UID_SDK_KEY)
+            "{}_v{}_interned_store.mmap",
+            hashing::djb2(MMAP_CROSS_UID_SDK_KEY),
+            MmapDataV2::FORMAT_VERSION,
         ));
     let v2_metadata = fs::metadata(&v2_artifact_path).unwrap();
     assert_eq!(v2_metadata.uid(), 1000);
@@ -1532,8 +1534,9 @@ fn preload_mmap_rejects_unsupported_format_version() {
     let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
 
+    let unsupported_version = MmapDataV2::FORMAT_VERSION + 1;
     let mmap_data = MmapDataV2 {
-        format_version: 3,
+        format_version: unsupported_version,
         ..MmapDataV2::default()
     };
     let archived = rkyv::to_bytes::<rkyv::rancor::Error>(&mmap_data).unwrap();
@@ -1543,7 +1546,10 @@ fn preload_mmap_rejects_unsupported_format_version() {
     assert!(matches!(
         InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
         Err(StatsigErr::SerializationError(message))
-            if message == "Unsupported interned mmap format version 3; expected 2"
+            if message == format!(
+                "Unsupported interned mmap format version {unsupported_version}; expected {}",
+                MmapDataV2::FORMAT_VERSION,
+            )
     ));
 }
 

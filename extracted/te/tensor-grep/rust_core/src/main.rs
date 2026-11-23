@@ -7553,10 +7553,17 @@ fn try_resident_execution(
     stream.write_all(req_json.as_bytes())?;
     stream.flush()?;
 
-    // Read response header
+    const MAX_WORKER_RESPONSE_HEADER_BYTES: usize = 64 * 1024;
+
+    // Read response header with an explicit size bound before deserializing
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
-    reader.read_line(&mut line)?;
+    let bytes_read =
+        std::io::Read::take(&mut reader, (MAX_WORKER_RESPONSE_HEADER_BYTES + 1) as u64)
+            .read_line(&mut line)?;
+    if bytes_read > MAX_WORKER_RESPONSE_HEADER_BYTES || !line.ends_with('\n') {
+        return Ok(None);
+    }
 
     use tensor_grep_rs::backend_ast_workflow::SessionResponse;
     let resp: SessionResponse = match serde_json::from_str(&line) {
@@ -9538,7 +9545,9 @@ fn run_native_search_with_optional_rg_fallback(
                 err
             };
             exit_json_search_runtime_error_if_needed(json, ndjson, &err);
-            if let Some(rg_args) = rg_fallback {
+            if let Some(rg_args) = rg_fallback
+                .filter(|_| !tensor_grep_rs::native_search::is_native_search_open_failure(&err))
+            {
                 eprintln!("warning: native CPU search failed, falling back to ripgrep: {err}");
                 if !json && !ndjson && verbose {
                     emit_verbose_metadata(RoutingDecision::ripgrep());
@@ -11074,6 +11083,7 @@ fn checkpoint_storage_dir(root: &Path) -> PathBuf {
 }
 
 #[cfg(windows)]
+#[allow(dead_code)]
 fn checkpoint_snapshot_dir(root: &Path, checkpoint_id: &str) -> PathBuf {
     checkpoint_storage_dir(root)
         .join(checkpoint_id)

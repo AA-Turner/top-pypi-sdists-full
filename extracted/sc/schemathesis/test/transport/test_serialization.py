@@ -366,7 +366,16 @@ def test_serialization_not_possible_manual(ctx):
 
 @pytest.mark.parametrize(
     "media_type",
-    ["application/json", "text/yaml", "application/x-www-form-urlencoded", "text/plain", "multipart/form-data"],
+    [
+        "application/json",
+        "text/yaml",
+        "application/x-www-form-urlencoded",
+        "text/plain",
+        "multipart/form-data",
+        "application/jsonl",
+        "application/json-seq",
+        "text/event-stream",
+    ],
 )
 def test_binary_data(ctx, media_type):
     operation = ctx.openapi.load_operation(
@@ -396,6 +405,57 @@ def test_binary_data(ctx, media_type):
             assert kwargs["headers"]["Content-Type"] == media_type
     # And it is OK to send it over the network
     assert_requests_call(case)
+
+
+@pytest.mark.parametrize(
+    ("media_type", "body", "expected"),
+    [
+        ("application/jsonl", [{"id": 1}, {"id": 2}], b'{"id":1}\n{"id":2}\n'),
+        ("application/x-ndjson", [{"id": 1}, {"id": 2}], b'{"id":1}\n{"id":2}\n'),
+        ("application/json-seq", [{"id": 1}, {"id": 2}], b'\x1e{"id":1}\n\x1e{"id":2}\n'),
+        ("application/geo+json-seq", [{"id": 1}], b'\x1e{"id":1}\n'),
+        ("application/jsonl", [], b""),
+        ("application/jsonl", {"id": 1}, b'{"id":1}\n'),
+        ("application/json-seq", "a\nb", b'\x1e"a\\nb"\n'),
+        (
+            "text/event-stream",
+            [{"event": "add", "data": "a\nb", "id": "1", "retry": 5}, {"data": {"foo": 42}}],
+            b'event: add\ndata: a\ndata: b\nid: 1\nretry: 5\n\ndata: {"foo": 42}\n\n',
+        ),
+        ("text/event-stream", {"data": "a\r\nb\r"}, b"data: a\ndata: b\ndata: \n\n"),
+        ("text/event-stream", [5, None], b"data: 5\n\ndata: null\n\n"),
+        ("text/event-stream", "data: a\n\n", b"data: a\n\n"),
+    ],
+    ids=[
+        "jsonl",
+        "ndjson",
+        "json-seq",
+        "json-seq-suffix",
+        "empty",
+        "jsonl-non-list",
+        "json-seq-non-list",
+        "event-stream",
+        "event-stream-non-list",
+        "event-stream-non-object-items",
+        "event-stream-text",
+    ],
+)
+def test_sequential_body(ctx, media_type, body, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {media_type: {"itemSchema": {"type": "object"}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+    )
+    case = operation.Case(body=body, media_type=media_type)
+    transports = (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT)
+
+    assert [
+        (kwargs["data"], kwargs["headers"]["Content-Type"])
+        for kwargs in (transport.serialize_case(case) for transport in transports)
+    ] == [(expected, media_type)] * 3
 
 
 @pytest.mark.parametrize(
@@ -799,6 +859,37 @@ def _received_part(part):
         ("model/stl", FILE_LIST_SCHEMA, {}, [["f", "model/stl", "{}"]]),
         ("model/stl", {**FILE_LIST_SCHEMA, "type": ["array", "null"]}, 0, [["f", "model/stl", "0"]]),
         ("model/stl", {}, 0, [["f", "model/stl", "0"]]),
+        ("image/jpg", {}, [None, 1], [["f", "image/jpg", "[null, 1]"]]),
+        (
+            "image/jpg",
+            {"type": "array", "items": {}},
+            [[None], {"a": 1}, b"JPG"],
+            [["f", "image/jpg", "[null]"], ["f", "image/jpg", '{"a": 1}'], ["f", "image/jpg", "JPG"]],
+        ),
+        ("image/jpg", {"type": "array"}, [None, 1], [["f", "image/jpg", "null"], ["f", "image/jpg", "1"]]),
+        (
+            "image/jpeg",
+            {"type": "array", "items": {}},
+            [[None], {"a": 1}, b"JPG"],
+            [["f", "image/jpeg", "[null]"], ["f", "image/jpeg", '{"a": 1}'], ["f", "image/jpeg", "JPG"]],
+        ),
+        (
+            "application/json",
+            {"type": "array", "items": {"type": "object"}},
+            [{"a": 1}, {"b": None}],
+            [["f", "application/json", '{"a": 1}'], ["f", "application/json", '{"b": null}']],
+        ),
+        (
+            "application/xml",
+            {"type": "array", "items": {"type": "object", "xml": {"name": "address"}}},
+            [{"x": "1"}, {"y": "2"}],
+            [
+                ["f", "application/xml", "<address><x>1</x></address>"],
+                ["f", "application/xml", "<address><y>2</y></address>"],
+            ],
+        ),
+        ("model/stl", FILE_LIST_SCHEMA, [0, b"STL"], [["f", "model/stl", "0"], ["f", "model/stl", "STL"]]),
+        ("video/mp4", {"type": "string", "contentEncoding": "base64"}, None, [["f", "video/mp4", "null"]]),
         ("application/octet-stream", FILE_LIST_SCHEMA, True, [["f", "application/octet-stream", "true"]]),
     ],
     ids=[
@@ -819,6 +910,14 @@ def _received_part(part):
         "file-list-object",
         "nullable-file-list-integer",
         "untyped-integer",
+        "untyped-list-without-serializer",
+        "untyped-items-without-serializer",
+        "array-without-items-without-serializer",
+        "untyped-items-with-serializer",
+        "object-items-json",
+        "object-items-xml",
+        "file-list-with-integer-item-without-serializer",
+        "encoded-string-null-without-serializer",
         "octet-stream-file-list-boolean",
     ],
 )
@@ -857,6 +956,299 @@ def test_multipart_part_encoded_with_its_content_type(
         loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     case = loaded["/upload"]["POST"].Case(body={"f": value}, media_type="multipart/form-data")
     assert case.call().json() == expected
+
+
+@pytest.mark.parametrize("transport", ["wsgi", "http"])
+@pytest.mark.parametrize(
+    ("version", "definition", "body", "expected"),
+    [
+        (
+            "3.1.0",
+            {
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "encoded": {"type": "string", "contentEncoding": "base64"},
+                                    "optional": {
+                                        "anyOf": [{"type": "string", "contentEncoding": "base64"}, {"type": "null"}]
+                                    },
+                                    "declared": {"type": "string", "contentEncoding": "base64"},
+                                    "media": {"type": "string", "contentMediaType": "application/octet-stream"},
+                                    "text": {"type": "string"},
+                                    "number": {"type": "number"},
+                                },
+                            },
+                            "encoding": {"declared": {"contentType": "image/png"}},
+                        }
+                    },
+                },
+            },
+            {"encoded": "aGk=", "optional": "aGk=", "declared": "PNG", "media": b"raw", "text": "plain", "number": 1.5},
+            [
+                ["declared", "image/png", "PNG"],
+                ["encoded", "application/octet-stream", "aGk="],
+                ["media", "text/plain", "raw"],
+                ["number", "text/plain", "1.5"],
+                ["optional", "application/octet-stream", "aGk="],
+                ["text", "text/plain", "plain"],
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "binary": {"type": "string", "format": "binary"},
+                                    "files": FILE_LIST_SCHEMA,
+                                    "byte": {"type": "string", "format": "byte"},
+                                    "untyped": {},
+                                },
+                            }
+                        }
+                    },
+                },
+            },
+            {"binary": b"bin", "files": [b"a", b"b"], "byte": "aGk=", "untyped": "raw"},
+            [
+                ["binary", "application/octet-stream", "bin"],
+                ["byte", "text/plain", "aGk="],
+                ["files", "application/octet-stream", "a"],
+                ["files", "application/octet-stream", "b"],
+                ["untyped", "application/octet-stream", "raw"],
+            ],
+        ),
+        (
+            "3.1.0",
+            {
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "object": {},
+                                    "list": {},
+                                    "choice": {"enum": ["a", "b"]},
+                                    "image": {"contentMediaType": "image/png"},
+                                    "optional": {"anyOf": [{}, {"type": "null"}]},
+                                    "optional_text": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                                    "items": {"type": "array", "items": {}},
+                                },
+                            }
+                        }
+                    },
+                },
+            },
+            {
+                "object": {"a": 1},
+                "list": ["x", 1],
+                "choice": "a",
+                "image": b"PNG",
+                "optional": 1,
+                "optional_text": "text",
+                "items": ["x", 1],
+            },
+            [
+                ["choice", "application/octet-stream", "a"],
+                ["image", "application/octet-stream", "PNG"],
+                ["items", "application/octet-stream", "1"],
+                ["items", "application/octet-stream", "x"],
+                ["list", "application/octet-stream", '["x", 1]'],
+                ["object", "application/octet-stream", '{"a": 1}'],
+                ["optional", "application/octet-stream", "1"],
+                ["optional_text", "text/plain", "text"],
+            ],
+        ),
+        (
+            "2.0",
+            {
+                "consumes": ["multipart/form-data"],
+                "parameters": [
+                    {"name": "file", "in": "formData", "type": "file", "required": True},
+                    {"name": "number", "in": "formData", "type": "number", "required": True},
+                ],
+            },
+            {"file": b"PNG", "number": 1.5},
+            [["file", "application/octet-stream", "PNG"], ["number", "text/plain", "1.5"]],
+        ),
+    ],
+    ids=["openapi-3.1", "openapi-3.0", "openapi-3.1-untyped", "swagger-2.0"],
+)
+def test_multipart_form_fields_default_content_types(ctx, app_runner, transport, version, definition, body, expected):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/upload": {"post": {**definition, "responses": {"200": {"description": "OK"}}}}}, version=version
+    )
+
+    # Swagger 2.0 schemas are served under `/api`.
+    @app.route("/upload", methods=["POST"])
+    @app.route("/api/upload", methods=["POST"])
+    def upload():
+        header = f"Content-Type: {request.content_type}\r\n\r\n".encode()
+        message = BytesParser(policy=HTTP).parsebytes(header + request.get_data())
+        return jsonify(sorted(_received_part(part) for part in message.iter_parts()))
+
+    if transport == "wsgi":
+        loaded = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    else:
+        loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    case = loaded["/upload"]["POST"].Case(body=body, media_type="multipart/form-data")
+    assert case.call().json() == expected
+
+
+@pytest.mark.parametrize("transport", ["wsgi", "http"])
+@pytest.mark.parametrize(
+    ("version", "media_type_object", "body", "expected"),
+    [
+        (
+            "3.2.0",
+            {
+                "schema": {"type": "array", "prefixItems": [{"type": "object"}, {}], "items": {"type": "string"}},
+                "prefixEncoding": [{}, {"contentType": "image/png"}],
+                "itemEncoding": {"contentType": "text/csv"},
+            },
+            [{"author": "x"}, b"PNG", "a,b", "c,d"],
+            [
+                [None, "application/json", '{"author": "x"}'],
+                [None, "image/png", "PNG"],
+                [None, "text/csv", "a,b"],
+                [None, "text/csv", "c,d"],
+            ],
+        ),
+        (
+            "3.2.0",
+            {
+                "schema": {
+                    "type": "array",
+                    "prefixItems": [
+                        {"type": "array"},
+                        {"type": "array", "prefixItems": [{"$ref": "#/components/schemas/Item"}, {"type": "string"}]},
+                    ],
+                },
+                "prefixEncoding": [
+                    {},
+                    {
+                        "contentType": "multipart/mixed",
+                        "prefixEncoding": [{"contentType": "application/xml"}, {}, {"contentType": "image/png"}],
+                    },
+                ],
+            },
+            [[1], [{"x": "1"}, "text", b"PNG"]],
+            [
+                [None, "application/json", "[1]"],
+                [
+                    None,
+                    "multipart/mixed",
+                    [
+                        [None, "application/xml", "<item><x>1</x></item>"],
+                        [None, "text/plain", "text"],
+                        [None, "image/png", "PNG"],
+                    ],
+                ],
+            ],
+        ),
+        (
+            "3.1.0",
+            {
+                "schema": {
+                    "type": "array",
+                    "prefixItems": [
+                        {"type": "string"},
+                        {"type": "integer"},
+                        {"type": "array"},
+                        {"type": "string", "contentEncoding": "base64"},
+                        {"type": "string", "format": "binary"},
+                        {"anyOf": [{"type": "object"}, {"type": "null"}]},
+                        {"allOf": [{"$ref": "#/components/schemas/Item"}]},
+                        {"anyOf": [{"type": "array", "items": {"type": "integer"}}, {"type": "null"}]},
+                    ],
+                }
+            },
+            ["text", 5, [1, 2], "aGk=", b"bin", {"a": 1}, {"x": "1"}, [3], b"raw"],
+            [
+                [None, "text/plain", "text"],
+                [None, "text/plain", "5"],
+                [None, "application/json", "[1, 2]"],
+                [None, "application/octet-stream", "aGk="],
+                [None, "application/octet-stream", "bin"],
+                [None, "application/json", '{"a": 1}'],
+                [None, "application/json", '{"x": "1"}'],
+                [None, "application/json", "[3]"],
+                [None, "application/octet-stream", "raw"],
+            ],
+        ),
+        (
+            "3.0.2",
+            {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}}},
+            [{"x": "1"}, {"x": "2"}],
+            [[None, "application/json", '{"x": "1"}'], [None, "application/json", '{"x": "2"}']],
+        ),
+        (
+            "3.2.0",
+            {"schema": {"type": "array", "items": {}}, "itemEncoding": {"contentType": "image/jpg"}},
+            [[None], {"a": 1}, b"JPG"],
+            [[None, "image/jpg", "[null]"], [None, "image/jpg", '{"a": 1}'], [None, "image/jpg", "JPG"]],
+        ),
+    ],
+    ids=["by-position", "nested", "defaults", "ref-items", "untyped-items-without-serializer"],
+)
+def test_multipart_mixed_array_items_are_unnamed_parts(
+    ctx, app_runner, transport, version, media_type_object, body, expected
+):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"multipart/mixed": media_type_object}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+        components={"schemas": {"Item": {"type": "object", "xml": {"name": "item"}}}},
+    )
+
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        header = f"Content-Type: {request.content_type}\r\n\r\n".encode()
+        message = BytesParser(policy=HTTP).parsebytes(header + request.get_data())
+        return jsonify([request.mimetype, [_received_part(part) for part in message.iter_parts()]])
+
+    if transport == "wsgi":
+        loaded = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    else:
+        loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    case = loaded["/upload"]["POST"].Case(body=body, media_type="multipart/mixed")
+    assert case.call().json() == ["multipart/mixed", expected]
+
+
+def test_multipart_mixed_array_body_for_undeclared_media_type(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {"content": {"application/json": {"schema": {}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(body=[{"a": 1}, "x"], media_type="multipart/mixed")
+    kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
+    boundary = kwargs["headers"]["Content-Type"].removeprefix("multipart/mixed; boundary=")
+    assert (
+        kwargs["data"]
+        == (
+            f'--{boundary}\r\nContent-Type: application/octet-stream\r\n\r\n{{"a": 1}}\r\n'
+            f"--{boundary}\r\nContent-Type: application/octet-stream\r\n\r\nx\r\n--{boundary}--\r\n"
+        ).encode()
+    )
 
 
 def test_multipart_array_part_items_need_a_serializer(ctx):
@@ -1007,22 +1399,26 @@ def test_wsgi_multipart_binary_property_arrives_as_a_file(ctx):
     )
 
 
-def test_wsgi_multipart_mixed_body_arrives_intact(ctx):
-    operation = _multipart_upload_echo(ctx, {"note": {"type": "string"}}, "multipart/mixed")
-    received = operation.Case(body={"note": "hello"}, media_type="multipart/mixed").call().json()
-    boundary = received["content_type"].partition("boundary=")[2].strip('"')
-    assert received["raw"] == (
-        f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n'
+@pytest.mark.parametrize("media_type", ["multipart/mixed", "multipart/related"], ids=["mixed", "related"])
+def test_wsgi_non_form_multipart_body_arrives_intact(ctx, media_type):
+    operation = _multipart_upload_echo(ctx, {"note": {"type": "string"}}, media_type)
+    received = operation.Case(body={"note": "hello"}, media_type=media_type).call().json()
+    sent_media_type, _, boundary = received["content_type"].partition("; boundary=")
+    boundary = boundary.strip('"')
+    assert (sent_media_type, received["raw"]) == (
+        media_type,
+        f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n',
     )
 
 
-def test_requests_multipart_mixed_body_arrives_intact(ctx, app_runner):
-    app = _multipart_upload_app(ctx, {"note": {"type": "string"}}, "multipart/mixed")
+@pytest.mark.parametrize("media_type", ["multipart/mixed", "multipart/related"], ids=["mixed", "related"])
+def test_requests_non_form_multipart_body_arrives_intact(ctx, app_runner, media_type):
+    app = _multipart_upload_app(ctx, {"note": {"type": "string"}}, media_type)
     operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/upload"]["POST"]
-    received = operation.Case(body={"note": "hello"}, media_type="multipart/mixed").call().json()
-    media_type, _, boundary = received["content_type"].partition("; boundary=")
-    assert (media_type, received["raw"]) == (
-        "multipart/mixed",
+    received = operation.Case(body={"note": "hello"}, media_type=media_type).call().json()
+    sent_media_type, _, boundary = received["content_type"].partition("; boundary=")
+    assert (sent_media_type, received["raw"]) == (
+        media_type,
         f'--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n',
     )
 
@@ -1101,13 +1497,17 @@ def test_multipart_ref_to_scalar_is_not_json_encoded(ctx, case_factory):
             {"file": {"type": "string", "format": "binary"}},
             {},
             {"file": b"abc", "kind": "a"},
-            [("file", ("file", b"abc")), ("kind", (None, "a"))],
+            [("file", ("file", b"abc", "application/octet-stream")), ("kind", (None, "a"))],
         ),
         (
             {"files": {"type": "array", "items": {"type": "string", "format": "binary"}}},
             {},
             {"files": [b"a", b"b"], "kind": "a"},
-            [("files", ("files", b"a")), ("files", ("files", b"b")), ("kind", (None, "a"))],
+            [
+                ("files", ("files", b"a", "application/octet-stream")),
+                ("files", ("files", b"b", "application/octet-stream")),
+                ("kind", (None, "a")),
+            ],
         ),
         (
             {"meta": {"type": "object", "properties": {"x": {"type": "integer"}}}},
@@ -1125,19 +1525,27 @@ def test_multipart_ref_to_scalar_is_not_json_encoded(ctx, case_factory):
             {"tags": {"$ref": "#/components/schemas/Tags"}},
             {"tags": {"contentType": "application/xml"}},
             {"tags": [{"n": 1}], "kind": "a"},
-            [("tags", (None, b"<tags><tag><n>1</n></tag></tags>", "application/xml")), ("kind", (None, "a"))],
+            [("tags", (None, b"<tag><n>1</n></tag>", "application/xml")), ("kind", (None, "a"))],
         ),
         (
             {"tags": {"type": "array", "items": {}}},
             {},
             {"tags": [1, "x"], "kind": "a"},
-            [("tags", (None, b'[1, "x"]', "application/json")), ("kind", (None, "a"))],
+            [
+                ("tags", (None, b"1", "application/octet-stream")),
+                ("tags", (None, "x", "application/octet-stream")),
+                ("kind", (None, "a")),
+            ],
         ),
         (
             {"tags": {"type": "array", "items": {"$ref": "#/components/schemas/Any"}}},
             {},
             {"tags": [1, "x"], "kind": "a"},
-            [("tags", (None, b'[1, "x"]', "application/json")), ("kind", (None, "a"))],
+            [
+                ("tags", (None, b"1", "application/octet-stream")),
+                ("tags", (None, "x", "application/octet-stream")),
+                ("kind", (None, "a")),
+            ],
         ),
     ],
     ids=["file", "file-array", "object", "xml", "xml-array-of-refs", "untyped-items", "untyped-items-ref"],
@@ -1199,7 +1607,7 @@ def test_multipart_swagger2_body_parameter_behind_ref(ctx, declared):
     )
     case = operation.Case(body={"file": b"abc", "kind": "a"}, media_type="multipart/form-data")
     assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [
-        ("file", ("file", b"abc")),
+        ("file", ("file", b"abc", "application/octet-stream")),
         ("kind", (None, "a")),
     ]
 
@@ -1430,7 +1838,7 @@ _SWAGGER2_BINARY_ARRAY_SCHEMA = {
             _SWAGGER2_BINARY_ARRAY_SCHEMA,
             {"files": [b"\x01", b"\x02"]},
             "files",
-            None,
+            "application/octet-stream",
             {},
         ),
         (
@@ -1450,7 +1858,7 @@ _SWAGGER2_BINARY_ARRAY_SCHEMA = {
     ],
 )
 def test_multipart_part_content_type(ctx, case_factory, load_kwargs, body, field, expected, case_kwargs):
-    # Tagging only fires for JSON-encoded parts; primitives must stay untagged or the wire JSON-quotes them.
+    # Text values get no JSON content type, which would wrap them in quotes on the wire.
     schema = ctx.openapi.load_schema(**load_kwargs)
     case = case_factory(
         operation=schema["/upload"]["POST"],
@@ -1467,13 +1875,22 @@ def test_multipart_part_content_type(ctx, case_factory, load_kwargs, body, field
     ("part", "expected"),
     [
         ({"type": "object"}, "application/json"),
-        ({"type": ["array", "null"]}, "application/json"),
+        ({"type": "array"}, "application/octet-stream"),
+        ({"type": ["array", "null"]}, "application/octet-stream"),
         ({"type": ["string", "null"]}, None),
         ({"additionalProperties": {"type": "string"}}, "application/json"),
-        ({"items": {}}, "application/json"),
-        ({}, None),
+        ({"items": {}}, "application/octet-stream"),
+        ({}, "application/octet-stream"),
     ],
-    ids=["object", "type-list-array", "type-list-scalar", "untyped-additional-properties", "untyped-items", "empty"],
+    ids=[
+        "object",
+        "array-without-items",
+        "type-list-array",
+        "type-list-scalar",
+        "untyped-additional-properties",
+        "untyped-items",
+        "empty",
+    ],
 )
 def test_multipart_structured_part_defaults_to_json(ctx, case_factory, part, expected):
     operation = ctx.openapi.load_operation(
@@ -1544,7 +1961,9 @@ def test_multipart_binary_filename_behind_alias_body_ref(ctx, version):
         },
     )
     case = operation.Case(body={"file": b"abc"}, media_type="multipart/form-data")
-    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [("file", ("file", b"abc"))]
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [
+        ("file", ("file", b"abc", "application/octet-stream"))
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1572,7 +1991,11 @@ def test_multipart_binary_filename_behind_alias_body_ref(ctx, version):
             {"type": "object", "properties": {"v": {"type": "string"}}},
             {},
             [{"v": "x"}, {"v": "y"}],
-            [("tags", (None, b'[{"v": "x"}, {"v": "y"}]', "application/json")), ("n", (None, 0))],
+            [
+                ("tags", (None, b'{"v": "x"}', "application/json")),
+                ("tags", (None, b'{"v": "y"}', "application/json")),
+                ("n", (None, 0)),
+            ],
         ),
     ],
     ids=["array-of-strings", "array-of-integers", "array-of-strings-with-encoding", "array-of-objects"],
@@ -1626,8 +2049,8 @@ META = {"type": "object", "properties": {"a": {"type": "integer"}}}
         ),
         (
             {"anyOf": [{"type": "array", "items": META}, {"type": "null"}]},
-            [{"a": 1}],
-            [("meta", (None, b'[{"a": 1}]', "application/json"))],
+            [{"a": 1}, {"a": 2}],
+            [("meta", (None, b'{"a": 1}', "application/json")), ("meta", (None, b'{"a": 2}', "application/json"))],
         ),
         (
             {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
@@ -1692,7 +2115,7 @@ def test_unknown_multipart_fields_openapi3(ctx):
     )
     serialized = REQUESTS_TRANSPORT.serialize_case(case)
     assert serialized["files"] == [
-        ("data", ("data", b"\x92B")),
+        ("data", ("data", b"\x92B", "application/octet-stream")),
         ("note", (None, "foo")),
         ("unknown", (None, "seen")),
     ]
@@ -1767,7 +2190,7 @@ def test_multipart_binary_part_filename(ctx, encoding, expected_filename, proper
     )
     case = operation.Case(body={"attachment": value}, media_type="multipart/form-data")
     assert REQUESTS_TRANSPORT.serialize_case(case)["files"] == [
-        ("attachment", (expected_filename, part)) for part in sent
+        ("attachment", (expected_filename, part, "application/octet-stream")) for part in sent
     ]
 
 
@@ -1796,23 +2219,31 @@ def test_multipart_binary_field_filename_extension(ctx, value, expected_filename
         },
     )
     case = operation.Case(body={"attachment": value}, media_type="multipart/form-data")
-    assert REQUESTS_TRANSPORT.serialize_case(case)["files"] == [("attachment", (expected_filename, value))]
+    assert REQUESTS_TRANSPORT.serialize_case(case)["files"] == [
+        ("attachment", (expected_filename, value, "application/octet-stream"))
+    ]
 
 
 @pytest.mark.parametrize(
     "property_schema, value, expected",
     [
-        ({"type": "string", "format": "binary"}, b"abc", [("file", ("file", b"abc"))]),
-        ({"$ref": "#/components/schemas/File"}, b"abc", [("file", ("file", b"abc"))]),
+        ({"type": "string", "format": "binary"}, b"abc", [("file", ("file", b"abc", "application/octet-stream"))]),
+        ({"$ref": "#/components/schemas/File"}, b"abc", [("file", ("file", b"abc", "application/octet-stream"))]),
         (
             {"type": "array", "items": {"$ref": "#/components/schemas/File"}},
             [b"a", b"b"],
-            [("file", ("file", b"a")), ("file", ("file", b"b"))],
+            [
+                ("file", ("file", b"a", "application/octet-stream")),
+                ("file", ("file", b"b", "application/octet-stream")),
+            ],
         ),
         (
             {"$ref": "#/components/schemas/Files"},
             [b"a", b"b"],
-            [("file", ("file", b"a")), ("file", ("file", b"b"))],
+            [
+                ("file", ("file", b"a", "application/octet-stream")),
+                ("file", ("file", b"b", "application/octet-stream")),
+            ],
         ),
     ],
     ids=["inline", "ref", "ref-items", "ref-array"],
@@ -1852,32 +2283,45 @@ NULL = {"type": "null"}
 @pytest.mark.parametrize(
     "property_schema, value, expected",
     [
-        ({"anyOf": [BINARY, NULL]}, b"abc", [("file", ("file", b"abc"))]),
+        ({"anyOf": [BINARY, NULL]}, b"abc", [("file", ("file", b"abc", "application/octet-stream"))]),
         (
             {"anyOf": [{"type": "array", "items": BINARY}, NULL]},
             [b"a", b"b"],
-            [("file", ("file", b"a")), ("file", ("file", b"b"))],
+            [
+                ("file", ("file", b"a", "application/octet-stream")),
+                ("file", ("file", b"b", "application/octet-stream")),
+            ],
         ),
         (
             {"oneOf": [{"type": "array", "items": BINARY}, NULL]},
             [b"a", b"b"],
-            [("file", ("file", b"a")), ("file", ("file", b"b"))],
+            [
+                ("file", ("file", b"a", "application/octet-stream")),
+                ("file", ("file", b"b", "application/octet-stream")),
+            ],
         ),
-        ({"anyOf": [{"$ref": "#/components/schemas/File"}, NULL]}, b"abc", [("file", ("file", b"abc"))]),
+        (
+            {"anyOf": [{"$ref": "#/components/schemas/File"}, NULL]},
+            b"abc",
+            [("file", ("file", b"abc", "application/octet-stream"))],
+        ),
         (
             {"anyOf": [{"$ref": "#/components/schemas/Files"}, NULL]},
             [b"a", b"b"],
-            [("file", ("file", b"a")), ("file", ("file", b"b"))],
+            [
+                ("file", ("file", b"a", "application/octet-stream")),
+                ("file", ("file", b"b", "application/octet-stream")),
+            ],
         ),
         (
             {"anyOf": [{"type": "array", "items": {"contentMediaType": "application/octet-stream"}}, NULL]},
             [b"a"],
-            [("file", ("file", b"a"))],
+            [("file", ("file", b"a", "application/octet-stream"))],
         ),
         (
             {"allOf": [{"$ref": "#/components/schemas/File"}], "description": "Avatar"},
             b"abc",
-            [("file", ("file", b"abc"))],
+            [("file", ("file", b"abc", "application/octet-stream"))],
         ),
         ({"anyOf": [{"type": "string"}, NULL]}, "text", [("file", (None, "text"))]),
     ],
@@ -2803,6 +3247,108 @@ def _with_child(child):
         (
             {
                 "type": "object",
+                "xml": {"name": "item"},
+                "properties": {
+                    "meta": {"type": "object", "xml": {"nodeType": "none"}, "properties": {"a": {"type": "integer"}}}
+                },
+            },
+            {},
+            "3.2.0",
+            {"meta": {"a": 1}},
+            b"<item><a>1</a></item>",
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {
+                    "meta": {
+                        "type": "object",
+                        "xml": {"nodeType": "none"},
+                        "properties": {
+                            "id": {"type": "integer", "xml": {"nodeType": "attribute"}},
+                            "note": {"type": "string", "xml": {"nodeType": "text"}},
+                        },
+                    }
+                },
+            },
+            {},
+            "3.2.0",
+            {"meta": {"id": 1, "note": "x"}},
+            b'<item id="1">x</item>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {
+                    "meta": {
+                        "type": "object",
+                        "xml": {"nodeType": "none", "namespace": "http://x", "prefix": "x"},
+                        "properties": {"a": {"type": "integer", "xml": {"prefix": "x"}}},
+                    }
+                },
+            },
+            {},
+            "3.2.0",
+            {"meta": {"a": 1}},
+            b'<item xmlns:x="http://x"><x:a>1</x:a></item>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item", "namespace": "http://x", "prefix": "x"},
+                "properties": {
+                    "meta": {
+                        "type": "object",
+                        "xml": {"nodeType": "none", "namespace": "http://x", "prefix": "x"},
+                        "properties": {"a": {"type": "integer", "xml": {"prefix": "x"}}},
+                    }
+                },
+            },
+            {},
+            "3.2.0",
+            {"meta": {"a": 1}},
+            b'<x:item xmlns:x="http://x"><x:a>1</x:a></x:item>',
+        ),
+        (
+            {"type": "object", "xml": {"name": "docs"}, "properties": {"doc": {"$ref": "#/components/schemas/Doc"}}},
+            {
+                "Doc": {
+                    "type": "object",
+                    "xml": {"nodeType": "none"},
+                    "properties": {"content": {"type": "string", "xml": {"nodeType": "cdata"}}},
+                }
+            },
+            "3.2.0",
+            {"doc": {"content": "<b>x</b>"}},
+            b"<docs><![CDATA[<b>x</b>]]></docs>",
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "root"},
+                "properties": {"pet": {"$ref": "#/components/schemas/Pet", "xml": {"nodeType": "none"}}},
+            },
+            {"Pet": {"type": "object", "properties": {"a": {"type": "integer"}}}},
+            "3.2.0",
+            {"pet": {"a": 1}},
+            b"<root><pet><a>1</a></pet></root>",
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {"s": {"type": "string", "xml": {"nodeType": "none"}}},
+            },
+            {},
+            "3.2.0",
+            {"s": "v"},
+            b"<item><s>v</s></item>",
+        ),
+        (
+            {
+                "type": "object",
                 "properties": {
                     "flag": {"type": "boolean"},
                     "note": {"type": "null"},
@@ -2935,6 +3481,49 @@ def _with_child(child):
             ["a"],
             b"<x_1_tag><x_1_tag>a</x_1_tag></x_1_tag>",
         ),
+        (
+            _with_child({"type": "array", "items": {"type": "string"}, "xml": {"name": "aliens"}}),
+            {},
+            "3.0.3",
+            {"child": ["a", "b"]},
+            b"<root><child>a</child><child>b</child></root>",
+        ),
+        (
+            _with_child(
+                {"type": "array", "items": {"type": "string", "xml": {"name": "animal"}}, "xml": {"name": "aliens"}}
+            ),
+            {},
+            "3.0.3",
+            {"child": ["a", "b"]},
+            b"<root><animal>a</animal><animal>b</animal></root>",
+        ),
+        (
+            _with_child({"type": "array", "items": {"type": "string"}, "xml": {"name": "aliens", "wrapped": True}}),
+            {},
+            "3.0.3",
+            {"child": ["a", "b"]},
+            b"<root><aliens><aliens>a</aliens><aliens>b</aliens></aliens></root>",
+        ),
+        (
+            _with_child(
+                {
+                    "type": "array",
+                    "xml": {"wrapped": True},
+                    "items": {"type": "array", "items": {"type": "string"}, "xml": {"name": "aliens"}},
+                }
+            ),
+            {},
+            "3.0.3",
+            {"child": [["a", "b"]]},
+            b"<root><child><child>a</child><child>b</child></child></root>",
+        ),
+        (
+            {"$ref": "#/components/schemas/Animals"},
+            {"Animals": {"type": "array", "items": {"type": "string"}, "xml": {"name": "aliens"}}},
+            "3.0.3",
+            ["a", "b"],
+            b"<Animals>a</Animals><Animals>b</Animals>",
+        ),
     ],
     ids=[
         "reference-alias-chain-root",
@@ -2962,6 +3551,13 @@ def _with_child(child):
         "node-type-text",
         "node-type-cdata",
         "node-type-text-container-written-as-element",
+        "node-type-none-object",
+        "node-type-none-object-attribute-and-text",
+        "node-type-none-object-namespace-declared-on-parent",
+        "node-type-none-object-namespace-already-bound-by-parent",
+        "node-type-none-referenced-object",
+        "node-type-none-next-to-reference-is-default",
+        "node-type-none-scalar-written-as-element",
         "boolean-and-null-use-json-spelling",
         "referenced-property-schema",
         "referenced-array-items",
@@ -2975,6 +3571,11 @@ def _with_child(child):
         "invalid-primitive-item-names-sanitized",
         "invalid-root-primitive-name-sanitized",
         "invalid-wrapped-root-array-name-sanitized",
+        "unwrapped-array-name-ignored",
+        "unwrapped-array-name-ignored-items-name-kept",
+        "wrapped-array-name-names-wrapper-and-items",
+        "nested-unwrapped-array-name-ignored",
+        "root-unwrapped-array-name-ignored",
     ],
 )
 def test_serialize_xml_body(ctx, schema, components, version, body, expected):
@@ -3410,7 +4011,9 @@ def test_multipart_parts_follow_body_for_case_media_type(ctx):
         },
     )
     case = operation.Case(body={"file": b"data"}, media_type="multipart/form-data")
-    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [("file", ("file", b"data"))]
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [
+        ("file", ("file", b"data", "application/octet-stream"))
+    ]
 
 
 @pytest.mark.parametrize(

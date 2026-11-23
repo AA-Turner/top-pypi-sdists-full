@@ -565,21 +565,16 @@ def test_layer_exposure(statsig_setup):
     layer = statsig.get_layer(StatsigUser("my_user"), "layer_with_many_params")
     statsig.flush_events().wait()
 
-    log_requests = mock_scrapi.get_requests_for_endpoint("/v1/log_event")
-    events = mock_scrapi.get_logged_events()
-
-    assert len(log_requests) == 1
-    assert len(events) == 0
+    # Diagnostics can produce unrelated HTTP requests before the first read.
+    assert mock_scrapi.get_logged_events() == []
 
     layer.get_string("a_string", "ERR")
     statsig.flush_events().wait()
 
-    log_requests = mock_scrapi.get_requests_for_endpoint("/v1/log_event")
     events = mock_scrapi.get_logged_events()
-
-    assert len(log_requests) == 2
     assert len(events) == 1
     assert events[0]["eventName"] == "statsig::layer_exposure"
+    assert events[0]["metadata"]["parameterName"] == "a_string"
 
 
 def test_custom_event(statsig_setup):

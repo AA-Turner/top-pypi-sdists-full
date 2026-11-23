@@ -30,12 +30,11 @@ from Crypto.Util._raw_api import (
     load_pycryptodome_raw_lib,
 )
 from Crypto.Util._threads import range_boundaries, run_in_threads
+from Crypto.Util._typing import Buffer
 from Crypto.Util.number import bytes_to_long, long_to_bytes
 
 if TYPE_CHECKING:
     from types import ModuleType
-
-Buffer = Union[bytes, bytearray, memoryview]
 
 
 # C API by module implementing GHASH
@@ -701,6 +700,7 @@ class GcmMode:
             output (bytearray/memoryview):
                 The location where the plaintext must be written to.
                 If ``None``, the plaintext is returned.
+                If the MAC does not match, the location is filled with zeroes.
         Returns:
             the plaintext as ``bytes`` or ``None`` when the ``output``
             parameter specified a location for the result.
@@ -711,7 +711,13 @@ class GcmMode:
         """
 
         plaintext = self.decrypt(ciphertext, output=output)
-        self.verify(received_mac_tag)
+        try:
+            self.verify(received_mac_tag)
+        except ValueError:
+            # Do not leave unauthenticated plaintext in the output
+            if output is not None:
+                output[:] = bytes(len(output))
+            raise
         return plaintext
 
 

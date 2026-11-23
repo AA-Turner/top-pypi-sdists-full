@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: contree-sdk
-Version: 0.5.1
+Version: 0.5.2
 Summary: SDK for ConTree container runtime with versioned filesystem state
 License: Apache-2.0
 License-File: LICENSE
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: contree-client[httpx]>=0.5.3
+Requires-Dist: contree-client[httpx]>=0.6.0
 Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: async
 Requires-Dist: aiosqlite>=0.20; extra == 'async'

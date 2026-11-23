@@ -1,31 +1,30 @@
 Metadata-Version: 2.4
 Name: zope.size
-Version: 6.0
+Version: 6.1
 Summary: Interfaces and simple adapter that give the size of an object
-Home-page: http://github.com/zopefoundation/zope.size
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Keywords: size display human bytes
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, http://github.com/zopefoundation/zope.size
+Keywords: size,display,human,bytes
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.interface
 Requires-Dist: zope.i18nmessageid
 Provides-Extra: zcml
@@ -39,18 +38,7 @@ Requires-Dist: zope.security[zcml]; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ===============
  ``zope.size``
@@ -85,9 +73,21 @@ Development is hosted at https://github.com/zopefoundation/zope.size
 
 Documentation is hosted at https://zopesize.readthedocs.io
 
-
 Changes
 =======
+
+6.1 (2026-11-23)
+----------------
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Replaced ``version.txt`` fossil with ``importlib.metadata`` lookup
+  (in ``docs/conf.py``) / static value (``setup.py``).
+
+- Add support for Python 3.14, 3.15.
+
+- Drop support for Python 3.10, 3.9.
+
 
 6.0 (2025-09-12)
 ----------------

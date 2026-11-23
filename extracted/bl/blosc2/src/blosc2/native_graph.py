@@ -24,6 +24,8 @@ from .expression_graph import _NUMPY_VALUE_PROMOTION, expression_syntax, parse_e
 REDUCERS = {"sum", "prod", "min", "max", "any", "all"}
 PARALLEL_GRAPH_REDUCERS = {"sum", "min", "max", "any", "all"}
 TRUTH_GRAPH_REDUCERS = {"any", "all"}
+# Non-sum operators that reduce straight from decoded block buffers.
+PREFILTER_GRAPH_REDUCERS = {"min", "max", "any", "all"}
 MINIMUM_COMPRESSED_GRAPH_ITEMS = 16_000_000
 MINIMUM_COMPRESSED_MAP_ITEMS = 2_000_000
 # The compression prefilter pays fixed worker and decoder-context setup. Below
@@ -427,10 +429,13 @@ def prepare_resident(
     if cached is not None and cached[0] == signature and not blosc2.IS_WASM:
         return cached
     policy = dict(signature[-1][1])
-    if policy["fp_accuracy"] != blosc2.FPAccuracy.DEFAULT:
+    high_accuracy = policy["fp_accuracy"] != blosc2.FPAccuracy.DEFAULT
+    if high_accuracy and explicit:
         return None
-    configured = policy["jit_backend"] is not None or any(
-        policy[name] for name in ("compiler", "cflags", "trace", "compiler_output", "cache_dir")
+    configured = (
+        high_accuracy
+        or policy["jit_backend"] is not None
+        or any(policy[name] for name in ("compiler", "cflags", "trace", "compiler_output", "cache_dir"))
     )
     parallel = math.prod(signature[2]) >= _MINIMUM_PARALLEL_ITEMS
     if parallel and (
@@ -449,6 +454,7 @@ def prepare_resident(
                 signature[-1],
                 input_dtypes=tuple((name, value.dtype) for name, value in inputs.items()),
                 optimization=optimization,
+                preferred_math=None if explicit else preferred_expression_math(policy["fp_accuracy"]),
             )
         # Checked conversions and mixed-type errors retain their whole-domain execution order.
         if plan.stages != 1 or (parallel and not plan.partitionable):
@@ -1040,7 +1046,7 @@ def _combine_graph_reductions(op, results, reports):
     # Combine in logical region order through the same native reducer. Extrema
     # retain first-NaN payload selection and their deterministic signed-zero rule;
     # NumPy's minimum/maximum reductions have a different zero-selection policy.
-    partials = np.stack(results)
+    partials = results if isinstance(results, np.ndarray) else np.stack(results)
     document = {
         "format": "menudet-graph-1",
         "semantics": "menudet-numpy-0.1",
@@ -1071,7 +1077,7 @@ def _combine_graph_reductions(op, results, reports):
         "temporary_bytes",
         "normalization_bytes",
     ):
-        report[key] = sum(part[key] for part in reports)
+        report[key] = sum(part.get(key, 0) for part in reports)
     report["fp_flags"] = combined_report["fp_flags"]
     for part in reports:
         report["fp_flags"] |= part["fp_flags"]
@@ -1125,7 +1131,7 @@ def _compressed_execution_layout(plan, inputs, shape, *, reduction=True):
     first = compressed[0]
     units = first.schunk.nchunks if reduction else _compressed_map_blocks(first, shape[0])
     workers = min(blosc2.nthreads, MAXIMUM_WORKERS, shape[0] // MINIMUM_WORKER_ITEMS, units)
-    if workers < 2:
+    if workers < 1:
         return None
     if reduction:
         info = plan.reduction_info()
@@ -1155,7 +1161,301 @@ def _compressed_execution_layout(plan, inputs, shape, *, reduction=True):
         return None
     if first.blocks[0] > 65536:
         return None
+    if workers < 2 and not (
+        reduction
+        and (
+            op in PREFILTER_GRAPH_REDUCERS
+            or (op == "sum" and _pairwise_prefilter_kernel(plan, inputs, shape) is not None)
+        )
+    ):
+        return None
     return first, workers, op
+
+
+def _pairwise_prefilter_kernel(plan, inputs, shape):
+    """Metadata-only admission; execution failures must never replay another route."""
+    import blosc2
+
+    if not getattr(blosc2.blosc2_ext, "menudet_pairwise_sum_available", lambda: False)():
+        return None
+    first = next(value for value in inputs.values() if type(value) is blosc2.NDArray)
+    if len(shape) != 1 or first.chunks[0] % first.blocks[0]:
+        return None
+    artifact = plan._handle.reduction_artifact()
+    if artifact is None:
+        return None
+    signature = artifact.descriptor_info()
+    dtype = signature["output_dtype"]
+    if dtype not in (np.dtype("float32"), np.dtype("float64")) or set(signature["inputs"]) != set(inputs):
+        return None
+    if not blosc2.blosc2_ext.menudet_prefilter_inputs_eligible(inputs, allow_numpy=True, output_dtype=dtype):
+        return None
+    schedule = plan.specialize({name: (value.dtype, value.shape) for name, value in inputs.items()})
+    info = schedule.info()
+    if info["dtype"] != dtype:
+        return None
+    return artifact, info["shape"]
+
+
+def _prefilter_graph_reduction(plan, inputs, shape, op, first):
+    """Reduce min/max/any/all from block buffers, or None to keep streaming.
+
+    Partials stay bounded independently of input size, and the native combiner
+    preserves NaN payload and signed-zero selection. Anything outside these
+    metadata-only checks must return None rather than replay a failed run.
+    """
+    import blosc2
+
+    if (
+        op not in TRUTH_GRAPH_REDUCERS
+        and not getattr(blosc2.blosc2_ext, "menudet_shared_reduction_rules_available", lambda: False)()
+    ):
+        return None
+    if first.chunks[0] % first.blocks[0]:
+        return None
+    workers = min(blosc2.nthreads, max(1, first.chunks[0] // 65536))
+    if op in {"min", "any", "all"} and workers < blosc2.nthreads:
+        # These inexpensive reducers benefit more from streaming independent
+        # chunk regions than from oversubscribing each sequential chunk.
+        return None
+    artifact = plan._handle.reduction_artifact()
+    if artifact is None:
+        return None
+    signature = artifact.descriptor_info()
+    mapped_dtype = signature["output_dtype"]
+    if op not in TRUTH_GRAPH_REDUCERS and mapped_dtype not in (np.dtype("float32"), np.dtype("float64")):
+        return None
+    accumulator = np.dtype("bool") if op in TRUTH_GRAPH_REDUCERS else mapped_dtype
+    blocks = (shape[0] + first.blocks[0] - 1) // first.blocks[0]
+    if blocks * accumulator.itemsize > 1024 * 1024:
+        return None
+    if set(signature["inputs"]) != set(inputs):
+        return None
+    if not blosc2.blosc2_ext.menudet_prefilter_inputs_eligible(
+        inputs, allow_numpy=True, output_dtype=mapped_dtype
+    ):
+        return None
+    partials, report = artifact.evaluate_prefilter(
+        inputs,
+        _reduction_op=f"native_{op}" if op in {"min", "max"} else op,
+        _reduction_out=np.empty(blocks, dtype=accumulator),
+        # Prefilters schedule one chunk at a time; array-wide worker counts
+        # over-subscribe small chunks even for very large arrays.
+        _nthreads=workers,
+    )
+    result, combined = _combine_graph_reductions(op, partials, [report])
+    report["fp_flags"] |= combined["fp_flags"]
+    report["fp_supported"] &= combined["fp_supported"]
+    result_shape = plan.specialize(
+        {name: (value.dtype, value.shape) for name, value in inputs.items()}
+    ).info()["shape"]
+    jit = plan.info()["has_jit"]
+    report.update(
+        route="parallel-prefilter-reduction",
+        stages=1,
+        jit_stages=int(jit),
+        interpreter_stages=int(not jit),
+        reduction_buffer_bytes=partials.nbytes,
+        input_materialization_bytes=0,
+    )
+    return result.reshape(result_shape), report
+
+
+def compute_prefilter_moments_if_eligible(
+    expr, *, axis, dtype, ddof, keepdims, stddev, fp_accuracy, execution_kwargs
+):
+    """Single decode pass for full-domain floating variance/standard deviation.
+
+    Miniexpr owns centered block moments, merging, and finalization. Explicit
+    accuracy/backend requests retain their established implementation.
+    """
+    import blosc2
+
+    from .lazyexpr import _jit_from_env
+
+    policy = blosc2.jit_config.execution_options()
+    jit, backend = _jit_from_env(
+        execution_kwargs.get("jit", policy["jit"]),
+        execution_kwargs.get("jit_backend", policy["jit_backend"]),
+    )
+    if (
+        _NUMPY_VALUE_PROMOTION
+        or blosc2.IS_WASM
+        or backend is not None
+        or fp_accuracy is not None
+        or policy["fp_accuracy"] != blosc2.FPAccuracy.DEFAULT
+        or execution_kwargs.keys() - {"jit", "jit_backend"}
+        or not getattr(blosc2.blosc2_ext, "menudet_moments_available", lambda: False)()
+        or type(expr) is not blosc2.LazyExpr
+        or any(hasattr(expr, name) for name in ("_where_args", "_indices", "_order", "_output"))
+        or getattr(expr, "_eval_kwargs", None) is not None
+        or not (axis is None or (type(axis) is int and axis in (0, -1)))
+        or not isinstance(ddof, (int, float, np.integer, np.floating))
+        or not math.isfinite(ddof)
+    ):
+        return None
+    values = tuple(expr.operands.values())
+    first = next((value for value in values if type(value) is blosc2.NDArray), None)
+    if (
+        first is None
+        or first.ndim != 1
+        or first.size < MINIMUM_COMPRESSED_GRAPH_ITEMS
+        or first.size > 2**53
+        or first.size <= ddof
+        or first.chunks[0] % first.blocks[0]
+        or first.blocks[0] > 65536
+        or expr.dtype not in (np.dtype("float32"), np.dtype("float64"))
+        or (dtype is not None and np.dtype(dtype) != expr.dtype)
+    ):
+        return None
+    count = (first.size + first.blocks[0] - 1) // first.blocks[0]
+    if count * 32 > 1024 * 1024:
+        return None
+    if any(
+        type(value) not in (blosc2.NDArray, np.ndarray)
+        or value.shape != first.shape
+        or value.dtype.kind != "f"
+        or not value.dtype.isnative
+        or (
+            type(value) is blosc2.NDArray
+            and (
+                value.chunks != first.chunks
+                or value.blocks != first.blocks
+                or blosc2.blosc2_ext.reads_need_python(value)
+            )
+        )
+        for value in values
+    ) or not _native_first_syntax(expr.expression):
+        return None
+    try:
+        plan, inputs, reduction = lower_native_graph(expr, jit=jit is not False)
+        if reduction or plan.info()["stages"] != 1:
+            return None
+        artifact = plan._handle.reduction_artifact()
+    except NotImplementedError:
+        return None
+    except blosc2.MenudetError as error:
+        if error.status not in {"invalid_signature", "unsupported"}:
+            raise
+        return None
+    if artifact is None:
+        return None
+    signature = artifact.descriptor_info()
+    if signature["output_dtype"] != expr.dtype or set(signature["inputs"]) != set(inputs):
+        return None
+    if not blosc2.blosc2_ext.menudet_prefilter_inputs_eligible(
+        inputs, allow_numpy=True, output_dtype=expr.dtype
+    ):
+        return None
+    partials, report = artifact.evaluate_prefilter(
+        inputs,
+        _reduction_op="moments",
+        _reduction_out=np.empty(count * 4, dtype=np.float64),
+        _nthreads=min(blosc2.nthreads, max(1, first.chunks[0] // 65536)),
+    )
+    result, flags = blosc2.blosc2_ext.menudet_combine_moments(partials, ddof, stddev, expr.dtype)
+    report["fp_flags"] |= flags
+    report.update(
+        route="parallel-prefilter-moments",
+        reduction_buffer_bytes=partials.nbytes,
+        input_materialization_bytes=0,
+    )
+    expr._native_execution_report = report
+    return result.reshape((1,)) if keepdims else result
+
+
+def compute_prefilter_argreduce_if_eligible(  # noqa: C901 -- metadata-only admission before any reads
+    expr, item, *, jit=True, jit_backend=None, fp_accuracy=None, options=None
+):
+    """Optional full-domain 1-D arg-extrema; numerical rules live in miniexpr."""
+    options = options or {}
+    reduction = options.get("_reduce_args", {})
+    op = getattr(reduction.get("op"), "name", "").lower()
+    if op not in {"argmin", "argmax"} or options.keys() - {"_reduce_args"}:
+        return None
+    import blosc2
+
+    if (
+        _NUMPY_VALUE_PROMOTION
+        or blosc2.IS_WASM
+        or blosc2.nthreads < 2
+        or jit_backend is not None
+        or fp_accuracy is not None
+        or not getattr(blosc2.blosc2_ext, "menudet_shared_reduction_rules_available", lambda: False)()
+        or type(expr) is not blosc2.LazyExpr
+        or any(hasattr(expr, name) for name in ("_where_args", "_indices", "_order", "_output"))
+        or getattr(expr, "_eval_kwargs", None) is not None
+    ):
+        return None
+    axis = reduction.get("axis")
+    if axis is not None and (not isinstance(axis, int) or axis not in (0, -1)):
+        return None
+    selection = item if isinstance(item, tuple) else (item,)
+    if any(not isinstance(part, slice) or part != slice(None) for part in selection):
+        return None
+    values = tuple(expr.operands.values())
+    first = next((value for value in values if type(value) is blosc2.NDArray), None)
+    if first is None or first.ndim != 1 or first.size < MINIMUM_COMPRESSED_GRAPH_ITEMS:
+        return None
+    if first.chunks[0] % first.blocks[0] or first.blocks[0] > 65536:
+        return None
+    if any(
+        type(value) not in (blosc2.NDArray, np.ndarray)
+        or value.shape != first.shape
+        or value.dtype.kind not in "biuf"
+        or not value.dtype.isnative
+        or (
+            type(value) is blosc2.NDArray
+            and (
+                value.chunks != first.chunks
+                or value.blocks != first.blocks
+                or blosc2.blosc2_ext.reads_need_python(value)
+            )
+        )
+        for value in values
+    ):
+        return None
+    if not _native_first_syntax(expr.expression):
+        return None
+    try:
+        plan, inputs, is_reduction = lower_native_graph(expr, jit=jit)
+        if is_reduction or plan.info()["stages"] != 1:
+            return None
+        artifact = plan._handle.reduction_artifact()
+    except NotImplementedError:
+        return None
+    except blosc2.MenudetError as error:
+        if error.status not in {"invalid_signature", "unsupported"}:
+            raise
+        return None
+    if artifact is None:
+        return None
+    signature = artifact.descriptor_info()
+    dtype = signature["output_dtype"]
+    if dtype.kind not in "biuf" or set(signature["inputs"]) != set(inputs):
+        return None
+    count = (first.size + first.blocks[0] - 1) // first.blocks[0]
+    if count * (dtype.itemsize + 8) > 1024 * 1024:
+        return None
+    if not blosc2.blosc2_ext.menudet_prefilter_inputs_eligible(inputs, allow_numpy=True, output_dtype=dtype):
+        return None
+    partials = np.empty(count, dtype=dtype)
+    indices = np.empty(count, dtype=np.int64)
+    partials, report = artifact.evaluate_prefilter(
+        inputs,
+        _reduction_op="native_min" if op == "argmin" else "native_max",
+        _reduction_out=partials,
+        _arg_indices=indices,
+    )
+    result, flags = blosc2.blosc2_ext.menudet_combine_argextrema(partials, indices, op == "argmin")
+    report["fp_flags"] |= flags
+    report.update(
+        route="parallel-prefilter-argextrema",
+        reduction_buffer_bytes=partials.nbytes + indices.nbytes,
+        input_materialization_bytes=0,
+    )
+    expr._native_execution_report = report
+    return result.reshape((1,)) if reduction.get("keepdims", False) else result
 
 
 def _parallel_compressed_reduction(plan, inputs, shape, tile_items):
@@ -1171,6 +1471,26 @@ def _parallel_compressed_reduction(plan, inputs, shape, tile_items):
     if layout is None:
         return None
     first, workers, op = layout
+    pairwise = _pairwise_prefilter_kernel(plan, inputs, shape) if op == "sum" else None
+    if pairwise is not None:
+        artifact, result_shape = pairwise
+        result = np.empty((), dtype=artifact.descriptor_info()["output_dtype"])
+        result, report = artifact.evaluate_prefilter(
+            inputs, _reduction_op="sum", _reduction_out=result, _pairwise_sum=True
+        )
+        jit = plan.info()["has_jit"]
+        report.update(
+            route="parallel-prefilter-pairwise-sum",
+            stages=1,
+            jit_stages=int(jit),
+            interpreter_stages=int(not jit),
+            input_materialization_bytes=0,
+        )
+        return result.reshape(result_shape), report
+    if op in PREFILTER_GRAPH_REDUCERS:
+        reduced = _prefilter_graph_reduction(plan, inputs, shape, op, first)
+        if reduced is not None:
+            return reduced
     output_kind = "b" if op in TRUTH_GRAPH_REDUCERS else "f"
 
     class SpanReader(StorageReader):
@@ -1363,8 +1683,19 @@ def _parallel_compressed_map(plan, inputs, shape, tile_items, out=None):
 
 
 @lru_cache(maxsize=128)
-def compile_plan(graph, jit=False, configuration=(), *, input_dtypes=None, optimization="moderate"):
+def compile_plan(
+    graph, jit=False, configuration=(), *, input_dtypes=None, optimization="moderate", preferred_math=None
+):
     """Reusable native plans; cache identity includes explicit captures and policy."""
+    import blosc2
+
+    if preferred_math is not None:
+        with blosc2.compute_options(math_backend=preferred_math):
+            return _compile_plan(graph, jit, input_dtypes, optimization)
+    return _compile_plan(graph, jit, input_dtypes, optimization)
+
+
+def _compile_plan(graph, jit, input_dtypes, optimization):
     from .graph_plan import NativeGraph
 
     if input_dtypes is None:
@@ -1383,6 +1714,46 @@ def compile_plan(graph, jit=False, configuration=(), *, input_dtypes=None, optim
     return plan
 
 
+@lru_cache(maxsize=2)
+def _expression_math_available(backend):
+    """Probe the graph runtime once per backend, without doing any numerical work."""
+    import blosc2
+
+    from .graph_plan import NativeGraph
+
+    try:
+        with blosc2.compute_options(math_backend=backend):
+            plan = NativeGraph.from_expression("sin(x)", {"x": "float64"}, jit=False)
+    except (NotImplementedError, blosc2.MenudetError):
+        return False
+    return json.loads(plan.map_json())["semantics"].get("math") == backend
+
+
+def preferred_expression_math(fp_accuracy, *, automatic=False):
+    """Resolve the automatic MEDIUM policy for ordinary typed expressions."""
+    import blosc2
+
+    if (
+        fp_accuracy != blosc2.FPAccuracy.MEDIUM
+        or blosc2.IS_WASM
+        or (
+            not automatic
+            and (
+                blosc2.jit_config.execution_options()["math_backend"] is not None
+                or os.environ.get("ME_SIMD_MATH_BACKEND") not in (None, "", "auto")
+            )
+        )
+    ):
+        return None
+    if sys.platform == "darwin":
+        candidates = ("accelerate", "sleef")
+    elif sys.platform.startswith(("linux", "win")):
+        candidates = ("sleef",)
+    else:
+        return None
+    return next((backend for backend in candidates if _expression_math_available(backend)), None)
+
+
 @lru_cache(maxsize=128)
 def _native_text_expression(expression):
     """Prove a shared grammar subset before choosing native text ingestion.
@@ -1391,12 +1762,19 @@ def _native_text_expression(expression):
     numerical semantics. Method syntax, captures and dtype normalization retain
     the declarative adapter until their frontend parity is qualified.
     """
+    from .utils import MINIEXPR_FUNCTION_ALIASES
+
     if not _native_first_syntax(expression):
         return None
     tree, nodes = expression_syntax(expression)
     for node in nodes:
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "copy":
-            return None  # The declarative adapter elides this pure value-copy node.
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and (node.func.id == "copy" or node.func.id in MINIEXPR_FUNCTION_ALIASES)
+        ):
+            # The declarative adapter elides copy and normalizes NumPy spellings.
+            return None
         if isinstance(node, ast.Attribute) or (isinstance(node, ast.keyword) and node.arg == "dtype"):
             return None
         if isinstance(node, ast.Name) and (
@@ -1466,15 +1844,20 @@ def configured_map_kernel(plan, jit, configuration, environment):
     """Compile a graph map with task-local options; retain native graph safety.
 
     Configuration/environment are cache identity, never operand/result values.
-    Unlike compatibility capture specialization, import the original graph
-    artifact verbatim so its NumPy profile and weak-scalar rules stay intact.
+    Preserve the graph artifact's NumPy profile, source and weak captures.
     """
     import blosc2
 
     from .menudet_kernel import MenudetKernel
 
-    with blosc2.jit_options(**dict(configuration)):
-        kernel = MenudetKernel.from_json(plan.map_json(), jit=jit)
+    options = dict(configuration)
+    artifact = plan.map_json()
+    # MEDIUM is resolved during ordinary graph preparation; HIGH uses the
+    # same artifact specialization policy as decorated Menudet.
+    if options["fp_accuracy"] != blosc2.FPAccuracy.HIGH:
+        options["fp_accuracy"] = None
+    with blosc2.compute_options(**options):
+        kernel = MenudetKernel.from_json(artifact, jit=jit)
     kernel.graph_partitionable = plan.partitionable
     return kernel
 
@@ -1482,7 +1865,7 @@ def configured_map_kernel(plan, jit, configuration, environment):
 @lru_cache(maxsize=128)
 def resident_map_kernel(plan):
     from . import blosc2_ext
-    from .menudet_kernel import MenudetError, MenudetKernel
+    from .menudet_kernel import MenudetError, MenudetKernel, menudet_execution_snapshot
 
     handle = getattr(plan._handle, "resident_artifact", lambda: None)()
     if handle is not None:
@@ -1493,6 +1876,9 @@ def resident_map_kernel(plan):
         kernel._info = handle.info()
         if getattr(blosc2_ext, "menudet_descriptor_available", lambda: False)():
             kernel._info.update(handle.descriptor_info())
+        kernel._execution_info = menudet_execution_snapshot(
+            kernel._info, {}, plan._execution_options, plan._execution_environment
+        )
         kernel.graph_partitionable = bool(plan.info().get("partitionable", False))
         return kernel
     artifact = plan.map_json()
@@ -1845,7 +2231,9 @@ class GraphAdapter:
         raise ValueError(f"Unsupported native syntax: {type(node).__name__}")
 
 
-def lower_native_graph(expr, *, jit=False, reduction_options=None, root_options=None, allow_output=False):
+def lower_native_graph(
+    expr, *, jit=False, reduction_options=None, root_options=None, allow_output=False, fp_accuracy=None
+):
     import blosc2
 
     if type(expr) is not blosc2.LazyExpr:
@@ -1865,6 +2253,9 @@ def lower_native_graph(expr, *, jit=False, reduction_options=None, root_options=
     if graph.names - operands.keys():
         raise ValueError("Native graph contains unbound names")
     configuration = _graph_configuration(jit)
+    if fp_accuracy is None:
+        fp_accuracy = blosc2.jit_config.execution_options()["fp_accuracy"]
+    preferred_math = preferred_expression_math(fp_accuracy)
     optimization = getattr(expr, "_optimization", "moderate")
     text = (
         _native_text_expression(graph.text)
@@ -1879,7 +2270,9 @@ def lower_native_graph(expr, *, jit=False, reduction_options=None, root_options=
     ):
         source, reduction = text
         signature = tuple((name, value.dtype.name) for name, value in arrays.items())
-        plan = compile_plan(source, jit, configuration, input_dtypes=signature)
+        plan = compile_plan(
+            source, jit, configuration, input_dtypes=signature, preferred_math=preferred_math
+        )
         return plan, arrays, reduction
     adapter = GraphAdapter(operands)
     root = adapter.visit(ast.parse(graph.text, mode="eval").body)
@@ -1892,7 +2285,12 @@ def lower_native_graph(expr, *, jit=False, reduction_options=None, root_options=
         if "initial" in root_options:
             adapter.nodes[root]["initial"] = scalar_descriptor(root_options["initial"])
     document = _graph_document(adapter, root, optimization)
-    plan = compile_plan(json.dumps(document, sort_keys=True, separators=(",", ":")), jit, configuration)
+    plan = compile_plan(
+        json.dumps(document, sort_keys=True, separators=(",", ":")),
+        jit,
+        configuration,
+        preferred_math=preferred_math,
+    )
     return plan, adapter.arrays, adapter.nodes[root]["op"] in REDUCERS
 
 

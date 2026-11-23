@@ -6,15 +6,19 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import onnxruntime as ort
+from tqdm import tqdm
 
-from onnxtr.io import DocumentFile
+from onnxtr.io import ConcatSource, Document, DocumentFile, PageDecodeError, PageSource
+from onnxtr.io.figures import IMAGE_FORMATS, IMAGE_MODES, FigureEncoder
+from onnxtr.io.sources import _is_pdf
 from onnxtr.models import ocr_predictor
+from onnxtr.models._utils import _CONFIDENCE_AGGREGATIONS
 from onnxtr.models.engine import EngineConfig
 from onnxtr.version import __version__
 
@@ -93,38 +97,87 @@ def _resolve_format(args: argparse.Namespace) -> str:
     return SUFFIX_ALIASES.get(Path(args.output).suffix.lower(), "json")
 
 
-def _load_document(args: argparse.Namespace) -> list[np.ndarray]:
-    """Load every input into a single list of pages
+def _load_document(args: argparse.Namespace) -> ConcatSource:
+    """Open every input as a single lazy document: pages are only decoded when they are processed
 
     Args:
         args: the parsed command-line arguments
 
     Returns:
-        the list of pages decoded as numpy ndarray of shape H x W x 3
+        the concatenation of the inputs, decoding its pages on demand
     """
     pdf_kwargs: dict[str, Any] = {"scale": args.pdf_scale, "password": args.pdf_password}
 
-    pages: list[np.ndarray] = []
+    sources: list[PageSource] = []
     for input_path in args.input_path:
         try:
             if input_path.lower().startswith(("http://", "https://")):
-                pages.extend(DocumentFile.from_url(input_path, **pdf_kwargs))
-            elif input_path.lower().endswith(".pdf"):
-                pages.extend(DocumentFile.from_pdf(input_path, **pdf_kwargs))
+                sources.append(DocumentFile.from_url(input_path, lazy=True, **pdf_kwargs))
+            elif _is_pdf(input_path):
+                # A PDF from its extension, or from its header for a file without any (e.g. `scan`)
+                sources.append(DocumentFile.from_pdf(input_path, lazy=True, **pdf_kwargs))
+            elif Path(input_path).is_dir():
+                # A folder is expanded to the PDFs and the images it contains (non-recursively, sorted by name). With
+                # `--on_error skip`, the files that cannot be read are skipped with a warning naming them
+                folder = DocumentFile.from_files(input_path, lazy=True, pdf_kwargs=pdf_kwargs, on_error=args.on_error)
+                if len(folder) == 0:
+                    logger.error(f"No readable PDF or image found in {input_path}")
+                    sys.exit(1)
+                sources.append(folder)
             else:
-                pages.extend(DocumentFile.from_images(input_path))
+                sources.append(DocumentFile.from_images(input_path, lazy=True))
             logger.info(f"Document loaded successfully from {input_path}")
         except FileNotFoundError:
             logger.error(f"File not found: {input_path}")
             sys.exit(1)
-        except ValueError:
-            logger.error(f"File could not be read as a valid image or PDF: {input_path}")
+        except ValueError as e:
+            # The error names the faulty file, e.g. among the files of a folder
+            logger.error(f"File could not be read as a valid image or PDF: {input_path} ({e})")
             sys.exit(1)
         except Exception as e:
             logger.error(f"Error occurred while loading the document: {e}")
             sys.exit(1)
 
-    return pages
+    return ConcatSource(sources)
+
+
+def _predict(model: Any, doc: ConcatSource, args: argparse.Namespace) -> tuple[Document, Exception | None]:
+    """Run the predictor on the document chunk by chunk, with a progress bar
+
+    Invalid files are reported by `_load_document`: only a page that cannot be decoded (e.g. an image with a valid
+    header but corrupted content) or an input deleted in the meantime fails here. With `--on_error skip`, such a page
+    is skipped with a warning. Otherwise the run stops at that page, and the pages before it are returned with the
+    error, so that they are not lost. Other errors (e.g. raised by the models) propagate as-is.
+
+    Args:
+        model: the predictor
+        doc: the lazy document
+        args: the parsed command-line arguments
+
+    Returns:
+        the predicted document, and the error that stopped the run (if any)
+    """
+    pages: list[Any] = []
+    skipped: list[int] = []
+    error: Exception | None = None
+    with tqdm(total=len(doc), unit="page", desc="OCR", disable=args.quiet, file=sys.stderr) as progress:
+
+        def _skip(page_idx: int, page_error: Exception) -> None:
+            skipped.append(page_idx)
+            logger.warning(f"Skipping page {page_idx + 1} of {len(doc)}: {page_error}")
+            progress.update(1)
+
+        try:
+            for page in model.stream(doc, on_error=_skip if args.on_error == "skip" else "raise"):
+                pages.append(page)
+                progress.update(1)
+        except (FileNotFoundError, PageDecodeError) as e:
+            error = e
+        finally:
+            doc.close()
+    if skipped:
+        logger.warning(f"{len(skipped)} of {len(doc)} page(s) could not be read and were skipped")
+    return Document(pages=pages), error
 
 
 def _resolve_engine_cfg(args: argparse.Namespace) -> EngineConfig:
@@ -218,10 +271,12 @@ def _build_predictor(args: argparse.Namespace) -> Any:
         "ignore_regions": args.ignore_regions or None,
         "det_bs": args.det_bs,
         "reco_bs": args.reco_bs,
+        "confidence_aggregation": args.confidence_aggregation,
         # `_OCRPredictor` keyword args
         "disable_page_orientation": args.disable_page_orientation,
         "disable_crop_orientation": args.disable_crop_orientation,
         "preserve_original_coords": args.preserve_original_coords,
+        "page_chunk_size": args.page_chunk_size,
         # `DocumentBuilder` keyword args
         "resolve_lines": args.resolve_lines,
         "resolve_blocks": args.resolve_blocks,
@@ -237,12 +292,46 @@ def _build_predictor(args: argparse.Namespace) -> Any:
         "clf_engine_cfg": engine_cfg,
         "layout_engine_cfg": engine_cfg,
         "table_engine_cfg": engine_cfg,
+        "formula_engine_cfg": engine_cfg,
     })
 
-    model = ocr_predictor(detect_tables=args.detect_tables, **kwargs)
+    model = ocr_predictor(detect_tables=args.detect_tables, detect_formulas=args.detect_formulas, **kwargs)
 
     _set_thresholds(model, args)
     return model
+
+
+def _default_image_dir(output: str) -> Path:
+    """Return the default image directory in 'referenced' mode: `<output name>_images`, next to the output
+
+    Args:
+        output: the `--output` value
+
+    Returns:
+        the image directory
+    """
+    path = Path(output)
+    return path.with_name(f"{path.stem}_images")
+
+
+def _figure_encoder(args: argparse.Namespace) -> FigureEncoder:
+    """Build the figure encoder of the Markdown, AsciiDoc and HTML exports (links relative to the output file)
+
+    Args:
+        args: the parsed command-line arguments
+
+    Returns:
+        the figure encoder
+    """
+    if args.images != "referenced":
+        return FigureEncoder(args.images, image_format=args.image_format)
+    image_dir = Path(args.image_dir) if args.image_dir is not None else _default_image_dir(args.output)
+    output_dir = Path(args.output).parent
+    try:
+        path_prefix = os.path.relpath(image_dir.absolute(), output_dir.absolute())
+    except ValueError:  # pragma: no cover (Windows: image directory on another drive)
+        path_prefix = str(image_dir.absolute())
+    return FigureEncoder("referenced", image_dir=image_dir, path_prefix=path_prefix, image_format=args.image_format)
 
 
 def _export_kwargs(fmt: str, args: argparse.Namespace) -> dict[str, Any]:
@@ -266,15 +355,19 @@ def _export_kwargs(fmt: str, args: argparse.Namespace) -> dict[str, Any]:
         kwargs["escape"] = args.escape
     if fmt in {"txt", "md", "adoc", "html"}:
         kwargs["include_furniture"] = args.include_furniture
+    if fmt in {"md", "adoc", "html"}:
+        kwargs["images"] = _figure_encoder(args)
     return kwargs
 
 
-def _xml_paths(output: str, num_pages: int) -> list[Path]:
+def _xml_paths(output: str, num_pages: int, page_indices: list[int] | None = None) -> list[Path]:
     """Build one output path per page, since hOCR describes a single page per file
 
     Args:
         output: the `--output` value
         num_pages: the number of exported pages
+        page_indices: the index of each exported page in the input, so that the file names keep matching the pages
+            when some of them were skipped (defaults to `range(num_pages)`)
 
     Returns:
         the list of paths to write to
@@ -282,7 +375,8 @@ def _xml_paths(output: str, num_pages: int) -> list[Path]:
     path = Path(output)
     if num_pages <= 1:
         return [path]
-    return [path.with_name(f"{path.stem}_page_{idx + 1}{path.suffix}") for idx in range(num_pages)]
+    indices = range(num_pages) if page_indices is None else page_indices
+    return [path.with_name(f"{path.stem}_page_{idx + 1}{path.suffix}") for idx in indices]
 
 
 def _save_results(result: Any, fmt: str, args: argparse.Namespace) -> None:
@@ -293,16 +387,20 @@ def _save_results(result: Any, fmt: str, args: argparse.Namespace) -> None:
         fmt: the canonical export format
         args: the parsed command-line arguments
     """
+    kwargs = _export_kwargs(fmt, args)
     try:
-        exported = result.export_as(fmt, **_export_kwargs(fmt, args))
+        exported = result.export_as(fmt, **kwargs)
     except Exception as e:
         logger.error(f"Results could not be exported as '{fmt}': {e}")
         sys.exit(1)
+    encoder = kwargs.get("images")
+    if isinstance(encoder, FigureEncoder) and encoder.written:
+        logger.info(f"{len(encoder.written)} figure(s) saved to {encoder.image_dir}")
 
     try:
         if fmt == "xml":
             # `export_as_xml` returns one (bytes, ElementTree) tuple per page
-            paths = _xml_paths(args.output, len(exported))
+            paths = _xml_paths(args.output, len(exported), [page.page_idx for page in result.pages])
             for path, (xml_bytes, _) in zip(paths, exported):
                 path.write_bytes(xml_bytes)
             logger.info(f"Results saved to {', '.join(str(path) for path in paths)}")
@@ -328,17 +426,30 @@ def main(argv=None):
     _setup_logging(args.quiet)
 
     fmt = _resolve_format(args)
-    model = _build_predictor(args)
 
-    # load the document
+    # open the inputs first (pages are decoded on demand): missing or invalid files fail before the models load
     doc = _load_document(args)
 
+    model = _build_predictor(args)
+
     # perform OCR
-    logger.info("Performing OCR...")
-    result = model(doc)
+    logger.info(f"Performing OCR on {len(doc)} page(s)...")
+    result, error = _predict(model, doc, args)
+
+    if error is not None:
+        logger.error(f"File could not be read as a valid image or PDF: {error}")
+        if not result.pages:
+            sys.exit(1)
+        # Do not lose the pages processed before the error
+        logger.error(
+            f"Saving the results of the {len(result.pages)} page(s) processed before the error "
+            "(pass `--on_error skip` to skip the pages that cannot be read)"
+        )
 
     # save results to the requested format
     _save_results(result, fmt, args)
+    if error is not None:
+        sys.exit(1)
 
 
 def _parse_args(argv=None):
@@ -355,7 +466,7 @@ def _parse_args(argv=None):
         type=str,
         nargs="+",
         required=True,
-        help="path to one or more input image / PDF files, or URLs of web pages to render as PDF",
+        help="paths to images, PDFs or folders of those (non-recursive, sorted by name), or URLs of web pages",
     )
     parser.add_argument("--pdf_password", type=str, default=None, help="password to unlock encrypted PDF files")
     parser.add_argument("--pdf_scale", type=int, default=2, help="PDF rendering scale (1 corresponds to 72dpi)")
@@ -419,8 +530,30 @@ def _parse_args(argv=None):
         default=None,
         help="minimal objectness score to consider a detected box (defaults to the architecture value)",
     )
+    parser.add_argument(
+        "--confidence_aggregation",
+        type=str,
+        default=None,
+        choices=list(_CONFIDENCE_AGGREGATIONS),
+        help="aggregation method of the character probabilities into the word confidence (defaults to the method of "
+        "the recognition architecture)",
+    )
     parser.add_argument("--det_bs", type=int, default=2, help="batch size for detection")
     parser.add_argument("--reco_bs", type=int, default=128, help="batch size for recognition")
+    parser.add_argument(
+        "--page_chunk_size",
+        type=int,
+        default=32,
+        help="number of pages decoded & processed at once: bounds the memory footprint on long documents",
+    )
+    parser.add_argument(
+        "--on_error",
+        type=str,
+        default="raise",
+        choices=["raise", "skip"],
+        help="what to do with a file of a folder or a page that cannot be read: stop with an error (the results of "
+        "the pages processed so far are still saved), or skip it with a warning",
+    )
     parser.add_argument("--detect_orientation", action="store_true", help="automatically detect page orientation")
     parser.add_argument("--detect_language", action="store_true", help="detect language of the text")
     parser.add_argument("--detect_layout", action="store_true", help="attach the detected layout regions to each page")
@@ -428,6 +561,11 @@ def _parse_args(argv=None):
         "--detect_tables",
         action="store_true",
         help="regroup the words of the detected tables into structured tables (enables the layout model)",
+    )
+    parser.add_argument(
+        "--detect_formulas",
+        action="store_true",
+        help="read the detected formulas as LaTeX, exported as display math (enables the layout model)",
     )
     parser.add_argument(
         "--ignore_regions",
@@ -500,6 +638,26 @@ def _parse_args(argv=None):
         help="include page headers, page footers and footnotes (text-like exports)",
     )
     parser.add_argument(
+        "--images",
+        type=str,
+        default="placeholder",
+        choices=list(IMAGE_MODES),
+        help="how figures are rendered in the Markdown, AsciiDoc and HTML exports (requires the layout model)",
+    )
+    parser.add_argument(
+        "--image_dir",
+        type=str,
+        default=None,
+        help="directory of the figures with --images referenced (default: '<output name>_images' next to the output)",
+    )
+    parser.add_argument(
+        "--image_format",
+        type=str,
+        default="png",
+        choices=list(IMAGE_FORMATS),
+        help="file format of the figures (--images embedded or referenced)",
+    )
+    parser.add_argument(
         "--file_title", type=str, default="OnnxTR - XML export (hOCR)", help="title of the exported hOCR files"
     )
     parser.add_argument("--indent", type=int, default=4, help="indentation of the JSON export")
@@ -507,10 +665,16 @@ def _parse_args(argv=None):
 
     args = parser.parse_args(argv)
 
+    if args.image_dir is not None and args.images != "referenced":
+        parser.error("--image_dir is only used with --images referenced")
+
     for name in ("bin_thresh", "box_thresh"):
         value = getattr(args, name)
         if value is not None and not 0.0 <= value <= 1.0:
             parser.error(f"--{name} must be between 0 and 1")
+
+    if args.page_chunk_size < 1:
+        parser.error("--page_chunk_size must be a positive integer")
 
     return args
 

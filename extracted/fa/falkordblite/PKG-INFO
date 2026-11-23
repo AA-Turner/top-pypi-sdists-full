@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: falkordblite
-Version: 0.11.0
+Version: 0.12.1
 Summary: FalkorDB embedded in a Python package
 Home-page: https://github.com/FalkorDB/falkordblite
 Author: FalkorDB
 Author-email: roi@falkordb.com
-License: BSD License
+License-Expression: BSD-3-Clause AND (SSPL-1.0 OR AGPL-3.0-only) AND (LicenseRef-RSALv2 OR SSPL-1.0 OR AGPL-3.0-only) AND Apache-2.0 AND GPL-3.0-or-later WITH GCC-exception-3.1 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND (BSD-2-Clause OR CC0-1.0) AND MIT AND BSL-1.0
 Project-URL: Homepage, https://www.falkordb.com/
 Project-URL: Documentation, https://docs.falkordb.com/
 Project-URL: Source, https://github.com/FalkorDB/falkordblite
@@ -13,7 +13,6 @@ Keywords: falkordb redis graph database cypher embedded python
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: POSIX
@@ -30,11 +29,29 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.12.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+License-File: LICENSES/FalkorDB-LICENSE
+License-File: LICENSES/FalkorDB-LICENSE-AGPL
+License-File: LICENSES/FalkorDB-LICENSE-SSPL
+License-File: LICENSES/GCC-COPYING.RUNTIME
+License-File: LICENSES/GCC-COPYING3
+License-File: LICENSES/LLVM-LICENSE.txt
+License-File: LICENSES/OpenSSL-LICENSE.txt
+License-File: LICENSES/Redis-LICENSE.txt
+License-File: LICENSES/Redis-Lua-COPYRIGHT
+License-File: LICENSES/Redis-REDISCONTRIBUTIONS.txt
+License-File: LICENSES/Redis-TRE-LICENSE
+License-File: LICENSES/Redis-fpconv-LICENSE.txt
+License-File: LICENSES/Redis-hdr_histogram-LICENSE.txt
+License-File: LICENSES/Redis-linenoise-LICENSE.txt
+License-File: LICENSES/Redis-xxHash-LICENSE
+License-File: LICENSES/hiredis-COPYING
+License-File: NOTICE
 Requires-Dist: redis>=4.5
 Requires-Dist: falkordb[hiredis]>=1.8.0
 Requires-Dist: psutil
 Requires-Dist: setuptools>38.0
 Dynamic: license-file
+Dynamic: license-expression
 
 # FalkorDBLite
 
@@ -521,7 +538,25 @@ FalkorDBLite combines the power of Redis and FalkorDB graph database in an embed
 - FalkorDB Documentation: https://docs.falkordb.com/
 - FalkorDB Python Client: https://github.com/FalkorDB/falkordb-py
 
-FalkorDBLite is Free software under the New BSD license, see LICENSE.txt for details.
+## Licensing
+
+The FalkorDBLite Python wrapper is licensed under the [BSD 3-Clause License](https://github.com/FalkorDB/falkordblite/blob/master/LICENSE.txt).
+It runs Redis as a separate process and communicates with it over a socket.
+The bundled binaries retain their own licenses:
+
+| Component | License |
+| --- | --- |
+| Redis (`redis-server`, `redis-cli`) | Your choice of RSALv2, SSPLv1, or AGPLv3. See the [Redis license text](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/Redis-LICENSE.txt). |
+| Redis BSD-licensed portions | BSD-3-Clause. See [Redis contributions](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/Redis-REDISCONTRIBUTIONS.txt). |
+| Hiredis (bundled in `redis-cli`) | BSD-3-Clause. See the [hiredis license](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/hiredis-COPYING). |
+| Redis-linked libraries | Lua (MIT), linenoise (BSD-2-Clause), xxHash and TRE (BSD-2-Clause), fpconv (BSL-1.0), and hdr_histogram (CC0-1.0 or BSD-2-Clause); see the corresponding `LICENSES/Redis-*` files. |
+| FalkorDB module (`falkordb.so`) | Your choice of [SSPLv1](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/FalkorDB-LICENSE-SSPL) or [AGPLv3](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/FalkorDB-LICENSE-AGPL). See the [upstream license notice](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/FalkorDB-LICENSE). |
+| OpenSSL 3 (`libssl`, `libcrypto`), where bundled | [Apache License 2.0](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/OpenSSL-LICENSE.txt). |
+| GCC OpenMP runtime (`libgomp`), where bundled | [GPLv3 or later](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/GCC-COPYING3) with the [GCC Runtime Library Exception 3.1](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/GCC-COPYING.RUNTIME). |
+| LLVM OpenMP runtime (`libomp`, statically linked into the macOS FalkorDB module) | [Apache-2.0 with LLVM exception](https://github.com/FalkorDB/falkordblite/blob/master/LICENSES/LLVM-LICENSE.txt). |
+
+The separate Python dependency [psutil](https://github.com/giampaolo/psutil/blob/master/LICENSE) is licensed under BSD-3-Clause.
+The wheel includes the full texts and a `NOTICE` with the exact upstream source tags and third-party notices under `.dist-info/licenses/`.
 
 ## Building from Source
 
@@ -566,6 +601,14 @@ Then start the bash shell and install the python-dev package as follows:
 `apt-get install python-dev`
 
 ### Building and Installing
+
+When updating the Redis or FalkorDB pins in `versions.cfg`, review the license
+expression in `setup.cfg`, the upstream texts in `LICENSES/`, and the licensing
+table above in the same change. The build regenerates `NOTICE` from the selected
+versions; commit the refreshed notice for the default pins. `REDIS_VERSION`
+accepts Redis release or prerelease tags; the build records the selected tag
+alongside the source so it can validate cached sources without assuming the
+tag matches Redis' internal version string.
 
 To build from source:
 

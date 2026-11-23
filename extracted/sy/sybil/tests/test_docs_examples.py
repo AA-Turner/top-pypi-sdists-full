@@ -6,6 +6,8 @@ from unittest.runner import TextTestRunner
 
 from pytest import main as pytest_main
 
+from sybil.python import import_cleanup
+
 from tests.helpers import add_to_python_path
 
 DOC_EXAMPLES = Path(__file__).parent.parent / 'docs' / 'examples'
@@ -17,10 +19,11 @@ class CollectResults:
 
 
 def pytest_in(*path: str):
-    results = CollectResults()
-    return_code = pytest_main([join(DOC_EXAMPLES, *path)], plugins=[results])
-    assert return_code == results.session.exitstatus
-    return results.session
+    with import_cleanup():
+        results = CollectResults()
+        return_code = pytest_main([join(DOC_EXAMPLES, *path)], plugins=[results])
+        assert return_code == results.session.exitstatus
+        return results.session
 
 
 class TestIntegrationExamples:
@@ -33,12 +36,13 @@ class TestIntegrationExamples:
     def test_unittest(self):
         runner = TextTestRunner(verbosity=2, stream=sys.stdout)
         path = str(DOC_EXAMPLES / 'integration' / 'unittest')
-        main = unittest_main(
-            exit=False,
-            module=None,
-            testRunner=runner,
-            argv=['x', 'discover', '-s', path, '-t', path],
-        )
+        with import_cleanup():
+            main = unittest_main(
+                exit=False,
+                module=None,
+                testRunner=runner,
+                argv=['x', 'discover', '-s', path, '-t', path],
+            )
         assert main.result.testsRun == 3
         assert len(main.result.failures) == 0
         assert len(main.result.errors) == 0
@@ -65,6 +69,15 @@ def test_myst_text_rest_src():
         session = pytest_in(directory)
     assert session.testsfailed == 0
     assert session.testscollected == 5
+
+
+def test_namespace_package():
+    directory = 'namespace_package'
+    # Stands in for the .pth file an editable install of the project adds:
+    with add_to_python_path(DOC_EXAMPLES / directory / 'src'):
+        session = pytest_in(directory)
+    assert session.testsfailed == 0
+    assert session.testscollected == 1
 
 
 def test_linting_and_checking():

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import _thread
 import json
 import re
+import threading
 import time
 import uuid
 from io import StringIO
@@ -186,7 +188,19 @@ def test_fuzz_final_line_with_failure(cli, app_runner, ctx, tmp_path, snapshot_c
 
 def test_fuzz_final_line_with_error(cli, ctx, snapshot_cli):
     api = ctx.openapi.apps.slow()
-    assert cli.main("fuzz", api.schema_url, "--max-time=30", "--request-timeout=0.001") == snapshot_cli
+    assert cli.main("fuzz", api.schema_url, "--max-time=30", "--request-timeout=0.25") == snapshot_cli
+
+
+# Ctrl-C lands while a setup probe waits for the base URL to respond.
+def test_fuzz_interrupted_during_setup(cli, app_runner, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app({"/api/success": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/")
+    def root():
+        _thread.interrupt_main()
+        return ""
+
+    assert cli.main("fuzz", app_runner.openapi_url(app), "--max-time=30") == snapshot_cli
 
 
 def test_fuzz_interrupted(cli, app_runner, ctx, snapshot_cli):
@@ -256,7 +270,7 @@ def test_fuzz_live_progress_on_terminal(cli, app_runner, ctx, make_app, args, ex
 def test_fuzz_unreachable_server_has_no_passed_scenarios(cli, ctx, snapshot_cli):
     api = ctx.openapi.apps.success()
 
-    result = cli.main("fuzz", api.schema_url, "--url=http://127.0.0.1:1/api", "--max-time=30")
+    result = cli.main("fuzz", api.schema_url, "--url=http://user:secret@127.0.0.1:1/api", "--max-time=30")
     assert result == snapshot_cli
     assert re.search(r"Test cases:\n  (\d+) generated, \1 errored\n", result.stdout), result.stdout
 
@@ -320,6 +334,24 @@ def crashes_once(ctx, response, case):
     )
 
 
+def test_fuzz_request_cut_by_time_limit_is_not_a_passed_scenario(cli, app_runner, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
+    release = threading.Event()
+
+    @app.route("/users")
+    def users():
+        release.wait()
+        return jsonify([])
+
+    started = time.monotonic()
+    try:
+        result = cli.main("fuzz", app_runner.openapi_url(app), "--max-time=1", "--request-timeout=30", "--workers=1")
+    finally:
+        release.set()
+    assert time.monotonic() - started < 15
+    assert result == snapshot_cli
+
+
 def test_fuzz_single_scenario_is_singular(cli, app_runner, ctx):
     url = _make_fuzz_app(ctx, app_runner)
 
@@ -337,7 +369,7 @@ def test_fuzz_checks_steps_after_a_failure(cli, app_runner, ctx):
     )
     requested = set()
 
-    @app.route("/<name>")
+    @app.route("/<any(failure, a, b, c):name>")
     def endpoint(name):
         requested.add(name)
         return (jsonify({}), 500) if name == "failure" else jsonify({})
@@ -597,6 +629,31 @@ def test_fuzz_reports_operations_with_schema_errors(cli, app_runner, ctx, snapsh
     assert cli.main("fuzz", url, "--max-time=30") == snapshot_cli
 
 
+def test_fuzz_reports_malformed_media_type_beside_usable_one(cli, app_runner, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "": {"schema": {"type": "object"}},
+                            "application/json": {"schema": {"type": "object"}},
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/users", methods=["POST"])
+    def users():
+        return jsonify({})
+
+    assert cli.main("fuzz", app_runner.openapi_url(app), "--max-time=0", "--workers=1") == snapshot_cli
+
+
 def test_fuzz_all_operations_have_schema_errors(cli, app_runner, ctx, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(BAD_PARAMETERS_PATHS)
     url = app_runner.openapi_url(app)
@@ -745,10 +802,7 @@ def test_fuzz_chains_post_with_get_via_link(cli, app_runner, ctx, snapshot_cli):
 
 
 def test_fuzz_chains_via_request_body_link(cli, app_runner, ctx, snapshot_cli):
-    # POST /products returns a fixed high-entropy (productId, secret) pair; only when /audit
-    # body carries that exact pair does the planted schema violation surface. Random fuzz
-    # has no way to guess the pair, so without body-link forwarding the bug is invisible.
-    # The link sets no `quantity`, so the bug also needs the generated one kept in the body.
+    # Only POST's exact (productId, secret) pair with a generated `quantity` reaches the bug; fuzzing cannot guess it.
     valid_product_id = "alpha-product-7af3-bbfd-4b2d-9b5d"
     valid_secret = "bravo-secret-9c11-c209-1cac-a29f"
     paths = {
@@ -995,6 +1049,23 @@ def after_call(context, case, response):
 """
     )
     result = cli.main("fuzz", api.schema_url, "--max-time=30", hooks=module)
+    assert re.fullmatch(r"=+ Interrupted after \d+\.\d{2}s =+", result.stdout.strip().splitlines()[-1])
+
+
+# Ctrl-C lands while the run waits for a response.
+def test_fuzz_interrupted_while_waiting_for_a_response(cli, app_runner, ctx):
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
+    interrupted = []
+
+    @app.route("/users")
+    def users():
+        if not interrupted:
+            interrupted.append(True)
+            _thread.interrupt_main()
+        return jsonify([])
+
+    result = cli.main("fuzz", app_runner.openapi_url(app), "--max-time=30", "--workers=1")
+    assert result.exit_code == 130, result.stdout
     assert re.fullmatch(r"=+ Interrupted after \d+\.\d{2}s =+", result.stdout.strip().splitlines()[-1])
 
 

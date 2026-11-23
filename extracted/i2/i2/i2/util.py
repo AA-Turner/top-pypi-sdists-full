@@ -36,7 +36,7 @@ def asis(x: T) -> T:
     return x
 
 
-def return_false(*args, **kwargs):
+def return_false(*args, **kwargs) -> bool:
     """Return False, whatever the arguments.
 
     >>> return_false(1, x=2)
@@ -45,7 +45,7 @@ def return_false(*args, **kwargs):
     return False
 
 
-def return_true(*args, **kwargs):
+def return_true(*args, **kwargs) -> bool:
     """Return True, whatever the arguments.
 
     >>> return_true(1, x=2)
@@ -245,7 +245,7 @@ class ConditionalExceptionCatcher:
         handlers: Callable[[BaseException], None] = ignore_exception,
         *,
         prevent_propagation=True,
-    ):
+    ) -> None:
         self.exception_types = exception_types
         self.exception_condition = exception_condition
         self.handlers = handlers
@@ -501,7 +501,7 @@ class PicklableLambda:
     https://stackoverflow.com/questions/73980648/how-to-transform-a-lambda-function-into-a-pickle-able-function
     """
 
-    def __init__(self, func, name=None):
+    def __init__(self, func, name=None) -> None:
         self.func = func
         self.__signature__ = inspect.signature(self.func)
         self.__name__ = name or getattr(func, "__name__", type(self).__name__)
@@ -517,7 +517,7 @@ class PicklableLambda:
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{type(self).__name__}({self.__name__})>"
 
 
@@ -572,7 +572,7 @@ def insert_name_based_objects_in_scope(
     factory: Callable[[str], Any],
     scope: MutableMapping,
     allow_overwrites: bool = False,
-):
+) -> None:
     """
     Make several string-parametrized objects and insert them in a scope (e.g. locals()).
 
@@ -641,7 +641,7 @@ class LiteralVal:
     42
     """
 
-    def __init__(self, val):
+    def __init__(self, val) -> None:
         self.val = val
 
     def get_val(self):
@@ -801,7 +801,7 @@ class lazyprop:
     3
     """
 
-    def __init__(self, func):
+    def __init__(self, func) -> None:
         self.func = func
 
     def __get__(self, instance, cls):
@@ -846,7 +846,7 @@ class FrozenDict(dict):
         # one of the lesser known and used/useful dict methods
         return cls(dict.fromkeys(keys, value))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         cn = self.__class__.__name__
         return "{}({})".format(cn, dict.__repr__(self))
 
@@ -894,7 +894,7 @@ function_type = type(
 class NoDefault:
     """Type of the ``no_default`` sentinel, marking the absence of a default value."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "no_default"
 
 
@@ -1130,20 +1130,20 @@ def mk_sentinel(
     """
 
     class Sentinel:
-        def __init__(self):
+        def __init__(self) -> None:
             self.__name__ = name
 
         if callable(repr_):
             __repr__ = repr_
         else:
 
-            def __repr__(self):
+            def __repr__(self) -> str:
                 return repr_
 
         def __reduce__(self):
             return self.__name__
 
-        def __bool__(self):
+        def __bool__(self) -> bool:
             return boolean_value
 
     if module is None:
@@ -1329,7 +1329,7 @@ class FunctionBuilder:
 
     _compile_count = itertools.count()
 
-    def __init__(self, name, **kw):
+    def __init__(self, name, **kw) -> None:
         self.name = name
         for a, default_factory in self._defaults.items():
             val = kw.pop(a, None)
@@ -1488,7 +1488,7 @@ class FunctionBuilder:
             arg_names = tuple([an for an in arg_names if an not in defaults_dict])
         return arg_names
 
-    def add_arg(self, arg_name, default=NO_DEFAULT, kwonly=False):
+    def add_arg(self, arg_name, default=NO_DEFAULT, kwonly=False) -> None:
         """Add an argument with optional *default* (defaults to
         ``funcutils.NO_DEFAULT``). Pass *kwonly=True* to add a
         keyword-only argument
@@ -1513,7 +1513,7 @@ class FunctionBuilder:
                 self.kwonlydefaults[arg_name] = default
         return
 
-    def remove_arg(self, arg_name):
+    def remove_arg(self, arg_name) -> None:
         """Remove an argument from this FunctionBuilder's argument list. The
         resulting function will have one less argument per call to
         this function.
@@ -1647,11 +1647,19 @@ get_app_config_folder = partial(get_app_folder, folder_kind="config")
 get_app_data_folder = partial(get_app_folder, folder_kind="data")
 
 
-def _package_dir(module_name: str, filename: str) -> str:
-    """Directory of the top-level package of *module_name* (else of *filename*)."""
+def _package_prefixes(module_name: str, filename: str) -> tuple[str, ...]:
+    """Path prefixes covering the top-level package of *module_name*.
+
+    A package (regular or namespace) gives each of its ``__path__`` directories, with
+    a trailing separator so that a sibling ``pkg2`` is not mistaken for ``pkg``. A
+    single top-level module gives its own file only, never its folder (whose other
+    files are not its plumbing). Without a module, *filename* alone.
+    """
     top = sys.modules.get(module_name.partition(".")[0])
-    path = getattr(top, "__file__", None) or filename
-    return os.path.dirname(os.path.abspath(path))
+    package_path = getattr(top, "__path__", None)
+    if package_path:
+        return tuple(os.path.join(os.path.abspath(p), "") for p in package_path)
+    return (os.path.abspath(getattr(top, "__file__", None) or filename),)
 
 
 def warn_at_caller(
@@ -1666,8 +1674,10 @@ def warn_at_caller(
     helper, a ``@contextmanager``, a cache); this walks the stack instead, so the
     warning names the line of the user's code that called into your package.
 
-    ``plumbing`` is an iterable of file path prefixes to skip. The default is the
-    directory of the package that calls this function, plus :mod:`contextlib`.
+    ``plumbing`` is an iterable of file path prefixes to skip (end a directory with a
+    separator, or ``pkg`` also skips ``pkg2``). The default is the folder of the
+    package that calls this function (its own file, for a single top-level module),
+    plus :mod:`contextlib`.
     Works on every supported Python (``warnings.warn(skip_file_prefixes=...)``
     needs 3.12).
 
@@ -1680,8 +1690,8 @@ def warn_at_caller(
     """
     frame = sys._getframe(1)
     if plumbing is None:
-        plumbing = (
-            _package_dir(frame.f_globals.get("__name__", ""), frame.f_code.co_filename),
+        plumbing = _package_prefixes(
+            frame.f_globals.get("__name__", ""), frame.f_code.co_filename
         )
     prefixes = (*map(os.fspath, plumbing), contextlib.__file__)
     stacklevel = 2  # 1 would be this function; 2 is its caller

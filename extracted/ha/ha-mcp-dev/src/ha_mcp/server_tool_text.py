@@ -148,8 +148,8 @@ SEARCH_KEYWORDS: dict[str, str] = {
         "state activate apply turn on"
     ),
     "ha_manage_updates": (
-        "update updates install skip firmware core os repair repairs issue "
-        "ignore dismiss unignore"
+        "update updates install skip firmware core os check refresh release "
+        "channel beta repair repairs issue ignore dismiss unignore fix"
     ),
     "ha_set_integration": (
         "integration config entry enable disable add options reconfigure "
@@ -188,6 +188,10 @@ SEARCH_KEYWORDS: dict[str, str] = {
     "ha_manage_blueprints": (
         "blueprint blueprints import delete remove unused substitute "
         "take-control list ha_get_blueprint ha_import_blueprint"
+    ),
+    "ha_manage_backup": (
+        "backup backups snapshot before update app add-on retain copies keep "
+        "settings configure"
     ),
     # Old tool names from before #1134 consolidation. BM25 retrieval
     # on agents that still know the previous catalog ("call
@@ -441,7 +445,11 @@ LITE_DOCSTRINGS: dict[str, str] = {
         "parts instead; slow on a large "
         "instance — progress heartbeats are sent while waiting, so a "
         "long wait is not a hang; retrying starts a SECOND backup), "
-        "`list`, `restore` (**restarts HA**; `safety_backup=True`, off "
+        "`list` (on a Supervisor install also Home Assistant's "
+        "backup-before-update settings), `configure` (changes those settings "
+        "from `update_backup_settings`; Supervisor installs only, and not "
+        "from ha-mcp running as the app, which Supervisor blocks), "
+        "`restore` (**restarts HA**; `safety_backup=True`, off "
         "by default, first backs up what the restore replaces), `delete` (needs "
         "`confirm=True`; disabled until a human sets "
         "`enable_snapshot_delete` — an agent cannot enable it. Even then "

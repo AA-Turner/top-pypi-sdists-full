@@ -539,6 +539,7 @@ mod tests {
                 spec: r#"{"dynamic_configs":{"config":{"entity":"dynamic_config","defaultValue":"https://statsigcdn.openai.com/v1/dynamic_config_value/not-a-sha","remoteConfigMetadata":{"sha256":"not-a-sha","byteLength":1,"contentType":"application/json","compression":"none"},"rules":[]}}}"#.to_string(),
                 last_updated: 123,
                 zstd_dict_id: None,
+                spec_bytes: None,
             }))
             .await;
 
@@ -576,6 +577,7 @@ mod tests {
                     spec: r#"{"dynamic_configs":{}}"#.to_string(),
                     last_updated,
                     zstd_dict_id: None,
+                    spec_bytes: None,
                 }))
                 .await;
         }

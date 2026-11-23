@@ -46,6 +46,7 @@ const fn is_whitespace(c: char) -> bool {
 
 impl Cursor<'_> {
     // see: https://github.com/rust-lang/rust/blob/ba1d7f4a083e6402679105115ded645512a7aea8/compiler/rustc_lexer/src/lib.rs#L339
+    #[inline]
     pub(crate) fn advance_token(&mut self) -> Token {
         let Some(first_char) = self.bump() else {
             return Token::new(TokenKind::Eof, 0);
@@ -107,6 +108,8 @@ impl Cursor<'_> {
                 }
                 _ => self.ident(),
             },
+
+            '\u{feff}' if self.consumed_len() == BOM.len() => TokenKind::Whitespace,
 
             // Identifier (this should be checked after other variant that can
             // start as identifier).
@@ -179,7 +182,7 @@ impl Cursor<'_> {
                 TokenKind::Literal { kind }
             }
 
-            // Quoted indentifiers
+            // Quoted identifiers
             '"' => {
                 let terminated = self.double_quoted_string();
                 TokenKind::QuotedIdent {
@@ -561,67 +564,32 @@ impl Cursor<'_> {
 
     // https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-DOLLAR-QUOTING
     fn dollar_quoted_string(&mut self) -> TokenKind {
-        // Get the start sequence of the dollar quote, i.e., 'foo' in
-        // $foo$hello$foo$
-        let mut start = vec![];
-        while let Some(c) = self.bump() {
-            match c {
-                '$' => {
-                    break;
-                }
-                _ => {
-                    start.push(c);
-                }
+        let input = self.as_str();
+        let tag_end = memchr::memchr(b'$', input.as_bytes()).unwrap();
+        let delimiter = &input[..=tag_end];
+        self.advance_bytes(tag_end + 1);
+        let body = self.as_str();
+        let closing = memchr::memchr(b'$', body.as_bytes()).and_then(|pos| {
+            if body[pos + 1..].starts_with(delimiter) {
+                Some(pos)
+            } else if delimiter == "$" {
+                memchr::memmem::find(&body.as_bytes()[pos + 1..], b"$$")
+                    .map(|offset| pos + 1 + offset)
+            } else {
+                let start = pos + 1;
+                memchr::memmem::find_iter(&body.as_bytes()[start..], delimiter.as_bytes()).find_map(
+                    |offset| {
+                        let candidate = start + offset;
+                        (body.as_bytes()[candidate - 1] == b'$').then_some(candidate - 1)
+                    },
+                )
             }
-        }
-
-        // we have a dollar quoted string deliminated with `$$`
-        if start.is_empty() {
-            loop {
-                self.eat_until(b'$');
-                if self.is_eof() {
-                    return TokenKind::Literal {
-                        kind: LiteralKind::DollarQuotedString { terminated: false },
-                    };
-                }
-                // eat $
-                self.bump();
-                if self.first() == '$' {
-                    self.bump();
-                    return TokenKind::Literal {
-                        kind: LiteralKind::DollarQuotedString { terminated: true },
-                    };
-                }
-            }
-        } else {
-            loop {
-                self.eat_until(b'$');
-                if self.is_eof() {
-                    return TokenKind::Literal {
-                        kind: LiteralKind::DollarQuotedString { terminated: false },
-                    };
-                }
-
-                // Eat the leading '$' of a possible closing delimiter.
-                self.bump();
-
-                let mut matches_tag = true;
-                for start_char in &start {
-                    if self.first() == *start_char {
-                        self.bump();
-                    } else {
-                        matches_tag = false;
-                        break;
-                    }
-                }
-
-                if matches_tag && self.first() == '$' {
-                    self.bump();
-                    return TokenKind::Literal {
-                        kind: LiteralKind::DollarQuotedString { terminated: true },
-                    };
-                }
-            }
+        });
+        self.advance_bytes(closing.map_or(body.len(), |pos| pos + delimiter.len() + 1));
+        TokenKind::Literal {
+            kind: LiteralKind::DollarQuotedString {
+                terminated: closing.is_some(),
+            },
         }
     }
 
@@ -725,25 +693,15 @@ impl Cursor<'_> {
 
 /// Creates an iterator that produces tokens from the input string.
 pub fn tokenize(input: &str) -> impl Iterator<Item = Token> + '_ {
-    let (bom, input) = match input.strip_prefix(BOM) {
-        Some(input) => (
-            Some(Token::new(
-                TokenKind::Whitespace,
-                u32::try_from(BOM.len()).unwrap(),
-            )),
-            input,
-        ),
-        None => (None, input),
-    };
     let mut cursor = Cursor::new(input);
-    bom.into_iter().chain(std::iter::from_fn(move || {
+    std::iter::from_fn(move || {
         let token = cursor.advance_token();
         if token.kind != TokenKind::Eof {
             Some(token)
         } else {
             None
         }
-    }))
+    })
 }
 
 #[cfg(test)]
@@ -1649,6 +1607,54 @@ U&"d!0061t!+000061" UESCAPE '!'
     }
 
     #[test]
+    fn dollar_quote_search_matches_complete_delimiters() {
+        for tag in ["", "x", "tag", "tag_with_a_long_name", "é漢𐐷"] {
+            let mut delimiter = String::with_capacity(tag.len() + 2);
+            delimiter.push('$');
+            delimiter.push_str(tag);
+            delimiter.push('$');
+            for body in [
+                "",
+                "plain text",
+                "$",
+                "$$",
+                "$other$",
+                "tag$without_a_leading_dollar",
+                "$ta$tag$",
+                "$tag$tag$",
+                "$x$x$",
+                "é漢𐐷\0$é漢𐐷$",
+            ] {
+                for closing in ["", delimiter.as_str()] {
+                    let mut input =
+                        String::with_capacity(delimiter.len() + body.len() + closing.len());
+                    input.push_str(&delimiter);
+                    input.push_str(body);
+                    input.push_str(closing);
+                    let end = input[delimiter.len()..]
+                        .find(&delimiter)
+                        .map(|offset| offset + delimiter.len() * 2);
+                    let token = tokenize(&input).next().unwrap();
+                    assert_eq!(
+                        token.kind,
+                        TokenKind::Literal {
+                            kind: LiteralKind::DollarQuotedString {
+                                terminated: end.is_some(),
+                            },
+                        },
+                        "{input:?}",
+                    );
+                    assert_eq!(
+                        token.len,
+                        u32::try_from(end.unwrap_or(input.len())).unwrap(),
+                        "{input:?}",
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn tagged_dollar_quote_requires_leading_dollar() {
         assert_debug_snapshot!(lex("select $foo$abcfoo$def$foo$;"), @r#"
         [
@@ -1688,6 +1694,18 @@ U&"d!0061t!+000061" UESCAPE '!'
             " " @ Whitespace,
             "1" @ Literal { kind: Int { base: Decimal, empty_int: false, trailing_junk_start: 1 } },
             ";" @ Semi,
+        ]
+        "#);
+    }
+
+    #[test]
+    fn repeated_bom_at_start() {
+        assert_debug_snapshot!(lex("\u{feff}\u{feff} select"), @r#"
+        [
+            "\u{feff}" @ Whitespace,
+            "\u{feff}" @ Ident,
+            " " @ Whitespace,
+            "select" @ Ident,
         ]
         "#);
     }

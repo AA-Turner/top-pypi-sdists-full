@@ -27,6 +27,7 @@ from .. import units
 from .._scipp import core as _core_cpp
 from ..core import DType, Unit, UnitError, Variable, vectors
 from ..core._cpp_wrapper_util import call_func as _call_cpp_func
+from ..typing import VariableLike
 
 # Element type for NumPy arrays.
 # For sequences in multi-dim functions,
@@ -34,12 +35,6 @@ from ..core._cpp_wrapper_util import call_func as _call_cpp_func
 _Float = TypeVar('_Float', bound=np.float64 | np.float32, covariant=True)
 
 _Precision = TypeVar('_Precision', bound=npt.NBitBase)
-
-
-def _to_eigen_layout(a: npt.NDArray[_Float] | Sequence[Any]) -> npt.NDArray[_Float]:
-    # Numpy and scipp use row-major, but Eigen matrices use column-major,
-    # transpose matrix axes for copying values.
-    return np.moveaxis(a, -1, -2)  # type: ignore[arg-type]
 
 
 def as_vectors(x: Variable, y: Variable, z: Variable) -> Variable:
@@ -561,7 +556,7 @@ def affine_transforms(
     return Variable(
         dims=dims,
         unit=unit,
-        values=_to_eigen_layout(values),
+        values=values,
         dtype=DType.affine_transform3,
     )
 
@@ -662,7 +657,7 @@ def linear_transforms(
     return Variable(
         dims=dims,
         unit=unit,
-        values=_to_eigen_layout(values),
+        values=values,
         dtype=DType.linear_transform3,
     )
 
@@ -714,9 +709,41 @@ def inv(var: Variable) -> Variable:
     return _call_cpp_func(_core_cpp.inv, var)  # type: ignore[return-value]
 
 
+def angle_between(a: VariableLike, b: VariableLike) -> VariableLike:
+    r"""Compute the angle between two vectors.
+
+    The computed angle is in the range :math:`[0, \pi]`.
+    It is equivalent to :math:`\alpha` in
+
+    .. math::
+
+        2\theta &= \mathsf{acos}(\frac{a \cdot b}{|a| |b|})
+
+    But this function uses a numerically more stable implementation by W. Kahan
+    described in paragraph 13 of
+
+        "Cross-Products and Rotations in 2- and 3-Dimensional Euclidean Spaces: Notes for Math. H110"
+        W. Kahan, 2000, https://people.eecs.berkeley.edu/~wkahan/MathH110/Cross.pdf
+
+    Parameters
+    ----------
+    a:
+        First vector. Expects ``dtype=vector3``.
+    b:
+        Second vector. Expects ``dtype=vector3``.
+
+    Returns
+    -------
+    :
+        The angle between ``a`` and ``b`` in radians.
+    """  # noqa: E501
+    return _call_cpp_func(_core_cpp.angle_between, a, b)
+
+
 __all__ = [
     'affine_transform',
     'affine_transforms',
+    'angle_between',
     'inv',
     'linear_transform',
     'linear_transforms',

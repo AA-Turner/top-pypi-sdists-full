@@ -12,6 +12,15 @@ from schemathesis.core.transforms import to_wire_string
 from test.utils import run_given
 
 
+def test_plain_wsgi_app_exception_reaches_the_caller(ctx):
+    def app(environ, start_response):
+        raise ValueError("something broke")
+
+    operation = ctx.openapi.load_operation("GET /api/crash", {"responses": {"200": {"description": "OK"}}})
+    with pytest.raises(ValueError, match="something broke"):
+        operation.Case().call(app=app)
+
+
 @pytest.mark.hypothesis_nested
 def test_wsgi_reraises_server_exception(ctx):
     app = Flask(__name__)
@@ -154,13 +163,11 @@ def test_form_data(ctx):
     def test(case):
         response = case.call()
         assert response.status_code == 200
-        # converted to string in the app
         assert response.json() == {key: to_wire_string(value) for key, value in case.body.items()}
 
 
 @pytest.mark.hypothesis_nested
 def test_binary_body(ctx):
-    # When an API operation accepts a binary input
     api = ctx.openapi.apps.upload_file()
     operation = ctx.openapi.load_operation(
         "POST /api/upload_file",
@@ -178,5 +185,3 @@ def test_binary_body(ctx):
         response = case.call(app=api.wsgi_app)
         assert response.status_code == 200
         assert response.json() == {"size": ANY}
-
-    # Then it should be sent correctly

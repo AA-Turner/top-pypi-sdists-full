@@ -21,11 +21,12 @@ from nameparser import (
 from nameparser import _reading_index as _ri
 from nameparser._lexicon import _VOCAB_FIELDS, Lexicon
 from nameparser._policy import (
-    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, UNSET, PatronymicRule, Policy,
+    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST, UNSET, PatronymicRule, Policy,
     PolicyPatch, Script, _SCRIPT_RANGES,
 )
 from nameparser._types import AmbiguityKind, Role
 from nameparser.locales import ja as _ja
+from nameparser.locales import my as _my
 from nameparser.locales import ru as _ru
 from nameparser.locales import tr_az as _tr_az
 from nameparser.locales import zh as _zh
@@ -118,10 +119,10 @@ def test_locales_get_and_available() -> None:
     assert locales.get("ru") is locales.RU
     assert set(locales.available()) == {
         "ar", "bn", "cs", "es", "es_ar", "ga", "gd", "he", "hi", "hr", "ja", "mn",
-        "ne", "pt", "pt_br", "ru", "sk", "sl", "tr_az", "vi", "zh"}
+        "ms", "my", "ne", "nl", "pt", "pt_br", "pt_pt", "ru", "sk", "sl", "tr_az", "vi", "zh"}
     with pytest.raises(
             KeyError,
-            match="ar, bn, cs, es, es_ar, ga, gd, he, hi, hr, ja, mn, ne, pt, pt_br, ru, sk, sl, tr_az, vi, zh"):
+            match="ar, bn, cs, es, es_ar, ga, gd, he, hi, hr, ja, mn, ms, my, ne, nl, pt, pt_br, pt_pt, ru, sk, sl, tr_az, vi, zh"):
         locales.get("xx")
     # the segmenter FACTORY is not a locale: it is an ordinary function
     # on the package, so it must not appear among the codes
@@ -147,6 +148,202 @@ def test_ne_pack_contents() -> None:
                                 languages=frozenset({"ne"}))
     assert changed_words(selected(locales.NE.languages)) == {
         "guru", "गुरु", "श्री"}
+
+
+def test_nl_pack_is_its_choice_alone() -> None:
+    # #1455: it turns on `ten`'s preposition, written default = false, and
+    # its choice drops en's credential VD for vd's particle
+    import pickle
+    from nameparser._reading_index import changed_words, selected
+    assert locales.NL == Locale(code="nl", lexicon=Lexicon.empty(),
+                                languages=frozenset({"nl"}))
+    assert changed_words(selected(locales.NL.languages)) == {"ten", "vd"}
+    assert pickle.loads(pickle.dumps(locales.NL)) == locales.NL
+    parser = pickle.loads(pickle.dumps(parser_for(locales.NL)))
+    name = parser.parse("Jan ten Brink")
+    assert (name.middle, name.family) == ("", "ten Brink")
+    name = parse("Jan ten Brink")
+    assert (name.middle, name.family) == ("ten", "Brink")
+
+
+@pytest.mark.parametrize("strict, text, given, family, reported", [
+    # #1455: a `Ten` opening a name is zh.toml's given name, so the plain
+    # choice keeps it given and reports the fork; a strict choice reads
+    # no zh.toml, and the particle opens the family name (rules/P1)
+    (False, "Ten Kao Liu", "Ten", "Liu", True),
+    (True, "Ten Kao Liu", "", "Ten Kao Liu", False),
+    (False, "Ten Brink", "Ten", "Brink", True),
+    (True, "Ten Brink", "", "Ten Brink", False),
+    # inside the name both choices read the particle, the Chinese
+    # syllable joining the family name: the cost that keeps it off by
+    # default (decisions/vocabulary-collisions, 2026-11-18 #1455)
+    (False, "Kheng Ten Choo", "Kheng", "Ten Choo", False),
+    (True, "Kheng Ten Choo", "Kheng", "Ten Choo", False),
+])
+def test_nl_reads_a_leading_ten_by_its_given_reading_unless_strict(
+        strict: bool, text: str, given: str, family: str, reported: bool) -> None:
+    name = parser_for(locales.NL, strict=strict).parse(text)
+    assert (name.given, name.family) == (given, family)
+    assert any(a.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+               for a in name.ambiguities) is reported
+
+
+_FRENCH = Locale(code="fr", lexicon=Lexicon.empty(),
+                 languages=frozenset({"fr"}))
+
+
+@pytest.mark.parametrize(("text", "default", "french"), [
+    # #1159: dit and dite are connectives under a French choice only
+    # (fr.toml, default = false; decisions/P3)
+    ("Jean Dupont dit Lebrun", ("Jean", "Dupont dit", "Lebrun"),
+     ("Jean", "", "Dupont dit Lebrun")),
+    ("Marie Martin dite Mimi", ("Marie", "Martin dite", "Mimi"),
+     ("Marie", "", "Martin dite Mimi")),
+    ("Mamadou dit Madou Traore", ("Mamadou", "dit Madou", "Traore"),
+     ("Mamadou dit Madou", "", "Traore")),
+    ("JEAN DUPONT DIT LEBRUN", ("JEAN", "DUPONT DIT", "LEBRUN"),
+     ("JEAN", "", "DUPONT DIT LEBRUN")),
+    ("Dupont dit Lebrun, Jean", ("Jean", "", "Dupont dit Lebrun"),
+     ("Jean", "", "Dupont dit Lebrun")),
+    ("Traore, Mamadou dit Madou", ("Mamadou", "dit Madou", "Traore"),
+     ("Mamadou dit Madou", "", "Traore")),
+    (", Jean dit Lebrun", ("Jean", "dit Lebrun", ""),
+     ("Jean dit Lebrun", "", "")),
+    # a hyphenated dit name is one word, and dit opening a two-word name
+    # a name word
+    ("Jean Dupont-dit-Lebrun", ("Jean", "", "Dupont-dit-Lebrun"),
+     ("Jean", "", "Dupont-dit-Lebrun")),
+    ("Dit Clapper", ("Dit", "", "Clapper"), ("Dit", "", "Clapper")),
+    # the choice's costs, decisions/P3: a name Dit inside a three-word
+    # name, opening a longer one, or ending one; a suffix comma after a
+    # joined family leaves no family word
+    ("Sok Dit Chan", ("Sok", "Dit", "Chan"), ("Sok Dit Chan", "", "")),
+    ("Dit Jean Dupont", ("Dit", "Jean", "Dupont"), ("Dit Jean", "", "Dupont")),
+    ("Tran Thi Dit", ("Tran", "Thi", "Dit"), ("Tran", "", "Thi Dit")),
+    ("Dupont dit Lebrun, Jr.", ("Dupont", "dit", "Lebrun"),
+     ("Dupont dit Lebrun", "", "")),
+    # and a second half opening with a particle loses it to the middle
+    ("Jean Dupont dit de Lebrun", ("Jean", "Dupont dit", "de Lebrun"),
+     ("Jean", "Dupont dit de", "Lebrun")),
+    # after a family comma the surname reads whole
+    ("Dupont dit de Lebrun, Jean", ("Jean", "", "Dupont dit de Lebrun"),
+     ("Jean", "", "Dupont dit de Lebrun")),
+])
+def test_dit_is_a_connective_under_a_french_choice_only(
+        text: str, default: tuple[str, str, str],
+        french: tuple[str, str, str]) -> None:
+    for parser, want in ((Parser(), default), (parser_for(_FRENCH), french)):
+        name = parser.parse(text)
+        assert (name.given, name.middle, name.family) == want, (text, parser)
+
+
+@pytest.mark.parametrize("order", [FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize(("text", "given", "family"), [
+    ("Dupont dit Lebrun Jean", "Jean", "Dupont dit Lebrun"),
+    ("Traore Mamadou dit Madou", "Mamadou dit Madou", "Traore"),
+])
+def test_a_french_choice_lays_a_dit_name_out_by_a_family_first_order(
+        order: tuple[Role, Role, Role], text: str, given: str, family: str) -> None:
+    parser = parser_for(_FRENCH)
+    parser = dataclasses.replace(
+        parser, policy=dataclasses.replace(parser.policy, name_order=order))
+    name = parser.parse(text)
+    assert (name.given, name.middle, name.family) == (given, "", family)
+    # the particle cost's family-first form: the second half leaves the
+    # family (decisions/P3)
+    assert parser.parse("Dupont dit de Lebrun Jean").family == "Dupont dit de"
+
+
+def test_dit_stays_a_connective_when_french_is_stacked_or_strict() -> None:
+    for parser in (parser_for(_FRENCH, locales.ES), parser_for(locales.ES, _FRENCH),
+                   parser_for(_FRENCH, locales.CS), parser_for(_FRENCH, strict=True)):
+        assert parser.parse("Jean Dupont dit Lebrun").family == "Dupont dit Lebrun"
+
+
+def test_a_french_choice_repairs_dit_in_lower_case_and_drops_its_initial_in_a_joined_part() -> None:
+    # decisions/P3's case and initial costs, where Dit is a name
+    french, default = parser_for(_FRENCH), Parser()
+    for text, repaired, initials, as_default in (
+            ("JEAN DUPONT DIT LEBRUN", "Jean Dupont dit Lebrun", "J. D. L.",
+             "Jean Dupont Dit Lebrun"),
+            ("JEAN DUPONT-DIT-LEBRUN", "Jean Dupont-dit-Lebrun", "J. D.",
+             "Jean Dupont-Dit-Lebrun")):
+        name = french.parse(text)
+        assert str(french.capitalized(name)) == repaired
+        assert name.initials() == initials
+        assert str(default.capitalized(default.parse(text))) == as_default
+    # dropped inside a joined part only: alone in its field it keeps one
+    assert french.parse("Sok Dit Chan").initials() == "S. C."
+    assert french.parse("Jean Dit").initials() == "J. D."
+
+
+def test_a_french_choice_matches_a_dit_surname_with_its_halves() -> None:
+    match = parser_for(_FRENCH).matching()
+    for other in ("Jean Dupont", "Jean Lebrun", "Jean Dupont-dit-Lebrun"):
+        assert match.check("Jean Dupont dit Lebrun", other).consistent, other
+    assert not Parser().matching().check(
+        "Jean Dupont dit Lebrun", "Jean Dupont").consistent
+
+
+def test_a_strict_dutch_choice_keeps_a_leading_oude_given() -> None:
+    # #1455: oude's given reading is in nl.toml itself, so a strict Dutch
+    # choice keeps it, where ten's (in zh.toml) leaves
+    name = parser_for(locales.NL, strict=True).parse("Oude Luttikhuis")
+    assert (name.given, name.family) == ("Oude", "Luttikhuis")
+    assert [a.kind for a in name.ambiguities] == [AmbiguityKind.PARTICLE_OR_GIVEN]
+
+
+@pytest.mark.parametrize("order", [GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("text", [
+    "Ten Kao Liu", "Kheng Ten Choo", "Ten", "Liu, Ten", "Ten, Kheng",
+    ", Ten Kao", "Ten Kao Liu, Jr.", "TEN KAO LIU", "Liu, Kheng Ten",
+    "Dr. Ten Liu", "Jan ten Brink", "Brink, Jan ten",
+])
+def test_the_given_reading_of_ten_moves_no_default_parse(
+        text: str, order: tuple[Role, Role, Role]) -> None:
+    # #1455: zh.toml's given reading of ten is on by default, but with
+    # nl.toml's preposition off a lone name reading compiles to no set,
+    # so the default reads every name holding ten as without it
+    policy = Policy(name_order=order)
+    with_it = Parser(policy=policy).parse(text)
+    without = Parser(policy=policy, lexicon=Lexicon.default().remove(
+        "ten", kind="given")).parse(text)
+    assert with_it.as_dict() == without.as_dict()
+    assert [a.kind for a in with_it.ambiguities] == [
+        a.kind for a in without.ambiguities]
+
+
+def test_the_given_reading_of_ten_moves_a_parse_where_the_particle_is_on() -> None:
+    # the negative control for the test above: the same comparison sees
+    # the reading under the pack, where the preposition is on
+    nl = parser_for(locales.NL)
+    without = parser_for(locales.NL, base=Parser(
+        lexicon=Lexicon.default().remove("ten", kind="given")))
+    assert nl.parse("Ten Kao Liu").given == "Ten"
+    assert without.parse("Ten Kao Liu").family == "Ten Kao Liu"
+
+
+@pytest.mark.parametrize("code, text, repaired", [
+    # #1455: oude keeps the capital its family names are written with
+    # (its `cased` mask) where case repair would lowercase a particle;
+    # ten takes a particle's lower case, as Dutch writes it after a given
+    # name (a family box holding the surname alone often capitalizes it)
+    (None, "PIET OUDE LUTTIKHUIS", "Piet Oude Luttikhuis"),
+    (None, "piet oude luttikhuis", "Piet Oude Luttikhuis"),
+    (None, "Piet Oude Luttikhuis", "Piet Oude Luttikhuis"),
+    (None, "JAN DE OUDE BRINK", "Jan de Oude Brink"),
+    ("nl", "PIET OUDE LUTTIKHUIS", "Piet Oude Luttikhuis"),
+    ("nl", "JAN TEN BRINK", "Jan ten Brink"),
+    ("nl", "jan ten brink", "Jan ten Brink"),
+    # by default ten is a name word, title-cased
+    (None, "JAN TEN BRINK", "Jan Ten Brink"),
+])
+def test_a_dutch_particle_keeps_its_case(
+        code: str | None, text: str, repaired: str) -> None:
+    parser = parser_for(locales.get(code)) if code else Parser()
+    name = parser.parse(text)
+    assert str(parser.capitalized(name)) == repaired
+    assert str(name.capitalized(parser.lexicon, force=True)) == repaired
 
 
 def test_ar_and_he_packs_are_their_choice_alone() -> None:
@@ -279,7 +476,7 @@ def test_hi_and_bn_pack_contents() -> None:
     assert locales.BN == Locale(code="bn", lexicon=Lexicon.empty(),
                                 languages=frozenset({"bn"}))
     assert changed_words(selected(locales.HI.languages)) == {
-        "shrimati", "shriyut", "smt", "sushri"}
+        "shri", "shrimati", "shriyut", "smt", "sushri"}
     assert changed_words(selected(locales.BN.languages)) == {
         "adhyapak", "shrimati", "smt"}
 
@@ -297,11 +494,18 @@ def test_hi_and_bn_read_the_romanized_salutation_as_the_title() -> None:
         # after a family comma, a salutation ending the given part is the
         # title (rules/H8), as its Devanagari spelling is
         assert packed.parse("Sitharaman, Nirmala Smt").title == "Smt"
-        # shri is left out (decisions/vocabulary-model, phase 3e): the
-        # given names written in two words that open with it keep it
-        assert packed.parse("Shri Kant Tripathi").as_dict() == parse(
-            "Shri Kant Tripathi").as_dict()
         assert packed.parse("Sushri Sangita Behera").given == "Sushri"
+    # shri is the title under hi alone (decisions/vocabulary-model,
+    # 2026-11-20 #1192); a given name written in two words that opens
+    # with it loses it there, the accepted cost, and bn leaves it alone
+    assert hi.parse("Shri Ravi Kumar Verma").title == "Shri"
+    assert (hi.parse("Shri Kant Tripathi").title,
+            hi.parse("Shri Kant Tripathi").given) == ("Shri", "Kant")
+    assert bn.parse("Shri Kant Tripathi").as_dict() == parse(
+        "Shri Kant Tripathi").as_dict()
+    # sri stays excluded under the pack
+    assert hi.parse("Sri Ravi Kumar").given == "Sri"
+
     # adhyapak is a title only at the head and only under bn; the Marathi
     # family name ending a name keeps its place
     assert bn.parse("Adhyapak Anisuzzaman Khan").title == "Adhyapak"
@@ -309,6 +513,29 @@ def test_hi_and_bn_read_the_romanized_salutation_as_the_title() -> None:
     assert hi.parse("Adhyapak Anisuzzaman Khan").title == ""
     assert hi.parse("Shriyut Ram Prasad").title == "Shriyut"
     assert bn.parse("Shriyut Ram Prasad").title == ""
+
+
+def test_shri_peels_before_a_declared_order_lays_out_the_rest() -> None:
+    # #1192: the title is read first under every order, so a family-first
+    # caller's name words keep their declared places behind it, and a
+    # strict choice reads shri as the plain one does (no other file reads
+    # the word, so strict has nothing to gate)
+    for order, expect in (
+            (GIVEN_FIRST, ("Ravi", "Kumar", "Verma")),
+            (FAMILY_FIRST, ("Kumar", "Verma", "Ravi")),
+            (FAMILY_FIRST_GIVEN_LAST, ("Verma", "Kumar", "Ravi"))):
+        for strict in (False, True):
+            packed = parser_for(locales.HI, strict=strict,
+                                base=Parser(policy=Policy(name_order=order)))
+            name = packed.parse("Shri Ravi Kumar Verma")
+            assert (name.title, name.given, name.middle, name.family) == (
+                ("Shri",) + expect), (order, strict)
+            for text in ("Shri Verma", "Verma, Shri Ravi"):
+                assert packed.parse(text).title == "Shri", (text, order)
+            assert packed.parse("Verma, Shri Ravi").given == "Ravi"
+            # not written after_given (rules/H8): bare, it ends the given
+            # part as a middle name
+            assert packed.parse("Verma, Ravi Shri").middle == "Shri"
 
 
 def test_sushri_is_the_title_only_under_a_strict_hindi_choice() -> None:
@@ -327,6 +554,147 @@ def test_sushri_is_the_title_only_under_a_strict_hindi_choice() -> None:
         "Her Excellency Sushri")
 
 
+def test_ms_pack_contents() -> None:
+    # #1179: nothing but a choice of ms, which turns on ms.toml's
+    # `default = false` readings and changes no other word; #1180 added
+    # the honours and the two phrases they make
+    from nameparser._reading_index import changed_words, selected
+    assert locales.MS == Locale(code="ms", lexicon=Lexicon.empty(),
+                                languages=frozenset({"ms"}))
+    assert not hasattr(locales.MS, "DEVIATES")
+    assert changed_words(selected(locales.MS.languages)) == {
+        "puan", "cik", "ustaz", "ustazah", "cikgu", "tun", "haji", "dato",
+        "tan", "sri", "tan sri", "puan sri"}
+
+
+@pytest.mark.parametrize("text, title, given, family", [
+    ("Puan Siti binti Ahmad", "Puan", "Siti", "binti Ahmad"),
+    # Hajah is a title by default since #1180, and joins the run
+    ("Puan Hajah Siti binti Ahmad", "Puan Hajah", "Siti", "binti Ahmad"),
+    ("Haji Abdul Hadi Awang", "Haji", "Abdul Hadi", "Awang"),
+    ("Tun Dr. Mahathir bin Mohamad", "Tun Dr.", "Mahathir", "bin Mohamad"),
+    ("Tan Sri Muhyiddin Yassin", "Tan Sri", "Muhyiddin", "Yassin"),
+    ("TAN SRI MUHYIDDIN YASSIN", "TAN SRI", "MUHYIDDIN", "YASSIN"),
+    ("Yassin, Tan Sri Muhyiddin", "Tan Sri", "Muhyiddin", "Yassin"),
+    ("Puan Sri Aminah Yusof", "Puan Sri", "Aminah", "Yusof"),
+    ("Dato Ahmad bin Ali", "Dato", "Ahmad", "bin Ali"),
+    ("PUAN SITI AMINAH", "PUAN", "SITI", "AMINAH"),
+    ("Cik Nadia binti Rahman", "Cik", "Nadia", "binti Rahman"),
+    ("Ustaz Hafiz bin Omar", "Ustaz", "Hafiz", "bin Omar"),
+    ("USTAZAH ZAINAB ISMAIL", "USTAZAH", "ZAINAB", "ISMAIL"),
+    ("Cikgu Ahmad bin Ali", "Cikgu", "Ahmad", "bin Ali"),
+    ("Encik Ahmad bin Ali", "Encik", "Ahmad", "bin Ali"),   # by default too
+    ("Dr. Puan Siti Aminah", "Dr. Puan", "Siti", "Aminah"),
+    ("Ahmad, Puan Siti", "Puan", "Siti", "Ahmad"),
+    # a salutation ending the given part after a family comma (rules/H8),
+    # as Encik reads by default
+    ("Ahmad, Siti Puan", "Puan", "Siti", "Ahmad"),
+    ("Rahman, Nadia Cik", "Cik", "Nadia", "Rahman"),
+    ("Hafiz Omar Ustaz.", "Ustaz.", "Hafiz", "Omar"),
+])
+def test_ms_reads_the_malay_titles(text: str, title: str, given: str,
+                                   family: str) -> None:
+    name = _require_packed("ms").parse(text)
+    assert (name.title, name.given, name.family) == (title, given, family)
+    if title != "Encik":
+        assert parse(text).title != title, text   # the default does not
+
+
+@pytest.mark.parametrize("text", [
+    # tuan stays a name word under the choice: the hereditary prefix,
+    # repeated before the father's name, and a Vietnamese given name
+    # (decisions/salutation-titles, the 2026-11-19 #1179 entry)
+    "Tuan Aminah binti Tuan Yusof",
+    "Ahmad bin Tuan Ismail",
+    "Tuan Nguyen",
+    "Nguyen Van Tuan",
+    # a salutation as a name word inside a name keeps its place
+    "Ali Puan",
+    # Haji inside the father's name stays a name word (#1180)
+    "Ahmad bin Haji Abdullah",
+    "Siti binti Haji Ali",
+    # Sri behind a head honour stays a name word, the
+    # qualifier-after-head question left to #1334
+    "Datuk Seri Anwar Ibrahim",
+    "Dato' Sri Abu Samah bin Nordin",
+])
+def test_ms_leaves_these_as_the_default_reads_them(text: str) -> None:
+    assert _require_packed("ms").parse(text).as_dict() == _default_parse(text)
+
+
+def test_ms_reads_the_indonesian_puan_as_the_title() -> None:
+    # the accepted cost of choosing the pack for Indonesian names
+    # (decisions/salutation-titles, the 2026-11-19 #1179 entry)
+    name = _require_packed("ms").parse("Puan Maharani")
+    assert (name.title, name.given, name.family) == ("Puan", "", "Maharani")
+
+
+def test_ms_reads_tan_and_sri_as_name_words_outside_their_phrases() -> None:
+    # each is a title only in its phrase (rules/H9, #1180): alone it is
+    # the given name, reporting the title it might be, and the default
+    # reads no phrase and reports nothing
+    malay = _require_packed("ms")
+    for text in ("Tan Chee Chai", "Sri Mulyani"):
+        name = malay.parse(text)
+        assert name.title == "" and name.given == text.split()[0]
+        assert [a.kind.value for a in name.ambiguities] == ["title-or-name"]
+        assert parse(text).ambiguities == ()
+    # the accepted costs (decisions/salutation-titles, the 2026-11-21
+    # #1180 entry): Sri as a given name behind the surname Tan, and Sri
+    # behind a style, which makes a phrase (rules/H9)
+    assert malay.parse("Tan Sri Wahyuni").title == "Tan Sri"
+    assert malay.parse("Hon. Sri Mulyani").title == "Hon. Sri"
+    assert parse("Tan Sri Wahyuni").title == ""
+    # a strict choice drops en.toml's style, so no phrase is made there
+    strict = parser_for(locales.MS, strict=True)
+    assert strict.parse("Hon. Sri Mulyani").given == "Sri"
+
+
+@pytest.mark.parametrize("order", [FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("text, title, family", [
+    ("Tan Sri Muhyiddin Yassin", "Tan Sri", "Muhyiddin"),
+    ("Haji Ahmad Ali", "Haji", "Ahmad"),
+    ("Tan Chee Chai", "", "Tan"),
+])
+def test_ms_peels_the_honours_before_a_family_first_order(
+        order: tuple[Role, Role, Role], text: str, title: str,
+        family: str) -> None:
+    # the title run is read first and the order lays out the rest
+    # (#1180), so a Chinese name written family first keeps its surname
+    base = Parser(policy=Policy(name_order=order))
+    name = parser_for(locales.MS, base=base).parse(text)
+    assert (name.title, name.family) == (title, family)
+
+
+def test_ms_is_plain_since_strict_drops_other_languages_readings() -> None:
+    # why the pack is a plain choice (decisions/salutation-titles, the
+    # 2026-11-19 #1179 entry): a strict choice of ms drops ar.toml's
+    # bound reading of Abdul, so the given name loses its second word
+    text = "Abdul Rahman bin Ali"
+    assert _require_packed("ms").parse(text).given == "Abdul Rahman"
+    assert _default_parse(text)["given"] == "Abdul Rahman"
+    strict = parser_for(locales.MS, strict=True).parse(text)
+    assert (strict.given, strict.middle) == ("Abdul", "Rahman")
+
+
+@pytest.mark.parametrize("text", ["Puan Maharani", "Tuan Nguyen",
+                                  "Nguyen Van Tuan", "Cik Rohaida Hak",
+                                  # #1180's words
+                                  "Sri Mulyani", "Tan Chee Chai", "Tun Hla",
+                                  "Haji Juma", "Tan Sri Ali"])
+def test_ms_words_move_no_indonesian_or_vietnamese_choice(text: str) -> None:
+    # puan is an Indonesian given name: the default keeps it, and so do a
+    # choice of id and one of vi, neither of which reads ms.toml (no file
+    # but ms.toml holds any of its words, so these hold while the default
+    # does)
+    indonesian = parser_for(Locale(code="id", lexicon=Lexicon.empty(),
+                                   languages=frozenset({"id"})))
+    assert indonesian.parse(text).as_dict() == _default_parse(text)
+    assert _require_packed("vi").parse(text).title == ""
+    assert parse(text).title == ""
+    assert parse(text).ambiguities == ()
+
+
 @pytest.mark.parametrize("text, middle", [
     ("Maria de Fátima Costa", "de Fátima"),
     ("MARIA DE FATIMA COSTA", "DE FATIMA"),
@@ -342,7 +710,7 @@ def test_a_strict_portuguese_choice_reads_the_given_names_es_also_marks(
     # reading no es.toml keeps the default's middle name; the others
     # (carmen, pilar, rosario, ...) it leaves to the family
     assert parse(text).middle == middle
-    for pack in (locales.PT, locales.PT_BR):
+    for pack in (locales.PT, locales.PT_BR, locales.PT_PT):
         assert parser_for(pack, strict=True).parse(text).middle == middle, pack
 
 
@@ -369,7 +737,7 @@ def test_es_and_pt_pack_contents() -> None:
     # sr keeps es's and pt's generation beside the salutation, so the
     # choice leaves it a dual position decides, as the default reads it
     for packed in (_require_packed("es"), _require_packed("pt"),
-                   _require_packed("pt_br")):
+                   _require_packed("pt_br"), _require_packed("pt_pt")):
         for text in ("Gary Holloway Sr", "Sr. Juan Pérez", "J. Smith Sr."):
             assert packed.parse(text).as_dict() == parse(text).as_dict()
     # the patch's and the fragment's declaration: rules/O6's three name
@@ -589,6 +957,278 @@ def test_vi_differs_from_the_default_where_the_default_reads_given_first() -> No
         assert vi.parse(text).as_dict() == _default_parse(text)
 
 
+def test_my_pack_contents() -> None:
+    # a choice of my and nothing else: no fragment and no policy patch,
+    # the fragment of #1231 dropped for the strict choice (#1483;
+    # decisions/vocabulary-collisions, the 2026-11-19 #1483 entry)
+    import pickle
+    assert locales.MY == Locale(code="my", lexicon=Lexicon.empty(),
+                                languages=frozenset({"my"}))
+    assert not hasattr(_my, "DEVIATES")
+    assert _ri.changed_words(_ri.selected(locales.MY.languages)) == {"u", "daw"}
+    sets = _require_packed("my").lexicon._sets
+    assert {"u", "daw"} <= sets.titles
+    assert not {"u", "daw"} & Lexicon.default()._sets.titles
+    assert pickle.loads(pickle.dumps(locales.MY)) == locales.MY
+    parser = pickle.loads(pickle.dumps(parser_for(locales.MY)))
+    assert parser.parse("U Thein Sein").title == "U"
+
+
+@pytest.mark.parametrize("text, given, middle, family, suffix", [
+    # #1483: a strict choice reads no other language's file, so a
+    # Burmese syllable another language reads as a particle or a
+    # credential is a name word, between two name words, after a comma
+    # and ending a name written in capitals; the plain pack reads each
+    # as the default does
+    ("Aung San Win", "Aung", "San", "Win", ""),
+    ("Henry Van Thio", "Henry", "Van", "Thio", ""),
+    ("KYAW, AUNG DO", "AUNG", "DO", "KYAW", ""),
+    ("THEIN AUNG PE", "THEIN", "AUNG", "PE", ""),
+    ("THEIN AUNG LAT", "THEIN", "AUNG", "LAT", ""),
+    ("THEIN AUNG EI", "THEIN", "AUNG", "EI", ""),
+    ("THEIN AUNG SI", "THEIN", "AUNG", "SI", ""),
+    ("THEIN AUNG PA", "THEIN", "AUNG", "PA", ""),
+    # 'Thein Aung Ra' stood here until #1483 gave ra a name reading,
+    # which reads it so with no choice; in capitals the default still
+    # reads the credential, no case speaking for the name
+    ("THEIN AUNG RA", "THEIN", "AUNG", "RA", ""),
+    ("AUNG SAN WIN", "AUNG", "SAN", "WIN", ""),
+    ("Win, Aung San", "Aung", "San", "Win", ""),
+    (", AUNG PE", "AUNG", "PE", "", ""),
+    # #1232: Mg, a title by default, is the given name
+    ("Mg Htoo Aung", "Mg", "Htoo", "Aung", ""),
+])
+def test_my_strict_reads_the_syllables_as_name_words(
+        text: str, given: str, middle: str, family: str, suffix: str) -> None:
+    name = parser_for(locales.MY, strict=True).parse(text)
+    assert (name.given, name.middle, name.family, name.suffix) == (
+        given, middle, family, suffix)
+    assert not name.ambiguities
+    assert _require_packed("my").parse(text).as_dict() == _default_parse(text)
+    assert name.as_dict() != _default_parse(text)
+
+
+@pytest.mark.parametrize("order", [GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("text, title, words", [
+    # the strict choice under each order: the syllables stay name words
+    # and the ranks titles, the order laying the name words out
+    ("Daw Aung San Suu Kyi", "Daw", ("Aung", "San", "Suu", "Kyi")),
+    ("AUNG SAN WIN", "", ("AUNG", "SAN", "WIN")),
+    ("THEIN AUNG PE", "", ("THEIN", "AUNG", "PE")),
+    ("Lt Gen Kyaw Win", "Lt Gen", ("Kyaw", "Win")),
+    ("Gen Kyaw Win", "Gen", ("Kyaw", "Win")),
+])
+def test_my_strict_reads_alike_under_every_order(
+        text: str, title: str, words: tuple[str, ...],
+        order: tuple[Role, Role, Role]) -> None:
+    strict = parser_for(locales.MY, strict=True,
+                        base=Parser(policy=Policy(name_order=order)))
+    name = strict.parse(text)
+    assert name.title == title and not name.suffix
+    assert sorted(" ".join(w for w in (name.given, name.middle, name.family)
+                           if w).split()) == sorted(words)
+    assert not name.ambiguities
+
+
+#: The words my.toml copies from en.toml's ranks (#1483)
+_MY_RANK_COPIES = (
+    "admiral", "adm", "brigadier", "brig", "captain", "capt", "cdr",
+    "col", "colonel", "commander", "commodore", "gen", "general",
+    "lieutenant", "lt", "maj", "major", "rear", "senior", "sir", "vice")
+
+
+@pytest.mark.parametrize("word", _MY_RANK_COPIES)
+def test_my_rank_copies_are_off_by_default_and_en_toml_readings(
+        word: str) -> None:
+    # written default = false, so the default never reads them, which
+    # no parse's fields would show (en.toml reads them alike): the
+    # Reading.languages view would (`General` naming my); and each a
+    # kind en.toml gives the word, with its properties
+    mine = [r for r in _ri.readings_of(word) if r.tag == "my"]
+    theirs = {r.kind: {k: v for k, v in r.props.items()
+                       if k not in ("note", "issue", "decided")}
+              for r in _ri.readings_of(word) if r.tag == "en"}
+    assert mine and all(r.props.get("default") is False for r in mine)
+    for r in mine:
+        props = {k: v for k, v in r.props.items()
+                 if k not in ("note", "issue", "decided", "default")}
+        assert theirs[r.kind] == props, (word, r.kind)
+    assert {r.kind for r in mine} == {
+        r.kind for r in _ri.readings_of(word) if r.tag == "en"
+        and _ri.CATEGORY[r.kind] not in _ri.UNPREFERRED}
+
+
+@pytest.mark.parametrize("text, title", [
+    # #1483: the English ranks and Sir Burmese lists write are my.toml's
+    # own readings, so a strict choice keeps them, bare and written short,
+    # at the head, after a family comma and in a part after a full name,
+    # as the default and the plain pack read them
+    ("Senior General Kyaw Win", "Senior General"),
+    ("Vice Senior General Kyaw Win", "Vice Senior General"),
+    ("Lieutenant General Kyaw Win", "Lieutenant General"),
+    ("Lt Gen Kyaw Win", "Lt Gen"),
+    ("Maj Gen Kyaw Win", "Maj Gen"),
+    ("Brig Gen Kyaw Win", "Brig Gen"),
+    ("Major General Kyaw Win", "Major General"),
+    ("Lt Col Kyaw Win", "Lt Col"),
+    ("Captain Kyaw Win", "Captain"),
+    ("Colonel Kyaw Win", "Colonel"),
+    ("Commander Kyaw Win", "Commander"),
+    ("Brigadier General Kyaw Win", "Brigadier General"),
+    ("LT GEN KYAW WIN", "LT GEN"),
+    (", Lt Gen Kyaw Win", "Lt Gen"),
+    ("Col Kyaw Win", "Col"),
+    ("Capt Kyaw Win", "Capt"),
+    ("Rear Admiral Kyaw Win", "Rear Admiral"),
+    ("Adm Kyaw Win", "Adm"),
+    ("Commodore Kyaw Win", "Commodore"),
+    ("Cdr Kyaw Win", "Cdr"),
+    ("Win, Lt Gen Kyaw", "Lt Gen"),
+    ("Kyaw Win, Maj Gen", "Maj Gen"),
+    ("Sir U Kyaw Win", "Sir U"),
+])
+def test_my_strict_keeps_the_ranks(text: str, title: str) -> None:
+    strict = parser_for(locales.MY, strict=True).parse(text)
+    plain = _require_packed("my").parse(text)
+    assert strict.title == plain.title == title
+    assert strict.as_dict() == plain.as_dict()
+    if "U" not in text.split():  # the honorific is the pack's own word
+        assert plain.as_dict() == _default_parse(text)
+
+
+@pytest.mark.parametrize("text, given, family, suffix", [
+    # the rank readings are written default = false, so the default
+    # never reads them, and copies of en.toml's, so the plain pack, which
+    # prefers them, reads as the default does: a rank en.toml gates by a
+    # given name stays a given name, and lt's credential, copied with
+    # its rank, stays the suffix. The fields only: Reading.languages
+    # names my under the pack, the file the choice reads (decisions/
+    # vocabulary-collisions, the 2026-11-19 #1483 entry)
+    ("Gen Goto", "Gen", "Goto", ""),
+    ("Major Smith", "Major", "Smith", ""),
+    ("Maj Sjöwall", "Maj", "Sjöwall", ""),
+    ("John Smith, LT", "John", "Smith", "LT"),
+])
+def test_my_rank_readings_move_no_plain_parse(
+        text: str, given: str, family: str, suffix: str) -> None:
+    name = _require_packed("my").parse(text)
+    assert (name.title, name.given, name.family, name.suffix) == (
+        "", given, family, suffix)
+    assert name.as_dict() == _default_parse(text)
+
+
+@pytest.mark.parametrize("text", [
+    # the words every language shares (mul.toml) are kept by a strict
+    # choice, as docs/languages.rst says
+    "Dr Kyaw Win, PhD", "Kyaw Win MD", "Kyaw Win, MSc"])
+def test_my_strict_keeps_the_shared_words(text: str) -> None:
+    assert parser_for(locales.MY, strict=True).parse(text).as_dict() == \
+        _require_packed("my").parse(text).as_dict()
+
+
+@pytest.mark.parametrize("text, title, given, family, suffix", [
+    # what a strict choice costs a name that is not Burmese, the reason
+    # the plain pack stays for a mixed list (decisions/vocabulary-
+    # collisions, the 2026-11-19 #1483 entry): the given names en.toml
+    # gates the ranks by are not read, nor other languages' particles and
+    # credentials, so a credential after a comma reads as a given name
+    ("Gen Goto", "Gen", "", "Goto", ""),
+    ("Major Smith", "Major", "", "Smith", ""),
+    ("Jane Doe, PA", "", "PA", "Jane Doe", ""),
+    # and a Burmese name with a credential syllable after a comma, the
+    # credential gone: read as the given name, as any word there
+    ("THEIN AUNG, PE", "", "PE", "THEIN AUNG", ""),
+    # and a run of initials holding U, which the honorific claims once
+    # en.toml's dotted title us no longer reads it (rules/H10)
+    ("U.S. Grant", "U.S.", "", "Grant", ""),
+    ("Juan de la Cruz", "", "Juan", "Cruz", ""),
+])
+def test_my_strict_costs_a_name_that_is_not_burmese_or_a_comma_credential(
+        text: str, title: str, given: str, family: str, suffix: str) -> None:
+    name = parser_for(locales.MY, strict=True).parse(text)
+    assert (name.title, name.given, name.family, name.suffix) == (
+        title, given, family, suffix)
+    assert _require_packed("my").parse(text).as_dict() == _default_parse(text)
+
+
+@pytest.mark.parametrize("order", [GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("text, title, rest", [
+    # #1231: the honorific opening the name, in each comma shape and case,
+    # behind a listed title and before one; `rest` is the name's other
+    # words, which the order lays out
+    ("U Thein Sein", "U", ("Thein", "Sein")),
+    ("Daw Khin Mya", "Daw", ("Khin", "Mya")),
+    ("DAW KHIN MYA", "DAW", ("KHIN", "MYA")),
+    ("u thein sein", "u", ("thein", "sein")),
+    ("Dr. U Thein Sein", "Dr. U", ("Thein", "Sein")),
+    ("U Dr. Thein Sein", "U Dr.", ("Thein", "Sein")),
+    ("U Thein Sein, Jr.", "U", ("Thein", "Sein")),
+])
+def test_my_reads_the_honorific_opening_a_name_as_the_title(
+        text: str, title: str, rest: tuple[str, ...],
+        order: tuple[Role, Role, Role]) -> None:
+    my = parser_for(locales.MY, base=Parser(policy=Policy(name_order=order)))
+    name = my.parse(text)
+    assert name.title == title
+    assert sorted(w for w in (name.given, name.middle, name.family) if w) == sorted(rest)
+    assert not name.ambiguities
+
+
+@pytest.mark.parametrize("text, title, given, family", [
+    # after a family comma, with nothing before the comma, and past the
+    # second comma (rules/C2); a title and one name word (rules/H1)
+    ("Sein, U Thein", "U", "Thein", "Sein"),
+    ("Sein, Daw Thein", "Daw", "Thein", "Sein"),
+    (", U Thein", "U", "", "Thein"),
+    ("Sein, Thein, U", "U", "Thein", "Sein"),
+    ("U Thant", "U", "", "Thant"),
+    ("Thant, U", "U", "", "Thant"),
+])
+def test_my_reads_the_honorific_in_every_comma_shape(
+        text: str, title: str, given: str, family: str) -> None:
+    name = _require_packed("my").parse(text)
+    assert (name.title, name.given, name.family) == (title, given, family)
+
+
+@pytest.mark.parametrize("text, title, given, middle, family", [
+    # the accepted reading, decided 2026-11-19 (decisions/vocabulary-
+    # collisions, the #1231 entry): the title vocabulary reads U written
+    # with its full stop as it reads U under the pack, so a Western
+    # initial U. can be the title, as these rows show -- the reason the
+    # docs give not to apply the pack to a mixed list. A bare U. between
+    # two name words is an initial, as by default
+    ("U. Thein Sein", "U.", "Thein", "", "Sein"),
+    ("Sein, U. Thein", "U.", "Thein", "", "Sein"),
+    ("U. S. Grant", "U.", "S.", "", "Grant"),
+    ("U. Smith, Ed", "U.", "Ed", "", "Smith"),
+    ("Grant, U.S.", "U.S.", "", "", "Grant"),
+    ("U.S. Grant", "", "U.", "S.", "Grant"),
+    ("Smith, U.", "U.", "", "", "Smith"),
+    ("John (U.) Smith", "U.", "John", "", "Smith"),
+    ("Dr. U. Smith", "Dr. U.", "", "", "Smith"),
+    ("John U. Smith", "", "John", "U.", "Smith"),
+    ("Smith, John U.", "", "John", "U.", "Smith"),
+])
+def test_my_reads_u_written_with_its_full_stop_as_the_title_vocabulary_does(
+        text: str, title: str, given: str, middle: str, family: str) -> None:
+    name = _require_packed("my").parse(text)
+    assert (name.title, name.given, name.middle, name.family) == (
+        title, given, middle, family)
+
+
+def test_my_differs_from_the_default_only_through_its_words() -> None:
+    # the honorifics move a name; a Burmese name holding neither reads
+    # as the default reads it, its last word the family, its syllables
+    # and ranks included (a strict choice reads those, #1483)
+    my = _require_packed("my")
+    for text in ("Thein Sein", "Min Aung Hlaing", "Maung Maung Kyaw",
+                 "Ko Ko Lwin", "Saw Ba Hline", "Sai Lone Hsai",
+                 "Aung San Win", "THEIN AUNG PE", "Lt Gen Kyaw Win"):
+        assert my.parse(text).as_dict() == _default_parse(text), text
+    for text in ("U Thein Sein", "Daw Aung San Suu Kyi", "Sir U Kyaw Win"):
+        assert my.parse(text).as_dict() != _default_parse(text), text
+
+
 def test_mn_pack_contents() -> None:
     # a choice of mn and a Cyrillic script order, nothing else: the
     # order is keyed to the script, so a romanized name keeps the
@@ -749,18 +1389,24 @@ def test_mn_fills_no_patronymic() -> None:
 
 def test_cs_and_sk_pack_contents() -> None:
     # 3f, amended 2026-10-30: cs and sk are their choice plus rules/O6's
-    # patch, no fragment; sl and hr stay nothing but their choice
+    # patch, and hr and sl since #1190 (decisions/O6, 2026-11-21). cs's
+    # fragment, since #970, removes the given reading that gates its Ing,
+    # and keeps the family reading that gates mul.toml's credential
     from nameparser._locale import deviates_by_two_family_names
-    from nameparser.locales import cs as _cs, es as _es, sk as _sk
-    for code, pack in (("cs", locales.CS), ("sk", locales.SK)):
-        assert pack == Locale(code=code, lexicon=Lexicon.empty(),
+    from nameparser.locales import (
+        cs as _cs, es as _es, es_ar as _es_ar, hr as _hr, pt_br as _pt_br,
+        pt_pt as _pt_pt, sk as _sk, sl as _sl)
+    fragments = {"cs": Lexicon.empty().remove("ing", kind="given"),
+                 "sk": Lexicon.empty(), "hr": Lexicon.empty(),
+                 "sl": Lexicon.empty()}
+    for code, pack in (("cs", locales.CS), ("sk", locales.SK),
+                       ("hr", locales.HR), ("sl", locales.SL)):
+        assert pack == Locale(code=code, lexicon=fragments[code],
                               policy=PolicyPatch(two_family_names=True),
                               languages=frozenset({code})), code
-    for code in ("sl", "hr"):
-        assert _is_vocabulary_pack(locales.get(code)), code
-    # the patch's declaration is rules/O6's, one predicate for the three
-    # packs that turn O6 on, so their declarations cannot drift apart
-    for module in (_cs, _sk, _es):
+    # the patch's declaration is rules/O6's, one predicate for every
+    # pack that turns O6 on, so their declarations cannot drift apart
+    for module in (_cs, _sk, _es, _es_ar, _hr, _pt_br, _pt_pt, _sl):
         for name in ("Alena Pešová Řehořová", "Novák, Petr Pavel",
                      "Mária-\u200bJana Kováčová", "Jan Novák", "Novák"):
             assert module.DEVIATES(name) == deviates_by_two_family_names(name)
@@ -769,6 +1415,12 @@ def test_cs_and_sk_pack_contents() -> None:
     # name words (the #973 review: these moved undeclared under all three)
     for name in ("김민준 1", "Jan\u200bPavel -"):
         assert deviates_by_two_family_names(name), name
+    # cs's fragment declares the word it changes, Ing, in any case and
+    # glued to a stop, and not a name that merely holds its letters
+    for name in ("Ing Novák", "ING NOVÁK", "Novák Ing.", "Ing.Novák"):
+        assert _cs.DEVIATES(name) and not deviates_by_two_family_names(name), name
+    for name in ("John King", "Wing Lau", "Ingrid Berg"):
+        assert not _cs.DEVIATES(name), name
 
 
 # rules/O6's declaration counts a run opening with a classified character twice
@@ -831,8 +1483,18 @@ _NARROWED = [name for name, declared, by_name, _ in _TWICE_COUNTED
              if by_name and not declared]
 
 
+# every pack turning rules/O6 on, read off the packs so a new one joins
+# (#1190's review: hr and sl were missing from a hand list here)
+_O6_PACKS = sorted(code for code in _PACKS
+                   if locales.get(code).policy.two_family_names is True)
+
+
+def test_the_o6_packs_are_the_ones_shipped() -> None:
+    assert _O6_PACKS == ["cs", "es", "es_ar", "hr", "pt_br", "pt_pt", "sk", "sl"]
+
+
 @pytest.mark.parametrize("name", _NARROWED)
-@pytest.mark.parametrize("code", ["es", "es_ar", "cs", "sk"])
+@pytest.mark.parametrize("code", _O6_PACKS)
 def test_a_name_the_declaration_stopped_counting_twice_reads_as_the_default(
         code: str, name: str) -> None:
     assert _require_packed(code).parse(name).as_dict() == _default_parse(name)
@@ -1569,6 +2231,16 @@ def test_tr_az_deviates_reads_a_decomposed_marker() -> None:
         assert _tr_az.DEVIATES(decomposed), name
 
 
+def test_ru_deviates_reads_a_decomposed_ending() -> None:
+    """#1212, as #1316 for TR_AZ: the rule reads an ending NFC-composed,
+    so the Ukrainian `-ївна` written with і and a combining diaeresis
+    must declare too, or the non-interference gate misses it."""
+    for name in ("Ткачук Ганна Сергіївна", "ТКАЧУК ГАННА СЕРГІЇВНА"):
+        decomposed = unicodedata.normalize("NFD", name)
+        assert decomposed != name
+        assert _ru.DEVIATES(decomposed), name
+
+
 def test_locales_unknown_attribute() -> None:
     with pytest.raises(AttributeError, match="XX"):
         locales.XX
@@ -1755,6 +2427,10 @@ _ROTATORS["ru"] = [
     "Карпова Ольга Сергеевна",       # евна
     "Петрова Мария Никитична",       # ична
     "Ульянов Владимир Ильич",        # ильич
+    "Коваленко Олена Петрівна",      # івна (Ukrainian, #1212)
+    "Ткачук Ганна Сергіївна",        # ївна
+    "Бондар Василь Леонтієвич",      # євич
+    "Мельник Тарас Ілліч",           # ілліч
     "Булгаков Иван Кузьмич",         # кузьмич
     "Титов Пётр Лукич",              # лукич
     "Орлов Семён Фомич",             # фомич
@@ -1849,42 +2525,49 @@ _ROTATORS["ja"] = _JA_SEGMENTATION_ROTATORS + _JA_CHOICE_ROTATORS
 # The choice packs (3f): one name per word of the derived surface, each
 # in a shape the default reads differently, so the gate's positive side
 # reaches every word the choice changes (held by
-# test_choice_rotators_cover_every_changed_word below). cs and sk carry
-# rules/O6's patch too, so each word's rotator is a name the patch alone
+# test_choice_rotators_cover_every_changed_word below). cs, sk, hr and
+# sl carry rules/O6's patch too, so each word's rotator is a name the patch alone
 # leaves as the default reads it -- two name words, or a marker run in
 # brackets -- (held by test_a_choice_word_rotator_is_moved_by_the_choice_alone),
 # and the patch has rotators of its own.
 _ROTATORS["cs"] = [
     "BcA Krejčí",                    # bca
+    "Bc Krejčí",                     # bc (#970)
+    "Hon. Ing Krejčí",               # ing, a title the choice reads behind a style (rules/H9)
     "MgA Malá",                      # mga
     "Mjr Novák",                     # mjr, three initials elsewhere (#1129)
     "Chief Mjr Novák",               # chief mjr, the phrase chief makes
-    "Jan Novák, DrSc",               # drsc, a credential after a comma
     "Pan Novák",                     # pan
     "Jana Nováková (roz. Svobodová)",  # roz, the birth marker, bracketed
     "Dienstbier ml.",                # ml
     "Jiří Dienstbier st.",           # st
     "Alena Pešová Řehořová",         # rules/O6, the patch
-    "Ing. Alena Pešová Řehořová",    # rules/O6 behind a title
+    "MUDr. Alena Pešová Řehořová",   # rules/O6 behind a title the choice leaves (Ing is its word since #970)
     "김민준 1",                       # rules/O6 over a segmented name and a word of no letter
     "Jan\u200bPavel -",               # rules/O6 over a zero-width split and a lone mark
 ]
 _ROTATORS["sk"] = [
-    "Jozef Mrkva, ArtD.",            # artd, a credential after a comma
-    "Jozef Mrkva, DrSc",             # drsc
     "Mrkva ml.",                     # ml
     "Ján Mrkva st.",                 # st
     "Mária Nováková Kováčová",       # rules/O6, the patch
     "김민준 1",                       # rules/O6 over a segmented name and a word of no letter
     "Jan\u200bPavel -",               # rules/O6 over a zero-width split and a lone mark
 ]
+# sl and hr turn rules/O6 on since #1190, so their ml rotator is a
+# name the patch alone leaves as the default reads it, as cs's is
 _ROTATORS["sl"] = [
-    "Janez Novak ml.",               # ml
+    "Novak ml.",                     # ml
     "Janez Novak st.",               # st
+    "Elena Zavadlav Ušaj",           # rules/O6, the patch
+    "김민준 1",                       # rules/O6 over a segmented name and a word of no letter
+    "Jan\u200bPavel -",               # rules/O6 over a zero-width split and a lone mark
 ]
 _ROTATORS["hr"] = [
-    "Ivan Horvat ml.",               # ml
+    "Horvat ml.",                    # ml
     "Ivan Horvat st.",               # st
+    "Ana Puž Kukuljan",              # rules/O6, the patch
+    "김민준 1",                       # rules/O6 over a segmented name and a word of no letter
+    "Jan\u200bPavel -",               # rules/O6 over a zero-width split and a lone mark
 ]
 # ar and he (#1257): ben mid-name, in each case and after a family comma;
 # ar also the credential ABD its choice drops for abd's bound given name
@@ -1901,11 +2584,60 @@ _ROTATORS["he"] = [
     "YAEL BEN ARIEH",                # ben, in one case
     "Arieh, Yael Ben",               # ben ending the given part
 ]
+# nl (#1455): ten mid-name, in each case and after a family comma (a
+# leading Ten keeps the default's fields under the plain choice, only
+# reporting the fork: test_nl_reads_a_leading_ten_by_its_given_reading_
+# unless_strict); the credential VD its choice drops for vd's particle
+_ROTATORS["nl"] = [
+    "Jan ten Brink",                 # ten
+    "JAN TEN BRINK",                 # ten, in one case
+    "jan ten brink",                 # ten, lower case
+    "Brink, Jan ten",                # ten ending the given part
+    "John Smith VD",                 # vd, the credential leaving
+    "John Smith, VD",                # vd after a comma
+]
+# my (#1231): each honorific at the head, in each case and after a
+# family comma, and behind a title (the ranks my.toml copies from
+# en.toml move no plain parse, so no rotator holds them: #1483's tests)
+_ROTATORS["my"] = [
+    "U Thein Sein",                  # u
+    "Daw Khin Mya",                  # daw
+    "DAW KHIN MYA",                  # daw, in one case
+    "Sein, U Thein",                 # u after a family comma
+    "Thein Sein Daw.",               # daw, dotted, ending the name (rules/H5)
+    "Sir U Kyaw Win",                # u behind a title
+]
+# ms (#1179): the words the choice turns on, across these positions: at
+# the head, in each case, behind a listed title, after a family comma,
+# ending the given part after one (rules/H8), alone after a comma, and
+# dotted at the end of the name (rules/H5)
+_ROTATORS["ms"] = [
+    "Puan Siti binti Ahmad",         # puan
+    "PUAN SITI AMINAH",              # puan, in one case
+    "Ahmad, Puan Siti",              # puan after a family comma
+    "Cik Nadia binti Rahman",        # cik
+    "Dr. Cik Nadia Rahman",          # cik behind a listed title
+    "Ustaz Hafiz bin Omar",          # ustaz
+    "Hafiz Omar, Ustaz",             # ustaz alone after a comma
+    "USTAZAH ZAINAB",                # ustazah, in one case
+    "Cikgu Ahmad bin Ali",           # cikgu
+    "CIKGU ZAKRI",                   # cikgu with one name word (rules/H1)
+    "Ahmad, Siti Puan",              # puan ending the given part (H8)
+    "Rahman, Nadia Cik",             # cik ending the given part (H8)
+    "Hafiz Omar Ustaz.",             # ustaz, dotted, ending the name (H5)
+    # #1180's honours
+    "Tun Ahmad bin Ali",             # tun
+    "HAJI AHMAD",                    # haji, in one case (rules/H1)
+    "Ali, Haji Ahmad",               # haji after a family comma
+    "Dato Ahmad bin Ali",            # dato without its apostrophe
+    "Tan Sri Muhyiddin Yassin",      # tan sri
+    "Puan Sri Aminah Yusof",         # puan sri
+]
 # hi and bn: each romanized title at the head, in each case, behind a
 # listed title, after a family comma and before one (rules/H6); a dotted
-# one where it ends the given part after a family comma (rules/H8) or
-# ends the name (rules/H5), rules/H2's shape already reading it as a
-# title at the head by default.
+# one where it ends the given part after a family comma or ends the name
+# (rules/H5's trailing vocabulary), rules/H2's shape already reading it
+# as a title at the head by default.
 _ROTATORS["hi"] = [
     "Shrimati Indira Gandhi",        # shrimati at the head
     "SHRIMATI INDIRA GANDHI",        # shrimati, in one case
@@ -1923,6 +2655,14 @@ _ROTATORS["hi"] = [
     "Shrimati Gandhi, Indira",       # shrimati before a family comma (H6)
     "Smt. Sitharaman, Nirmala",      # smt, dotted, before a family comma
     ", Nirmala Smt.",                # smt, dotted, after an empty head
+    "Shri Ravi Kumar Verma",         # shri at the head
+    "SHRI RAVI KUMAR",               # shri, in one case
+    "Dr. Shri Ravi Kumar",           # shri behind a listed title
+    "Verma, Shri Ravi",              # shri after a family comma
+    "Verma, Ravi Shri.",             # shri, dotted, ending the given part
+    "Shri Verma, Ravi",              # shri before a family comma (H6)
+    "Ravi Kumar Shri.",              # shri, dotted, ending the name (H5)
+    ", Ravi Shri.",                  # shri, dotted, after an empty head
     # sushri: or.toml's Odia given name gates it under the plain choice,
     # so it is a title only inside a title phrase, a style's partner
     # (rules/H9); at the head, behind Dr. and after a family comma it
@@ -2091,13 +2831,36 @@ _ROTATORS["pt"] = [
     "John Smith DO",                 # do, pt's particle, not DO
     "ANA SILVA E SOUZA",             # e, pt's connective
 ]
+# pt_br and pt_pt: the patch's rules/O6, as es's rows hold it, beside
+# their choices' words; the list's own words read as the default does,
+# so they are no rotators (held in the contents test)
+_PT_TWO_FAMILY_NAMES = [
+    "Rui Sousa Pinto",               # rules/O6, the patch
+    "Ana Beatriz Souza Lima",        # rules/O6 behind a two-word given part
+    "김민준 1",                       # rules/O6 over a segmented name and a word of no letter
+    "Jan\u200bPavel -",               # rules/O6 over a zero-width split and a lone mark
+]
 _ROTATORS["pt_br"] = [
-    "JOSE CARLOS SILVA SB",          # sb
-    "Jose Carlos Silva Sb.",         # sb, dotted
-    "JOSE SILVA SB",                 # sb, one word to spare
+    # sb behind listed given names, which the patch and the list alone
+    # leave as the default reads them (rules/O6's veto)
+    "JOSE CARLOS PEDRO SB",          # sb
+    "Jose Carlos Pedro Sb.",         # sb, dotted
+    "JOSE CARLOS SB",                # sb, one word to spare
     *_PT_PARTICLE_GIVEN,             # pt's given names P10 completes
     "John Smith DO",                 # do, pt's particle, not DO
     "ANA SILVA E SOUZA",             # e, pt's connective
+    *_PT_TWO_FAMILY_NAMES,
+]
+_ROTATORS["pt_pt"] = [
+    *_ROTATORS["pt"],
+    # Portugal's own given names P10 completes, which pt_br's and pt's
+    # choices leave to the family (#1189)
+    "Maria do Carmo Costa",          # carmo
+    "Maria da Conceição Costa",      # conceição
+    "Maria da Conceicao Costa",      # conceicao
+    "Maria da Luz Costa",            # luz
+    "Maria do Rosário Costa",        # rosário
+    *_PT_TWO_FAMILY_NAMES,
 ]
 
 
@@ -2160,6 +2923,12 @@ _READ_BY_DEFAULT_SINCE_1115: dict[str, list[str]] = {
         "Profa Maria Souza",             # profa
     ],
     "pt_br": [
+        "Doutor João Silva",             # doutor, pt's title
+        "Fernanda Lucchese, Doutora",    # doutora, pt's title
+        "Professora Rosária Lima",       # professora, pt's title
+        "Profa Maria Souza",             # profa, pt's title
+    ],
+    "pt_pt": [
         "Doutor João Silva",             # doutor, pt's title
         "Fernanda Lucchese, Doutora",    # doutora, pt's title
         "Professora Rosária Lima",       # professora, pt's title
@@ -2281,6 +3050,34 @@ def test_rotator_deviates_and_declares(code: str, name: str) -> None:
     packed = _require_packed(code)
     assert packed.parse(name).as_dict() != _default_parse(name)
     assert _deviates(code)(name)
+
+
+# #969 turned the post-nominals on by default, so no choice moves them:
+# the rows that witnessed each as a choice word now witness that the
+# default reads it as the pack does, a credential after a comma, where
+# the default reversed the bare one and took the dotted one for a title
+# until then (decisions/suffix-acronym-collisions, the 2026-11-20 #969
+# entry).
+_READ_BY_DEFAULT_SINCE_969: dict[str, list[str]] = {
+    "cs": [
+        "Jan Novák, DrSc",               # drsc, bare after a comma
+        "prof. MUDr. Jan Novák, DrSc.",  # drsc, dotted behind titles
+    ],
+    "sk": [
+        "Jozef Mrkva, ArtD.",            # artd
+        "Jozef Mrkva, DrSc",             # drsc
+    ],
+}
+
+
+@pytest.mark.parametrize("code, name", [
+    (code, name) for code in sorted(_READ_BY_DEFAULT_SINCE_969)
+    for name in _READ_BY_DEFAULT_SINCE_969[code]])
+def test_a_post_nominal_read_by_default_since_969_reads_as_its_pack_reads_it(
+        code: str, name: str) -> None:
+    default = _default_parse(name)
+    assert _require_packed(code).parse(name).as_dict() == default
+    assert default["suffix"], name
 
 
 @pytest.mark.parametrize("code, name", [
@@ -2600,8 +3397,11 @@ _ORDERS = {None: Policy(), "FAMILY_FIRST": Policy(name_order=FAMILY_FIRST),
     ("cs", None, "MgA Jana Malá",
      ("", "MgA", "Jana", "Malá", "", "", ()),
      ("MgA", "Jana", "", "Malá", "", "", ())),
+    # the default reads it after a two-word head by the caps shape's
+    # mixed-case arm, as the credential it is (#1517); the pack, as the
+    # title it lists
     ("cs", None, "Jana Malá, MgA",
-     ("", "MgA", "", "Jana Malá", "", "", ()),
+     ("", "Jana", "", "Malá", "MgA", "", ("SUFFIX_OR_NAME",)),
      ("MgA", "Jana", "", "Malá", "", "", ())),
     ("cs", None, "Malá, MgA",
      ("", "MgA", "", "Malá", "", "", ()),
@@ -2618,17 +3418,6 @@ _ORDERS = {None: Policy(), "FAMILY_FIRST": Policy(name_order=FAMILY_FIRST),
     ("cs", None, "JANA MALÁ MGA.",
      ("", "JANA", "MALÁ", "MGA.", "", "", ()),
      ("MGA.", "JANA", "", "MALÁ", "", "", ())),
-    # the post-nominals: a credential after a comma, where the default
-    # reverses the bare one and takes the dotted one for a title
-    ("cs", None, "Jan Novák, DrSc",
-     ("", "DrSc", "", "Jan Novák", "", "", ()),
-     ("", "Jan", "", "Novák", "DrSc", "", ())),
-    ("cs", None, "prof. MUDr. Jan Novák, DrSc.",
-     ("prof. MUDr. DrSc.", "Jan", "", "Novák", "", "", ()),
-     ("prof. MUDr.", "Jan", "", "Novák", "DrSc.", "", ())),
-    ("sk", None, "Jozef Mrkva, ArtD.",
-     ("ArtD.", "Jozef", "", "Mrkva", "", "", ()),
-     ("", "Jozef", "", "Mrkva", "ArtD.", "", ())),
     # the salutation and the birth marker, each converted from an
     # exclusion; pl's pan with cs's
     ("cs", None, "Pan Jan Novák",
@@ -2714,22 +3503,195 @@ _ORDERS = {None: Policy(), "FAMILY_FIRST": Policy(name_order=FAMILY_FIRST),
     ("cs", None, "Novák, Petr Pavel",
      ("", "Petr", "Pavel", "Novák", "", "", ()),
      ("", "Petr", "Pavel", "Novák", "", "", ())),
-    # left alone: a bare title ending the given part is a name word
-    # (rules/H5), the title Mgr was one already, and BC, excluded for
-    # the US credential it spells, stays one (cs.toml's bc)
+    # hr and sl turn the patch on since #1190, as cs and sk do, with the
+    # same cost and no given-name list (decisions/O6, 2026-11-21): an
+    # initial before the surname stays the middle name, a hyphenated
+    # pair is one word already, a family comma stands O6 down
+    ("hr", None, "Ana Puž Kukuljan",
+     ("", "Ana", "Puž", "Kukuljan", "", "", ()),
+     ("", "Ana", "", "Puž Kukuljan", "", "", ())),
+    ("sl", None, "Elena Zavadlav Ušaj",
+     ("", "Elena", "Zavadlav", "Ušaj", "", "", ()),
+     ("", "Elena", "", "Zavadlav Ušaj", "", "", ())),
+    ("hr", None, "dr. Ana Puž Kukuljan ml.",
+     ("dr.", "Ana", "Puž Kukuljan", "ml.", "", "", ()),
+     ("dr.", "Ana", "", "Puž Kukuljan", "ml.", "", ())),
+    ("sl", "FAMILY_FIRST", "Zavadlav Ušaj Elena",
+     ("", "Ušaj", "Elena", "Zavadlav", "", "", ()),
+     ("", "Elena", "", "Zavadlav Ušaj", "", "", ())),
+    ("hr", None, "Ana M. Kukuljan",
+     ("", "Ana", "M.", "Kukuljan", "", "", ()),
+     ("", "Ana", "M.", "Kukuljan", "", "", ())),
+    ("hr", None, "Ana Puž-Kukuljan",
+     ("", "Ana", "", "Puž-Kukuljan", "", "", ()),
+     ("", "Ana", "", "Puž-Kukuljan", "", "", ())),
+    ("hr", None, "Ivan Marko Horvat",
+     ("", "Ivan", "Marko", "Horvat", "", "", ()),
+     ("", "Ivan", "", "Marko Horvat", "", "", ())),
+    ("sl", None, "Janez Jože Novak",
+     ("", "Janez", "Jože", "Novak", "", "", ()),
+     ("", "Janez", "", "Jože Novak", "", "", ())),
+    ("sl", None, "Novak, Janez Jože",
+     ("", "Janez", "Jože", "Novak", "", "", ()),
+     ("", "Janez", "Jože", "Novak", "", "", ())),
+    ("hr", None, "Puž Kukuljan, Ana",
+     ("", "Ana", "", "Puž Kukuljan", "", "", ()),
+     ("", "Ana", "", "Puž Kukuljan", "", "", ())),
+    # each order, a suffix comma, a credential after one, and an empty
+    # head, where O6 stands down (the #1190 review's grid)
+    ("hr", "FAMILY_FIRST", "Puž Kukuljan Ana",
+     ("", "Kukuljan", "Ana", "Puž", "", "", ()),
+     ("", "Ana", "", "Puž Kukuljan", "", "", ())),
+    ("hr", "FAMILY_FIRST_GIVEN_LAST", "Puž Kukuljan Ana",
+     ("", "Ana", "Kukuljan", "Puž", "", "", ()),
+     ("", "Ana", "", "Puž Kukuljan", "", "", ())),
+    ("sl", "FAMILY_FIRST_GIVEN_LAST", "Zavadlav Ušaj Elena Marija",
+     ("", "Marija", "Ušaj Elena", "Zavadlav", "", "", ()),
+     ("", "Marija", "Elena", "Zavadlav Ušaj", "", "", ())),
+    ("hr", None, "Ana Puž Kukuljan, ml.",
+     ("ml.", "Ana", "Puž", "Kukuljan", "", "", ()),
+     ("", "Ana", "", "Puž Kukuljan", "ml.", "", ())),
+    ("sl", None, "Elena Zavadlav Ušaj, dr. med.",
+     ("dr. med.", "Elena", "Zavadlav", "Ušaj", "", "", ()),
+     ("dr. med.", "Elena", "", "Zavadlav Ušaj", "", "", ())),
+    ("hr", None, ", Ana Puž Kukuljan",
+     ("", "Ana", "Puž Kukuljan", "", "", "", ()),
+     ("", "Ana", "Puž Kukuljan", "", "", "", ())),
+    # Bc and Ing, the pack's titles since #970: Bc a reading off by
+    # default, Ing the same with the fragment removing the given reading
+    # that would make it a title only in a phrase (rules/H9), so both
+    # read bare, in each comma shape and order, and a pair joined by et
+    # is one title run (rules/P3)
+    ("cs", None, "Ing Jan Novák",
+     ("", "Ing", "Jan", "Novák", "", "", ()),
+     ("Ing", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "ING JAN NOVÁK",
+     ("", "ING", "JAN", "NOVÁK", "", "", ()),
+     ("ING", "JAN", "", "NOVÁK", "", "", ())),
+    ("cs", None, "Ing Novák",
+     ("", "Ing", "", "Novák", "", "", ()),
+     ("Ing", "", "", "Novák", "", "", ())),
+    ("cs", None, "Novák, Ing Jan",
+     ("", "Ing", "Jan", "Novák", "", "", ("SUFFIX_OR_NAME",)),
+     ("Ing", "Jan", "", "Novák", "", "", ("SUFFIX_OR_NAME",))),
+    ("cs", None, ", Ing Jan",
+     ("", "Ing", "Jan", "", "", "", ("SUFFIX_OR_NAME",)),
+     ("Ing", "", "", "Jan", "", "", ("SUFFIX_OR_NAME",))),
+    ("cs", "FAMILY_FIRST", "Ing Novák Jan",
+     ("", "Novák", "Jan", "Ing", "", "", ()),
+     ("Ing", "Jan", "", "Novák", "", "", ())),
+    ("cs", "FAMILY_FIRST_GIVEN_LAST", "Ing Novák Jan",
+     ("", "Jan", "Novák", "Ing", "", "", ()),
+     ("Ing", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "Ing. et Ing. Jan Novák",
+     ("", "Ing. et Ing.", "Jan", "Novák", "", "", ()),
+     ("Ing. et Ing.", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "doc. Ing. et Ing. Jan Novák",
+     ("doc.", "Ing. et Ing.", "Jan", "Novák", "", "", ()),
+     ("doc. Ing. et Ing.", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "Bc. et Bc. Jana Malá",
+     ("", "Bc. et Bc.", "Jana", "Malá", "", "", ()),
+     ("Bc. et Bc.", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "Mgr. Bc. et Bc. Jana Malá",
+     ("Mgr.", "Bc. et Bc.", "Jana", "Malá", "", "", ()),
+     ("Mgr. Bc. et Bc.", "Jana", "", "Malá", "", "", ())),
+    ("cs", "FAMILY_FIRST", "Bc. et Bc. Malá Jana",
+     ("", "Malá", "Jana", "Bc. et Bc.", "", "", ()),
+     ("Bc. et Bc.", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "Bc Jana Malá",
+     ("", "Bc", "Jana", "Malá", "", "", ()),
+     ("Bc", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "Jana Malá, Bc",
+     ("", "Bc", "", "Jana Malá", "", "", ()),
+     ("Bc", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "Malá, Bc Jana",
+     ("", "Bc", "Jana", "Malá", "", "", ()),
+     ("Bc", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "ing jan novák",
+     ("", "ing", "jan", "novák", "", "", ()),
+     ("ing", "jan", "", "novák", "", "", ())),
+    # at the head of a family comma, by vocabulary (rules/H6)
+    ("cs", None, "Ing Novák, Jan",
+     ("", "Jan", "", "Ing Novák", "", "", ()),
+     ("Ing", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "Bc Novák, Jan",
+     ("", "Jan", "", "Bc Novák", "", "", ()),
+     ("Bc", "Jan", "", "Novák", "", "", ())),
+    # dotted at the end, a listed title there (rules/H5), and past a
+    # second comma (rules/C2)
+    ("cs", None, "Jana Malá Bc.",
+     ("", "Jana", "Malá", "Bc.", "", "", ()),
+     ("Bc.", "Jana", "", "Malá", "", "", ())),
+    ("cs", None, "Jan Novák Ing.",
+     ("", "Jan", "Novák", "Ing.", "", "", ("SUFFIX_OR_NAME",)),
+     ("Ing.", "Jan", "", "Novák", "", "", ())),
+    ("cs", None, "Novák, Jan, Ing.",
+     ("", "Jan", "", "Novák", "Ing.", "", ("COMMA_STRUCTURE",)),
+     ("Ing.", "Jan", "", "Novák", "", "", ())),
+    # the costs, each a name the pack is not for: Ing the given name
+    # opening a name, or alone after a family comma, read as the title,
+    # and a lone Ing or Bc a title with no name; Ing the surname at the
+    # head of a family comma or first under a family-first order; a
+    # title chunk making a period-joined post-nominal a title (rules/S3),
+    # and ING past a second comma (rules/C2); BC the initials and the
+    # US nursing credential
+    ("cs", None, "Ing Wei Lim",
+     ("", "Ing", "Wei", "Lim", "", "", ()),
+     ("Ing", "Wei", "", "Lim", "", "", ())),
+    ("cs", None, "Lim, Ing",
+     ("", "Ing", "", "Lim", "", "", ("SUFFIX_OR_NAME",)),
+     ("Ing", "", "", "Lim", "", "", ("SUFFIX_OR_NAME",))),
+    ("cs", None, "Ing",
+     ("", "Ing", "", "", "", "", ("GIVEN_OR_FAMILY",)),
+     ("Ing", "", "", "", "", "", ())),
+    ("cs", None, "Bc",
+     ("", "Bc", "", "", "", "", ("GIVEN_OR_FAMILY",)),
+     ("Bc", "", "", "", "", "", ())),
+    ("cs", None, "Malá, Bc",
+     ("", "Bc", "", "Malá", "", "", ()),
+     ("Bc", "", "", "Malá", "", "", ())),
+    ("cs", None, "Ing Ho, Mei",
+     ("", "Mei", "", "Ing Ho", "", "", ()),
+     ("Ing", "Mei", "", "Ho", "", "", ())),
+    ("cs", "FAMILY_FIRST", "Ing Wei",
+     ("", "Wei", "", "Ing", "", "", ()),
+     ("Ing", "", "", "Wei", "", "", ())),
+    ("cs", None, "Jan Novák, MBA, EUR ING",
+     ("", "Jan", "", "Novák", "MBA, EUR ING", "", ("COMMA_STRUCTURE",)),
+     ("ING", "Jan", "", "Novák", "MBA, EUR", "", ("COMMA_STRUCTURE",))),
+    ("cs", None, "Jan Novák, Ph.D., Ing.Paed.IGIP",
+     ("", "Jan", "", "Novák", "Ph.D., Ing.Paed.IGIP", "", ()),
+     ("Ing.Paed.IGIP", "Jan", "", "Novák", "Ph.D.", "", ())),
+    ("cs", None, "MOSS, BC",
+     ("", "BC", "", "MOSS", "", "", ()),
+     ("BC", "", "", "MOSS", "", "", ())),
+    ("cs", None, "Jane Doe, APRN, BC",
+     ("", "Jane", "", "Doe", "APRN, BC", "", ("COMMA_STRUCTURE",)),
+     ("BC", "Jane", "", "Doe", "APRN", "", ())),
+    # left alone: the family reading the fragment keeps leaves the
+    # credential gated, so Ing the surname stays the family name at the
+    # end and before a comma, Ing after a full name and a comma stays
+    # the credential, and a family comma keeps the surname; and a bare
+    # title ending the given part is a name word (rules/H5), the title
+    # Mgr was one already
+    ("cs", None, "Mr Tom Ing",
+     ("Mr", "Tom", "", "Ing", "", "", ("SUFFIX_OR_NAME",)),
+     ("Mr", "Tom", "", "Ing", "", "", ("SUFFIX_OR_NAME",))),
+    ("cs", None, "Wei Ing, PhD",
+     ("", "Wei", "", "Ing", "PhD", "", ("SUFFIX_OR_NAME",)),
+     ("", "Wei", "", "Ing", "PhD", "", ("SUFFIX_OR_NAME",))),
+    ("cs", None, "Jan Novák, Ing",
+     ("", "Jan", "", "Novák", "Ing", "", ("SUFFIX_OR_NAME",)),
+     ("", "Jan", "", "Novák", "Ing", "", ("SUFFIX_OR_NAME",))),
+    ("cs", None, "Ing, Wei",
+     ("", "Wei", "", "Ing", "", "", ()),
+     ("", "Wei", "", "Ing", "", "", ())),
     ("cs", "FAMILY_FIRST_GIVEN_LAST", "Novák, Jan MUDr",
      ("", "Jan", "MUDr", "Novák", "", "", ()),
      ("", "Jan", "MUDr", "Novák", "", "", ())),
     ("cs", None, "Mgr Jana Nováková",
      ("Mgr", "Jana", "", "Nováková", "", "", ()),
      ("Mgr", "Jana", "", "Nováková", "", "", ())),
-    # PMHNP, listed since #993, no longer reports a comma structure of
-    # its own; BC's remains
-    ("cs", None, "Lora L. Beebe, PhD, PMHNP, BC",
-     ("", "Lora", "L.", "Beebe", "PhD, PMHNP, BC", "",
-      ("COMMA_STRUCTURE",)),
-     ("", "Lora", "L.", "Beebe", "PhD, PMHNP, BC", "",
-      ("COMMA_STRUCTURE",))),
 ])
 def test_the_west_and_south_slavic_packs_read_what_the_default_refuses(
         tags: str, order: str | None, name: str,
@@ -2750,6 +3712,30 @@ def test_the_west_and_south_slavic_packs_read_what_the_default_refuses(
         default, packed)
 
 
+@pytest.mark.parametrize("pack, name, fields", [
+    # a strict choice drops fr.toml, whose et was the only one until cs
+    # and sk wrote their own (#970), so the pair stays one title run
+    (locales.CS, "Ing. et Ing. Jan Novák", ("Ing. et Ing.", "Jan", "", "Novák")),
+    (locales.CS, "Mgr. et Mgr. Jana Malá", ("Mgr. et Mgr.", "Jana", "", "Malá")),
+    (locales.SK, "Mgr. et Mgr. Jana Malá", ("Mgr. et Mgr.", "Jana", "", "Malá")),
+    # and Ing reads under strict as under the plain pack: the fragment's
+    # removal is what makes it a title, strict keeping mul.toml's given
+    # reading, and the family reading it keeps leaves the surname placed
+    (locales.CS, "Ing Jan Novák", ("Ing", "Jan", "", "Novák")),
+    (locales.CS, "Mr Tom Ing", ("Mr", "Tom", "", "Ing")),
+    (locales.CS, "Tom Ing, MD PhD", ("", "Tom", "", "Ing")),
+    # Slovak is left as it was: sk.toml lists neither Bc nor Ing, so its
+    # et joins their pair into the given name, as plain sk reads it
+    # through fr.toml's (strict sk read title 'Ing.', given 'et')
+    (locales.SK, "Ing Ján Kováč", ("", "Ing", "", "Ján Kováč")),
+    (locales.SK, "Ing. et Ing. Jan Novák", ("", "Ing. et Ing.", "", "Jan Novák")),
+])
+def test_a_strict_cs_or_sk_choice_keeps_et_and_reads_ing_as_the_pack(
+        pack: Locale, name: str, fields: tuple[str, ...]) -> None:
+    n = parser_for(pack, strict=True).parse(name)
+    assert (n.title, n.given, n.middle, n.family) == fields
+
+
 def test_the_west_and_south_slavic_packs_repair_their_titles_case() -> None:
     # the readings' cased masks join with them, so capitalized() writes
     # the title as Czech does under the pack, and since #1115 by default
@@ -2762,6 +3748,11 @@ def test_the_west_and_south_slavic_packs_repair_their_titles_case() -> None:
     assert str(cs.capitalized(cs.parse("mga. jan novák"))) == (
         "MgA. Jan Novák")
     assert str(parse("mga. jan novák").capitalized()) == "Mga. Jan Novák"
+    # bc carries no mask (#970): title case writes Bc. as Czech does,
+    # and a mask would recase the nursing credential ACNP-BC
+    assert str(cs.capitalized(cs.parse("bc. jana malá"))) == "Bc. Jana Malá"
+    assert str(cs.capitalized(cs.parse("Jane Doe, ACNP-BC"), force=True)) == (
+        "Jane Doe, ACNP-BC")
 
 
 # -- 3h: the Irish, Scottish Gaelic and Brazilian Portuguese packs --
@@ -2832,11 +3823,12 @@ _3H_ROWS = [
      ("S.", "B.", "John Smith", "", ("SUFFIX_OR_NAME",)),
      ("S.", "B.", "John Smith", "", ("SUFFIX_OR_NAME",))),
     # F and N, written as an initial is, are excluded, the pack included
-    # (pt-BR.toml): the family name they spell, by default and under it
+    # (pt-BR.toml): the family name they spell, by default and under it,
+    # where the pack's two family names (rules/O6) take the word before
     ("PT_BR", "JOSE CARLOS SILVA F",
-     ("JOSE", "CARLOS SILVA", "F", "", ()), ("JOSE", "CARLOS SILVA", "F", "", ())),
+     ("JOSE", "CARLOS SILVA", "F", "", ()), ("JOSE", "CARLOS", "SILVA F", "", ())),
     ("PT_BR", "Pedro Alves N.",
-     ("Pedro", "Alves", "N.", "", ()), ("Pedro", "Alves", "N.", "", ())),
+     ("Pedro", "Alves", "N.", "", ()), ("Pedro", "", "Alves N.", "", ())),
     # the letter as an initial: before the surname, or leading, unchanged
     ("PT_BR", "JOHN F KENNEDY",
      ("JOHN", "F", "KENNEDY", "", ()), ("JOHN", "F", "KENNEDY", "", ())),
@@ -3097,9 +4089,10 @@ def test_the_sb_mask_keeps_the_degrees_capitals_under_pt_br() -> None:
     ("הרב משה פיינשטיין שליט״א", "title", "הרב"),
     # Devanagari (hi/mr) titles -- a new #269 script: श्री/श्रीमती are
     # the Mr./Mrs. analogs, डॉ the Dr. abbreviation (edge-period
-    # normalization makes "डॉ." match too). NO Latin twins on purpose:
+    # normalization makes "डॉ." match too). NO Latin twins by default:
     # transliterated sri/shri collide with real given names (Sri
-    # Mulyani); the native script cannot.
+    # Mulyani); the native script cannot. Shri is one under locales.HI
+    # alone (#1192).
     ("श्री राम शर्मा", "title", "श्री"),
     ("श्रीमती सीता शर्मा", "title", "श्रीमती"),
     ("डॉ राम शर्मा", "title", "डॉ"),
@@ -3282,6 +4275,90 @@ def test_a_gaelic_pack_keeps_the_mac_masks(
     # reading, still writes the inner capital
     parser = parser_for(pack, strict=strict)
     assert str(parser.capitalized(parser.parse(name))) == repaired
+
+
+def test_the_portuguese_country_packs_read_two_family_names_and_pt_does_not() -> None:
+    # decisions/O6, 2026-11-19: pt-BR.toml and pt-PT.toml each hold a
+    # [rules] table and pt.toml none, so the pack chosen by language
+    # leaves O6 off; both country packs carry one Portuguese list
+    from nameparser._locale import rules_patch
+    from nameparser._reading_index import changed_words, selected
+    from nameparser.locales import pt_pt as _pt_pt
+    from nameparser.locales._pt_given_names import GIVEN_NAMES
+    on = PolicyPatch(two_family_names=True)
+    assert locales.PT_BR == Locale(code="pt_br", lexicon=Lexicon(given_names=GIVEN_NAMES),
+                                   policy=on, languages=frozenset({"pt-BR"}))
+    assert locales.PT_PT == Locale(code="pt_pt", lexicon=Lexicon(given_names=GIVEN_NAMES),
+                                   policy=on, languages=frozenset({"pt-PT"}))
+    assert locales.PT.policy == PolicyPatch() and not locales.PT.lexicon.given_names
+    # no table rides along a tag's ancestors: pt holds none, and a bare
+    # choice of either country's tag turns nothing on
+    with pytest.raises(KeyError, match="no vocabulary file 'pt'"):
+        rules_patch("pt")
+    for tag in ("pt-BR", "pt-PT"):
+        bare = parser_for(Locale(code="choice", lexicon=Lexicon.empty(),
+                                 languages=frozenset({tag})))
+        assert not bare.policy.two_family_names, tag
+    assert not parser_for(locales.PT).policy.two_family_names
+    # pt-PT.toml holds Portugal's own readings (#1189), which pt_pt's
+    # choice turns on beside pt's and pt_br's does not
+    assert selected(locales.PT_PT.languages) == {"pt-PT", "pt"}
+    assert (changed_words(selected(locales.PT_PT.languages))
+            - changed_words(selected(locales.PT.languages))
+            == {"carmo", "conceicao", "conceição", "luz", "rosário"})
+    assert "pt-PT" not in selected(locales.PT_BR.languages)
+    # a strict choice of Portugal reads them too, and the spelling without
+    # the accent, which only es.toml's reading gave a plain choice; a
+    # strict choice of Brazil or of the language reads none of them
+    for strict_pack, middle in ((locales.PT_PT, True), (locales.PT_BR, False),
+                                (locales.PT, False)):
+        strict = parser_for(strict_pack, strict=True)
+        for phrase in ("do Rosario", "do Rosário", "do Carmo", "da Conceição",
+                       "da Conceicao", "da Luz"):
+            parsed = strict.parse(f"Rita {phrase} Quaresma")
+            assert parsed.middle == (phrase if middle else ""), (strict_pack.code, phrase)
+    pt, br, pp = (_require_packed(c) for c in ("pt", "pt_br", "pt_pt"))
+    assert pt.parse("Rui Sousa Pinto").family == "Pinto"
+    assert pt.parse("Pedro Sousa Alves Filho").family == "Alves"
+    for packed, packed_pack in ((br, locales.PT_BR), (pp, locales.PT_PT)):
+        # two family names where pt reads a middle name
+        assert packed.parse("Rui Sousa Pinto").family == "Sousa Pinto"
+        # a listed given name stays, with its ç or with the c an ASCII
+        # writer puts in its place
+        for text in ("Ana Beatriz Costa", "Pedro Gonçalo Matos",
+                     "Pedro Goncalo Matos", "Maria Constanca Reis"):
+            assert packed.parse(text).as_dict() == pt.parse(text).as_dict(), text
+        # a word the list lacks is taken, the switch's cost (rules/O6)
+        assert packed.parse("Ana Zzarita Costa").family == "Zzarita Costa"
+        # a family comma: the switch takes nothing from the given part
+        assert packed.parse("Pinto, Rui Sousa").as_dict() == pt.parse(
+            "Pinto, Rui Sousa").as_dict()
+        assert packed.parse("Rui Sousa Pinto, Jr.").family == "Sousa Pinto"
+        # beside a particle: the switch takes the word before the unit,
+        # and the list keeps a given name there
+        assert packed.parse("Rui Costa dos Santos").family == "Costa dos Santos"
+        assert packed.parse("Rui Pedro dos Santos").as_dict() == pt.parse(
+            "Rui Pedro dos Santos").as_dict()
+        # an agnomen is peeled before the family is counted: three name
+        # words left take one, two take none
+        sousa = packed.parse("Pedro Sousa Alves Filho")
+        assert (sousa.family, sousa.suffix) == ("Sousa Alves", "Filho")
+        alves = packed.parse("Pedro Alves Filho")
+        assert (alves.family, alves.suffix) == ("Alves", "Filho")
+        # under a family-first order: the first two words, the list
+        # vetoing a given name standing second
+        for order, given in ((FAMILY_FIRST, "Ana"), (FAMILY_FIRST_GIVEN_LAST, "Beatriz")):
+            ordered = parser_for(packed_pack, base=Parser(policy=Policy(name_order=order)))
+            souza = ordered.parse("Sousa Pinto Ana Beatriz")
+            assert (souza.family, souza.given) == ("Sousa Pinto", given), order
+            assert ordered.parse("Costa Beatriz Ana").family == "Costa", order
+            assert ordered.parse("Costa Zzbeatriz Ana").family == "Costa Zzbeatriz", order
+    # pt_br's SB beside the switch, which pt_pt's choice does not read
+    sb = br.parse("JOSE ALVES LIMA SB")
+    assert (sb.family, sb.suffix) == ("ALVES LIMA", "SB")
+    assert pp.parse("JOSE ALVES LIMA SB").family == "LIMA SB"
+    assert _pt_pt.DEVIATES("Rui Sousa Pinto")
+    assert not _pt_pt.DEVIATES("Rui Pinto")
 
 
 def test_the_es_ar_pack_is_es_with_a_longer_given_name_list() -> None:

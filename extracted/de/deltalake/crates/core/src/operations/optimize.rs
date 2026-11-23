@@ -30,36 +30,36 @@ use arrow::array::RecordBatch;
 use arrow::datatypes::SchemaRef;
 use datafusion::catalog::Session;
 use datafusion::execution::context::{SessionContext, SessionState};
-use delta_kernel::engine::arrow_conversion::TryIntoArrow as _;
 use delta_kernel::expressions::Scalar;
 use delta_kernel::table_features::ColumnMappingMode;
-use delta_kernel::table_properties::DataSkippingNumIndexedCols;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::{Future, StreamExt, TryStreamExt};
 use indexmap::IndexMap;
 use itertools::Itertools;
 
-use parquet::basic::{Compression, ZstdLevel};
 use parquet::errors::ParquetError;
 use parquet::file::properties::WriterProperties;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as DeError};
 use tracing::*;
-use uuid::Uuid;
 
-use super::{CustomExecuteHandler, Operation};
-use crate::datafile::writer::{PartitionWriter, PartitionWriterConfig, UploadBudget};
+use crate::datafile::DeltaWriterProperties;
+use crate::datafile::properties::OPTIMIZE_PARQUET_PROPERTIES;
+use crate::datafile::writer::{
+    ArrowWriterOptions, PartitionWriter, PartitionWriterConfig, UploadBudget,
+};
 use crate::delta_datafusion::{
-    DataFusionMixins, DeltaScanConfig, DeltaScanNext, SessionFallbackPolicy, SessionResolveContext,
+    DeltaScanConfig, DeltaScanNext, SessionFallbackPolicy, SessionResolveContext,
     create_session_state_with_spill_config, resolve_session_state, update_datafusion_session,
 };
 use crate::errors::{ColumnMappingOperation, DeltaResult, DeltaTableError};
 use crate::kernel::transaction::{CommitBuilder, CommitProperties, DEFAULT_RETRIES, PROTOCOL};
 use crate::kernel::{Action, Add, DataType, PartitionsExt, Remove, StructType, Version};
 use crate::kernel::{EagerSnapshot, resolve_snapshot};
+use crate::logstore::with_operation;
 use crate::logstore::{LogStore, LogStoreRef, ObjectStoreRef};
-use crate::parquet_utils::default_writer_properties;
 use crate::protocol::DeltaOperation;
+use crate::protocol::checkpoints::catalog_managed_maintenance_error;
 use crate::table::config::TablePropertiesExt as _;
 use crate::table::state::DeltaTableState;
 use crate::writer::utils::arrow_schema_without_partitions;
@@ -71,6 +71,7 @@ use crate::{
 /// Planner used by optimize.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum PlannerStrategy {
     /// Older metrics with no planner field.
     #[default]
@@ -266,6 +267,7 @@ impl Default for MetricDetails {
 
 /// Type of optimization to perform.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum OptimizeType {
     /// Compact files into pre-determined bins
     Compact,
@@ -286,8 +288,8 @@ pub struct OptimizeBuilder<'a> {
     filters: &'a [FilterLiteral<'a>],
     /// Desired file size after bin-packing files
     target_size: Option<NonZeroU64>,
-    /// Properties passed to underlying parquet writer
-    writer_properties: Option<WriterProperties>,
+    /// How the rewritten data files are encoded
+    writer_properties: DeltaWriterProperties,
     /// Commit properties and configuration
     commit_properties: CommitProperties,
     /// Maximum number of concurrent tasks (default is number of cpus)
@@ -298,16 +300,6 @@ pub struct OptimizeBuilder<'a> {
     session: Option<Arc<dyn Session>>,
     session_fallback_policy: SessionFallbackPolicy,
     min_commit_interval: Option<Duration>,
-    custom_execute_handler: Option<Arc<dyn CustomExecuteHandler>>,
-}
-
-impl super::Operation for OptimizeBuilder<'_> {
-    fn log_store(&self) -> &LogStoreRef {
-        &self.log_store
-    }
-    fn get_custom_execute_handler(&self) -> Option<Arc<dyn CustomExecuteHandler>> {
-        self.custom_execute_handler.clone()
-    }
 }
 
 impl<'a> OptimizeBuilder<'a> {
@@ -318,7 +310,7 @@ impl<'a> OptimizeBuilder<'a> {
             log_store,
             filters: &[],
             target_size: None,
-            writer_properties: None,
+            writer_properties: DeltaWriterProperties::default(),
             commit_properties: CommitProperties::default(),
             max_concurrent_tasks: std::thread::available_parallelism()
                 .map(|n| n.get())
@@ -327,7 +319,6 @@ impl<'a> OptimizeBuilder<'a> {
             min_commit_interval: None,
             session: None,
             session_fallback_policy: SessionFallbackPolicy::default(),
-            custom_execute_handler: None,
         }
     }
 
@@ -352,7 +343,28 @@ impl<'a> OptimizeBuilder<'a> {
 
     /// Writer properties passed to parquet writer
     pub fn with_writer_properties(mut self, writer_properties: WriterProperties) -> Self {
-        self.writer_properties = Some(writer_properties);
+        self.writer_properties = self
+            .writer_properties
+            .with_parquet_properties(writer_properties);
+        self
+    }
+
+    /// Arrow writer options passed to parquet writer
+    pub fn with_arrow_options(mut self, arrow_options: ArrowWriterOptions) -> Self {
+        self.writer_properties = self.writer_properties.with_arrow_options(arrow_options);
+        self
+    }
+
+    /// How the rewritten data files are encoded. Fields set on `writer_properties`
+    /// replace what the builder holds so far, unset fields keep it, so this composes
+    /// with the other setters in any order. An unset stats config falls back to the
+    /// table's; unset parquet properties to ZSTD(4). Its target file size is not
+    /// used: [`Self::with_target_size`] sets the size optimize compacts to.
+    pub fn with_delta_writer_properties(
+        mut self,
+        writer_properties: DeltaWriterProperties,
+    ) -> Self {
+        self.writer_properties = self.writer_properties.merge(writer_properties);
         self
     }
 
@@ -380,12 +392,6 @@ impl<'a> OptimizeBuilder<'a> {
     /// Min commit interval
     pub fn with_min_commit_interval(mut self, min_commit_interval: Duration) -> Self {
         self.min_commit_interval = Some(min_commit_interval);
-        self
-    }
-
-    /// Set a custom execute handler, for pre and post execution
-    pub fn with_custom_execute_handler(mut self, handler: Arc<dyn CustomExecuteHandler>) -> Self {
-        self.custom_execute_handler = Some(handler);
         self
     }
 
@@ -421,6 +427,11 @@ impl<'a> std::future::IntoFuture for OptimizeBuilder<'a> {
 
         Box::pin(async move {
             let snapshot = resolve_snapshot(&this.log_store, this.snapshot.clone(), None).await?;
+
+            if this.log_store.is_catalog_managed() {
+                return Err(catalog_managed_maintenance_error("OPTIMIZE"));
+            }
+
             if snapshot.table_configuration().column_mapping_mode() != ColumnMappingMode::None {
                 return Err(DeltaTableError::unsupported_column_mapping(
                     ColumnMappingOperation::Write,
@@ -429,12 +440,7 @@ impl<'a> std::future::IntoFuture for OptimizeBuilder<'a> {
             }
             PROTOCOL.can_write_to(&snapshot)?;
 
-            let operation_id = this.get_operation_id();
-            this.pre_execute(operation_id).await?;
-
-            let writer_properties = this.writer_properties.unwrap_or_else(|| {
-                default_writer_properties(Compression::ZSTD(ZstdLevel::try_new(4).unwrap()))
-            });
+            let writer_properties = this.writer_properties;
             let (session, _) = resolve_session_state(
                 this.session.as_deref(),
                 this.session_fallback_policy,
@@ -445,6 +451,9 @@ impl<'a> std::future::IntoFuture for OptimizeBuilder<'a> {
                     cdc: false,
                 },
             )?;
+            // Register the parent store before the write scope opens: the caller's session
+            // outlives the scope, and a scoped store refuses every call once the scope is closed.
+            update_datafusion_session(&session, &this.log_store)?;
             let plan = create_merge_plan(
                 &this.log_store,
                 this.optimize_type,
@@ -456,23 +465,25 @@ impl<'a> std::future::IntoFuture for OptimizeBuilder<'a> {
             )
             .await?;
 
-            let metrics = plan
-                .execute(
-                    this.log_store.clone(),
-                    &snapshot,
-                    this.max_concurrent_tasks,
-                    this.min_commit_interval,
-                    this.commit_properties.clone(),
-                    operation_id,
-                    this.custom_execute_handler.as_ref(),
+            // Every rewrite task and every commit of this optimize run shares one write scope.
+            let parent = this.log_store.clone();
+            let max_concurrent_tasks = this.max_concurrent_tasks;
+            let min_commit_interval = this.min_commit_interval;
+            let commit_properties = this.commit_properties;
+            let snapshot_ref = &snapshot;
+            let metrics = with_operation(&parent, |log_store| async move {
+                plan.execute(
+                    log_store,
+                    snapshot_ref,
+                    max_concurrent_tasks,
+                    min_commit_interval,
+                    commit_properties,
                 )
-                .await?;
+                .await
+            })
+            .await?;
 
-            if let Some(handler) = this.custom_execute_handler {
-                handler.post_execute(&this.log_store, operation_id).await?;
-            }
-            let mut table =
-                DeltaTable::new_with_state(this.log_store, DeltaTableState::new(snapshot));
+            let mut table = DeltaTable::new_with_state(parent, DeltaTableState::new(snapshot));
             table.update_state().await?;
             Ok((table, metrics))
         })
@@ -566,6 +577,8 @@ pub struct MergePlan {
     read_table_version: Version,
     /// Session state used for provider owned rewrite scans.
     read_session: Arc<SessionState>,
+    /// Scan config for the rewrite scans, derived from `read_session`.
+    scan_config: DeltaScanConfig,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -602,14 +615,10 @@ impl PlannerStats {
 pub struct MergeTaskParameters {
     /// Schema of written files
     file_schema: SchemaRef,
-    /// Properties passed to parquet writer
-    writer_properties: WriterProperties,
+    /// How the written files are encoded; the target file size is set per task
+    writer_properties: DeltaWriterProperties,
     /// Input parameters for the optimize operation
     input_parameters: OptimizeInput,
-    /// Num index cols to collect stats for
-    num_indexed_cols: DataSkippingNumIndexedCols,
-    /// Stats columns, specific columns to collect stats from, takes precedence over num_indexed_cols
-    stats_columns: Option<Vec<String>>,
     /// Budget for rolled files awaiting upload, shared by every task of this optimize run.
     upload_budget: UploadBudget,
 }
@@ -622,25 +631,15 @@ struct SelectedFileScanFactory {
     snapshot: EagerSnapshot,
     log_store: LogStoreRef,
     scan_config: DeltaScanConfig,
-    read_operation_id: Option<Uuid>,
 }
 
 impl SelectedFileScanFactory {
-    fn try_new(
-        snapshot: &EagerSnapshot,
-        log_store: LogStoreRef,
-        session: &dyn Session,
-        read_operation_id: Option<Uuid>,
-    ) -> Result<Self, DeltaTableError> {
-        Ok(Self {
+    fn new(snapshot: &EagerSnapshot, log_store: LogStoreRef, scan_config: DeltaScanConfig) -> Self {
+        Self {
             snapshot: snapshot.clone(),
             log_store,
-            // Mirror the caller's DataFusion session flags so rewrite scans keep
-            // the same parquet/view type behavior as the rest of optimize.
-            scan_config: DeltaScanConfig::new_from_session(session)
-                .with_schema(snapshot.input_schema()),
-            read_operation_id,
-        })
+            scan_config,
+        }
     }
 
     fn provider_for(
@@ -649,11 +648,6 @@ impl SelectedFileScanFactory {
     ) -> Result<DeltaScanNext, DeltaTableError> {
         let provider = DeltaScanNext::new(self.snapshot.clone(), self.scan_config.clone())?
             .with_log_store(self.log_store.clone());
-        let provider = if let Some(operation_id) = self.read_operation_id {
-            provider.with_operation_id(operation_id)
-        } else {
-            provider
-        };
         Ok(provider.with_adds(adds))
     }
 }
@@ -697,27 +691,24 @@ impl MergePlan {
         };
 
         // Next, initialize the writer
+        // Since we know the total size of the bin, we can set the target file size to None.
+        let target_file_size = if ignore_target_size {
+            None
+        } else {
+            Some(task_parameters.input_parameters.target_size)
+        };
         let writer_config = PartitionWriterConfig::try_new(
             task_parameters.file_schema.clone(),
             partition_values.clone(),
-            Some(task_parameters.writer_properties.clone()),
-            // Since we know the total size of the bin, we can set the target file size to None.
-            if ignore_target_size {
-                None
-            } else {
-                Some(task_parameters.input_parameters.target_size)
-            },
-            None,
+            task_parameters
+                .writer_properties
+                .clone()
+                .with_target_file_size(target_file_size),
             None,
             None,
         )?
         .with_upload_budget(task_parameters.upload_budget.clone());
-        let mut writer = PartitionWriter::try_with_config(
-            object_store,
-            writer_config,
-            task_parameters.num_indexed_cols,
-            task_parameters.stats_columns.clone(),
-        )?;
+        let mut writer = PartitionWriter::try_with_config(object_store, writer_config)?;
 
         let mut read_stream = read_stream.await?;
 
@@ -826,30 +817,39 @@ impl MergePlan {
         max_concurrent_tasks: usize,
         min_commit_interval: Option<Duration>,
         commit_properties: CommitProperties,
-        operation_id: Uuid,
-        handle: Option<&Arc<dyn CustomExecuteHandler>>,
     ) -> Result<Metrics, DeltaTableError> {
         let operations = std::mem::take(&mut self.operations);
+        // Every commit depends on all files in the plan, so a file removed concurrently before
+        // a later commit is still detected when there are multiple commits
+        let read_files: Arc<[Add]> = match &operations {
+            OptimizeOperations::Compact(bins) => bins
+                .values()
+                .flat_map(|(_, bins)| bins.iter().flat_map(MergeBin::iter))
+                .cloned()
+                .collect(),
+            OptimizeOperations::ZOrder(_, bins) => bins
+                .values()
+                .flat_map(|(_, bin)| bin.iter())
+                .cloned()
+                .collect(),
+        };
         let read_session = self.read_session.clone();
         info!("starting optimize execution");
-        let object_store = log_store.object_store(Some(operation_id));
-        update_datafusion_session(
-            read_session.as_ref(),
-            log_store.as_ref(),
-            Some(operation_id),
-        )?;
+        let object_store = log_store.object_store();
+        // `OptimizeBuilder` registers the parent store before it opens the write scope, so this
+        // only registers a store for callers that run a plan directly with an unscoped store.
+        update_datafusion_session(read_session.as_ref(), log_store.as_ref())?;
 
         let mut stream = match operations {
             OptimizeOperations::Compact(bins) => {
                 let read_context = Arc::new(SessionContext::new_with_state(
                     read_session.as_ref().clone(),
                 ));
-                let scan_factory = SelectedFileScanFactory::try_new(
+                let scan_factory = SelectedFileScanFactory::new(
                     snapshot,
                     log_store.clone(),
-                    read_session.as_ref(),
-                    Some(operation_id),
-                )?;
+                    self.scan_config.clone(),
+                );
                 let task_parameters = self.task_parameters.clone();
 
                 futures::stream::iter(bins)
@@ -897,12 +897,11 @@ impl MergePlan {
                     object_store,
                 )?);
                 let task_parameters = self.task_parameters.clone();
-                let scan_factory = SelectedFileScanFactory::try_new(
+                let scan_factory = SelectedFileScanFactory::new(
                     snapshot,
                     log_store.clone(),
-                    read_session.as_ref(),
-                    Some(operation_id),
-                )?;
+                    self.scan_config.clone(),
+                );
 
                 // For each rewrite evaluate the predicate and then modify each expression
                 // to either compute the new value or obtain the old one then write these batches
@@ -918,7 +917,7 @@ impl MergePlan {
                             task_parameters.clone(),
                             partition,
                             files,
-                            log_store.object_store(Some(operation_id)),
+                            log_store.object_store(),
                             batch_stream,
                             false,
                         ));
@@ -985,8 +984,7 @@ impl MergePlan {
 
                 let commit = CommitBuilder::from(properties)
                     .with_actions(actions)
-                    .with_operation_id(operation_id)
-                    .with_post_commit_hook_handler(handle.cloned())
+                    .with_read_files(read_files.clone())
                     .with_max_retries(DEFAULT_RETRIES + commits_made)
                     .build(
                         Some(&snapshot),
@@ -1024,11 +1022,15 @@ pub async fn create_merge_plan(
     snapshot: &EagerSnapshot,
     filters: &[FilterLiteral<'_>],
     target_size: Option<NonZeroU64>,
-    writer_properties: WriterProperties,
+    writer_properties: DeltaWriterProperties,
     session: SessionState,
 ) -> Result<MergePlan, DeltaTableError> {
     let target_size = target_size.unwrap_or_else(|| snapshot.table_properties().target_file_size());
     let _ = optimize_target_size_to_i64(target_size)?;
+    // Compacted files are written rarely and read often, so unset parquet
+    // properties fall back to ZSTD(4) rather than the SNAPPY default.
+    let writer_properties =
+        writer_properties.apply_parquet_default(|| Ok(OPTIMIZE_PARQUET_PROPERTIES.clone()))?;
     let partitions_keys = snapshot.metadata().partition_columns();
 
     let (operations, metrics, planner_stats) = match optimize_type {
@@ -1063,8 +1065,10 @@ pub async fn create_merge_plan(
         target_size,
         predicate: serde_json::to_string(&rendered_filters).ok(),
     };
+    // Write the types the rewrite scan produces (e.g. view types), so batches need no cast
+    let scan_config = DeltaScanConfig::new_from_session(&session);
     let file_schema = arrow_schema_without_partitions(
-        &Arc::new(snapshot.schema().as_ref().try_into_arrow()?),
+        &scan_config.table_schema(snapshot.table_configuration())?,
         partitions_keys,
     );
 
@@ -1074,18 +1078,13 @@ pub async fn create_merge_plan(
         planner_stats,
         task_parameters: Arc::new(MergeTaskParameters {
             file_schema,
-            writer_properties,
+            writer_properties: writer_properties.apply_table_stats(snapshot.table_configuration()),
             input_parameters,
-            num_indexed_cols: snapshot.table_properties().num_indexed_cols(),
-            stats_columns: snapshot
-                .table_properties()
-                .data_skipping_stats_columns
-                .as_ref()
-                .map(|v| v.iter().map(|v| v.to_string()).collect::<Vec<String>>()),
             upload_budget,
         }),
         read_table_version: snapshot.version(),
         read_session: Arc::new(session),
+        scan_config,
     })
 }
 
@@ -1533,8 +1532,9 @@ pub(super) mod zorder {
 
     use arrow::buffer::{Buffer, OffsetBuffer, ScalarBuffer};
     use arrow_array::{Array, ArrayRef, BinaryArray};
-    use arrow_buffer::bit_util::{get_bit_raw, set_bit_raw, unset_bit_raw};
-    use arrow_row::{Row, RowConverter, SortField};
+    use arrow_buffer::bit_iterator::BitIndexIterator;
+    use arrow_buffer::bit_util::set_bit_raw;
+    use arrow_row::{RowConverter, SortField};
     use arrow_schema::ArrowError;
     // use arrow_schema::Schema as ArrowSchema;
 
@@ -1909,6 +1909,7 @@ pub(super) mod zorder {
     ///   when interleaving.
     /// * `num_columns` - The number of columns in the input array. Used to
     ///   determine offset when interleaving.
+    /// * `out` - The zero-initialized output buffer. Only set bits are written.
     fn set_bits_for_column(
         input: ArrayRef,
         col_pos: usize,
@@ -1922,8 +1923,9 @@ pub(super) mod zorder {
         for (row_i, row) in rows.iter().enumerate() {
             // How many bytes to get to this row's out position
             let row_offset = row_i * num_columns * 16;
-            for bit_i in 0..128 {
-                let bit = row.get_bit(bit_i);
+            let bytes = row.as_ref();
+            let prefix_bits = bytes.len().min(16) * 8;
+            for bit_i in BitIndexIterator::new(bytes, 0, prefix_bits) {
                 // Position of bit within the value. We place a value every
                 // `num_columns` bits, offset by `col_pos` when interleaving.
                 // So if there are 3 columns, and we are the second column, then
@@ -1931,32 +1933,11 @@ pub(super) mod zorder {
                 let bit_pos = (bit_i * num_columns) + col_pos;
                 let out_pos = (row_offset * 8) + bit_pos;
                 // Safety: we pre-sized the output vector in the outer function
-                if bit {
-                    unsafe { set_bit_raw(out.as_mut_ptr(), out_pos) };
-                } else {
-                    unsafe { unset_bit_raw(out.as_mut_ptr(), out_pos) };
-                }
+                unsafe { set_bit_raw(out.as_mut_ptr(), out_pos) };
             }
         }
 
         Ok(())
-    }
-
-    trait RowBitUtil {
-        fn get_bit(&self, bit_i: usize) -> bool;
-    }
-
-    impl RowBitUtil for Row<'_> {
-        /// Get the bit at the given index, or just give false if the index is out of bounds
-        fn get_bit(&self, bit_i: usize) -> bool {
-            let byte_i = bit_i / 8;
-            let bytes = self.as_ref();
-            if byte_i >= bytes.len() {
-                return false;
-            }
-            // Safety: we just did a bounds check above
-            unsafe { get_bit_raw(bytes.as_ptr(), bit_i) }
-        }
     }
 
     #[cfg(test)]
@@ -2009,6 +1990,18 @@ pub(super) mod zorder {
             let data: &BinaryArray = as_generic_binary_array(result.as_ref());
             assert_eq!(data.value_data().len(), 3 * 16 * 3);
             assert!(data.iter().all(|x| x.unwrap().len() == 3 * 16));
+            // Pins bit order, column interleaving and the 16-byte prefix.
+            assert_eq!(
+                data.value_data(),
+                &[
+                    28, 0, 0, 133, 128, 13, 130, 0, 9, 128, 4, 9, 128, 32, 9, 2, 0, 9, 130, 4, 1,
+                    16, 32, 9, 18, 32, 9, 147, 36, 73, 16, 36, 1, 0, 0, 1, 2, 0, 8, 0, 0, 1, 144,
+                    4, 9, 2, 0, 9, 28, 0, 0, 26, 129, 13, 2, 0, 9, 128, 32, 9, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                ]
+            );
         }
 
         #[tokio::test]

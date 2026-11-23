@@ -13,8 +13,6 @@ DEFAULT_REPORT_DIRECTORY = Path("./schemathesis-report")
 
 
 class ReportFormat(StrEnum):
-    """Available report formats."""
-
     JUNIT = "junit"
     VCR = "vcr"
     HAR = "har"
@@ -41,7 +39,6 @@ class ReportFormat(StrEnum):
 
     @property
     def extension(self) -> str:
-        """File extension for this format."""
         return {
             self.JUNIT: "xml",
             self.VCR: "yaml",
@@ -50,7 +47,7 @@ class ReportFormat(StrEnum):
             self.JSON: "json",
             self.WFC: "json",
             self.PYTEST: "py",
-            # directory output — no file extension
+            # Directory output, no file extension
             self.ALLURE: "",
             self.HTML: "",
         }[self]
@@ -169,7 +166,8 @@ class ReportsConfig(DiffBase):
             if path is not None or report_format in formats:
                 report = self.get(report_format)
                 report.enabled = True
-                report.path = Path(path) if path is not None else None
+                if path is not None:
+                    report.path = Path(path)
         if directory != DEFAULT_REPORT_DIRECTORY:
             self.directory = directory
         if preserve_bytes:
@@ -194,11 +192,9 @@ class ReportsConfig(DiffBase):
         return self.directory / f"{format.value}-{self._timestamp}.{format.extension}"
 
     def get_stable_path(self, format: ReportFormat, suffix: str | None = None) -> Path:
-        """Get a stable, timestamp-free path for cross-process transport.
+        """Timestamp-free path, so all xdist workers produce identical paths whenever they start.
 
-        Unlike get_path(), this omits the timestamp so all workers in an xdist
-        run produce identical paths regardless of when they start.
-        If `suffix` is given it is inserted before the extension (e.g. ``cassette-abc12345.yaml``).
+        `suffix` goes before the extension, e.g. ``cassette-abc12345.yaml``.
         """
         report = self.get(format)
         if report.path is not None:

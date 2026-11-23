@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -100,6 +101,11 @@ class SanitizationConfig(DiffBase):
     def update(self, *, enabled: bool | None = None) -> None:
         self._apply(enabled=enabled)
 
+    def add_keys(self, keys: Iterable[str]) -> None:
+        """Sanitize `keys` as well, matched case-insensitively like the configured ones."""
+        added = [key for key in dict.fromkeys(key.lower() for key in keys) if key not in self.keys_to_sanitize]
+        self.keys_to_sanitize = (*self.keys_to_sanitize, *added)
+
 
 MAX_PAYLOAD_SIZE = 512
 MAX_LINES = 10
@@ -115,8 +121,7 @@ class TruncationConfig(DiffBase):
     max_payload_size: int
     max_lines: int
     max_width: int
-    # Bytes of a response body kept for reports; `0` keeps whole bodies. Independent of `enabled`,
-    # which only governs terminal display.
+    # Bytes of a response body kept for reports; `0` keeps whole bodies. `enabled` only governs terminal display.
     max_recorded_payload_size: int
 
     def __init__(

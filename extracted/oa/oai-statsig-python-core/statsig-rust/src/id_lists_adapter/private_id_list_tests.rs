@@ -1,9 +1,8 @@
 use super::*;
 use crate::id_lists_adapter::{
-    IdList, IdListEncoding, IdListMetadata, IdListUpdate, IdListsUpdateListener, SharedIdListStore,
+    IdList, IdListEncoding, IdListMetadata, IdListUpdate, IdListsUpdateListener,
 };
-use crate::sdk_event_emitter::SdkEventEmitter;
-use crate::{SpecStore, Statsig, StatsigOptions, StatsigRuntime};
+use crate::{Statsig, StatsigOptions};
 
 fn metadata() -> IdListMetadata {
     IdListMetadata {
@@ -26,11 +25,7 @@ fn append(list: &mut IdList, body: &str) {
 }
 
 fn image(ids: &IdListIds) -> &Arc<IdListImage> {
-    match &ids.storage {
-        Storage::Image(image) => image,
-        Storage::Pending(p) => image(&p.base),
-        _ => panic!("expected an immutable base"),
-    }
+    ids.base_image().expect("expected an immutable base")
 }
 
 impl IdListIds {
@@ -114,11 +109,18 @@ fn rank_changes(sign: char, ranks: impl IntoIterator<Item = u64>) -> String {
 // Stage the same edits without finishing the private batch, so an unexpected
 // fallback cannot pass solely by producing the same final image.
 fn try_merge_batch(mut list: IdList, changes: &str) -> Option<IdListImage> {
-    list.apply_update_for_publish(update(changes));
+    let ids = Arc::make_mut(&mut list.ids);
+    for record in changes.lines() {
+        ids.set(
+            &record[1..],
+            record.starts_with('+'),
+            CompactionPolicy::Batch,
+        );
+    }
     let pending = list.ids.pending().unwrap();
     assert!(pending.requires_full_base);
     assert!(pending.changes.other.is_empty());
-    image(&pending.base).try_merge_heap(
+    pending.base.try_merge_heap(
         &list.metadata.name,
         list.ids.len(),
         pending.changes.inline.iter().map(|(key, &op)| (key, op)),
@@ -321,7 +323,7 @@ async fn coexisting_sdk_instances_use_their_own_private_id_list_format() {
 
     for (flag, sdk) in &instances {
         let store = sdk.get_context().spec_store;
-        let enabled = flag.unwrap_or(false);
+        let enabled = flag.unwrap_or(true);
         assert_eq!(store.requires_blocking_id_list_publication(), enabled);
         store.did_receive_id_list_updates(HashMap::from([(
             "members".into(),
@@ -332,55 +334,4 @@ async fn coexisting_sdk_instances_use_their_own_private_id_list_format() {
         assert!(ids.contains("AAAAAAAA"));
         ids.assert_private_format(enabled);
     }
-}
-
-#[tokio::test]
-async fn shared_publication_falls_back_to_the_instances_private_format() {
-    for shared_elias_fano in [false, true] {
-        check_shared_fallback(shared_elias_fano);
-    }
-}
-
-fn check_shared_fallback(shared_elias_fano: bool) {
-    let store = SpecStore::new(
-        "private-policy",
-        String::new(),
-        StatsigRuntime::get_runtime(),
-        Arc::new(SdkEventEmitter::default()),
-        Some(&StatsigOptions {
-            enable_id_list_elias_fano: Some(true),
-            ..Default::default()
-        }),
-    );
-    let mut staged = IdList::new(metadata());
-    staged.apply_update_for_publish(update("+AAAAAAAA\n"));
-    assert!(staged.ids.owned_capacities_for_test().is_some());
-    let dir = tempfile::tempdir().unwrap();
-    let writer =
-        SharedIdListStore::new(dir.path(), "private-policy", "source", shared_elias_fano).unwrap();
-    let lease = writer.try_acquire_lease().unwrap().unwrap();
-    let catalog = writer
-        .publish(
-            &lease,
-            &HashMap::from([("members".into(), staged)]),
-            &HashMap::new(),
-            1,
-        )
-        .unwrap();
-    let shared = catalog.lists["members"].clone();
-    assert!(shared.ids.is_mapped());
-    assert_eq!(shared.ids.has_compact_base(), shared_elias_fano);
-    store
-        .did_receive_id_list_snapshot(catalog.lists, catalog.propagation)
-        .unwrap();
-    assert!(store.load_data().id_lists["members"].ids.is_mapped());
-
-    // Private HTTP fallback resumes at the installed shared cursor.
-    store.did_receive_id_list_updates(HashMap::from([("members".into(), update("+BBBBBBBB\n"))]));
-    let snapshot = store.load_data();
-    let private = &snapshot.id_lists["members"];
-    assert_eq!(private.metadata.size, shared.metadata.size + 10);
-    assert!(private.ids.has_compact_base() && private.ids.mapped_bytes() == 0);
-    assert!(private.ids.contains("AAAAAAAA") && private.ids.contains("BBBBBBBB"));
-    assert!(!shared.ids.contains("BBBBBBBB"));
 }

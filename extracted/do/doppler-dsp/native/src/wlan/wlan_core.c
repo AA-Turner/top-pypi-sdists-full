@@ -230,6 +230,23 @@ dp_wlan_bcc (dp_wlan_code_t code, conv_code_t *c)
 
 /* ── The object ──────────────────────────────────────────────────────── */
 
+/* The window ceiling, declared once: the modulator takes no window longer
+   than an OFDM symbol of its class, and the shortest is the SIGNAL and Data
+   symbol of 80 * M samples. dp_wlan_params_why() and dp_wlan_layout() both
+   ask it. */
+static int
+wlan_window_ok (uint32_t window, uint32_t oversample)
+{
+  return window <= WLAN_SYM_LEN * oversample;
+}
+
+uint32_t
+dp_wlan_window_resolve (uint32_t window, uint32_t oversample)
+{
+  return window == WLAN_WINDOW_STANDARD ? dp_wlan_window_standard (oversample)
+                                        : window;
+}
+
 const char *
 dp_wlan_params_why (int constellation, int code_rate, uint32_t window,
                     uint32_t oversample)
@@ -240,27 +257,33 @@ dp_wlan_params_why (int constellation, int code_rate, uint32_t window,
     return "code_rate must be 0 to 3";
   if (oversample < 1 || oversample > WLAN_OVERSAMPLE_MAX)
     return "oversample must be 1 to 128";
-  if (window > WLAN_SYM_LEN * oversample)
+  if (!wlan_window_ok (dp_wlan_window_resolve (window, oversample),
+                       oversample))
     return "window must be 0 to 80 * oversample";
   return NULL;
+}
+
+unsigned
+dp_wlan_n_bpsc (int constellation)
+{
+  static const unsigned bpsc[4] = { 1, 2, 4, 6 };
+  return constellation >= 0 && constellation <= 3 ? bpsc[constellation] : 0u;
 }
 
 dp_wlan_state_t *
 dp_wlan_create (int constellation, int code_rate, uint32_t window,
                 uint32_t oversample)
 {
-  static const unsigned bpsc[4] = { 1, 2, 4, 6 };
   if (dp_wlan_params_why (constellation, code_rate, window, oversample))
     return NULL;
-  const dp_wlan_rate_t r = { bpsc[constellation], (dp_wlan_code_t)code_rate };
-  if (!dp_wlan_rate_ok (&r))
-    return NULL;
+  const dp_wlan_rate_t r
+      = { dp_wlan_n_bpsc (constellation), (dp_wlan_code_t)code_rate };
   dp_wlan_state_t *s = dp_xcalloc (1, sizeof *s);
   s->n_bpsc          = r.n_bpsc;
   s->code            = (uint32_t)code_rate;
   s->n_cbps          = dp_wlan_n_cbps (&r);
   s->n_dbps          = dp_wlan_n_dbps (&r);
-  s->window          = window;
+  s->window          = dp_wlan_window_resolve (window, oversample);
   s->oversample      = oversample;
   unsigned mbps      = 0;
   s->rate_mbps
@@ -300,7 +323,7 @@ dp_wlan_n_sym (const dp_wlan_state_t *state, size_t psdu_len)
 }
 
 size_t
-dp_wlan_ppdu_why_max_out (const dp_wlan_state_t *state, size_t n_in)
+dp_wlan_ppdu_max_out (const dp_wlan_state_t *state, size_t n_in)
 {
   const size_t n_sym = dp_wlan_n_sym (state, n_in);
   return n_sym && state->rate_mbps
@@ -313,7 +336,7 @@ dp_wlan_ppdu_why (dp_wlan_state_t *state, const uint8_t *in, size_t n_in,
                   uint32_t scrambler_state, float _Complex *out,
                   size_t max_out, const char **why)
 {
-  const size_t n        = dp_wlan_ppdu_why_max_out (state, n_in);
+  const size_t n        = dp_wlan_ppdu_max_out (state, n_in);
   const char  *sentence = NULL;
   if (state->rate_mbps == 0)
     sentence = "this rate has no SIGNAL RATE bits (Table 17-6 lists eight of "
@@ -648,7 +671,8 @@ dp_wlan_layout (dp_ofdm_state_t *o, const dp_wlan_tables_t *t, size_t n_sym,
 {
   if (!t || !t->stf || !t->ltf || t->scale_stf <= 0.0 || t->scale_ltf <= 0.0
       || t->scale_data <= 0.0 || n_sym == 0 || n_sym > WLAN_N_SYM_MAX
-      || oversample < 1 || oversample > WLAN_OVERSAMPLE_MAX)
+      || oversample < 1 || oversample > WLAN_OVERSAMPLE_MAX
+      || !wlan_window_ok (window, oversample))
     return -1;
   const uint32_t       m        = oversample;
   const uint32_t       n_fft    = WLAN_N_FFT * m;

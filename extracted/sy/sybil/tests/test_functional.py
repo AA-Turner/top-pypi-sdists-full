@@ -1,11 +1,14 @@
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from pytest import CaptureFixture
 from testfixtures import Replacer, compare, not_there
 
 from sybil import Sybil
+from sybil.document import Document, NamespacePackageDocument, PythonDocStringDocument
 from sybil.parsers.rest import PythonCodeBlockParser, DocTestParser
 from sybil.python import import_cleanup
 from .helpers import (
@@ -18,6 +21,7 @@ from .helpers import (
     write_doctest,
     functional_sample,
     clone_functional_sample,
+    add_to_python_path,
     check_path,
     sample_path,
 )
@@ -138,6 +142,49 @@ def test_pytest_output_immune_to_color_env(capsys: CaptureFixture[str]):
         replace.in_environ('FORCE_COLOR', '3')
         results = run_pytest(capsys, functional_sample('pytest'))
     results.out.assert_not_present('\x1b[')
+
+
+@pytest.mark.parametrize(
+    'statement, message, show_context',
+    [
+        ('undefined_two', "NameError: name 'undefined_two' is not defined", True),
+        ('raise ValueError("outer") from error', 'ValueError: outer', True),
+        ('raise ValueError("outer") from None', 'ValueError: outer', False),
+    ],
+)
+def test_pytest_chained_exception(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    statement: str,
+    message: str,
+    show_context: bool,
+):
+    write_config(tmp_path, PYTEST, parsers='[PythonCodeBlockParser()]', pattern="'*.rst'")
+    path = tmp_path / 'example.rst'
+    path.write_text(
+        '.. code-block:: python\n\n'
+        '    try:\n'
+        '        undefined_one\n'
+        '    except NameError as error:\n'
+        f'        {statement}\n\n'
+        '.. code-block:: python\n\n'
+        '    assert 2 + 2 == 4\n',
+        encoding='utf-8',
+    )
+    results = run_pytest(capsys, path)
+    assert results.return_code == 1
+    assert results.failures == 1
+    assert results.total == 2
+    out = results.out
+    out.assert_present(message)
+    out.assert_present('example.rst:6')
+    out.assert_not_present('INTERNALERROR')
+    out.assert_not_present('sybil/example.py')
+    context = "NameError: name 'undefined_one' is not defined"
+    if show_context:
+        out.assert_present(context)
+    else:
+        out.assert_not_present(context)
 
 
 def test_unittest(capsys: CaptureFixture[str]):
@@ -390,6 +437,81 @@ def test_package_and_docs(tmp_path: Path, capsys: CaptureFixture[str], runner: s
     results.out.then_find('good')
     results.out.then_find('Got:')
     results.out.then_find('bad')
+
+
+@dataclass(kw_only=True)
+class NamespaceCase:
+    sample: str
+    python_path: str
+    document_type: type[Document]
+    total: int
+    # Keyed by runner, as pytest and unittest don't report problems the same way:
+    failures: dict[str, int] = field(default_factory=dict)
+    errors: dict[str, int] = field(default_factory=dict)
+    find: Optional[str] = None
+
+
+@pytest.mark.parametrize('runner', [PYTEST, UNITTEST])
+@pytest.mark.parametrize(
+    'case',
+    [
+        NamespaceCase(
+            sample='namespace_package',
+            python_path='src',
+            document_type=NamespacePackageDocument,
+            total=4,
+        ),
+        NamespaceCase(
+            sample='not_namespace_package',
+            python_path='.',
+            document_type=NamespacePackageDocument,
+            total=1,
+        ),
+        # Without opting in, the leading parts of the module's name are missing.
+        # pytest imports `regular` itself, so only module_a fails there:
+        NamespaceCase(
+            sample='namespace_package',
+            python_path='src',
+            document_type=PythonDocStringDocument,
+            total=4,
+            failures={PYTEST: 1},
+            errors={UNITTEST: 4},
+            find="No module named 'module_a'",
+        ),
+        NamespaceCase(
+            sample='not_namespace_package',
+            python_path='.',
+            document_type=PythonDocStringDocument,
+            total=1,
+            failures={PYTEST: 1},
+            errors={UNITTEST: 1},
+            find="No module named 'c'",
+        ),
+    ],
+    ids=lambda case: f'{case.sample}-{case.document_type.__name__}',
+)
+def test_namespace_package(
+    tmp_path: Path, capsys: CaptureFixture[str], runner: str, case: NamespaceCase
+):
+    document_type = case.document_type.__name__
+    root = clone_functional_sample(case.sample, tmp_path)
+    write_config(
+        root,
+        runner,
+        imports=[
+            'from sybil.parsers.rest import DocTestParser',
+            f'from sybil.document import {document_type}',
+        ],
+        patterns="['**/*.py']",
+        document_types=f"{{'.py': {document_type}}}",
+    )
+    with add_to_python_path(root / case.python_path):
+        results = run(capsys, runner, root)
+    assert results.total == case.total, results.out.text
+    assert results.failures == case.failures.get(runner, 0), results.out.text
+    assert results.errors == case.errors.get(runner, 0), results.out.text
+    if case.find:
+        results.out.then_find(case.find)
 
 
 @pytest.mark.parametrize('runner', [PYTEST, UNITTEST])

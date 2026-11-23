@@ -11,6 +11,7 @@ import unicodedata
 from collections.abc import Collection, Iterable, Iterator, Mapping
 from http import HTTPStatus
 from ipaddress import ip_address
+from time import monotonic_ns, sleep
 from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, TypeAlias, TypeVar, cast
 from urllib.parse import unquote, urljoin
 
@@ -22,12 +23,14 @@ from urllib3.exceptions import LocationParseError
 from urllib3.util import Url, parse_url
 from urllib3.util.retry import Retry
 
+from . import tasks
 from .base import LazyObject
-from .const import API_URL, USER_AGENT
+from .const import API_URL, DEFAULT_TASK_TIMEOUT, USER_AGENT
 from .exceptions import (
     WeblateDeniedError,
     WeblateException,
     WeblatePermissionError,
+    WeblateTaskTimeoutError,
     WeblateThrottlingError,
 )
 from .http_debug import log_failure_debug, log_request_debug, log_response_debug
@@ -42,6 +45,8 @@ from .models import (
     Translation,
     Unit,
 )
+from .request_options import validate_request_options, validate_task_timeout
+from .utils import require_url_string
 
 if TYPE_CHECKING:
     from .config import WeblateConfig
@@ -66,6 +71,7 @@ RequestFiles: TypeAlias = Mapping[str, FileSpec]
 WeblateObject: TypeAlias = Project | Component | Translation | Unit
 LazyObjectT = TypeVar("LazyObjectT", bound=LazyObject)
 
+_NS_PER_SECOND = 1_000_000_000
 _OBJECT_PATH_DECODE_LIMIT = 4
 
 
@@ -132,6 +138,8 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
     :param allowed_methods: HTTP methods that may be retried.
     :param backoff_factor: Retry backoff factor passed to urllib3.
     :param timeout: HTTP request timeout in seconds.
+    :param task_timeout: Task wait in seconds, overriding configuration.
+        Zero allows unlimited waiting.
     :param allow_insecure_http: Allow API keys over non-local ``http://`` URLs.
     :param allow_insecure_ssl: Disable TLS certificate verification.
 
@@ -154,6 +162,7 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
         allowed_methods: Collection[str] | None = None,
         backoff_factor: float = 0,
         timeout: int = 300,
+        task_timeout: int | None = None,
         allow_insecure_http: bool = False,
         allow_insecure_ssl: bool = False,
     ) -> None:
@@ -169,6 +178,8 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
         self.allow_insecure_ssl: bool
         if config is not None:
             self.url, self.key = config.get_url_key()
+            if task_timeout is None:
+                task_timeout = config.get_task_timeout()
             (
                 self.retry_total,
                 self.status_forcelist,
@@ -196,6 +207,18 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
             ]
             self.backoff_factor = backoff_factor
 
+        try:
+            self.task_timeout = validate_task_timeout(
+                DEFAULT_TASK_TIMEOUT if task_timeout is None else task_timeout
+            )
+            validate_request_options(
+                self.retry_total,
+                self.status_forcelist,
+                self.backoff_factor,
+                self.timeout,
+            )
+        except ValueError as error:
+            raise WeblateException(str(error)) from None
         self._validate_api_key()
 
         retry_config = Retry(
@@ -282,7 +305,12 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
 
     def normalize_request_url(self, path: str) -> str:
         """Resolve a request path and reject cross-origin targets."""
-        url = self.parse_request_url(urljoin(self.url, path))
+        try:
+            resolved_url = urljoin(self.url, require_url_string(path))
+        except ValueError:
+            msg = "Invalid URL."
+            raise WeblateException(msg) from None
+        url = self.parse_request_url(resolved_url)
         if self.get_origin(url) != self.api_origin:
             msg = "Server returned a URL outside the configured API origin."
             raise WeblateException(msg)
@@ -384,11 +412,37 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
             method, path, data=data, files=files, params=params
         )
 
+        return tasks.response_json(response)
+
+    def wait_for_task(self, task_url: str, *, timeout: int | None = None) -> JSONValue:
+        """Poll a task until completion and return its operation-specific result."""
         try:
-            return response.json()
+            seconds = validate_task_timeout(
+                self.task_timeout if timeout is None else timeout
+            )
         except ValueError as error:
-            msg = "Server returned invalid JSON"
-            raise WeblateException(msg) from error
+            raise WeblateException(str(error)) from None
+        deadline = monotonic_ns() + seconds * _NS_PER_SECOND if seconds else None
+        while deadline is None or monotonic_ns() < deadline:
+            status = self.get(task_url)
+            if not isinstance(status, dict) or not isinstance(
+                status.get("completed"), bool
+            ):
+                msg = "Invalid task status."
+                raise WeblateException(msg)
+            if status["completed"]:
+                if "result" not in status:
+                    msg = "Completed task has no result."
+                    raise WeblateException(msg)
+                return status["result"]
+            if deadline is None:
+                sleep(1)
+            else:
+                remaining = deadline - monotonic_ns()
+                if remaining <= 0:
+                    break
+                sleep(min(remaining, _NS_PER_SECOND) / _NS_PER_SECOND)
+        raise WeblateTaskTimeoutError(task_url)
 
     @staticmethod
     def check_response(response: Response) -> None:
@@ -411,7 +465,7 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
         try:
             path = self.normalize_request_url(path)
         except WeblateException as error:
-            log_failure_debug(method, path, error)
+            log_failure_debug(method, "<rejected URL>", error)
             raise
         headers = {"user-agent": USER_AGENT, "Accept": "application/json"}
         if self.key:

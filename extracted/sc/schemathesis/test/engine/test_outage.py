@@ -14,8 +14,7 @@ from schemathesis.engine.run import PhaseName
 from test.apps.catalog.grpc.descriptors import load
 from test.utils import refusing_url
 
-# Connecting to an unused loopback port times out on Windows instead of being refused, so there is no
-# refusal for the monitor to classify either way.
+# An unused loopback port on Windows times out instead of refusing, leaving no refusal to classify.
 pytestmark = pytest.mark.skipif(platform.system() == "Windows", reason="Unused ports do not refuse connections")
 
 
@@ -48,8 +47,8 @@ def expected_message(operation, cases):
     return f"{operation.base_url} stopped responding. Last {noun} before it went away:\n\n{commands}"
 
 
+# Returns once the monitor tracks the request, which stays in flight until `release` is set.
 def hang(monitor, case, release):
-    """Start a request that stays in flight until `release` is set; returns once the monitor knows about it."""
     entered = threading.Event()
 
     def send():
@@ -74,6 +73,30 @@ def test_outage_lists_the_newest_requests_in_send_order(operation):
     report = monitor.take_report(PhaseName.FUZZING)
     assert (report.label, report.related_to_operation, report.info.title) == (SERVER_LABEL, False, "Server Unavailable")
     assert report.info.message == expected_message(operation, list(reversed(cases))[:REPORTED_REQUESTS])
+
+
+@pytest.mark.parametrize(
+    ("sanitization", "credentials"),
+    [({}, "[Filtered]"), ({"enabled": False}, "user:secret")],
+    ids=["sanitized", "sanitization-disabled"],
+)
+def test_outage_masks_credentials_in_the_server_address(ctx, sanitization, credentials):
+    schema = ctx.openapi.load_schema(
+        {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        config=schemathesis.Config.from_dict({"output": {"sanitization": sanitization}}),
+    )
+    with refusing_url() as url:
+        base_url = url.replace("http://", "http://user:secret@")
+        schema.config.update(base_url=base_url)
+        case = schema["/users"]["GET"].Case()
+        monitor = ServerMonitor()
+        monitor.track(case, lambda: answer(case), transport_kwargs={})
+
+        assert monitor.is_down(refusal(base_url))
+        assert monitor.take_report(PhaseName.FUZZING).info.message == (
+            f"{url.replace('http://', f'http://{credentials}@')} stopped responding. "
+            f"Last request before it went away:\n\n    {case.as_curl_command(headers={}, verify=True)}"
+        )
 
 
 def test_outage_lists_a_request_sent_several_times_once(operation):
@@ -259,8 +282,7 @@ def test_grpc_server_that_stops_is_an_outage(ctx, app_runner, tls, proxied):
 
     assert monitor.is_down(exc_info.value)
     info = monitor.take_report(PhaseName.FUZZING).info
-    # The cached channel may send the second call before it sees the closed connection, and a port proxy resets the
-    # call instead of refusing it; a call cut off or reset is listed as the culprit, so no tip about older requests.
+    # A cached channel or a port proxy can cut off or reset the call; that call is the culprit, so no tip follows.
     tip = (
         # HAR reports do not record gRPC calls.
         "If the server crashed, the request that caused it may be older than these."
@@ -279,7 +301,6 @@ def grpc_operation(server, **config):
 
 
 def answered_then_crash(ctx, how="exit"):
-    """A crashing server that answered one call, and the call that brings it down."""
     server = ctx.grpc.apps.crashing_users(how)
     operation = grpc_operation(server)
     answered = operation.Case(body={"userId": 7})

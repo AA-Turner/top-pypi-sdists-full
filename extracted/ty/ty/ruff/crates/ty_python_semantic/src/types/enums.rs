@@ -1,3 +1,5 @@
+use std::hash::BuildHasherDefault;
+
 use crate::ProgramEnvironment;
 use compact_str::ToCompactString;
 use ruff_db::parsed::parsed_module;
@@ -7,7 +9,7 @@ use smallvec::SmallVec;
 
 use crate::FxOrderSet;
 use crate::{
-    Db, FxIndexMap,
+    Db, FxIndexMap, FxOrderMap,
     place::{
         DefinedPlace, Place, PlaceAndQualifiers, place_from_bindings, place_from_declarations,
     },
@@ -304,7 +306,7 @@ pub struct EnumClassLiteral<'db> {
     #[returns(copy)]
     pub(crate) class_literal: ClassLiteral<'db>,
     #[returns(ref)]
-    pub(crate) members: Box<[(Name, Type<'db>)]>,
+    pub(crate) members: FxOrderMap<Name, Type<'db>>,
     #[returns(ref)]
     pub(crate) aliases: Box<[(Name, Name)]>,
     /// Whether the canonical member and alias sets are known exactly.
@@ -327,22 +329,18 @@ impl<'db> ClassLiteral<'db> {
     }
 }
 
-#[salsa::tracked(returns(copy), cycle_initial=|_, _, _| None, heap_size=ruff_memory_usage::heap_size)]
+#[salsa::tracked(returns(copy), cycle_initial=|_, _, _, _| None, heap_size=ruff_memory_usage::heap_size)]
 fn enum_class_literal<'db>(
     db: &'db dyn Db,
     class: ClassLiteral<'db>,
 ) -> Option<EnumClassLiteral<'db>> {
     let env = ProgramEnvironment::from_file(class.program_file(db));
     let metadata = enum_metadata(db, class)?;
-    let members = metadata
-        .members
-        .keys()
-        .map(|name| {
-            metadata
-                .value_type(db, &env, name)
-                .map(|ty| (name.clone(), ty))
-        })
-        .collect::<Option<Box<[_]>>>()?;
+    let mut members =
+        FxOrderMap::with_capacity_and_hasher(metadata.members.len(), BuildHasherDefault::default());
+    for name in metadata.members.keys() {
+        members.insert(name.clone(), metadata.value_type(db, &env, name)?);
+    }
     let mut aliases: Vec<_> = metadata
         .aliases
         .iter()
@@ -372,12 +370,16 @@ impl<'db> EnumClassLiteral<'db> {
     }
 
     pub(crate) fn member_names(self, db: &'db dyn Db) -> impl Iterator<Item = &'db Name> {
-        self.members(db).iter().map(|(name, _)| name)
+        self.members(db).keys()
     }
 
-    fn resolve_member_entry(self, db: &'db dyn Db, name: &Name) -> Option<&'db (Name, Type<'db>)> {
+    fn resolve_member_entry(
+        self,
+        db: &'db dyn Db,
+        name: &Name,
+    ) -> Option<(&'db Name, &'db Type<'db>)> {
         let members = self.members(db);
-        if let Some(member) = members.iter().find(|(member, _)| member == name) {
+        if let Some(member) = members.get_key_value(name) {
             return Some(member);
         }
 
@@ -386,7 +388,7 @@ impl<'db> EnumClassLiteral<'db> {
             .binary_search_by(|(alias, _)| alias.cmp(name))
             .ok()?;
         let canonical_name = &aliases[alias_index].1;
-        members.iter().find(|(member, _)| member == canonical_name)
+        members.get_key_value(canonical_name)
     }
 
     pub(crate) fn resolve_member(self, db: &'db dyn Db, name: &Name) -> Option<&'db Name> {
@@ -1004,7 +1006,7 @@ fn try_register_alias<'db>(
 }
 
 /// List all members of an enum.
-#[salsa::tracked(returns(as_ref), cycle_initial=|_, _, _| Some(EnumMetadata::empty()), heap_size=ruff_memory_usage::heap_size)]
+#[salsa::tracked(returns(as_ref), cycle_initial=|_, _, _, _| Some(EnumMetadata::empty()), heap_size=ruff_memory_usage::heap_size)]
 pub(crate) fn enum_metadata<'db>(
     db: &'db dyn Db,
     class: ClassLiteral<'db>,
@@ -1126,6 +1128,7 @@ pub(crate) fn enum_metadata<'db>(
         metaclass_may_transform_values,
     };
 
+    let vendored_stdlib = env.program(db).custom_stdlib_search_path(db).is_none();
     let mut aliases = FxHashMap::default();
 
     let mut members = use_def_map
@@ -1160,6 +1163,11 @@ pub(crate) fn enum_metadata<'db>(
                         Type::Callable(_) | Type::FunctionLiteral(_) => {
                             // Some types are specifically disallowed for enum members.
                             return None;
+                        }
+                        // In the bundled stubs, int, bool, str and bytes have no `__get__`.
+                        // Enum members and types from custom stubs can be descriptors.
+                        Type::LiteralValue(literal) if vendored_stdlib && !literal.is_enum() => {
+                            Some(ty)
                         }
                         Type::NominalInstance(instance) => match instance.known_class(db) {
                             // enum.nonmember

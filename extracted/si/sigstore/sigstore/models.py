@@ -22,7 +22,7 @@ import base64
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
@@ -63,7 +63,7 @@ from sigstore._internal.trust import (
 )
 from sigstore._internal.tuf import DEFAULT_TUF_URL, STAGING_TUF_URL, TrustUpdater
 from sigstore._utils import KeyID, cert_is_leaf, cert_is_root_ca, is_timerange_valid
-from sigstore.errors import Error, MetadataError, TUFError, VerificationError
+from sigstore.errors import Error, MetadataError, VerificationError
 
 # Versions supported by this client
 REKOR_VERSIONS = [1, 2]
@@ -349,7 +349,7 @@ class Bundle:
     Represents a Sigstore bundle.
     """
 
-    class BundleType(str, Enum):
+    class BundleType(StrEnum):
         """
         Known Sigstore bundle media types.
         """
@@ -637,7 +637,7 @@ class SigningConfig:
     Signing configuration for a Sigstore instance.
     """
 
-    class SigningConfigType(str, Enum):
+    class SigningConfigType(StrEnum):
         """
         Known Sigstore signing config media types.
         """
@@ -795,7 +795,7 @@ class TrustedRoot:
     The cryptographic root(s) of trust for a Sigstore instance.
     """
 
-    class TrustedRootType(str, Enum):
+    class TrustedRootType(StrEnum):
         """
         Known Sigstore trusted root media types.
         """
@@ -905,7 +905,7 @@ class ClientTrustConfig:
     Represents a Sigstore client's trust configuration, including a root of trust.
     """
 
-    class ClientTrustConfigType(str, Enum):
+    class ClientTrustConfigType(StrEnum):
         """
         Known Sigstore client trust config media types.
         """
@@ -965,11 +965,8 @@ class ClientTrustConfig:
         tr_path = updater.get_trusted_root_path()
         inner_tr = trustroot_v1.TrustedRoot.from_json(Path(tr_path).read_bytes())
 
-        try:
-            sc_path = updater.get_signing_config_path()
-            inner_sc = trustroot_v1.SigningConfig.from_json(Path(sc_path).read_bytes())
-        except TUFError as e:
-            raise e
+        sc_path = updater.get_signing_config_path()
+        inner_sc = trustroot_v1.SigningConfig.from_json(Path(sc_path).read_bytes())
 
         return cls(
             trustroot_v1.ClientTrustConfig(

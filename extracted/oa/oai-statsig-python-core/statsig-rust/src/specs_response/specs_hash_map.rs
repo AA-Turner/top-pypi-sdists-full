@@ -625,6 +625,7 @@ impl MmapSpecHandle {
             + usize::from(spec.has_shared_params.is_some())
             + usize::from(spec.is_active.is_some())
             + usize::from(spec.version.is_some())
+            + usize::from(spec.served_version.is_some())
             + usize::from(spec.target_app_ids.is_some())
             + usize::from(spec.forward_all_exposures.is_some())
             + usize::from(spec.fields_used.is_some())
@@ -652,6 +653,9 @@ impl MmapSpecHandle {
         }
         if let Some(value) = spec.version.as_ref() {
             state.serialize_field("version", &value.to_native())?;
+        }
+        if let Some(value) = spec.served_version.as_ref() {
+            state.serialize_field("servedVersion", &value.to_native())?;
         }
         if let Some(values) = spec.target_app_ids.as_ref() {
             state.serialize_field("targetAppIDs", &MmapStrings(values))?;

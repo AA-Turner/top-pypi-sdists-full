@@ -124,7 +124,9 @@ def test_a_name_whose_tokens_differ_is_tallied_as_retokenized() -> None:
 
 
 def test_the_tally_counts_moves_by_input_fields_and_word() -> None:
-    texts = ["Ana Souza PhD", "Bo Lima, PhD", "Ana Souza", "Cy Dias Ph.D."]
+    # 'Phd' after the comma: unlisted, 'PhD' is read by the caps shape's
+    # mixed-case arm and stays a suffix (#1517)
+    texts = ["Ana Souza PhD", "Bo Lima, Phd", "Ana Souza", "Cy Dias Ph.D."]
     names = [(t, None, frozenset({"one"} if i % 2 else {"one", "two"}))
              for i, t in enumerate(texts)]
     specs = ("default", _NO_PHD)
@@ -249,7 +251,7 @@ def test_a_source_holding_none_of_a_group_says_so(
 
 def test_a_group_needs_a_grouped_corpus() -> None:
     with pytest.raises(SystemExit, match="needs a grouped corpus"):
-        cd.local_names("ctgov-officials", ["US"])
+        cd.local_names("fec-individuals", ["US"])
 
 
 def test_local_all_with_a_group_reads_the_grouped_corpora_only(
@@ -274,6 +276,21 @@ def test_a_group_keeps_a_grouped_corpus_s_records_by_its_source_s_key(
     assert cd.group_keys()[source] == "dataset"
     assert cd.local_names(source, ["kz_mazhilis"]) == (["Bo Lima"], {"kz_mazhilis"})
     got = cd.gather(_args(local=[source], group=["pt_parliament"]))
+    assert [t for t, _o, _i in got] == ["Ana Souza"]
+
+
+@pytest.mark.parametrize("source", ["ctgov-officials", "ctgov-contacts"])
+def test_a_group_keeps_a_ctgov_corpus_s_records_by_country(
+        monkeypatch: pytest.MonkeyPatch, source: str) -> None:
+    # A record with no country (a study's sites in several) is in no group.
+    records = [{"name": name, "study": "NCT1", "role": "", "country": country}
+               for name, country in (("Ana Souza", "BR"), ("Bo Lima", "KR"),
+                                     ("Cy Dias", ""))]
+    plant_corpus(monkeypatch, cd.local_corpora, source, records, "2026-11-18", "officials",
+                 {"read_version": importlib.import_module("local_ctgov").CTGOV_READ_VERSION})
+    assert cd.group_keys()[source] == "country"
+    assert cd.local_names(source, ["KR"]) == (["Bo Lima"], {"KR"})
+    got = cd.gather(_args(local=[source], group=["BR"]))
     assert [t for t, _o, _i in got] == ["Ana Souza"]
 
 
@@ -319,6 +336,7 @@ def test_a_pack_choosing_no_language_is_stacked_with_its_tag() -> None:
     assert cd.gap_specs("zh") == ("plain:ZH+zh", "strict:ZH+zh")
     assert cd.gap_specs("tr") == ("plain:TR_AZ+tr", "strict:TR_AZ+tr")
     assert cd.gap_specs("pt-BR") == ("plain:PT_BR", "strict:PT_BR")
+    assert cd.gap_specs("pt-PT") == ("plain:PT_PT", "strict:PT_PT")
     assert cd.gap_specs("vi") == ("plain:VI", "strict:VI")
     # hu.toml holds no reading a parse reads, only exclusions, so the
     # plain side is the default, never an inert plain choice of the tag
@@ -513,6 +531,37 @@ def test_score_rows_counts_agreement_and_fixes_and_breaks_against_the_first() ->
                                                for s, p in zip(specs, per)]}])
     assert lines[-1].split()[:5] == ["ORCID", "XX", "3", "66.67", "66.67"]
     assert lines[-1].split()[5:] == ["[0]", "+0.00", "0/0"]
+
+
+def test_score_rows_drops_a_record_any_configuration_reads_with_a_typed_title() -> None:
+    # #1501: `Dr` typed into the given box is a class of its own, so a
+    # configuration that reads it as the title neither breaks the record
+    # nor is credited with it; every column drops it alike.
+    no_dr = 'expr:Parser(lexicon=Lexicon.default().remove("dr", kind="title"))'
+    rows = [_orcid("Dr Ana Souza", "Dr Ana", "Souza"), _orcid("Ana López", "Ana", "López")]
+    specs = (no_dr, "default")
+    readings = cd._read_chunk([(r["name"], None, specs) for r in rows])[1]
+    listed = cd.local_agreement._title_words(Lexicon.default())
+    scored, per = cd.score_rows(rows, cd.local_agreement.FIELDED[cd.ORCID], readings, listed)
+    assert scored == 1
+    assert [(s.agree, s.fixed, s.broken) for s in per] == [(1, 0, 0), (1, 0, 0)]
+    # The control: with the class off, the default breaks it.
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(cd.local_agreement, "titled", lambda *args: False)
+        scored, per = cd.score_rows(rows, cd.local_agreement.FIELDED[cd.ORCID], readings,
+                                    listed)
+    assert scored == 2 and [(s.agree, s.broken) for s in per] == [(2, 0), (1, 1)]
+    # gaps drops it from both columns the same way, whichever reads the
+    # title: the plain choice listing it and the strict one not is the
+    # direction a strict gap meets.
+    for pair in (specs, specs[::-1]):
+        result = _score([(cd.ORCID, "XX", r) for r in rows], pair)
+        assert result["groups"][f"{cd.ORCID} XX"]["scored"] == 1, pair
+    # Any configuration, not the first or the last alone.
+    three = (no_dr, "default", no_dr)
+    readings = cd._read_chunk([(r["name"], None, three) for r in rows])[1]
+    scored, per = cd.score_rows(rows, cd.local_agreement.FIELDED[cd.ORCID], readings, listed)
+    assert scored == 1
 
 
 def test_score_selects_a_named_group_or_a_languages_countries(

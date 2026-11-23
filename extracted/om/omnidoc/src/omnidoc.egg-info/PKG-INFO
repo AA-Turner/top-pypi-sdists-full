@@ -1,11 +1,14 @@
 Metadata-Version: 2.4
 Name: omnidoc
-Version: 0.1.8
-Summary: OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation in 38 languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/
+Version: 0.1.9
+Summary: OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation of 22 file formats into 200+ languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/
 Project-URL: Homepage, https://omnidoc.top/
 Project-URL: Homepage (China), https://omnidoc.cn/
 Project-URL: Documentation, https://docs.omnidoc.top/
 Project-URL: Download, https://download.omnidoc.top/
+Project-URL: Which OmniDoc is which, https://omnidoc.top/guides/what-is-omnidoc/en/
+Project-URL: HTML dynamic documents, https://omnidoc.top/guides/html-dynamic-documents/en/
+Project-URL: GitHub, https://github.com/omnidocai/omnidoc
 Keywords: omnidoc,document translation,pdf translation,translate pdf,pdf to word,layout preserved,document conversion,content extraction,structured extraction,docx,pptx,latex,mcp,mcp server,claude,cursor,ai office,ai office suite,api client
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -20,7 +23,7 @@ Requires-Dist: pytest>=8; extra == "test"
 
 **One app. One API. Your layout stays exactly where it was.**
 
-Stop re-typing translated PDFs. OmniDoc translates PDF, Word, PowerPoint, LaTeX and 11 more formats into 38 languages and puts every table, formula and footnote back in place. Then it goes further: four free offline editors, interactive documents that publish as web pages, and a built-in MCP server with 40+ tools so Claude, Cursor and other AI assistants create and edit your files for you.
+Stop re-typing translated PDFs. OmniDoc translates PDF, Word, PowerPoint, LaTeX and 18 more formats into more than 200 languages and puts every table, formula and footnote back in place. Then it goes further: four free offline editors, interactive documents that publish as web pages, and a built-in MCP server with 40+ tools so Claude, Cursor and other AI assistants create and edit your files for you.
 
 - **AI office.** One sentence and AI writes the Word report, builds the Excel workbook with formulas that are recalculated and checked, or lays out the PowerPoint deck, then checks its own work.
 - **Any-format conversion.** PDF to editable Word, PDF to HTML with selectable text, PDF to images, UniDoc to Word, PDF and lossless HTML; merge, split and compress PDFs. Offline and free on your own computer.
@@ -29,7 +32,7 @@ Stop re-typing translated PDFs. OmniDoc translates PDF, Word, PowerPoint, LaTeX 
 - **Structured content extraction.** Headings, paragraphs, lists, tables, formulas, headers, footers, footnotes and reading order, read out of PDFs, Word files and scans.
 - **Native AI MCP for every document.** Word, Excel, PowerPoint, PDF, interactive UniDoc pages and Zotero: Claude, Cursor and any MCP app work on your real files, with no API key to paste.
 
-38 languages · 15 file formats · 40+ MCP tools · Offline editing · Windows · macOS · Linux · Web
+200+ languages · 22 file formats · 40+ MCP tools · Offline editing · Windows · macOS · Linux · Web
 
 ```bash
 pip install omnidoc
@@ -118,6 +121,21 @@ Editing and conversion run offline at no cost. Translation and other cloud servi
 ## Pricing
 
 Translation is charged for what is actually delivered, roughly 4 credits per page. The smallest pack is 3,000 credits for ¥9.9 (about 750 pages), and bought credits never expire. The editors and offline conversion are free.
+
+## HTML dynamic documents
+
+Every Office file, rendered as HTML: Word, Excel, PowerPoint, PDF and Markdown open, edit and present in a web engine, export lossless HTML and publish as a link in one click. A UniDoc `.udoc` document is also a web page: interactive charts, animations, flowcharts, tabs and equations sit in the document, it stays interactive after publishing, and it exports to Word, PDF or lossless HTML. More: <https://omnidoc.top/guides/html-dynamic-documents/en/>
+
+## Not to be confused with
+
+This package is the official Python SDK of OmniDoc (至译) at [omnidoc.top](https://omnidoc.top/) and [omnidoc.cn](https://omnidoc.cn/); the official Rust client is [omnidoc on crates.io](https://crates.io/crates/omnidoc). Similar names that are **not** related to OmniDoc:
+
+- **OmniDocBench** ([opendatalab/OmniDocBench](https://github.com/opendatalab/OmniDocBench), PyPI `omnidocbench`): a benchmark for document parsing models (CVPR 2025).
+- **OmniDocs** ([adithya-s-k/OmniDocs](https://github.com/adithya-s-k/OmniDocs), PyPI `omnidocs`): a Python toolkit for visual document processing.
+- `omnidoc-pro`, `omnidoc-sdk`, `omnidoc-rag` and `omnidoc-excel-extractor` on PyPI: packages by other developers.
+- **Omnidoc** ([omnidoc.fr](https://omnidoc.fr/)): a French medical tele-expertise platform.
+
+Full table with sources: <https://omnidoc.top/guides/what-is-omnidoc/en/>
 
 ---
 

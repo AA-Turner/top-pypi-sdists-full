@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runta-sdk
-Version: 0.2.6
+Version: 0.2.7
 Summary: Python SDK for Runta runtime management
 Author: Runta
 License-Expression: MIT
@@ -251,6 +251,9 @@ using the GitHub Contents API and `RUNTA_CONTRACT_TOKEN`. The contract sync chec
 fails if the source cannot be fetched or differs from the committed copy.
 The test job may fall back to raw YAML and then to the checked-in contract when
 the source is unavailable.
+
+Beta APIs such as Containers V2 are included in the internal generated OpenAPI
+HTTP client, but are not exposed through high-level SDK interfaces.
 
 To refresh it locally after changing `runta-api`:
 

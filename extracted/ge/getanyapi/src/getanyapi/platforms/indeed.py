@@ -29,7 +29,7 @@ class IndeedJobsInput(TypedDict, total=False):
     location: NotRequired[str]
     """City, state, zip, or 'remote'."""
     postedLimit: NotRequired[Literal["24h", "week"]]
-    """Only return jobs posted within this window: 24h (past day) or week (past 7 days). Omit for all dates. This can raise your price: a dearer source serves a request that sets it, and you are quoted and charged its price."""
+    """Only return jobs posted within this window: 24h (past day) or week (past 7 days). Omit for all dates."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
@@ -38,10 +38,16 @@ class IndeedJobsInput(TypedDict, total=False):
         list[
             Literal[
                 "admin2Code",
+                "companyDescription",
                 "companyRevenue",
+                "companySize",
+                "companyUrl",
+                "companyWebsite",
                 "discoveredUtc",
                 "expired",
                 "language",
+                "latitude",
+                "longitude",
                 "rating",
                 "reviewCount",
                 "streetAddress",
@@ -174,7 +180,7 @@ class IndeedNamespace:
         Search Indeed job listings by keyword, location, and country, with up to 20
         normalized job records per request.
 
-        Price: $0.00125 per request.
+        Price: $0.00115 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")
@@ -199,7 +205,7 @@ class AsyncIndeedNamespace:
         Search Indeed job listings by keyword, location, and country, with up to 20
         normalized job records per request.
 
-        Price: $0.00125 per request.
+        Price: $0.00115 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")

@@ -1,37 +1,12 @@
-use rustc_hash::FxHashSet;
-
 use squawk_syntax::ast;
 
 use crate::Linter;
 
-pub(crate) fn is_not_valid_int_type(
-    ty: &ast::Type,
-    invalid_type_names: &FxHashSet<&'static str>,
-) -> bool {
-    match ty {
-        ast::Type::ArrayType(array_type) => {
-            if let Some(ty) = array_type.ty() {
-                is_not_valid_int_type(&ty, invalid_type_names)
-            } else {
-                false
-            }
-        }
-        ast::Type::PathType(path_type) => {
-            let Some(ty_name) = path_type
-                .path_ref()
-                .and_then(|x| x.segment())
-                .map(|x| x.text())
-            else {
-                return false;
-            };
-            invalid_type_names.contains(ty_name.as_str())
-        }
-        ast::Type::VarcharType(_) | ast::Type::CharacterType(_) => false,
-        ast::Type::BitType(_) | ast::Type::BitVaryingType(_) => false,
-        ast::Type::DoubleType(_) => false,
-        ast::Type::TimeType(_) | ast::Type::TimestampType(_) => false,
-        ast::Type::IntervalType(_) => false,
-    }
+pub(crate) fn is_not_valid_int_type(ty: &ast::Type, is_invalid_name: fn(&str) -> bool) -> bool {
+    ty.element_type()
+        .and_then(|ty| ty.path_ref())
+        .and_then(|path| path.segment())
+        .is_some_and(|segment| is_invalid_name(&segment.text()))
 }
 
 pub(crate) fn check_not_allowed_types(

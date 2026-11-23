@@ -1,9 +1,12 @@
+from typing import Any
 from unittest import mock
 
 import pytest
 import redis
+import redis.asyncio
 
 import fakeredis
+from fakeredis._clients._setup import _get_args_to_warn
 from test.testtools import pool_get_connection, run_test_if_redispy_ver
 
 
@@ -38,6 +41,16 @@ def test_deprecated_args_no_warnings(warn_mock: mock.MagicMock):
     fakeredis.FakeStrictRedis(host="localhost", port=6390, db=0, version=6)
     warn_mock.assert_not_called()
     fakeredis.FakeAsyncRedis(host="localhost", port=6390, db=0, version=6)
+    warn_mock.assert_not_called()
+
+
+@pytest.mark.fake
+@run_test_if_redispy_ver("gte", "7.2")
+@pytest.mark.parametrize("client_class", [redis.Redis, redis.asyncio.Redis])
+def test_deprecated_args_are_found_in_the_decorator(client_class: type[Any]):
+    # Finding none would forward the deprecated defaults and make every client creation warn (redis-py 8.2 moved them
+    # out of the wrapper's closure into its `_deprecated_args_layers` attribute, see #636).
+    assert {"retry_on_timeout", "lib_name", "lib_version"} <= _get_args_to_warn(client_class.__init__)
 
 
 @pytest.mark.fake
@@ -82,13 +95,24 @@ class TestInitArgs:
     def test_no_real_dns_lookup_on_connect(self):
         # redis-py>=8.0 performs a real socket.getaddrinfo() call during the RESP3 maintenance-notifications handshake.
         # FakeRedis must not make any real network calls. See https://github.com/cunla/fakeredis-py/issues/513
-        def _no_dns(*args, **kwargs):
+        def _no_dns(*args: Any, **kwargs: Any):
             raise AssertionError("FakeRedis attempted a real DNS lookup via socket.getaddrinfo")
 
         with mock.patch("socket.getaddrinfo", _no_dns):
             db = fakeredis.FakeStrictRedis(protocol=3)
             db.set("foo", "bar")
             assert db.get("foo") == b"bar"
+
+    @pytest.mark.asyncio
+    async def test_no_real_dns_lookup_on_connect_async(self):
+        def _no_dns(*args: Any, **kwargs: Any):
+            raise AssertionError("FakeAsyncRedis attempted a real DNS lookup via socket.getaddrinfo")
+
+        with mock.patch("socket.getaddrinfo", _no_dns):
+            db = fakeredis.FakeAsyncRedis(protocol=3)
+            await db.set("foo", "bar")
+            assert await db.get("foo") == b"bar"
+            await db.aclose() if hasattr(db, "aclose") else await db.close()
 
     def test_with_user_password(self):
         username = "fakeredis-user"

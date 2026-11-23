@@ -14,23 +14,21 @@ from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeGuard, get_args, overload
 
 from schemathesis.core import NOT_SET
+from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 
-# HTTP headers in wire form: lowercased name -> list of values. The list shape
-# preserves repeated headers (Set-Cookie, Vary, ...) that a flat dict would collapse.
+# Lowercased header name -> values; a list keeps repeated headers like Set-Cookie.
 Headers: TypeAlias = dict[str, list[str]]
 
-# Wire-form HTTP method (uppercase). `Case.method` and user-facing API surfaces use this.
+# Uppercase wire-form HTTP method, as `Case.method` and the public API use it.
 HttpMethod: TypeAlias = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "QUERY"]
 
-# Schema-form HTTP method (lowercase). OpenAPI declares operations under lowercase verb keys,
-# so `APIOperation.method` carries this form; the wire `HttpMethod` is its uppercase counterpart.
+# Lowercase schema-form HTTP method, as OpenAPI keys operations and `APIOperation.method` holds it.
 HttpMethodSchema: TypeAlias = Literal["get", "post", "put", "patch", "delete", "head", "options", "trace", "query"]
 HTTP_METHODS_SCHEMA: frozenset[HttpMethodSchema] = frozenset(get_args(HttpMethodSchema))
 # Methods that must not change server state.
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
-# Statuses an API answers when it does not accept the credentials a request carries. Frameworks whose first
-# authentication scheme offers no challenge answer 403 instead of 401, and gateways do the same.
+# Statuses for rejected credentials: gateways and frameworks whose first auth scheme has no challenge answer 403.
 AUTH_REJECTION_STATUSES = frozenset({401, 403})
 
 
@@ -39,8 +37,7 @@ def is_http_method_schema(value: str) -> TypeGuard[HttpMethodSchema]:
     return value in HTTP_METHODS_SCHEMA
 
 
-# OpenAPI status code key — concrete (`"200"`), class wildcard (`"2XX"`), or fallback (`"default"`).
-# Used in response definitions and check configuration.
+# OpenAPI status code key: `"200"`, `"2XX"` or `"default"`.
 StatusCodePattern: TypeAlias = str
 
 
@@ -62,6 +59,7 @@ _EVENT_END_RE = re.compile(rb"(?:\r\n|\r|\n)(?:\r\n|\r|\n)")
 _UTF8_BOM = b"\xef\xbb\xbf"
 # Marks a `requests.Response` whose event stream was cut short, until it becomes a `Response`
 STREAM_CUT_SHORT_ATTRIBUTE = "_schemathesis_stream_cut_short"
+APP_EXCEPTION_ATTRIBUTE = "_schemathesis_app_exception"
 
 
 def response_content_type(response: Response) -> str | None:
@@ -75,8 +73,7 @@ def read_event_stream(
 ) -> tuple[bytes, bool]:
     """Read an event stream until it ends, sends `max_events` events or `timeout` seconds pass.
 
-    Returns the content and whether the stream was cut short.
-    `chunks` raises `TimeoutError` when the stream goes silent for too long.
+    Returns the content and whether the stream was cut short; `chunks` raises `TimeoutError` on a silent stream.
     """
     # A `(connect, read)` pair limits the stream by its read half
     if isinstance(timeout, tuple):
@@ -264,6 +261,12 @@ def http_status_class(status_code: int) -> StatusClass:
     return StatusClass.OTHER
 
 
+def status_label(status_code: int, status_name: Callable[[int], str | None]) -> str:
+    """The protocol's name for a status, or the bare code when the code alone says it."""
+    name = status_name(status_code)
+    return str(status_code) if name is None else name
+
+
 class CallOutcome(enum.Enum):
     """What an API did with a request carrying positive test data."""
 
@@ -283,8 +286,7 @@ class CallOutcome(enum.Enum):
 def is_uninformative_status(status_code: int) -> bool:
     """Whether a response status says nothing about the data the request carried.
 
-    Auth failures, rate limiting, and server errors depend on who sent the request, how often, and the server's
-    health, not on what the request contained.
+    Auth failures, rate limiting and server errors depend on the sender, the request rate and server health.
     """
     return status_code in (401, 403, 429) or status_code >= 500
 
@@ -315,10 +317,14 @@ class Response:
     stream_cut_short: bool
     """Whether an event stream was read only up to `max-stream-events` or the request timeout."""
     _override: Override | None
+    # Whether the request carried credentials the caller passed as `auth` or `session.auth`.
+    _explicit_auth: bool
     # Turns `content` into display text for failure output, for bodies that are not text.
     render_content: Callable[[bytes], str | None] | None
     # Replaces "[<code>] <reason>" in failure output, for responses whose status is not an HTTP status.
     status_line: str | None
+    # What an in-process application raised while it handled the request.
+    app_exception: BaseException | None
 
     __slots__ = (
         "status_code",
@@ -335,8 +341,10 @@ class Response:
         "stream_cut_short",
         "_encoded_body",
         "_override",
+        "_explicit_auth",
         "render_content",
         "status_line",
+        "app_exception",
     )
 
     def __init__(
@@ -353,8 +361,10 @@ class Response:
         content_size: int | None = None,
         stream_cut_short: bool = False,
         _override: Override | None = None,
+        _explicit_auth: bool = False,
         render_content: Callable[[bytes], str | None] | None = None,
         status_line: str | None = None,
+        app_exception: BaseException | None = None,
     ):
         self.status_code = status_code
         self.headers = {key.lower(): value for key, value in headers.items()}
@@ -371,8 +381,10 @@ class Response:
         self.encoding = encoding
         self.stream_cut_short = stream_cut_short
         self._override = _override
+        self._explicit_auth = _explicit_auth
         self.render_content = render_content
         self.status_line = status_line
+        self.app_exception = app_exception
 
     @overload
     @classmethod
@@ -410,15 +422,23 @@ class Response:
         else:
             if isinstance(response, httpx2.Response):
                 return Response.from_httpx2(response, verify=True)
-        # Unknown response types pass through unchanged.
-        return response  # type: ignore[return-value]
+        raise IncorrectUsage(
+            f"Unsupported response type: `{type(response).__name__}`. Expected one of: `requests.Response`, "
+            "`httpx.Response`, `httpx2.Response`, `werkzeug.test.TestResponse` or `schemathesis.Response`."
+        )
 
     @classmethod
-    def from_requests(cls, response: requests.Response, verify: bool, _override: Override | None = None) -> Response:
+    def from_requests(
+        cls,
+        response: requests.Response,
+        verify: bool,
+        _override: Override | None = None,
+        _explicit_auth: bool = False,
+    ) -> Response:
         raw = response.raw
         raw_headers = raw.headers if raw is not None else {}
         headers = {name: response.raw.headers.getlist(name) for name in raw_headers}
-        # Similar to http.client:319 (HTTP version detection in stdlib's `http` package)
+        # Mirrors HTTP version detection in `http.client`
         version = raw.version if raw is not None else 10
         http_version = "1.0" if version == 10 else "1.1"
         return Response(
@@ -433,6 +453,8 @@ class Response:
             verify=verify,
             stream_cut_short=getattr(response, STREAM_CUT_SHORT_ATTRIBUTE, False),
             _override=_override,
+            _explicit_auth=_explicit_auth,
+            app_exception=getattr(response, APP_EXCEPTION_ATTRIBUTE, None),
         )
 
     @classmethod
@@ -449,9 +471,9 @@ class Response:
 
         request = requests.Request(
             method=response.request.method,
+            # The URL already carries the query string.
             url=str(response.request.url),
             headers=dict(response.request.headers),
-            params=dict(response.request.url.params),
             data=response.request.content,
         ).prepare()
         return Response(
@@ -474,13 +496,13 @@ class Response:
 
         reason = http.client.responses.get(response.status_code, "Unknown")
         data = response.get_data()
-        # Werkzeug <3.0 had `charset` attr, newer versions always have UTF-8
+        # Werkzeug < 3.0 has a `charset` attribute; newer versions always use UTF-8
         encoding = response.mimetype_params.get("charset", getattr(response, "charset", "utf-8"))
         request = requests.Request(
             method=response.request.method,
+            # The URL already carries the query string.
             url=str(response.request.url),
             headers=dict(response.request.headers),
-            params=dict(response.request.args),
             # Request body is not available
             data=b"",
         ).prepare()
@@ -556,15 +578,7 @@ _STATUS_CODE_CHARACTERS = frozenset(string.digits + "X")
 
 
 def expand_status_code(status_code: StatusCodePattern | int) -> list[int]:
-    """Expand OpenAPI status code patterns like '2XX' or 'default' into concrete codes.
-
-    Args:
-        status_code: Status code pattern ('200', '2XX', 'default', etc.)
-
-    Returns:
-        List of concrete status codes matching the pattern
-
-    """
+    """Concrete codes for a pattern like `200` or `2XX`; `[]` for any other key, `default` included."""
     pattern = str(status_code).upper()
     # A response key is arbitrary text, and one that is not a code pattern describes no response.
     if not 0 < len(pattern) <= 3 or any(char not in _STATUS_CODE_CHARACTERS for char in pattern):
@@ -584,16 +598,7 @@ def _expand_status_codes(status_codes: tuple[StatusCodePattern, ...]) -> frozens
 
 
 def status_code_matches(pattern: StatusCodePattern, response_code: int) -> bool:
-    """Check if a response status code matches an OpenAPI status code pattern.
-
-    Args:
-        pattern: OpenAPI status code pattern ('200', '2XX', 'default', etc.)
-        response_code: Actual HTTP status code from response
-
-    Returns:
-        True if the response code matches the pattern
-
-    """
+    """True if `response_code` matches an OpenAPI status code pattern like `200`, `2XX` or `default`."""
     return pattern == str(response_code) or pattern == "default" or response_code in expand_status_code(pattern)
 
 

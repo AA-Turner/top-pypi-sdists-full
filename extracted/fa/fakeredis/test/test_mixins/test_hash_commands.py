@@ -4,12 +4,13 @@ import valkey
 
 from fakeredis._typing import ClientType
 from test import testtools
+from test.conftest import ServerDetails
 from test.testtools import raw_command, resp_conversion
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7.4")
 @pytest.mark.unsupported_server_types("valkey")
-def test_hexpire_empty_key(r: ClientType, real_server_details):
+def test_hexpire_empty_key(r: ClientType, real_server_details: ServerDetails):
     args = ("hexpire", b"", 2055010579, "fields", 2, b"\x89U\x04", b"6\x86\xf4\xdd")
     if real_server_details.server_type == "dragonfly":
         # Dragonfly caps a field TTL at 2**26 seconds, well below the one used here.
@@ -354,7 +355,7 @@ def test_hrandfield(r: ClientType):
     assert r.hrandfield("key") is None
     hash = {b"a": 1, b"b": 2, b"c": 3, b"d": 4, b"e": 5}
     r.hset("key", mapping=hash)
-    assert r.hrandfield("key") is not None
+    assert r.hrandfield("key") in set(hash.keys())
     assert len(r.hrandfield("key", 0)) == 0
     res = r.hrandfield("key", 2)
     assert len(res) == 2

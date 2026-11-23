@@ -35,16 +35,28 @@ def test_fetch_error():
 def test_key_warning():
     main(['data/genes.fasta', 'foo'])
     
-def test_auto_strand():
+def test_auto_strand(tmp_path):
     """ Test that --auto-strand produces the same output as --reverse --complement"""
-    with NamedTemporaryFile() as auto_strand:
-        with NamedTemporaryFile() as noto_strand:
-            main(['--auto-strand', '-o', auto_strand.name, 'data/genes.fasta', 'KF435150.1:100-1'])
-            main(['--reverse', '--complement', '-o', noto_strand.name, 'data/genes.fasta', 'KF435150.1:1-100'])
-            print(auto_strand.read())
-            print()
-            print(noto_strand.read())
-            assert filecmp.cmp(auto_strand.name, noto_strand.name)
+    fasta = tmp_path / 'genes.fasta'
+    fasta.write_text('>KF435150.1\n' + ('AACCGTTA' * 50) + '\n')
+    auto_strand = tmp_path / 'auto-strand.fa'
+    noto_strand = tmp_path / 'reverse-complement.fa'
+    main(['--auto-strand', '--no-names', '-o', str(auto_strand), str(fasta), 'KF435150.1:100-1'])
+    main(['--reverse', '--complement', '--no-names', '-o', str(noto_strand), str(fasta), 'KF435150.1:1-100'])
+    assert filecmp.cmp(auto_strand, noto_strand)
+
+
+@pytest.mark.parametrize('regions, expected', [
+    ([], 'ACGTAC\nGATT\n'),
+    (['test'], 'ACGTAC\n'),
+    (['test:2-5'], 'CGTA\n'),
+    (['test:5-2'], 'TACG\n'),
+])
+def test_auto_strand_regions(tmp_path, capsys, regions, expected):
+    filename = tmp_path / 'reference.fa'
+    filename.write_bytes(b'>test\nACGTAC\n>other\nGATT\n')
+    main(['--auto-strand', '--no-names', str(filename)] + regions)
+    assert capsys.readouterr().out == expected
     
 def test_regexp():
     main(['data/genes.fasta', '-g', 'XR'])
@@ -97,6 +109,18 @@ def test_faidx_cli_transform_transposed():
     # Clean up temporary files
     os.remove(temp_fasta.name)
     os.remove(transform_table.name)
+
+@pytest.mark.parametrize('transform, expected', [
+    ('transposed', 'test\t4\t1\tGCAA\n'),
+    ('nucleotide', 'name\tstart\tend\tA\tT\tC\tG\tN\tothers\n'
+                   'test\t4\t1\t2\t0\t1\t1\t0\t0\n'),
+])
+def test_faidx_cli_transform_reverse(tmp_path, capsys, transform, expected):
+    fasta = tmp_path / 'reference.fa'
+    fasta.write_bytes(b'>test\nAACG\n')
+    main(['--reverse', '--transform', transform, str(fasta)])
+    assert capsys.readouterr().out == expected
+
 
 def test_faidx_cli_transform_bed():
     """Test that the CLI can transform sequences to BED format."""
@@ -214,7 +238,7 @@ def test_faidx_cli_duplicates_action(tmp_path, capsys, action, selected, mode):
     sequences = ['AAAA', 'CCCCCC', 'TT']
     filename = tmp_path / 'duplicates.fa'
     filename.write_bytes(''.join('>chr1\n' + seq + '\n' for seq in sequences).encode())
-    args = [str(filename), '--duplicates-action', action]
+    args = [str(filename)]
     if mode == 'extract':
         args += ['--no-names']
     elif mode == 'transform':
@@ -223,6 +247,7 @@ def test_faidx_cli_duplicates_action(tmp_path, capsys, action, selected, mode):
         args += ['chr1:1-2', '--mask-by-case']
     else:
         args += ['chr1:1-2', '--mask-with-default-seq', '--default-seq', 'N']
+    args += ['--duplicates-action', action]
 
     main(args)
     output = capsys.readouterr().out

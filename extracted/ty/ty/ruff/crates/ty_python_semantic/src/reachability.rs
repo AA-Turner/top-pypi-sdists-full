@@ -282,7 +282,7 @@ pub(crate) fn type_narrowed_by_previous_patterns<'db>(
 /// pattern capture. Inferring it within the query lets Salsa recognize and normalize that cycle.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, id, _, _| Type::divergent(id),
+    cycle_initial = |_, id, _, _, _| Type::divergent(id),
     cycle_fn = |db: &'db dyn Db, cycle, previous: &Type<'db>, result: Type<'db>, predicate: PatternPredicate<'db>, _| {
         let env = ProgramEnvironment::from_scope(predicate.subject(db).scope(db));
         result.cycle_normalized(db, &env, *previous, cycle)
@@ -524,7 +524,7 @@ fn analyze_enum_literal_union_pattern_predicate<'db>(
 /// With memoization, each pattern is analyzed exactly once.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _| Truthiness::Ambiguous,
+    cycle_initial = |_, _, _, _| Truthiness::Ambiguous,
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn analyze_pattern_predicate<'db>(db: &'db dyn Db, predicate: PatternPredicate<'db>) -> Truthiness {
@@ -592,9 +592,11 @@ fn accumulate_constraint<'db>(
 }
 
 const NON_TERMINAL_CALL_CHUNK_SIZE: usize = 16;
-const REACHABILITY_EVALUATION_CHUNK_SIZE: usize = 256;
-const CONTROL_FLOW_REACHABILITY_CHECKPOINT_INTERVAL: usize = 16;
+const REACHABILITY_CHECKPOINT_INTERVAL: u32 = 8;
+const INITIAL_CHECKPOINT_MASK: u32 = !(REACHABILITY_CHECKPOINT_INTERVAL - 1);
+const CHECKPOINT_MASK_SHIFT: u32 = 3;
 const NARROWING_EVALUATION_CHECKPOINT_INTERVAL: usize = 8;
+
 fn predicate_scope<'db>(db: &'db dyn Db, predicate: &Predicate<'db>) -> ScopeId<'db> {
     match predicate.node {
         PredicateNode::Expression(expression)
@@ -605,7 +607,7 @@ fn predicate_scope<'db>(db: &'db dyn Db, predicate: &Predicate<'db>) -> ScopeId<
         PredicateNode::OrPatternAlternative(scope) => scope,
         PredicateNode::SubjectElementPattern(subject_element) => subject_element.pattern.scope(db),
         PredicateNode::IsNonEmptyIterable(expression) => expression.scope(db),
-        PredicateNode::StarImportPlaceholder(star_import) => star_import.scope(db),
+        PredicateNode::StarImportPlaceholder(star_import) => star_import.import.scope(db),
     }
 }
 
@@ -635,7 +637,7 @@ fn analyze_non_terminal_calls_up_to_predicate<'db>(
     db: &'db dyn Db,
     predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
     root: InteriorNode,
-) -> bool {
+) {
     let root_predicate = root.atom();
     if !matches!(
         predicates[root_predicate].node,
@@ -646,7 +648,7 @@ fn analyze_non_terminal_calls_up_to_predicate<'db>(
     {
         // No branch of this constraint can visit a statement-call predicate. If inferring
         // the condition itself needs earlier calls, their own reachability walks warm them.
-        return false;
+        return;
     }
     let scope = predicate_scope(db, &predicates[root_predicate]);
     let has_many_calls = predicates
@@ -656,7 +658,7 @@ fn analyze_non_terminal_calls_up_to_predicate<'db>(
         .is_some();
 
     if !has_many_calls {
-        return false;
+        return;
     }
 
     let call_predicates = non_terminal_call_predicates(db, scope);
@@ -672,8 +674,6 @@ fn analyze_non_terminal_calls_up_to_predicate<'db>(
         start += length;
         remaining -= length;
     }
-
-    true
 }
 
 /// Returns the statement-call predicates for `scope` in source order.
@@ -717,7 +717,7 @@ fn analyze_non_terminal_calls<'db>(
 /// reachability is evaluated directly by the decision-diagram walk.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _, _, _| (),
+    cycle_initial = |_, _, _, _, _, _| (),
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn analyze_non_terminal_call_range<'db>(
@@ -760,8 +760,7 @@ fn evaluate_reachability_constraint<'db>(
     let constraints = use_def.reachability_constraints();
     let predicates = use_def.predicates();
     let root = constraints.get_interior_node(id);
-    let has_many_calls = analyze_non_terminal_calls_up_to_predicate(db, predicates, root);
-    let call_predicates = has_many_calls.then(|| non_terminal_call_predicates(db, scope));
+    analyze_non_terminal_calls_up_to_predicate(db, predicates, root);
 
     evaluate_reachability_path(
         db,
@@ -771,10 +770,10 @@ fn evaluate_reachability_constraint<'db>(
             entries: predicates,
             cache: predicate_cache,
         },
-        call_predicates,
         id,
-        true,
+        INITIAL_CHECKPOINT_MASK,
     )
+    .resolve(db, scope)
 }
 
 /// Evaluates the normal continuation captured by a deferred `finally` predicate.
@@ -790,7 +789,7 @@ fn evaluate_reachability_constraint<'db>(
 /// every constraint.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _, _| Truthiness::Ambiguous,
+    cycle_initial = |_, _, _, _, _| Truthiness::Ambiguous,
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn evaluate_finally_continuation<'db>(
@@ -810,26 +809,51 @@ fn terminal_reachability(id: ScopedReachabilityConstraintId) -> Option<Truthines
     }
 }
 
-/// Selects sparse, stable checkpoints without adding a second scope-wide predicate index.
-///
-/// Statement calls retain their existing checkpoint spacing. Other control-flow predicates become
-/// checkpoints only after a sufficiently long path has demonstrated that reuse is worthwhile.
-fn is_reachability_checkpoint(
-    call_predicates: Option<&[ScopedPredicateId]>,
-    predicate: ScopedPredicateId,
-    visited: usize,
-) -> bool {
-    if let Some(call_index) = call_predicates.and_then(|calls| calls.binary_search(&predicate).ok())
-    {
-        return (call_index + 1).is_multiple_of(REACHABILITY_EVALUATION_CHUNK_SIZE);
-    }
+#[derive(Default, Clone, Copy)]
+struct CheckpointBoundary {
+    visited: u32,
+    lower_bound: u32,
+}
 
-    // Folding the adjacent bucket prevents regularly interleaved predicate kinds from always
-    // missing the same checkpoint positions.
-    let index = predicate.index();
-    let checkpoint_position = index ^ (index / CONTROL_FLOW_REACHABILITY_CHECKPOINT_INTERVAL);
-    visited >= CONTROL_FLOW_REACHABILITY_CHECKPOINT_INTERVAL
-        && (checkpoint_position + 1).is_multiple_of(CONTROL_FLOW_REACHABILITY_CHECKPOINT_INTERVAL)
+impl CheckpointBoundary {
+    /// Selects the first predicate below an aligned boundary. Predicate IDs decrease along
+    /// every path, so nearby walks can share a checkpoint even when simplification leaves
+    /// gaps in the IDs. Choose the boundary after a short prefix to avoid caching short paths.
+    fn crossed(&mut self, predicate: ScopedPredicateId, mask: u32) -> bool {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "ScopedPredicateId stores a u32"
+        )]
+        let index = predicate.index() as u32;
+        self.visited += 1;
+        if self.visited == REACHABILITY_CHECKPOINT_INTERVAL {
+            self.lower_bound = index & mask;
+        }
+        index < self.lower_bound
+    }
+}
+
+/// A segment can finish the evaluation or leave a single suffix for its caller to resolve.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, get_size2::GetSize)]
+enum ReachabilitySegment {
+    Complete(Truthiness),
+    Continue {
+        id: ScopedReachabilityConstraintId,
+        mask: u32,
+    },
+}
+
+impl ReachabilitySegment {
+    fn resolve<'db>(mut self, db: &'db dyn Db, scope: ScopeId<'db>) -> Truthiness {
+        loop {
+            match self {
+                Self::Complete(result) => return result,
+                Self::Continue { id, mask } => {
+                    self = evaluate_reachability_checkpoint(db, scope, id, mask);
+                }
+            }
+        }
+    }
 }
 
 /// Predicates from one use-def map. An inference region can share their outcomes between
@@ -861,32 +885,24 @@ impl<'a, 'db> PredicateEvaluator<'a, 'db> {
     }
 }
 
-/// Evaluate a reachability decision diagram, reusing checkpoints for previously evaluated suffixes.
+/// Walk a segment of a reachability decision diagram.
 ///
 /// An inhabited predicate selects its true, false, or ambiguous branch. An uninhabited predicate
 /// cannot select either boolean branch, so only paths that bypass it remain reachable. Such paths
 /// occur in both its true and false branches: evaluate both and take the conjunction of their
 /// reachability. A stack holds pending branches, and a set avoids evaluating shared suffixes twice.
 /// Stop as soon as any required branch is unreachable.
-///
-/// `use_checkpoint` is false only when entering from a checkpoint query. In that case, the first
-/// node is evaluated directly to prevent the query from immediately calling itself again.
-///
-/// General checkpoints are created only after traversing a genuinely long path. Their positions
-/// depend on stable predicate IDs, so adjacent roots reuse the same suffix without requiring an
-/// additional retained scope-wide index or allocating tracked queries for short, ordinary paths.
 fn evaluate_reachability_path<'db>(
     db: &'db dyn Db,
     scope: ScopeId<'db>,
     constraints: &ReachabilityConstraints,
     predicates: PredicateEvaluator<'_, 'db>,
-    call_predicates: Option<&[ScopedPredicateId]>,
     mut id: ScopedReachabilityConstraintId,
-    mut use_checkpoint: bool,
-) -> Truthiness {
+    mask: u32,
+) -> ReachabilitySegment {
     let env = ProgramEnvironment::from_scope(scope);
-    let mut visited = 0;
-    let mut pending = SmallVec::<[ScopedReachabilityConstraintId; 2]>::new();
+    let mut boundary = CheckpointBoundary::default();
+    let mut pending = SmallVec::<[(_, _); 2]>::new();
     let mut seen: Option<FxHashSet<ScopedReachabilityConstraintId>> = None;
     let mut result = Truthiness::AlwaysTrue;
 
@@ -898,8 +914,18 @@ fn evaluate_reachability_path<'db>(
             reachability
         } else {
             let node = constraints.get_interior_node(id);
-            if use_checkpoint && is_reachability_checkpoint(call_predicates, node.atom(), visited) {
-                evaluate_reachability_checkpoint(db, scope, id)
+            if boundary.crossed(node.atom(), mask) {
+                // Widen the alignment eightfold at each checkpoint to keep the number of
+                // lookups logarithmic. After ten shifts the mask is zero and the walk finishes
+                // locally. This also bounds nested queries while combining uninhabited branches.
+                let next = ReachabilitySegment::Continue {
+                    id,
+                    mask: mask << CHECKPOINT_MASK_SHIFT,
+                };
+                if pending.is_empty() && result.is_always_true() {
+                    return next;
+                }
+                next.resolve(db, scope)
             } else {
                 id = match predicates.evaluate(db, &env, node.atom()) {
                     Truthiness::AlwaysTrue => node.if_true(),
@@ -908,62 +934,50 @@ fn evaluate_reachability_path<'db>(
                     Truthiness::Uninhabited => {
                         // An uninhabited condition cannot take either branch. Retain only paths
                         // that bypass the condition, which are represented in both branches.
-                        pending.push(node.if_false());
+                        pending.push((node.if_false(), boundary));
                         seen.get_or_insert_with(FxHashSet::default);
                         node.if_true()
                     }
                 };
-                use_checkpoint = true;
-                visited += 1;
                 continue;
             }
         };
 
         result = result.and(reachability);
         if result.is_always_false() {
-            return result;
+            return ReachabilitySegment::Complete(result);
         }
         let Some(next) = pending.pop() else {
-            return result;
+            return ReachabilitySegment::Complete(result);
         };
-        id = next;
-        use_checkpoint = true;
-        visited = 0;
+        (id, boundary) = next;
     }
 }
 
-/// Evaluates a canonical suffix of a reachability decision diagram.
+/// Caches a segment of a reachability decision diagram.
 ///
-/// Statement calls retain their existing sparse checkpoints; other predicates become checkpoints
-/// only after a long path demonstrates that reuse is worthwhile. This lets later statements reuse
-/// constraints accumulated by earlier statements without retaining an additional scope-wide index
-/// or a Salsa query key and memo for every constraint.
+/// Returning a continuation keeps consecutive segments of a linear path independent during
+/// both cold evaluation and Salsa validation after an edit.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _, _| Truthiness::Ambiguous,
+    cycle_initial = |_, _, _, _, _, _| ReachabilitySegment::Complete(Truthiness::Ambiguous),
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn evaluate_reachability_checkpoint<'db>(
     db: &'db dyn Db,
     scope: ScopeId<'db>,
     id: ScopedReachabilityConstraintId,
-) -> Truthiness {
+    mask: u32,
+) -> ReachabilitySegment {
     let use_def = use_def_map(db, scope);
     let predicates = use_def.predicates();
-    let has_many_calls = predicates
-        .iter()
-        .filter(|predicate| matches!(predicate.node, PredicateNode::IsNonTerminalCall(_)))
-        .nth(NON_TERMINAL_CALL_CHUNK_SIZE)
-        .is_some();
-    let call_predicates = has_many_calls.then(|| non_terminal_call_predicates(db, scope));
     evaluate_reachability_path(
         db,
         scope,
         use_def.reachability_constraints(),
         PredicateEvaluator::uncached(predicates),
-        call_predicates,
         id,
-        false,
+        mask,
     )
 }
 
@@ -991,15 +1005,16 @@ impl<'db> ReachabilityConstraintsExtension<'db> for ReachabilityConstraints {
 
         let root = self.get_interior_node(id);
         analyze_non_terminal_calls_up_to_predicate(db, predicates, root);
+        let scope = predicate_scope(db, &predicates[root.atom()]);
         evaluate_reachability_path(
             db,
-            predicate_scope(db, &predicates[root.atom()]),
+            scope,
             self,
             PredicateEvaluator::uncached(predicates),
-            None,
             id,
-            true,
+            INITIAL_CHECKPOINT_MASK,
         )
+        .resolve(db, scope)
     }
 }
 
@@ -1138,7 +1153,7 @@ impl<'db> ProjectedNarrowingCheckpoint<'db> {
 /// when simplifying a join requires their predicates.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, id, _, _, _, _| ProjectedNarrowingCheckpoint::Narrowed(Type::divergent(id)),
+    cycle_initial = |_, id, _, _, _, _, _| ProjectedNarrowingCheckpoint::Narrowed(Type::divergent(id)),
     cycle_fn = |db: &'db dyn Db, cycle, previous: &ProjectedNarrowingCheckpoint<'db>, result: ProjectedNarrowingCheckpoint<'db>, scope: ScopeId<'db>, _, _, base_ty| {
         match result {
             ProjectedNarrowingCheckpoint::Narrowed(ty) => ProjectedNarrowingCheckpoint::Narrowed(
@@ -1905,7 +1920,7 @@ fn analyze_single_pattern_predicate_kind<'db>(
 /// dependency cannot make subsequent code unreachable.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _| Truthiness::AlwaysTrue,
+    cycle_initial = |_, _, _, _| Truthiness::AlwaysTrue,
     cycle_fn = |_, cycle: &salsa::Cycle, previous: &Truthiness, result: Truthiness, _| {
         // A call can determine whether its own target is reachable, as with `sys.exit()` before
         // `import sys` in a loop. Expression inference can lose its previous result when it stops
@@ -1991,7 +2006,7 @@ fn analyze_non_empty_iterable(db: &dyn Db, iterable: Expression) -> Truthiness {
 /// Separate sync and async queries use the expression directly as their Salsa key.
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _| false,
+    cycle_initial = |_, _, _, _| false,
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn sync_context_manager_suppresses<'db>(db: &'db dyn Db, expression: Expression<'db>) -> bool {
@@ -2000,7 +2015,7 @@ fn sync_context_manager_suppresses<'db>(db: &'db dyn Db, expression: Expression<
 
 #[salsa::tracked(
     returns(copy),
-    cycle_initial = |_, _, _| false,
+    cycle_initial = |_, _, _, _| false,
     heap_size = get_size2::GetSize::get_heap_size
 )]
 fn async_context_manager_suppresses<'db>(db: &'db dyn Db, expression: Expression<'db>) -> bool {
@@ -2060,9 +2075,9 @@ fn analyze_single(db: &dyn Db, env: &ProgramEnvironment<'_>, predicate: &Predica
             analyze_non_empty_iterable(db, iterable).negate_if(!predicate.is_positive)
         }
         PredicateNode::StarImportPlaceholder(star_import) => {
-            let place_table = place_table(db, star_import.scope(db));
-            let symbol = place_table.symbol(star_import.symbol_id(db));
-            let program_file = star_import.referenced_file(db);
+            let place_table = place_table(db, star_import.import.scope(db));
+            let symbol = place_table.symbol(star_import.symbol_id);
+            let program_file = star_import.import.referenced_file(db);
             let requires_explicit_reexport = match dunder_all_names(db, program_file) {
                 Some(all_names) => {
                     if all_names.contains(symbol.name()) {
@@ -2112,11 +2127,9 @@ pub(crate) fn is_range_reachable<'db>(
 ) -> bool {
     index.ancestor_scopes(scope_id).all(|(scope_id, _)| {
         let use_def = index.use_def_map(scope_id);
-        !use_def
-            .range_reachability()
-            .any(|(entry_range, constraint)| {
-                entry_range.contains_range(range) && !is_reachable(db, use_def, constraint)
-            })
+        use_def
+            .reachability_constraints_for(range)
+            .all(|constraint| is_reachable(db, use_def, constraint))
     })
 }
 
@@ -2362,6 +2375,42 @@ mod tests {
     use ty_python_core::semantic_index;
 
     #[test]
+    fn sparse_paths_reuse_checkpoint_segments() {
+        const LENGTH: usize = 1024;
+        const STRIDE: usize = 256;
+        let levels = (LENGTH * STRIDE).ilog2() as usize;
+        let mut cached = FxHashSet::default();
+        let mut visits = 0;
+
+        // Evaluate every prefix, starting with the full path and an empty checkpoint cache.
+        // Simplifying no-op branches can leave gaps of arbitrary size between predicate IDs.
+        for length in (1..=LENGTH).rev() {
+            let mut boundary = CheckpointBoundary::default();
+            let mut mask = INITIAL_CHECKPOINT_MASK;
+            let mut lookups = 0;
+            let mut cold = true;
+            for index in (0..length).rev() {
+                let predicate = ScopedPredicateId::new(STRIDE * index + 1);
+                if boundary.crossed(predicate, mask) {
+                    lookups += 1;
+                    mask <<= CHECKPOINT_MASK_SHIFT;
+                    cold = cached.insert((predicate, mask));
+                    boundary = CheckpointBoundary::default();
+                    // The next segment starts at the predicate that crossed the boundary.
+                    assert!(!boundary.crossed(predicate, mask));
+                }
+                // Only the first lookup of a segment evaluates its predicates.
+                visits += usize::from(cold);
+            }
+            assert!(lookups <= levels);
+        }
+
+        // Sharing aligned segments should keep the average work to a short walk per level.
+        let interval = REACHABILITY_CHECKPOINT_INTERVAL as usize;
+        assert!(visits <= LENGTH * interval * levels);
+    }
+
+    #[test]
     fn non_terminal_call_range_recovers_cross_file_cycle() -> anyhow::Result<()> {
         let mut db = setup_db();
         let calls = "        other.target.ping()\n".repeat(NON_TERMINAL_CALL_CHUNK_SIZE + 1);
@@ -2413,9 +2462,11 @@ class TargetB:
     #[test]
     fn non_terminal_call_range_invalidates_when_callable_changes() -> anyhow::Result<()> {
         let mut db = setup_db();
+        // Only the first call depends on the edited module. Place it in a complete call
+        // range and a cached reachability segment when evaluating the end of the scope.
         let source = format!(
-            "from dependency import callback\n\ndef f() -> None:\n{}",
-            "    callback()\n".repeat(NON_TERMINAL_CALL_CHUNK_SIZE + 1)
+            "from dependency import callback\n\ndef f() -> None:\n    callback()\n{}",
+            "    print()\n".repeat(4 * NON_TERMINAL_CALL_CHUNK_SIZE)
         );
         db.write_files([
             ("/src/dependency.py", "def callback() -> None: ..."),

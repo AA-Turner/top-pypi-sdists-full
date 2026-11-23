@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, replace
+from functools import partial
 from itertools import pairwise
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -43,7 +44,13 @@ from xhtml2pdf.builders.flex_layout import (
     PlacedItem,
     resolve_flex_layout,
 )
-from xhtml2pdf.reportlab_paragraph import Paragraph, _getFragWords
+from xhtml2pdf.builders.opacity import paint_with_opacity
+from xhtml2pdf.reportlab_paragraph import (
+    Paragraph,
+    _getFragWords,
+    _maxLeadingExtent,
+    _strut,
+)
 from xhtml2pdf.util import (
     AUTO,
     NO_RADIUS,
@@ -60,6 +67,7 @@ from xhtml2pdf.xhtml2pdf_reportlab import (
     PmlKeepInFrame,
     PmlMaxHeightMixIn,
     PmlParagraph,
+    PmlTable,
     layout_moment,
 )
 
@@ -125,6 +133,8 @@ class BoxStyle:
         self.backgroundPosition = "0% 0%"
         self.textColor = None
         self.fontSize = 10.0
+        #: CSS opacity: the box and what is in it, as one translucent group.
+        self.opacity = 1.0
         #: margin-top / margin-bottom, as Platypus asks for them.
         self.spaceBefore = 0.0
         self.spaceAfter = 0.0
@@ -302,20 +312,22 @@ def flowable_baseline(flowable) -> float | None:
     """
     Distance from the top of a wrapped flowable to its first baseline.
 
-    A paragraph's is the ascent of its first line, which is where drawPara
-    puts the pen; a flex container lends its first item's. Anything else --
-    a table, an image, a keep-in-frame -- has none, and answers None.
+    A paragraph's is where drawPara puts the pen for its first line; a flex
+    container lends its first item's. Anything else -- a table, an image, a
+    keep-in-frame -- has none, and answers None.
     """
     if isinstance(flowable, FlexContainer):
         return flowable.first_baseline()
     blPara = _paragraph_lines(flowable)
     if blPara is None:
         return None
-    if blPara.kind == 1:
-        ascent = blPara.lines[0].ascent
+    if isinstance(flowable, Paragraph):
+        first = flowable._firstBaseline()
+    elif blPara.kind == 1:
+        first = blPara.lines[0].ascent
     else:
-        ascent = getattr(blPara, "ascent", blPara.fontSize)
-    return _paragraph_top(flowable) + ascent
+        first = getattr(blPara, "ascent", blPara.fontSize)
+    return _paragraph_top(flowable) + first
 
 
 def flowable_last_baseline(flowable) -> float | None:
@@ -334,12 +346,22 @@ def flowable_last_baseline(flowable) -> float | None:
     leading = style.leading
     auto_leading = getattr(flowable, "autoLeading", getattr(style, "autoLeading", ""))
     lines = blPara.lines
+    first = (
+        flowable._firstBaseline()
+        if isinstance(flowable, Paragraph)
+        else (
+            lines[0].ascent
+            if blPara.kind == 1
+            else getattr(blPara, "ascent", blPara.fontSize)
+        )
+    )
     if blPara.kind == 1:
-        from_top = lines[0].ascent
+        from_top = first
+        strut = _strut(style, leading)
         for previous, line in pairwise(lines):
             if auto_leading == "max":
-                from_top += max(leading / 6.0, -previous.descent)
-                from_top += max(leading * 5.0 / 6.0, line.ascent)
+                from_top += _maxLeadingExtent(previous, strut)[1]
+                from_top += _maxLeadingExtent(line, strut)[0]
             elif auto_leading == "min":
                 from_top += -previous.descent + line.ascent
             else:
@@ -350,7 +372,7 @@ def flowable_last_baseline(flowable) -> float | None:
             step = max(leading, blPara.fontSize)
         elif auto_leading == "min":
             step = blPara.fontSize
-        from_top = getattr(blPara, "ascent", blPara.fontSize) + step * (len(lines) - 1)
+        from_top = first + step * (len(lines) - 1)
     inner_height = flowable.height - getattr(flowable, "deltaHeight", 0.0)
     bottom = 0.0
     if isinstance(flowable, PmlParagraph):
@@ -578,6 +600,13 @@ class FlexItem:
     #: The main size the item had before a page cut, in points; the
     #: continuation keeps it so the line it is in keeps its geometry.
     pinned_main: float | None = None
+
+    def __post_init__(self) -> None:
+        # The item is as wide as its content, so a table in it lays its
+        # columns out by their content rather than in equal shares.
+        for flowable in self.content:
+            if isinstance(flowable, PmlTable):
+                flowable.fitContent = True
 
     @classmethod
     def from_frag(
@@ -1267,6 +1296,9 @@ class FlexContainer(Flowable, PmlMaxHeightMixIn):
     # ~ Drawing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def draw(self) -> None:
+        paint_with_opacity(self.canv, self.style.opacity, self._draw)
+
+    def _draw(self) -> None:
         if self._box is None:
             self.wrap(self.width, LARGE)
         layout, box = self.layout, self._box
@@ -1292,17 +1324,27 @@ class FlexContainer(Flowable, PmlMaxHeightMixIn):
                 top = content_top - placed.main_pos
                 w, h = placed.cross_size, placed.main_size
             y = top - h
-            drawBoxBackground(canv, x, y, w, h, item.style)
-            draw_stack(
+            paint_with_opacity(
                 canv,
-                self._stacks[placed.index][1],
-                x + item.style.content_left,
-                top - item.style.content_top,
-                w - item.style.horizontal,
+                item.style.opacity,
+                partial(self._draw_item, item, placed.index, (x, y, w, h)),
             )
-            drawBoxBorders(canv, x, y, w, h, item.style)
 
         drawBoxBorders(canv, outer_x, 0, box.outer_width, outer_h, style)
+
+    def _draw_item(self, item: FlexItem, index: int, rect) -> None:
+        """One item's box and content, at `rect` (x, y, w, h)."""
+        x, y, w, h = rect
+        canv = self.canv
+        drawBoxBackground(canv, x, y, w, h, item.style)
+        draw_stack(
+            canv,
+            self._stacks[index][1],
+            x + item.style.content_left,
+            y + h - item.style.content_top,
+            w - item.style.horizontal,
+        )
+        drawBoxBorders(canv, x, y, w, h, item.style)
 
 
 class _UnsplittableFlexContainer(FlexContainer):
@@ -1600,6 +1642,9 @@ class InlineBox(Flowable):
         return self.width, self.height
 
     def draw(self) -> None:
+        paint_with_opacity(self.canv, self.style.opacity, self._draw)
+
+    def _draw(self) -> None:
         if self._cache_key is None:
             self.wrap(LARGE, LARGE)
         canv = self.canv

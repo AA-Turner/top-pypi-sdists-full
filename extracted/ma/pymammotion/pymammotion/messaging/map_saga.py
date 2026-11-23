@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -24,9 +25,11 @@ class MapFetchSaga(Saga):
 
     Execution order:
       1. Area names (non-Luba1) — re-requested on every run including retries.
-      2-3. Root hash list frames (all sub_cmd=0 hashes)
-      3. Dump spot hash list frames (sub_cmd=4), if any.
-      4. Boundary/obstacle/path/dump data for every hash ID in the combined list
+      2-3. Root hash list frames (all sub_cmd=0 hashes, saved dump points included)
+      4. Boundary/obstacle/path/dump data for every hash ID in that list
+
+    The sub_cmd=4 dump list is never requested: it names only the temporary points of a
+    dump-setup session, which the APK asks for from the drawing page alone.
 
     Steps 2-4 use subscribe_unsolicited so that device-pushed frames are never
     dropped due to a race between receiving and registering a send_and_wait.
@@ -52,13 +55,10 @@ class MapFetchSaga(Saga):
     # stale frames for already-complete hashes between the request and the reply.
     step_timeout = 5.0
 
-    # The APK itself only ever sends sub_cmd=4 (dump hash list) when the user enters
-    # dump-drawing mode — never during an ordinary map load — so most devices have
-    # never been asked this and we don't know whether an unsupported/no-data device
-    # answers fast with an empty frame or stays silent. A short, dedicated timeout
-    # (rather than the full step_timeout) bounds that unknown-device stall so an
-    # ordinary map sync on a non-collector model isn't taxed the full 5 s every time.
-    _dump_hash_list_timeout = 1.5
+    # Step 4 sends per hash before deferring it (the APK re-sends up to 10 times, but cloud
+    # sends are quota-limited); this many hashes deferred in a row means the device went quiet.
+    _sync_sends_per_hash = 3
+    _max_consecutive_deferrals = 2
 
     # SubNavMsg leaf fields the step-4 comm-data loop collects and acks.
     _COMM_FIELDS = ("toapp_get_commondata_ack", "toapp_svg_msg")
@@ -125,13 +125,12 @@ class MapFetchSaga(Saga):
         await self._send_command(self._command_builder.send_todev_ble_sync(sync_type=self._sync_type))
 
     async def progress(self) -> Any:
-        """Areas/dump hashes still missing data — falls as the fetch advances.
+        """Manifest hashes still missing data — falls as the fetch advances.
 
         Drives the base class's attempt-budget refresh, replacing the manual
         ``_reset_attempt_counter`` this saga used to set at the same point.
         """
-        map_state = self._get_map()
-        return len(dict.fromkeys(map_state.find_incomplete_hashes(0) + map_state.find_incomplete_hashes(4)))
+        return len(set(self._get_map().find_incomplete_hashes(0)))
 
     async def _run(self, broker: DeviceMessageBroker) -> None:
         """Execute all saga steps.  Uses device.map (via get_map) as the source of truth."""
@@ -222,39 +221,6 @@ class MapFetchSaga(Saga):
         )
 
         # ------------------------------------------------------------------
-        # Step 3b: Dump (grass-collection point) hash list frames (sub_cmd=4).
-        # Same shape as steps 2-3, but a device with no dumping spots configured
-        # legitimately answers with nothing at all (matches how MowPathSaga
-        # treats sub_cmd=3's line-hash-list silence), so allow_empty=True keeps
-        # that a successful, empty step rather than a saga-failing timeout.
-        # ------------------------------------------------------------------
-        with self._collect_frames(broker, "toapp_gethash_ack", lambda v: v.sub_cmd == 4) as dump_hash_queue:
-            cmd = self._command_builder.get_all_boundary_hash_list(sub_cmd=4)
-            await self._send_command(cmd)
-
-            async def _ack_dump(hash_ack: Any) -> None:
-                await self._send_command(
-                    self._command_builder.get_hash_response(
-                        total_frame=hash_ack.total_frame, current_frame=hash_ack.current_frame
-                    )
-                )
-
-            dump_frames = await ack_stream(
-                dump_hash_queue,
-                field="toapp_gethash_ack",
-                ack=_ack_dump,
-                timeout=self._dump_hash_list_timeout,
-                allow_empty=True,
-            )
-
-        _logger.debug(
-            "MapFetchSaga[%s]: dump hash list complete — %d frame(s), %d hash IDs to fetch",
-            self._device_name,
-            len(dump_frames),
-            len(self._get_map().find_incomplete_hashes(4)),
-        )
-
-        # ------------------------------------------------------------------
         # Step 4: Fetch boundary/obstacle/path/dump data for every hash ID.
         # Same unsolicited-subscription pattern: subscribe before first send
         # so rapid multi-frame responses are never lost.
@@ -272,7 +238,10 @@ class MapFetchSaga(Saga):
         #      the whole hash is done via find_incomplete_hashes.
         #   4. Only send synchronize_hash_data again when moving to a NEW hash —
         #      never re-send for the hash already being streamed, or the device
-        #      restarts from frame 1.
+        #      restarts from frame 1 — except after a step timeout, when the APK
+        #      re-sends too.  A hash still unanswered after _sync_sends_per_hash
+        #      sends is deferred: the run finishes the rest and records it in
+        #      HashList.unserved_hashes.
         # ------------------------------------------------------------------
         with self._collect_frames(broker, self._COMM_FIELDS) as comm_queue:
             _no_progress_limit = 10
@@ -283,35 +252,53 @@ class MapFetchSaga(Saga):
             # resume — a previous run that got interrupted mid-area will have
             # added a partial FrameList to ``device.map.area[hash]``; the saga
             # must re-send ``synchronize_hash_data`` so the device re-streams
-            # the missing frames from scratch.  sub_cmd=0 (boundaries) and
-            # sub_cmd=4 (dumping spots) are merged — order-preserving via
-            # ``dict.fromkeys`` — so both are fetched in this same loop; the
-            # device tells them apart by each frame's own ``type`` field, not
-            # by which request asked for it.
-            map_state = self._get_map()
-            missing_hashes = list(
-                dict.fromkeys(map_state.find_incomplete_hashes(0) + map_state.find_incomplete_hashes(4))
-            )
-            current_hash: int | None = None
+            # the missing frames from scratch.  Saved dump points are in this
+            # sub_cmd=0 manifest; each frame's ``type`` says where it is stored.
+            missing_hashes = list(dict.fromkeys(self._get_map().find_incomplete_hashes(0)))
+            current_hash = missing_hashes[0] if missing_hashes else 0
+            sync_sends: Counter[int] = Counter()
+            deferred_hashes: set[int] = set()
+            consecutive_deferrals = 0
             # Saga-local tracker of hashes whose `current_frame == total_frame`
             # transaction we've observed.  Used to advance current_hash even
             # when ``find_incomplete_hashes`` doesn't realise a hash is done
             # (e.g. radar-only types like 23 that have no PathType entry).
             addressed_hashes: set[int] = set()
 
+            async def _request(hash_num: int) -> None:
+                sync_sends[hash_num] += 1
+                _logger.debug("MapFetchSaga[%s]: fetching data for hash %d", self._device_name, hash_num)
+                await self._send_command(self._command_builder.synchronize_hash_data(hash_num=hash_num))
+
             if missing_hashes:
                 # Re-sync before the first per-hash request for the same reason as the
                 # root-list step — keep the device responsive when step 4 begins.
                 await self._send_ble_sync()
-                current_hash = missing_hashes[0]
-                _logger.debug("MapFetchSaga[%s]: fetching data for hash %d", self._device_name, current_hash)
-                cmd = self._command_builder.synchronize_hash_data(hash_num=current_hash)
-                await self._send_command(cmd)
+                await _request(current_hash)
 
             while missing_hashes:
-                response = await self._next_frame(
-                    comm_queue, f"toapp_get_commondata_ack or toapp_svg_msg {current_hash}"
-                )
+                try:
+                    response = await self._next_frame(comm_queue, f"{' or '.join(self._COMM_FIELDS)} {current_hash}")
+                except CommandTimeoutError:
+                    if sync_sends[current_hash] < self._sync_sends_per_hash:
+                        await _request(current_hash)
+                        continue
+                    consecutive_deferrals += 1
+                    if consecutive_deferrals >= self._max_consecutive_deferrals:
+                        # The device has stopped answering altogether, not declined one hash.
+                        raise CommandTimeoutError("synchronize_hash_data", self._sync_sends_per_hash) from None
+                    _logger.warning(
+                        "MapFetchSaga[%s]: hash %d unanswered after %d requests — deferring it to a later sync",
+                        self._device_name,
+                        current_hash,
+                        sync_sends[current_hash],
+                    )
+                    deferred_hashes.add(current_hash)
+                    missing_hashes.remove(current_hash)
+                    if missing_hashes:
+                        current_hash = missing_hashes[0]
+                        await _request(current_hash)
+                    continue
 
                 # State reducer has already applied this frame to device.map.
                 _comm_frame = self.extract_nav_frame(response, self._COMM_FIELDS)
@@ -335,6 +322,7 @@ class MapFetchSaga(Saga):
                 # step timeout without progress — APK setRegionalData :1245).
                 if not self._in_scope(leaf_name, leaf_val, missing_hashes, current_hash):
                     continue
+                consecutive_deferrals = 0
 
                 # Track per-hash completion locally so the advancement decision doesn't
                 # rely solely on find_incomplete_hashes (which can miss radar/unknown
@@ -359,8 +347,8 @@ class MapFetchSaga(Saga):
                 # addressed_hashes so a hash whose only frame had an unknown type (e.g.
                 # radar type=23) doesn't keep us pinned to the same current_hash.
                 map_state = self._get_map()
-                incomplete = dict.fromkeys(map_state.find_incomplete_hashes(0) + map_state.find_incomplete_hashes(4))
-                new_missing = [h for h in incomplete if h not in addressed_hashes]
+                incomplete = dict.fromkeys(map_state.find_incomplete_hashes(0))
+                new_missing = [h for h in incomplete if h not in addressed_hashes and h not in deferred_hashes]
                 if len(new_missing) < len(missing_hashes):
                     no_progress = 0
                 else:
@@ -372,12 +360,17 @@ class MapFetchSaga(Saga):
                 # Re-sending for the current hash would restart device streaming from frame 1.
                 if missing_hashes and missing_hashes[0] != current_hash:
                     current_hash = missing_hashes[0]
-                    _logger.debug("MapFetchSaga[%s]: fetching data for hash %d", self._device_name, current_hash)
-                    cmd = self._command_builder.synchronize_hash_data(hash_num=current_hash)
-                    await self._send_command(cmd)
+                    await _request(current_hash)
+
+        current_map = self._get_map()
+        incomplete = set(current_map.find_incomplete_hashes(0))
+        unserved = deferred_hashes & incomplete
+        if unserved and not current_map.area:
+            # Nothing to show for the run: fail like any other silence rather than publish an empty map.
+            raise CommandTimeoutError("synchronize_hash_data", self._sync_sends_per_hash)
+        current_map.unserved_hashes = unserved
 
         # A Luba 1 never sends a name list, so its names only ever come from the frames.
-        current_map = self._get_map()
         if (self._is_luba1 or not current_map.area_name) and current_map.area:
             current_map.fill_area_names_from_frames()
 

@@ -43,6 +43,7 @@ from moto.core.utils import (
     utcnow,
 )
 from moto.utilities.aws_headers import gen_amzn_requestid_long
+from moto.utilities.constants import APPLICATION_CBOR
 from moto.utilities.paginator import paginate
 from moto.utilities.utils import get_partition
 
@@ -52,30 +53,6 @@ log = logging.getLogger(__name__)
 ResponseShape = TypeVar("ResponseShape", bound="BaseResponse")
 
 boto3_service_name = {"awslambda": "lambda"}
-
-
-def _decode_dict(d: dict[Any, Any]) -> dict[str, Any]:
-    decoded: dict[str, Any] = OrderedDict()
-    for key, value in d.items():
-        if isinstance(key, bytes):
-            newkey = key.decode("utf-8")
-        else:
-            newkey = key
-
-        if isinstance(value, bytes):
-            decoded[newkey] = value.decode("utf-8")
-        elif isinstance(value, (list, tuple)):
-            newvalue = []
-            for v in value:
-                if isinstance(v, bytes):
-                    newvalue.append(v.decode("utf-8"))
-                else:
-                    newvalue.append(v)
-            decoded[newkey] = newvalue
-        else:
-            decoded[newkey] = value
-
-    return decoded
 
 
 @dataclass
@@ -118,26 +95,84 @@ class ActionResult:
         return serialized["status_code"], serialized["headers"], serialized["body"]  # type: ignore[return-value]
 
 
+# A botocore output_token is a JMESPath expression.  These are the forms the
+# server needs to handle (see PaginatedResult._parse_output_token).
+_PLAIN_TOKEN_PATH = re.compile(r"^[A-Za-z0-9_.]+$")
+_LAST_ITEM_TOKEN_PATH = re.compile(r"^[A-Za-z0-9_.]+\[-1\]\.(?P<attr>[A-Za-z0-9_]+)$")
+
+
 class PaginatedResult(ActionResult):
+    @staticmethod
+    def _parse_output_token(expression: Any) -> tuple[str | None, str | None]:
+        """Split a botocore output_token into (write_path, marker_attribute).
+
+        - ``NextToken``: the server writes the token to this field.
+        - ``Shards[-1].ShardId``: the client reads the token from the last
+          item of the page, so the server writes nothing and the token is a
+          marker taken from the item's ``ShardId`` attribute.
+        - ``NextMarker || Contents[-1].Key``: both of the above.
+        """
+        if not isinstance(expression, str):
+            raise NotImplementedError(
+                f"Multiple output tokens are not supported: {expression}"
+            )
+        write_path = None
+        marker_attribute = None
+        for part in (p.strip() for p in expression.split("||")):
+            last_item = _LAST_ITEM_TOKEN_PATH.match(part)
+            if last_item:
+                marker_attribute = last_item.group("attr")
+            elif _PLAIN_TOKEN_PATH.match(part) and write_path is None:
+                write_path = part
+            else:
+                raise NotImplementedError(
+                    f"Unsupported output_token expression: {expression}"
+                )
+        return write_path, marker_attribute
+
     def execute_result(self, context: ActionContext) -> TYPE_RESPONSE:
         service_name = str(context.service_model.service_name)
         operation_name = str(context.operation_model.name)
-        pagination_model = get_pagination_model(service_name)
-        paging_config = pagination_model[operation_name]
+        # Copy so the derived defaults below don't modify the cached model
+        paging_config = dict(get_pagination_model(service_name)[operation_name])
         paging_config.setdefault("limit_default", 100)
+        token_write_path, marker_attribute = self._parse_output_token(
+            paging_config["output_token"]
+        )
+        if marker_attribute:
+            paging_config.setdefault("token_strategy", "marker")
+            paging_config.setdefault("unique_attribute", marker_attribute)
+        pagination_model = {operation_name: paging_config}
 
         kwargs = context.response.params
         if isinstance(kwargs, XFormedDict):
             kwargs = kwargs.original_dict()
 
-        def get_result_to_paginate(**_: Any) -> Any:
-            return get_value(self._result, paging_config["result_key"])
+        # A paginator may declare multiple result keys for parallel lists
+        # (e.g. Glue ListSessions returns both `Ids` and `Sessions`).
+        # Each list is paginated independently using the same config, so the lists
+        # must match item-for-item with `unique_attribute` returning the same value
+        # for corresponding items.
+        result_keys = paging_config["result_key"]
+        if isinstance(result_keys, str):
+            result_keys = [result_keys]
+        next_token = None
+        for result_key in result_keys:
 
-        get_result_to_paginate.__name__ = operation_name
-        paginator = paginate(pagination_model)(get_result_to_paginate)
-        paginated_results, next_token = paginator(**kwargs)
-        set_value(self._result, paging_config["result_key"], paginated_results)
-        set_value(self._result, paging_config["output_token"], next_token)
+            def get_result_to_paginate(_key: str = result_key, **_: Any) -> Any:
+                return get_value(self._result, _key)
+
+            get_result_to_paginate.__name__ = operation_name
+            paginator = paginate(pagination_model)(get_result_to_paginate)
+            paginated_results, next_token = paginator(**kwargs)
+            set_value(self._result, result_key, paginated_results)
+        if token_write_path:
+            set_value(self._result, token_write_path, next_token)
+        # Some paginators declare a boolean flag indicating whether more
+        # results are available (e.g. Kinesis ListStreams `HasMoreStreams`).
+        more_results = paging_config.get("more_results")
+        if more_results:
+            set_value(self._result, more_results, next_token is not None)
         return super().execute_result(context)
 
 
@@ -198,12 +233,14 @@ class BaseResponse(ActionAuthenticatorMixin):
     ) -> None:
         """
         full_url and headers are carried by the request itself.  They remain
-        parameters for the callers that deliberately pass something else - see
-        CloudFormationResponse.process_cfn_response, which appends an Action.
+        parameters for the callers that pass them through explicitly.
 
         use_raw_body overrides the class-level default for a single call.
         """
         use_raw_body = self.use_raw_body if use_raw_body is None else use_raw_body
+        if request.mimetype == APPLICATION_CBOR:
+            # Binary body, which must not be decoded or parsed as a querystring
+            use_raw_body = True
         # Only a real WSGI server supplies its own Date header - in every other
         # mode moto is the entire stack and has to supply it itself.  This used
         # to be inferred from the type name, which stopped working once every
@@ -266,11 +303,6 @@ class BaseResponse(ActionAuthenticatorMixin):
                     pass  # ignore encoding errors, as the body may not contain a legitimate querystring
         if not querystring:
             querystring.update(headers)
-
-        try:
-            querystring = _decode_dict(querystring)
-        except UnicodeDecodeError:
-            pass  # ignore decoding errors, as the body may not contain a legitimate querystring
 
         self.uri = full_url
 
@@ -366,8 +398,7 @@ class BaseResponse(ActionAuthenticatorMixin):
         self.setup_class(request, full_url, headers)
         return self.call_action()
 
-    def _get_action_from_method_and_request_uri(self, request: Request) -> str:
-        """Used for AWS restJson1 and restXml API protocols"""
+    def _get_action_from_request(self, request: Request) -> str:
         try:
             service_router = get_service_router(self.boto3_service_name)
             operation, uri_params = service_router.match(request)
@@ -377,25 +408,13 @@ class BaseResponse(ActionAuthenticatorMixin):
             pass
         return None  # type: ignore[return-value]
 
-    # TODO: Get rid of all overrides once new routing is working.
     def _get_action(self) -> str:
-        action = self.querystring.get("Action")
-        if action and isinstance(action, list):
-            action = action[0]
-        if action:
-            return action
-        # Some services use a header for the action
-        # Headers are case-insensitive. Probably a better way to do this.
-        match = self.headers.get("x-amz-target") or self.headers.get("X-Amz-Target")
-        if match:
-            return match.split(".")[-1]
-        # get action from method and uri
-        return self._get_action_from_method_and_request_uri(self.normalized_request)
+        return self._get_action_from_request(self.normalized_request)
 
     def parse_parameters(self, request: Request) -> None:
         service_model = get_service_model(self.boto3_service_name)
         operation_model = service_model.operation_model(self._get_action())
-        protocol = determine_request_protocol(service_model, request.content_type)
+        protocol = determine_request_protocol(service_model, request)
         parser_cls = PROTOCOL_PARSERS[protocol]
         parser = parser_cls(operation_model, map_type=self.PROTOCOL_PARSER_MAP_TYPE)
         parsed = parser.parse(
@@ -411,8 +430,7 @@ class BaseResponse(ActionAuthenticatorMixin):
         self.params = cast(Any, parsed)
 
     def determine_response_protocol(self, service_model: ServiceModel) -> str:
-        content_type = self.headers.get("Content-Type", "")
-        protocol = determine_request_protocol(service_model, content_type)
+        protocol = determine_request_protocol(service_model, self.normalized_request)
         if protocol == "query" and self.request_json:
             protocol = "query-json"
         return protocol
@@ -429,6 +447,9 @@ class BaseResponse(ActionAuthenticatorMixin):
         context = ActionContext(service_model, operation_model, serializer_cls, self)
         status_code, headers, body = action_result.execute_result(context)
         headers.update(self.response_headers)
+        # HACK for downstream enrich/transform response calls
+        # TODO: refactor this out
+        headers.update({"status": status_code})
         return status_code, headers, body
 
     def call_action(self) -> TYPE_RESPONSE:
@@ -454,6 +475,8 @@ class BaseResponse(ActionAuthenticatorMixin):
             method = getattr(self, action)
             try:
                 response = method()
+                if isinstance(response, ActionResult):
+                    response = self.serialized(response)  # type: ignore[assignment]
             except ServiceException as e:
                 se_status, se_headers, se_body = self.serialized(ActionResult(e))
                 se_headers["status"] = se_status
@@ -465,9 +488,7 @@ class BaseResponse(ActionAuthenticatorMixin):
                 response_headers["status"] = http_error.code  # type: ignore[assignment]
                 response = http_error.description, response_headers  # type: ignore[assignment]
 
-            if isinstance(response, ActionResult):
-                status, headers, body = self.serialized(response)
-            elif isinstance(response, str):
+            if isinstance(response, str):
                 status = 200
                 body = response
             else:
@@ -571,81 +592,7 @@ class BaseResponse(ActionAuthenticatorMixin):
         return if_none
 
     def _get_params(self) -> dict[str, Any]:
-        """
-        Given a querystring of
-        {
-            'Action': ['CreatRule'],
-            'Conditions.member.1.Field': ['http-header'],
-            'Conditions.member.1.HttpHeaderConfig.HttpHeaderName': ['User-Agent'],
-            'Conditions.member.1.HttpHeaderConfig.Values.member.1': ['curl'],
-            'Actions.member.1.FixedResponseConfig.StatusCode': ['200'],
-            'Actions.member.1.FixedResponseConfig.ContentType': ['text/plain'],
-            'Actions.member.1.Type': ['fixed-response']
-        }
-
-        returns
-        {
-            'Action': 'CreatRule',
-            'Conditions': [
-                {
-                    'Field': 'http-header',
-                    'HttpHeaderConfig': {
-                        'HttpHeaderName': 'User-Agent',
-                        'Values': ['curl']
-                    }
-                }
-            ],
-            'Actions': [
-                {
-                    'Type': 'fixed-response',
-                    'FixedResponseConfig': {
-                        'StatusCode': '200',
-                        'ContentType': 'text/plain'
-                    }
-                }
-            ]
-        }
-        """
-        if self.automated_parameter_parsing:
-            return self.params
-        params: dict[str, Any] = {}
-        for k, v in sorted(self.querystring.items()):
-            self._parse_param(k, v[0], params)
-        return params
-
-    def _parse_param(self, key: str, value: str, params: Any) -> None:
-        keylist = key.split(".")
-        obj = params
-        for i, key in enumerate(keylist[:-1]):
-            if key in obj:
-                # step into
-                parent = obj
-                obj = obj[key]
-            else:
-                if key == "member":
-                    if not isinstance(obj, list):
-                        # initialize list
-                        # reset parent
-                        obj = []
-                        parent[keylist[i - 1]] = obj
-                elif isinstance(obj, dict):
-                    # initialize dict
-                    obj[key] = {}
-                    # step into
-                    parent = obj
-                    obj = obj[key]
-                elif key.isdigit():
-                    index = int(key) - 1
-                    if len(obj) <= index:
-                        # initialize list element
-                        obj.insert(index, {})
-                    # step into
-                    parent = obj
-                    obj = obj[index]
-        if isinstance(obj, list):
-            obj.append(value)
-        else:
-            obj[keylist[-1]] = value
+        return self.params
 
     @property
     def request_json(self) -> bool:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: antsibull-changelog
-Version: 0.37.0
+Version: 0.38.0
 Summary: Changelog tool for Ansible-core and Ansible collections
 Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-changelog/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-changelog/
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Requires-Dist: annotated-types
+Requires-Dist: antsibull-docs-loader<2.0.0,>=1.0.0
 Requires-Dist: antsibull-docs-parser<2.0.0,>=1.2.2
 Requires-Dist: antsibull-docutils[unicode]<2.0.0,>=1.5.0
 Requires-Dist: antsibull-fileutils<2.0.0,>=1.0.0
@@ -125,16 +126,16 @@ and install the requirements needed to run the tests there.
 
 ---
 
-antsibull-changelog depends on the sister antsibull-docs-parser, antsibull-docutils, and antsibull-fileutils projects.
+antsibull-changelog depends on the sister antsibull-docs-loader, antsibull-docs-parser, antsibull-docutils, and antsibull-fileutils projects.
 By default, `nox` will install a development version of these projects from Github.
-If you're hacking on antsibull-docs-parser, antsibull-docutils, and/or antsibull-fileutils alongside antsibull-changelog,
-nox will automatically install these projects from `../antsibull-docs-parser`, `../antsibull-docutils`, and `../antsibull-fileutils`
+If you're hacking on antsibull-docs-loader, antsibull-docs-parser, antsibull-docutils, and/or antsibull-fileutils alongside antsibull-changelog,
+nox will automatically install these projects from `../antsibull-docs-loader`, `../antsibull-docs-parser`, `../antsibull-docutils`, and `../antsibull-fileutils`
 when running tests if those paths exist.
 You can change this behavior through the `OTHER_ANTSIBULL_MODE` env var:
 
 - `OTHER_ANTSIBULL_MODE=auto` — the default behavior described above
-- `OTHER_ANTSIBULL_MODE=local` — install the projects from `../antsibull-docs-parser`,
-  `../antsibull-docutils`, and `../antsibull-fileutils`.
+- `OTHER_ANTSIBULL_MODE=local` — install the projects from `../antsibull-docs-loader`,
+  `../antsibull-docs-parser`, `../antsibull-docutils`, and `../antsibull-fileutils`.
   Fail if those paths don't exist.
 - `OTHER_ANTSIBULL_MODE=git` — install the projects from the Github main branch
 - `OTHER_ANTSIBULL_MODE=pypi` — install the latest versions from PyPI

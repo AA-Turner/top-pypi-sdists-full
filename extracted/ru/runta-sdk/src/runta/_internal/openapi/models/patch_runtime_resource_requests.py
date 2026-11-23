@@ -15,14 +15,18 @@ class PatchRuntimeResourceRequests:
     """Resource requests for runtime patching.
 
     Attributes:
+        vcpus (int | Unset): Virtual CPU quantity.
         memory_mib (int | Unset): Requested baseline memory in MiB.
         disk_gib (int | Unset): New overlay capacity in GiB. Only growth while fully shutdown is supported.
     """
 
+    vcpus: int | Unset = UNSET
     memory_mib: int | Unset = UNSET
     disk_gib: int | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
+        vcpus = self.vcpus
+
         memory_mib = self.memory_mib
 
         disk_gib = self.disk_gib
@@ -30,6 +34,8 @@ class PatchRuntimeResourceRequests:
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
+        if vcpus is not UNSET:
+            field_dict["vcpus"] = vcpus
         if memory_mib is not UNSET:
             field_dict["memory_mib"] = memory_mib
         if disk_gib is not UNSET:
@@ -40,11 +46,14 @@ class PatchRuntimeResourceRequests:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        vcpus = d.pop("vcpus", UNSET)
+
         memory_mib = d.pop("memory_mib", UNSET)
 
         disk_gib = d.pop("disk_gib", UNSET)
 
         patch_runtime_resource_requests = cls(
+            vcpus=vcpus,
             memory_mib=memory_mib,
             disk_gib=disk_gib,
         )

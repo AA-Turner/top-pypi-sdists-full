@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::ops::{Deref, Range};
+use std::ops::Deref;
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use memmap2::Mmap;
 use sha2::{Digest, Sha256};
@@ -19,52 +19,9 @@ const EMPTY: u8 = 0x80;
 const GROUP: usize = 16;
 pub(super) const HEADER_LEN: usize = 128;
 
-/// Capacity is derived from unique members, separately for each key partition.
-/// This is a file-build policy, not a public SDK option. The reader uses the
-/// capacities in the image and accepts either rounding policy.
-#[derive(Clone, Copy)]
-pub(super) struct HashTableSizing {
-    pub numerator: usize,
-    pub denominator: usize,
-    pub power_of_two: bool,
-}
-
-// Fine rounding avoids power-of-two capacity jumps. At 75% occupancy the
-// mapped lookup sweep kept miss probes short while retaining most of the
-// shared-memory saving; higher occupancy caused long linear-probe clusters.
-const INLINE_SIZING: HashTableSizing = HashTableSizing {
-    numerator: 3,
-    denominator: 4,
-    power_of_two: false,
-};
-// Fallback strings use multiply-high range reduction. The measured 5/8 load
-// balances probe lengths and mapped bytes while retaining fine capacity steps.
-const FALLBACK_SIZING: HashTableSizing = HashTableSizing {
-    numerator: 5,
-    denominator: 8,
-    power_of_two: false,
-};
-
-impl HashTableSizing {
-    pub(super) fn capacity(self, count: usize) -> io::Result<usize> {
-        if self.numerator == 0 || self.numerator >= self.denominator {
-            return Err(invalid("invalid ID-list table load fraction"));
-        }
-        if count == 0 {
-            return Ok(0);
-        }
-        let target = checked_add(checked_mul(count, self.denominator)?, self.numerator - 1)?
-            / self.numerator;
-        if self.power_of_two {
-            target
-                .max(GROUP)
-                .checked_next_power_of_two()
-                .ok_or_else(|| invalid("ID-list table capacity overflow"))
-        } else {
-            checked_mul(checked_add(target, GROUP - 1)? / GROUP, GROUP)
-        }
-    }
-}
+// Measured load factors balance probe length and mapped bytes.
+const INLINE_KEYS_PER_GROUP: usize = GROUP * 3 / 4;
+const FALLBACK_KEYS_PER_GROUP: usize = GROUP * 5 / 8;
 
 #[derive(Clone, Copy)]
 struct Table {
@@ -126,14 +83,9 @@ impl Table {
     }
 }
 
-/// Both owners expose the same encoded image. A delta borrows its nested
-/// hash table from a subregion of the mapping containing the operation bits.
 enum ImageBytes {
     Heap(Box<[u8]>),
-    Mapped {
-        owner: Arc<Mmap>,
-        range: Range<usize>,
-    },
+    Mapped(Mmap),
 }
 
 impl Deref for ImageBytes {
@@ -141,7 +93,7 @@ impl Deref for ImageBytes {
     fn deref(&self) -> &[u8] {
         match self {
             Self::Heap(bytes) => bytes,
-            Self::Mapped { owner, range } => &owner[range.clone()],
+            Self::Mapped(map) => map,
         }
     }
 }
@@ -150,8 +102,7 @@ pub(crate) struct IdListImage {
     map: ImageBytes,
     ef: Option<elias_fano::Ef>,
     iter_keys: OnceLock<Box<[[u8; 8]]>>,
-    content_digest: OnceLock<String>,
-    retain_for_private_updates: bool,
+
     inline: Table,
     other: Table,
     blob_start: usize,
@@ -170,8 +121,6 @@ impl IdListImage {
             map: ImageBytes::Heap(bytes.into_boxed_slice()),
             ef: Some(ef),
             iter_keys: OnceLock::new(),
-            content_digest: OnceLock::new(),
-            retain_for_private_updates: false,
             inline: empty,
             other: empty,
             blob_start: end,
@@ -187,39 +136,9 @@ impl IdListImage {
 
     pub(super) fn open(path: &Path, namespace: &[u8; 32], name: &str) -> io::Result<Self> {
         let file = File::open(path)?;
-        if file.metadata()?.len() < HEADER_LEN as u64 {
-            return Err(invalid("truncated ID-list header"));
-        }
-        // Published inodes are immutable. Unlinking an old file keeps live maps valid.
-        let map = Arc::new(unsafe { Mmap::map(&file)? });
-        let range = 0..map.len();
-        Self::from_region(map, range, namespace, name)
-    }
-
-    // A delta's operation bit refers to a physical hash slot. EF ordinals
-    // have no such slot, so a delta must contain exactly the v2 hash format.
-    pub(super) fn from_delta_region(
-        owner: Arc<Mmap>,
-        range: Range<usize>,
-        namespace: &[u8; 32],
-        name: &str,
-    ) -> io::Result<Self> {
-        let bytes = owner
-            .get(range.clone())
-            .ok_or_else(|| invalid("invalid delta table region"))?;
-        if bytes.len() < HEADER_LEN || read_u32(bytes, 8) != VERSION {
-            return Err(invalid("delta requires a version-2 hash table"));
-        }
-        Self::from_region(owner, range, namespace, name)
-    }
-
-    fn from_region(
-        owner: Arc<Mmap>,
-        range: Range<usize>,
-        namespace: &[u8; 32],
-        name: &str,
-    ) -> io::Result<Self> {
-        let view = Self::parse(ImageBytes::Mapped { owner, range }, namespace, name)?;
+        // SAFETY: Trusted workers publish fresh files by rename and never modify mapped inodes.
+        let map = unsafe { Mmap::map(&file)? };
+        let view = Self::parse(ImageBytes::Mapped(map), namespace, name)?;
         if let Some(ef) = view.ef {
             ef.walk(&view.map, |_| true)?;
         }
@@ -235,15 +154,7 @@ impl IdListImage {
         ids: &IdListIds,
     ) -> io::Result<Self> {
         let mut bytes = Vec::new();
-        encode_image(
-            &mut bytes,
-            namespace,
-            name,
-            ids.collect_image_keys(),
-            INLINE_SIZING,
-            FALLBACK_SIZING,
-            true,
-        )?;
+        encode_image(&mut bytes, namespace, name, ids.collect_image_keys(), true)?;
         // The encoder just constructed these tables. Only external mappings
         // need the full walk and content digest before use.
         Self::parse(ImageBytes::Heap(bytes.into_boxed_slice()), namespace, name)
@@ -310,7 +221,7 @@ impl IdListImage {
         changes: impl ExactSizeIterator<Item = (&'a [u8; 8], bool)>,
     ) -> Option<Self> {
         let base = self.ef?;
-        if self.needs_private_copy() || self.inline.count != 0 || self.other.count != 0 {
+        if self.inline.count != 0 || self.other.count != 0 {
             return None;
         }
         let layout = elias_fano::Ef::layout(count, 8).ok()?;
@@ -370,15 +281,7 @@ impl IdListImage {
                 .iter()
                 .map(|word| elias_fano::encode(u64::from_ne_bytes(*word)))
                 .collect();
-            encode_image(
-                &mut map,
-                namespace,
-                name,
-                (keys, Vec::new()),
-                INLINE_SIZING,
-                FALLBACK_SIZING,
-                false,
-            )?;
+            encode_image(&mut map, namespace, name, (keys, Vec::new()), false)?;
         }
         Self::parse(ImageBytes::Heap(map.into_boxed_slice()), namespace, name)
     }
@@ -427,8 +330,7 @@ impl IdListImage {
         }
         let view = Self {
             map,
-            content_digest: OnceLock::new(),
-            retain_for_private_updates: false,
+
             ef,
             iter_keys: OnceLock::new(),
             inline,
@@ -518,25 +420,20 @@ impl IdListImage {
         let n = self.ef.map_or(0, |ef| ef.count);
         (self.inline.count + n, self.other.count)
     }
-    pub(super) fn retain_for_private_updates(&mut self) {
-        self.retain_for_private_updates = true;
-    }
-
-    pub(super) fn needs_private_copy(&self) -> bool {
-        self.is_mapped() && !self.retain_for_private_updates
-    }
-
+    #[cfg(test)]
     pub(super) fn is_mapped(&self) -> bool {
-        matches!(self.map, ImageBytes::Mapped { .. })
+        matches!(self.map, ImageBytes::Mapped(_))
     }
 
     pub(crate) fn mapped_bytes(&self) -> usize {
-        if self.is_mapped() { self.map.len() } else { 0 }
+        match &self.map {
+            ImageBytes::Mapped(map) => map.len(),
+            ImageBytes::Heap(_) => 0,
+        }
     }
-    pub(super) fn content_digest(&self) -> String {
-        self.content_digest
-            .get_or_init(|| hex(&digest(&self.map)))
-            .clone()
+
+    pub(super) fn content_digest(&self) -> [u8; 32] {
+        digest(&self.map)
     }
 
     /// Test keys by value, stopping at the first mismatch without filling the spelling cache.
@@ -574,34 +471,15 @@ impl IdListImage {
         self.inline.capacity + self.other.capacity
     }
 
-    pub(super) fn lookup_index_hashed(&self, value: &str, hash: u64) -> Option<usize> {
-        let inline = value.len() == 8;
-        self.find_slot_hashed(
-            if inline { self.inline } else { self.other },
-            value.as_bytes(),
-            inline,
-            hash,
-        )
-        .map(|slot| {
-            if inline {
-                slot
-            } else {
-                self.inline.capacity + slot
-            }
-        })
-    }
-
     fn compact_membership(&self, value: &str) -> Option<bool> {
         let ef = self.ef?;
         let x = elias_fano::decode(value.as_bytes().try_into().ok()?)?;
         Some(ef.contains(&self.map, x))
     }
 
-    pub(super) fn contains_hashed(&self, value: &str, hash: u64) -> bool {
-        if let Some(present) = self.compact_membership(value) {
-            return present;
-        }
-        self.lookup_index_hashed(value, hash).is_some()
+    pub(super) fn iter(&self) -> impl Iterator<Item = &str> {
+        let mut cursor = 0;
+        std::iter::from_fn(move || self.next(&mut cursor))
     }
 
     /// The cursor addresses physical slots, not a dense member ordinal. This
@@ -856,54 +734,12 @@ pub(super) fn write_list_with_format(
             namespace,
             name,
             ids.collect_image_keys(),
-            INLINE_SIZING,
-            FALLBACK_SIZING,
             compact,
         )?;
     }
     writer.flush()?;
     drop(writer);
     Ok(hex(&hashed.digest.finalize()))
-}
-
-#[cfg(test)]
-pub(super) fn write_list_with_sizing(
-    file: &mut File,
-    namespace: &[u8; 32],
-    name: &str,
-    ids: &IdListIds,
-    sizing: HashTableSizing,
-) -> io::Result<()> {
-    let mut writer = BufWriter::new(file);
-    encode_image(
-        &mut writer,
-        namespace,
-        name,
-        ids.collect_image_keys(),
-        sizing,
-        sizing,
-        false,
-    )?;
-    writer.flush()
-}
-
-pub(super) fn write_image_keys(
-    file: &mut File,
-    namespace: &[u8; 32],
-    name: &str,
-    keys: (Vec<[u8; 8]>, Vec<&str>),
-) -> io::Result<()> {
-    let mut writer = BufWriter::with_capacity(64 * 1024, file);
-    encode_image(
-        &mut writer,
-        namespace,
-        name,
-        keys,
-        INLINE_SIZING,
-        FALLBACK_SIZING,
-        false,
-    )?;
-    writer.flush()
 }
 
 /// Heap images pack directly into their final allocation. Files buffer only
@@ -951,8 +787,6 @@ fn encode_image(
     namespace: &[u8; 32],
     name: &str,
     keys: (Vec<[u8; 8]>, Vec<&str>),
-    inline_sizing: HashTableSizing,
-    fallback_sizing: HashTableSizing,
     compact: bool,
 ) -> io::Result<()> {
     let (mut inline, mut other) = keys;
@@ -964,8 +798,8 @@ fn encode_image(
     let inline_count = inline.len();
     inline.sort_unstable();
     other.sort_unstable();
-    let inline_capacity = inline_sizing.capacity(inline.len())?;
-    let other_capacity = fallback_sizing.capacity(other.len())?;
+    let inline_capacity = checked_mul(inline_count.div_ceil(INLINE_KEYS_PER_GROUP), GROUP)?;
+    let other_capacity = checked_mul(other.len().div_ceil(FALLBACK_KEYS_PER_GROUP), GROUP)?;
     let blob_len = other
         .iter()
         .try_fold(0, |len, key| checked_add(len, key.len()))?;

@@ -61,7 +61,7 @@ class ThreadsSearchInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     startDate: NotRequired[str]
-    """Only return posts published on or after this date, format YYYY-MM-DD (e.g. 2026-08-01)."""
+    """Only return posts published on or after this date, format YYYY-MM-DD (e.g. 2026-08-01). Without dates, results lean toward popular posts of any age, so set startDate (e.g. a week ago) to get recent posts; there is no sort option."""
 
 
 class ThreadsSearchUsersInput(TypedDict, total=False):
@@ -170,7 +170,7 @@ class ThreadsProfileData(BaseModel):
 
 class ThreadsSearchData(BaseModel):
     posts: list[ThreadsSearchPost] = Field(
-        description="Matching public post records: text, author, engagement counts, timestamp, and URL. Populated whenever the provider has data for the entity."
+        description="Matching public post records: text, author, engagement counts, timestamp, and URL. Without date filters, results tend to favor popular posts of any age. Use startDate or endDate to narrow the results; neither guarantees newest-first order. Populated whenever the provider has data for the entity."
     )
 
 
@@ -250,7 +250,7 @@ class ThreadsSearchUsersUser(BaseModel):
 
 class ThreadsUserPostsData(BaseModel):
     posts: list[ThreadsUserPostsPost] = Field(
-        description="The user's recent posts. Populated whenever the provider has data for the entity."
+        description="One page of recent public posts (typically about 15); there is no next page. An older pinned post may appear first. Populated whenever the provider has data for the entity."
     )
 
 
@@ -394,8 +394,9 @@ class ThreadsNamespace:
     ) -> RunResult[ThreadsUserPostsData]:
         """Threads User Posts
 
-        List a Threads user's recent public posts by username: text, engagement
-        counts, and post URLs.
+        List one page of a Threads user's recent public posts by username (typically
+        about 15): text, engagement counts, and post URLs. There is no paging or
+        date filter, and an older pinned post may appear first.
 
         Price: $0.0012 per request.
 
@@ -506,8 +507,9 @@ class AsyncThreadsNamespace:
     ) -> RunResult[ThreadsUserPostsData]:
         """Threads User Posts
 
-        List a Threads user's recent public posts by username: text, engagement
-        counts, and post URLs.
+        List one page of a Threads user's recent public posts by username (typically
+        about 15): text, engagement counts, and post URLs. There is no paging or
+        date filter, and an older pinned post may appear first.
 
         Price: $0.0012 per request.
 

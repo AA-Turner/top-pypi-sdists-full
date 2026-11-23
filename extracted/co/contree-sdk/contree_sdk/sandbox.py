@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, AbstractContextManager, AsyncExitStack, ExitStack, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Generic, Literal, NoReturn, TypeVar, cast, overload
 
+from contree_client.models import InstanceResourcesLimits
 from contree_client.profiles import Profile
 from contree_client.types import ContreeAsyncClient, ContreeSyncClient
 
@@ -63,6 +64,9 @@ class SandboxConfig:
     cache_ttl: float = 60
     cwd: str | None = None
     env: dict[str, str] | None = None
+    network_enabled: bool = True
+    network_policy: str | Sequence[str] | None = None
+    resources_limits: InstanceResourcesLimits | None = None
     commit_policy: AbstractCommitPolicy | None = None
     file_transfer: SyncFileTransfer | AsyncFileTransfer | None = None
     session_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -115,6 +119,9 @@ class SandboxConfig:
             "file_transfer": transfer,
             "cwd": self.cwd,
             "env": self.env,
+            "network_enabled": self.network_enabled,
+            "network_policy": self.network_policy,
+            "resources_limits": self.resources_limits,
             "commit_policy": self.commit_policy,
         }
         kwargs = self.session_kwargs.copy()
@@ -442,6 +449,9 @@ def session_maker(  # noqa: PLR0913 - explicit routing of session, profile, and 
     cache_ttl: float = 60,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
+    network_enabled: bool = True,
+    network_policy: str | Sequence[str] | None = None,
+    resources_limits: InstanceResourcesLimits | None = None,
     commit_policy: AbstractCommitPolicy | None = None,
     file_transfer: SyncFileTransfer | AsyncFileTransfer | None = None,
     session_kwargs: Mapping[str, Any] | None = None,
@@ -457,6 +467,8 @@ def session_maker(  # noqa: PLR0913 - explicit routing of session, profile, and 
     and the standard ContreeSession constructor keywords. session_kwargs adds
     arguments to the selected class, never to the underlying lazy base session.
     Factory-managed arguments take priority over duplicates in session_kwargs.
+    network_policy and network_enabled initialize the base session, including lazy
+    sessions. Resuming restores stored networking; use the change methods afterward.
 
     Connection arguments, an explicit profile/config_path, and a borrowed client
     are separate sources. Without an explicit source, use the client's environment
@@ -490,6 +502,9 @@ def session_maker(  # noqa: PLR0913 - explicit routing of session, profile, and 
             cache_ttl=cache_ttl,
             cwd=cwd,
             env=dict(env) if env is not None else None,
+            network_enabled=network_enabled,
+            network_policy=network_policy,
+            resources_limits=resources_limits,
             commit_policy=commit_policy,
             file_transfer=file_transfer,
             session_kwargs=dict(session_kwargs or {}),

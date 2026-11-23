@@ -48,6 +48,9 @@ REPO_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("GET", r"/git/commits/.+", "github.git.commits.get"),
     ("POST", r"/git/commits", "github.git.commits.create"),
     ("GET", r"/commits", "github.commits.list"),
+    ("GET", r"/commits/.+?/statuses", "github.statuses.list"),
+    ("GET", r"/commits/.+?/status", "github.status.get"),
+    ("GET", r"/commits/.+?/check-runs", "github.checks.listForRef"),
     ("GET", r"/commits/.+", "github.commits.get"),
     ("GET", r"/compare/.+", "github.compare.get"),
     ("GET", r"/(?:tarball|zipball)(?:/.*)?", "github.archive.get"),
@@ -64,6 +67,15 @@ REPO_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("POST", r"/pulls", "github.pulls.create"),
     ("GET", r"/issues", "github.issues.list"),
     ("GET", r"/issues/\d+(?:/.*)?", "github.issues.get"),
+    ("GET", r"/issues/comments/\d+", "github.issues.comments.get"),
+    ("POST", r"/issues/\d+/comments", "github.issues.comments.create"),
+    ("PATCH", r"/issues/comments/\d+", "github.issues.comments.update"),
+    ("POST", r"/pulls/\d+/comments", "github.pulls.comments.create"),
+    ("POST", r"/pulls/\d+/reviews", "github.pulls.reviews.create"),
+    ("POST", r"/statuses/[0-9a-f]{40}", "github.statuses.create"),
+    ("POST", r"/check-runs", "github.checks.create"),
+    ("PATCH", r"/check-runs/\d+", "github.checks.update"),
+    ("GET", r"/check-runs/\d+", "github.checks.get"),
 )
 TOP_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("GET", r"/search/code", "github.search.code"),
@@ -114,6 +126,12 @@ def _body(request: Any) -> Any:
     return None
 
 
+def _accept(request: Any) -> dict[str, str]:
+    accept = str((getattr(request, "headers", None) or {}).get("Accept") or "")
+    wants_other = accept and "json" not in accept and accept != "*/*"
+    return {"accept": accept} if wants_other else {}
+
+
 def request_params(request: Any) -> dict[str, Any]:
     parsed = urlsplit(request.url)
     query = {
@@ -126,6 +144,7 @@ def request_params(request: Any) -> dict[str, Any]:
         "query": query,
         "body": _body(request),
         "repo": repo_of(parsed.path or "/"),
+        **_accept(request),
     }
 
 
@@ -249,7 +268,7 @@ def _patched_send(original: Any) -> Any:
         host = None
         with contextlib.suppress(Exception):
             host = urlsplit(request.url).hostname
-        if host not in GITHUB_API_HOSTS:
+        if host not in GITHUB_API_HOSTS or not service_calls.is_recorded(INTEGRATION):
             return original(self, request, **kwargs)
         params = request_params(request)
         capture_snapshot(params["repo"], request)

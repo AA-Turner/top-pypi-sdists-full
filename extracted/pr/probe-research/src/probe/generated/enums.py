@@ -301,6 +301,15 @@ class CanvasPaperEdgeType(StrEnum):
     cites = 'cites'
 
 
+class Capacity(StrEnum):
+    """
+    Reserved long-term machines, or rented ones billed by the hour.
+    """
+
+    owned = 'owned'
+    burst = 'burst'
+
+
 class Source(StrEnum):
     claude_code = 'claude_code'
     codex = 'codex'
@@ -504,6 +513,12 @@ class ClientUpdateStatus(StrEnum):
 
     update = 'update'
     required = 'required'
+
+
+class ClusterKind(StrEnum):
+    kubernetes = 'kubernetes'
+    slurm = 'slurm'
+    pool = 'pool'
 
 
 class Fn1(StrEnum):
@@ -1224,6 +1239,16 @@ class InheritedKind(StrEnum):
     runs = 'runs'
 
 
+class InstallMode(StrEnum):
+    """
+    Where the daemon runs: a DaemonSet, a system service, or a wrapper inside a container.
+    """
+
+    cluster = 'cluster'
+    host = 'host'
+    pod = 'pod'
+
+
 class Role5(StrEnum):
     api = 'api'
     mcp = 'mcp'
@@ -1458,6 +1483,20 @@ class MaskEvidence(StrEnum):
     bundle_not_kept = 'bundle_not_kept'
 
 
+class MatchRule(StrEnum):
+    """
+    Which join rule tied an occupant to a run, strongest first (spec: Detecting jobs).
+    """
+
+    environ = 'environ'
+    registry = 'registry'
+    gpu_uuid = 'gpu_uuid'
+    pod = 'pod'
+    container = 'container'
+    slurm = 'slurm'
+    none = 'none'
+
+
 class MatchSource(StrEnum):
     exact = 'exact'
     semantic = 'semantic'
@@ -1595,9 +1634,33 @@ class NextStep(StrEnum):
     edit_parent = 'edit_parent'
 
 
+class NodeKeySource(StrEnum):
+    """
+    Which identity rule produced the node key (spec: Identity).
+    """
+
+    instance_id = 'instance_id'
+    k8s_node = 'k8s_node'
+    minted = 'minted'
+    pod_uid = 'pod_uid'
+
+
 class NodeKind(StrEnum):
     primary = 'primary'
     suggested = 'suggested'
+
+
+class NodeState(StrEnum):
+    """
+    Where a node is. `silent` after missed reports; `released` on a goodbye or a provider answer.
+    """
+
+    active = 'active'
+    silent = 'silent'
+    released = 'released'
+    billing_unattended = 'billing_unattended'
+    unknown = 'unknown'
+    retired = 'retired'
 
 
 class NoteKind(StrEnum):
@@ -1626,6 +1689,15 @@ class NoticeSurface(StrEnum):
     """
 
     dashboard = 'dashboard'
+
+
+class OccupantKind(StrEnum):
+    """
+    A process seen on the GPU, or a GPU the kubelet assigned to a pod (from P1).
+    """
+
+    process = 'process'
+    allocation = 'allocation'
 
 
 class OnboardingFlow(StrEnum):
@@ -1979,6 +2051,13 @@ class PointsUnavailable(StrEnum):
     consumed_not_committed = 'consumed_not_committed'
     unsupported = 'unsupported'
     not_recorded = 'not_recorded'
+
+
+class Pricing(StrEnum):
+    on_demand = 'on_demand'
+    spot = 'spot'
+    reserved = 'reserved'
+    owned = 'owned'
 
 
 class ProjectKind(StrEnum):
@@ -2575,6 +2654,12 @@ class StageState(StrEnum):
     person = 'person'
 
 
+class StintEndReason(StrEnum):
+    exited = 'exited'
+    node_gone = 'node_gone'
+    node_released = 'node_released'
+
+
 class StoredState(StrEnum):
     stored = 'stored'
     reference = 'reference'
@@ -2868,6 +2953,15 @@ class WorkKind(StrEnum):
     project = 'project'
     experiment = 'experiment'
     run = 'run'
+
+
+class WorkloadKind(StrEnum):
+    training = 'training'
+    inference = 'inference'
+    notebook = 'notebook'
+    eval = 'eval'
+    untracked = 'untracked'
+    unknown = 'unknown'
 
 
 class State2(StrEnum):

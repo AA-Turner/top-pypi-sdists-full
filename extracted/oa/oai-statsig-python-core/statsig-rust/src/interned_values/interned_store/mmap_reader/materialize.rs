@@ -277,6 +277,7 @@ fn materialize_spec(spec: &ArchivedMmapSpec, session_update_mode: Option<Interne
         has_shared_params: spec.has_shared_params.as_ref().copied(),
         is_active: spec.is_active.as_ref().copied(),
         version: spec.version.as_ref().map(|value| value.to_native()),
+        served_version: spec.served_version.as_ref().map(|value| value.to_native()),
         target_app_ids: spec.target_app_ids.as_ref().map(|values| {
             values
                 .iter()

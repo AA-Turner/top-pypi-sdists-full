@@ -191,6 +191,79 @@ def test_frame_rates_note_a_stall_and_a_browser_slower_than_a_users() -> None:
     assert len(many) == playtest.MAX_STALL_NOTES
 
 
+def test_a_page_far_slower_than_the_empty_browser_is_noted_as_the_apps_own_drawing() -> None:
+    slow = [(1, {"wait": 2000}, 3.0), (2, {"drag": [400, 400, 880, 400, 1000]}, 2.0)]
+
+    assert playtest.frame_notes(slow, empty_fps=60.0) == [
+        "the page drew at most 3 frames a second, where this browser drew 60 before the app"
+        " loaded and a user's draws about 60: the app's own drawing is that slow, so a user"
+        " would also see its motion stutter and its controls answer late"
+    ]
+    # A browser that is itself slow, or not counted, still gets the browser's note.
+    for empty_fps in (None, 12.0):
+        assert playtest.frame_notes(slow, empty_fps)[0].startswith(
+            "this browser drew at most 3 frames a second"
+        )
+    # A page at 10 or more may only be slow on a busy host: still the browser's note.
+    for best in (10.0, 20.0):
+        assert playtest.frame_notes([(1, {"wait": 2000}, best)], 60.0)[0].startswith(
+            f"this browser drew at most {best:.0f} frames a second"
+        )
+    assert playtest.frame_notes([(1, {"wait": 2000}, 45.0)], 60.0) == []
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ({"result": {"type": "number", "value": 59.6}}, 59.6),
+        ({"result": {"type": "number", "value": 0}}, 0.0),
+        ({"result": {"type": "boolean", "value": True}}, None),
+        ({"result": {"type": "undefined"}}, None),
+        (RuntimeError("Target closed"), None),
+        (TimeoutError("browser did not answer"), None),
+    ],
+)
+def test_the_empty_page_is_timed_before_the_app_loads(answer: Any, expected: float | None) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def cdp(method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        calls.append((method, params or {}))
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    assert playtest.empty_page_fps(cdp) == expected
+    assert [method for method, _ in calls] == ["Runtime.evaluate"]
+    assert calls[0][1]["awaitPromise"] is True
+
+
+def test_layout_notes_name_dropped_rules_and_controls_outside_a_fixed_window() -> None:
+    found = {
+        "sheets": [
+            {"name": "styles.css", "kept": 9, "written": 106, "last": ".vignette"},
+            {"name": "a <style> element", "kept": 4, "written": 4, "last": "body"},
+            {"name": "theme.css", "kept": 1, "written": 3, "last": "p"},  # too few to tell
+        ],
+        "outside": [{"name": f"control {n}", "x": 0, "y": 1200 + n} for n in range(7)],
+        "total": 9,
+    }
+
+    notes = playtest.layout_notes(found)
+
+    assert notes == [
+        "the browser kept 9 of the 106 rules written in styles.css; it dropped every rule after"
+        " the one for `.vignette`: a bracket, parenthesis or quote left open in that rule"
+        " swallows all the rules after it, so they apply nowhere",
+        "when the page had loaded, 7 of its 9 controls were outside the 1280x800 window, which"
+        " the page does not let the user scroll: 'control 0' at x=0, y=1200, 'control 1' at"
+        " x=0, y=1201, 'control 2' at x=0, y=1202, 'control 3' at x=0, y=1203, 'control 4' at"
+        " x=0, y=1204 and 2 more",
+    ]
+    assert playtest.layout_notes({"sheets": [], "outside": [], "total": 3}) == []
+    assert playtest.layout_notes(None) == []
+    assert playtest.layout_notes({"sheets": [{"kept": "9"}], "outside": ["x"]}) == []
+
+
 def test_the_frame_counter_starts_in_its_own_world_and_again_at_once_after_a_navigation() -> None:
     calls: list[str] = []
     answers: list[Any] = [
@@ -358,6 +431,43 @@ def test_a_real_browser_plays_a_page(tmp_path) -> None:
     os.environ.get("OUROBOROS_PLAYTEST_LIVE") != "1",
     reason="starts a real headless browser; set OUROBOROS_PLAYTEST_LIVE=1",
 )
+def test_a_real_browser_notes_rules_a_stylesheet_lost_and_controls_it_pushed_away(
+    tmp_path,
+) -> None:
+    browser = playtest.installed_browser()
+    if browser is None:
+        pytest.skip("no Chromium-family browser installed")
+    site = tmp_path / "site"
+    site.mkdir()
+    rules = "".join(f".p{n}{{color:red}}" for n in range(12))
+    (site / "styles.css").write_text(
+        "/* { not a rule } */ html,body{height:100%;margin:0;overflow:hidden}"
+        ' .scene{height:100%;content:"{"} .vignette{background:linear-gradient(90deg,red,blue}'
+        f" .controls{{position:fixed;top:10px}}{rules}"
+    )
+    (site / "ok.css").write_text("p{color:blue} @media (min-width:1px){p{color:red}}")
+    (site / "index.html").write_text(
+        '<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ok.css">'
+        '<div class="scene"></div><div class="controls"><button>Reset view</button></div>'
+    )
+    script = parse_play_script(_reply([{"shot": "open"}]), site)
+    assert script is not None
+
+    report = playtest.play(site, script, site / "shots", browser)
+
+    assert report.notes == [
+        "the browser kept 3 of the 16 rules written in styles.css; it dropped every rule after"
+        " the one for `.vignette`: a bracket, parenthesis or quote left open in that rule"
+        " swallows all the rules after it, so they apply nowhere",
+        "when the page had loaded, 1 of its 1 controls were outside the 1280x800 window, which"
+        " the page does not let the user scroll: 'Reset view' at x=0, y=800",
+    ]
+
+
+@pytest.mark.skipif(
+    os.environ.get("OUROBOROS_PLAYTEST_LIVE") != "1",
+    reason="starts a real headless browser; set OUROBOROS_PLAYTEST_LIVE=1",
+)
 def test_a_real_browser_notes_the_step_during_which_the_page_stopped_drawing(tmp_path) -> None:
     browser = playtest.installed_browser()
     if browser is None:
@@ -382,6 +492,34 @@ def test_a_real_browser_notes_the_step_during_which_the_page_stopped_drawing(tmp
     assert len(report.notes) == 1
     assert report.notes[0].startswith("while step 2 (hold Shift for 2000 ms) ran, the page drew")
     assert "its drawing stalled then" in report.notes[0]
+
+
+@pytest.mark.skipif(
+    os.environ.get("OUROBOROS_PLAYTEST_LIVE") != "1",
+    reason="starts a real headless browser; set OUROBOROS_PLAYTEST_LIVE=1",
+)
+def test_a_real_browser_notes_a_page_whose_own_drawing_is_slow(tmp_path) -> None:
+    browser = playtest.installed_browser()
+    if browser is None:
+        pytest.skip("no Chromium-family browser installed")
+    site = tmp_path / "site"
+    site.mkdir()
+    # Each frame takes about 200 ms of the page's own work.
+    (site / "index.html").write_text(
+        "<canvas id=c></canvas><script>"
+        "const x = c.getContext('2d'); let n = 0;"
+        "(function f() { const t = performance.now(); while (performance.now() - t < 200);"
+        " x.fillRect(n++ % 300, 0, 2, 2); requestAnimationFrame(f); })();"
+        "</script>"
+    )
+    script = parse_play_script(_reply([{"wait": 2000}, {"shot": "after"}]), site)
+    assert script is not None
+
+    report = playtest.play(site, script, site / "shots", browser)
+
+    assert len(report.notes) == 1
+    assert report.notes[0].startswith("the page drew at most ")
+    assert "the app's own drawing is that slow" in report.notes[0]
 
 
 @pytest.mark.skipif(
@@ -413,11 +551,15 @@ def test_a_real_browser_times_the_first_step_after_the_page_navigates(
     )
     assert script is not None
     timed: list[tuple[int, float]] = []
+    empty: list[float | None] = []
     notes = playtest.frame_notes
 
-    def keep(rates: list[tuple[int, dict[str, Any], float]]) -> list[str]:
+    def keep(
+        rates: list[tuple[int, dict[str, Any], float]], empty_fps: float | None = None
+    ) -> list[str]:
         timed.extend((number, rate) for number, _, rate in rates)
-        return notes(rates)
+        empty.append(empty_fps)
+        return notes(rates, empty_fps)
 
     monkeypatch.setattr(playtest, "frame_notes", keep)
 
@@ -425,6 +567,7 @@ def test_a_real_browser_times_the_first_step_after_the_page_navigates(
 
     assert [number for number, _ in timed] == [1, 3, 5]
     assert all(rate > 30 for _, rate in timed)
+    assert len(empty) == 1 and empty[0] is not None and empty[0] > 30
     assert report.notes == []
 
 
@@ -736,11 +879,21 @@ def test_a_real_browser_stops_when_told(tmp_path) -> None:
     site = _site(tmp_path)
     script = PlayScript(page="index.html", steps=({"shot": "a"}, {"wait": 5000}, {"shot": "b"}))
     stop = threading.Event()
-    threading.Timer(2.5, stop.set).start()
-    started = time.monotonic()
+    stopped_at: list[float] = []
+
+    def stop_once_the_first_shot_is_saved() -> None:
+        # A fixed timer raced the browser's start on a loaded machine.
+        deadline = time.monotonic() + 60
+        while not (site / "shots" / "01-a.png").exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        stopped_at.append(time.monotonic())
+        stop.set()
+
+    threading.Thread(target=stop_once_the_first_shot_is_saved, daemon=True).start()
 
     report = playtest.play(site, script, site / "shots", browser, stop)
 
-    assert time.monotonic() - started < 8
+    assert stopped_at
+    assert time.monotonic() - stopped_at[0] < 3
     assert [p.name for p in report.shots] == ["01-a.png"]
     assert report.notes == [playtest.STOPPED_NOTE]

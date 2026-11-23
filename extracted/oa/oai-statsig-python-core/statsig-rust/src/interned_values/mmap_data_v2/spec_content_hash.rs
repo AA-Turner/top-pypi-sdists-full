@@ -56,6 +56,7 @@ pub(crate) fn spec_content_hash(spec: &Spec) -> u64 {
     push_optional_bool(&mut values, spec.has_shared_params);
     push_optional_bool(&mut values, spec.is_active);
     push_optional_hash(&mut values, spec.version.map(u64::from));
+    push_optional_hash(&mut values, spec.served_version.map(u64::from));
     push_strings(&mut values, spec.target_app_ids.as_deref());
     push_optional_bool(&mut values, spec.forward_all_exposures);
     push_strings(&mut values, spec.fields_used.as_deref());

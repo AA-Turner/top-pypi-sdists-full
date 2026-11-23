@@ -2394,6 +2394,7 @@ fn spec_from_pb(checksum: String, spec: pb::Spec) -> Result<Spec, StatsigErr> {
         has_shared_params: spec.has_shared_params,
         is_active: spec.is_active,
         version: Some(spec.version),
+        served_version: spec.served_version,
         target_app_ids,
         forward_all_exposures: spec.forward_all_exposures,
         fields_used,

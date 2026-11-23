@@ -118,15 +118,39 @@ def test_merges_use_local_merge_lines_but_keep_explicit_overrides():
 
 
 def test_merge_sequence_precedence_matches_constructed_data():
+    # PyYAML 6.0.4 picks the winner of a shared merge key by string identity
+    # (``label`` and ``nested`` here went to the last mapping); the loader
+    # applies the spec order, so data and locations agree on any version.
     data, source = _load(
-        "first: &first {label: first}\n"
-        "second: &second {label: second, title: title}\n"
+        "first: &first {label: first, nested: {only_first: 1}}\n"
+        "second: &second {label: second, title: title, nested: {only_second: 2}}\n"
         "group:\n"
         "  <<: [*first, *second]\n"
     )
-    assert data["group"] == {"label": "first", "title": "title"}
+    assert data["group"] == {
+        "label": "first",
+        "nested": {"only_first": 1},
+        "title": "title",
+    }
     assert source.line_for_path(("group", "label")) == 4
     assert source.line_for_path(("group", "title")) == 4
+    assert source.line_for_path(("group", "nested", "only_first")) == 4
+    assert source.line_for_path(("group", "nested", "only_second")) is None
+
+
+@pytest.mark.parametrize("key", ["k", "label"])
+def test_merge_sequence_precedence_does_not_depend_on_key_length(key):
+    # PyYAML 6.0.4 picks the winner by key string identity, so a short,
+    # interned key and a longer one resolved differently.
+    data, _ = _load(
+        f"a: &a {{{key}: first}}\n"
+        f"b: &b {{{key}: second}}\n"
+        "group:\n"
+        "  <<: [*a, *b]\n"
+        f"own: {{<<: [*a, *b], {key}: explicit}}\n"
+    )
+    assert data["group"] == {key: "first"}
+    assert data["own"] == {key: "explicit"}
 
 
 def test_nested_merges_keep_outer_use_site():

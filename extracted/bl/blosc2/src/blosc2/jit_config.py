@@ -1,4 +1,4 @@
-"""JIT defaults and task-local evaluation settings, without environment mutation."""
+"""Process-wide and task-local compute settings, without environment mutation."""
 
 import contextlib
 import contextvars
@@ -20,7 +20,7 @@ _BUILTIN = {
     "jit": None,
     "jit_backend": None,
     "math_backend": None,
-    "fp_accuracy": blosc2.FPAccuracy.DEFAULT,
+    "fp_accuracy": None,
     "trace": False,
     "compiler": None,
     "cflags": None,
@@ -58,7 +58,7 @@ def _validate(values, *, check_platform=True):
         if value is _UNSET:
             continue
         if name not in _BUILTIN:
-            raise TypeError(f"Unknown JIT option: {name}")
+            raise TypeError(f"Unknown compute option: {name}")
         if value is None:
             value = _BUILTIN[name]
         if name in ("jit", "trace", "compiler_output"):
@@ -70,7 +70,7 @@ def _validate(values, *, check_platform=True):
             if check_platform and value == "js" and not blosc2.IS_WASM:
                 raise ValueError("jit_backend='js' is only available under WebAssembly/Pyodide")
         elif name == "fp_accuracy":
-            if not isinstance(value, blosc2.FPAccuracy):
+            if value is not None and not isinstance(value, blosc2.FPAccuracy):
                 raise TypeError("fp_accuracy must be a blosc2.FPAccuracy value or None")
         elif name == "math_backend":
             value = _validate_math_backend(value)
@@ -80,7 +80,7 @@ def _validate(values, *, check_platform=True):
     return result
 
 
-def set_jit_options(
+def set_compute_options(
     *,
     jit=_UNSET,
     jit_backend=_UNSET,
@@ -92,11 +92,11 @@ def set_jit_options(
     cache_dir=_UNSET,
     compiler_output=_UNSET,
 ):
-    """Set process-wide JIT defaults and return the previous defaults as a dict.
+    """Set process-wide compute defaults and return the previous defaults as a dict.
 
     Omitted arguments leave settings unchanged; None resets a setting to its
     built-in default. All settings are validated before any change is made.
-    Explicit evaluation settings and :func:`jit_options` contexts take precedence.
+    Explicit evaluation settings and :func:`compute_options` contexts take precedence.
     Native JIT remains best effort. See :ref:`JITOptions` for parameter details,
     backend applicability, environment overrides and cache behavior.
     """
@@ -105,22 +105,32 @@ def set_jit_options(
     with _lock:
         previous = _defaults.copy()
         _defaults = {**_defaults, **updates}
-    return previous
+    return _evaluation_defaults(previous)
 
 
-def get_jit_options():
-    """Return a copy of Python JIT defaults, including active context overrides.
-
-    Does not include environment overrides or per-evaluation settings.
-    See :ref:`JITOptions`.
-    """
+def _configured_options():
     with _lock:
         defaults = _defaults.copy()
     return {**defaults, **(_context.get() or {})}
 
 
+def _evaluation_defaults(options):
+    if options["fp_accuracy"] is None:
+        options["fp_accuracy"] = blosc2.FPAccuracy.DEFAULT
+    return options
+
+
+def get_compute_options():
+    """Return a copy of Python compute defaults, including active context overrides.
+
+    Does not include environment overrides or per-evaluation settings.
+    See :ref:`JITOptions`.
+    """
+    return _evaluation_defaults(_configured_options())
+
+
 @contextlib.contextmanager
-def jit_options(
+def compute_options(
     *,
     jit=_UNSET,
     jit_backend=_UNSET,
@@ -132,9 +142,9 @@ def jit_options(
     cache_dir=_UNSET,
     compiler_output=_UNSET,
 ):
-    """Override JIT defaults for this thread/async context temporarily.
+    """Override compute defaults for this thread/async context temporarily.
 
-    Accepts the same options as :func:`set_jit_options`. Omitted settings inherit;
+    Accepts the same options as :func:`set_compute_options`. Omitted settings inherit;
     None selects their built-in defaults. Nested contexts restore outer settings
     on exit, including exceptions. Settings apply at evaluation time, not lazy
     expression construction time. No environment variables are changed.
@@ -143,17 +153,28 @@ def jit_options(
     updates = _validate(locals())
     token = _context.set({**(_context.get() or {}), **updates})
     try:
-        yield get_jit_options()
+        yield get_compute_options()
     finally:
         _context.reset(token)
 
 
-def execution_options():
-    """Internal snapshot consumed synchronously by native compilation."""
+# Keep the original public names on the same defaults and context.
+set_jit_options = set_compute_options
+get_jit_options = get_compute_options
+jit_options = compute_options
+
+
+def configured_execution_options():
+    """Snapshot retaining an unset accuracy preference for portable kernels."""
     execution = _execution.get()
     if execution is not None and execution[1] is _context.get():
         return execution[0].copy()
-    return get_jit_options()
+    return _configured_options()
+
+
+def execution_options():
+    """Internal snapshot with ordinary-expression defaults applied."""
+    return _evaluation_defaults(configured_execution_options())
 
 
 def trace_enabled():
@@ -161,23 +182,27 @@ def trace_enabled():
     return env != "0" if env else execution_options()["trace"]
 
 
-def math_execution(func):
-    """Scope per-call math policy without leaking execution kwargs into storage APIs."""
+def scope_compute_options(*names):
+    """Scope selected per-call options without forwarding them to the wrapped function."""
 
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        backend = kwargs.pop("math_backend", None)
-        if backend is None:
-            return func(*args, **kwargs)
-        options = execution_options()
-        options.update(_validate({"math_backend": backend}))
-        token = _execution.set((options, _context.get()))
-        try:
-            return func(*args, **kwargs)
-        finally:
-            _execution.reset(token)
+    def decorate(func):
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            overrides = {name: kwargs.pop(name) for name in names if name in kwargs}
+            overrides = {name: value for name, value in overrides.items() if value is not None}
+            if not overrides:
+                return func(*args, **kwargs)
+            options = configured_execution_options()
+            options.update(_validate(overrides))
+            token = _execution.set((options, _context.get()))
+            try:
+                return func(*args, **kwargs)
+            finally:
+                _execution.reset(token)
 
-    return wrapped
+        return wrapped
+
+    return decorate
 
 
 def pop_execution_options(kwargs):
@@ -196,10 +221,11 @@ def jit_execution(func):
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
-        options = execution_options()
+        options = configured_execution_options()
         options.update(pop_execution_options(kwargs))
         token = _execution.set((options, _context.get()))
-        kwargs.update({name: options[name] for name in ("jit", "jit_backend", "fp_accuracy")})
+        effective = _evaluation_defaults(options.copy())
+        kwargs.update({name: effective[name] for name in ("jit", "jit_backend", "fp_accuracy")})
         try:
             return func(*args, **kwargs)
         finally:

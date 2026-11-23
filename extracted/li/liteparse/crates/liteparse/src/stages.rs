@@ -61,8 +61,8 @@ pub use crate::layout::{LayoutBlock, LayoutCell};
 pub use crate::markdown_layout::{Block, Cell, PositionedBlock, SpanCell, render_blocks};
 pub use crate::ocr::{EncodedOcrImage, OcrImage, OcrImageFormat, OcrResult};
 pub use crate::ocr_merge::{
-    ComplexityReason, LayoutComplexityReason, LayoutComplexityStats, OcrRaster, OcrRenderOptions,
-    PageComplexityStats, PageOcrOutcome,
+    ComplexityReason, LayoutComplexityReason, LayoutComplexityStats, OcrMergeState, OcrRaster,
+    OcrRenderOptions, PageComplexityStats, PageOcrOutcome,
 };
 pub use crate::parser::ScreenshotResult;
 /// The PDFium handle types the pdfium-bound stages take. Re-exported so a
@@ -293,11 +293,12 @@ impl OcrWindow {
         start: usize,
         options: &OcrRenderOptions,
     ) -> Result<(Vec<OcrRaster>, usize), LiteParseError> {
+        // One page per round: recognition of each page starts as soon as it is rendered
+        // instead of after the whole round (the document is reopened per round, which is
+        // cheap next to rendering a page).
         match self.available_capacity() {
             0 => Ok((Vec::new(), start)),
-            capacity => {
-                ocr_merge::render_pages_for_ocr_capped(document, pages, start, options, capacity)
-            }
+            _ => ocr_merge::render_pages_for_ocr_capped(document, pages, start, options, 1),
         }
     }
 
@@ -346,6 +347,7 @@ impl OcrWindow {
 /// text, filter engine artifacts, append the surviving results as `OCR`
 /// text items in viewport points. Errors only when every outcome failed and
 /// one of the failed pages had no usable native text (`ocr_failure_fatal`).
+/// Use [`OcrMergeState`] for incremental merging with one final failure check.
 ///
 /// Pass `LiteParseConfig::effective_emit_word_boxes` for `emit_word_boxes`:
 /// each engine result is one word, so this is the only place the OCR path can
@@ -440,8 +442,8 @@ pub struct BlockOptions<'a> {
     pub outline: &'a [OutlineTarget],
     /// Whether and how figures appear in the block list.
     pub image_mode: ImageMode,
-    /// Disable running-chrome suppression (both the cross-page set in the
-    /// signals and the single-page detector).
+    /// Disable running-chrome suppression (the cross-page set in the signals, the
+    /// single-page detector and the layout model's page header / footer blocks).
     pub keep_headers_footers: bool,
 }
 
@@ -479,7 +481,11 @@ pub fn extract_blocks(
     let chrome_indices = if options.keep_headers_footers {
         HashSet::new()
     } else {
-        markdown_layout::detect_single_page_chrome(page, signals.body_size)
+        // Running chrome on this page alone: the single-page heuristics plus the layout model's
+        // page header / footer blocks (the cross-page repetition set cannot see one-page documents).
+        let mut c = markdown_layout::detect_single_page_chrome(page, signals.body_size);
+        c.extend(markdown_layout::model_furniture_lines(page));
+        c
     };
     let mut blocks = markdown_layout::classify_page_with_filters(
         page,
@@ -582,7 +588,15 @@ fn dedupe_rules(blocks: &mut Vec<PositionedBlock>) {
     while matches!(blocks.last().map(|b| &b.block), Some(HorizontalRule)) {
         blocks.pop();
     }
-    blocks.dedup_by(|a, b| matches!((&a.block, &b.block), (HorizontalRule, HorizontalRule)));
+    blocks.dedup_by(|a, b| {
+        let both_rules = matches!((&a.block, &b.block), (HorizontalRule, HorizontalRule));
+        if both_rules {
+            // The survivor stands for the run, so it keeps the dropped
+            // rule's source items (a text divider folded into a stroke).
+            b.text_item_indices.append(&mut a.text_item_indices);
+        }
+        both_rules
+    });
 }
 
 // ── Deskew rotate-back ─────────────────────────────────────────────────
@@ -736,6 +750,7 @@ mod tests {
             all_mono: false,
             all_strike: false,
             spans: vec![TextItem::default()],
+            span_item_indices: vec![0],
             region_path: Vec::new(),
             mcid: None,
             in_figure: false,
@@ -758,6 +773,9 @@ mod tests {
             vector_graphics: None,
             figures: vec![],
             projected_item_frames: vec![],
+            model_tables: Vec::new(),
+            model_classes: Vec::new(),
+            model_blocks: Vec::new(),
             struct_nodes: vec![],
             image_refs: vec![],
             complexity: None,
@@ -896,6 +914,7 @@ mod tests {
         .into_iter()
         .map(PositionedBlock::unlocated)
         .collect();
+        blocks[3].text_item_indices = vec![4, 7];
         dedupe_rules(&mut blocks);
         let kinds: Vec<bool> = blocks
             .iter()
@@ -903,6 +922,93 @@ mod tests {
             .collect();
         // Leading + trailing rules gone; the doubled interior run collapsed to one.
         assert_eq!(kinds, vec![false, true, false]);
+        // The survivor keeps the dropped rule's items.
+        assert_eq!(blocks[1].text_item_indices, vec![4, 7]);
+    }
+
+    #[test]
+    fn stages_link_blocks_back_to_text_items() {
+        let mut text_items = Vec::new();
+        for (i, (text, y, h)) in [
+            ("Heading For The Page", 50.0, 18.0),
+            ("First line of body prose here.", 80.0, 10.0),
+            ("second line of body prose here.", 92.0, 10.0),
+            ("Third line of body prose here.", 104.0, 10.0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            text_items.push(TextItem {
+                text: text.into(),
+                x: 50.0,
+                y,
+                width: 200.0,
+                height: h,
+                font_size: Some(h),
+                font_name: Some("Arial".into()),
+                ..Default::default()
+            });
+            assert_eq!(text_items.len(), i + 1);
+        }
+        let page = crate::types::Page {
+            page_number: 1,
+            page_label: None,
+            page_width: 612.0,
+            page_height: 792.0,
+            content_bounds: None,
+            text_items,
+            graphics: Vec::new(),
+            vector_graphics: None,
+            struct_nodes: Vec::new(),
+            image_refs: Vec::new(),
+            annotations: None,
+            form_fields: None,
+            structure_tree: None,
+            ocr_deskew: None,
+        };
+        let pages = project(vec![page]);
+        let signals = document_signals(&pages, false);
+        let options = BlockOptions {
+            outline: &[],
+            image_mode: ImageMode::Placeholder,
+            keep_headers_footers: false,
+        };
+        let blocks = extract_blocks(&pages[0], &signals, &options).expect("page has lines");
+        let layout = layout_blocks(&pages[0], &blocks);
+        assert_eq!(layout.len(), 2);
+        assert_eq!(layout[0].kind, "heading");
+        assert_eq!(layout[0].text_item_indices, vec![0]);
+        assert_eq!(layout[1].kind, "paragraph");
+        assert_eq!(layout[1].text_item_indices, vec![1, 2, 3]);
+        // Indices address the projected page's `text_items`.
+        assert_eq!(pages[0].text_items[0].text, "Heading For The Page");
+    }
+
+    #[test]
+    fn layout_blocks_keep_caller_supplied_items() {
+        let cell = |text: &str, items: Vec<usize>| SpanCell {
+            text_item_indices: items,
+            ..SpanCell::new(text)
+        };
+        let block = PositionedBlock::new(
+            Block::MergedTable {
+                rows: vec![
+                    vec![SpanCell::spanning("wide", 2, 1)],
+                    vec![cell("a", vec![0]), cell("b", vec![1, 1])],
+                ],
+                header_rows: 1,
+            },
+            None,
+        );
+        let page = ParsedPage {
+            text_items: vec![TextItem::default(); 2],
+            ..page_with(1, vec![])
+        };
+        let out = layout_blocks(&page, &[block]);
+        assert_eq!(out[0].text_item_indices, vec![0, 1]);
+        let rows = out[0].rows.as_ref().unwrap();
+        assert!(rows[0][0].text_item_indices.is_empty());
+        assert_eq!(rows[1][1].text_item_indices, vec![1]);
     }
 
     #[test]

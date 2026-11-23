@@ -61,6 +61,7 @@ from xhtml2pdf.util import (
     getTocLeader,
     getTocName,
     getTocNameClass,
+    leadingFrom,
     set_asian_fonts,
     set_value,
     shape_frag_text,
@@ -204,6 +205,7 @@ def getParaFrag(style) -> ParaFrag:
             "rise",
             "underline",
             "strike",
+            "overline",
             "greek",
             "leading",
             "leadingSpace",
@@ -279,7 +281,9 @@ def getParaFrag(style) -> ParaFrag:
     frag.textTransform = "none"
     frag.backgroundRepeat = "repeat"
     frag.backgroundPosition = "0% 0%"
-    frag.leadingSource = "150%"
+    frag.leadingSource = "1.5"
+    #: The opacity of the inline elements an element is inside, multiplied.
+    frag.inlineAlpha = 1.0
     frag.alignment = TA_LEFT
     frag.borderWidth = 1
     reset_non_inherited(frag)
@@ -542,6 +546,31 @@ class pisaCSSBuilder(css.CSSBuilder):
         if name == "body" and pseudopage is None:
             c.bodyPageNamed = True
         name = name or "body"
+        base = name[: -len(pseudopage) - 1] if pseudopage else name
+        if pseudopage == "first":
+            rule = c.pageRules.get(base)
+            if rule is None:
+                # Kept for the @page it belongs to, which may come later.
+                c.pendingFirstPages[base] = (
+                    data,
+                    c.marginBoxes,
+                    c.frameList,
+                    isLandscape,
+                    pageBorder,
+                )
+                c.marginBoxes, c.frameList, c.frameStaticList = {}, [], []
+                return {}, {}
+            # CSS Paged Media: what :first does not say, the @page it is a
+            # page of does.
+            base_data, base_boxes, base_frames, base_landscape = rule
+            data = {**base_data, **data}
+            # The base's @frames, not the frame its margins made: :first may
+            # have margins of its own, and they make its frame.
+            c.frameList = c.frameList or [f for f in base_frames if f[0] != base]
+            c.marginBoxes = _merge_boxes(base_boxes, c.marginBoxes)
+            isLandscape = isLandscape or base_landscape
+        elif pseudopage in {"left", "right"} and base in c.pageRules:
+            c.marginBoxes = _merge_boxes(c.pageRules[base][1], c.marginBoxes)
 
         if name in c.templateList:
             log.warning(self.c.warning("template '%s' has already been defined", name))
@@ -745,6 +774,14 @@ class pisaCSSBuilder(css.CSSBuilder):
 
         pt = PmlPageTemplate(id=name, frames=frameList, pagesize=c.pageSize)
         pt.pisaStaticList = staticList
+        pt.pisaMarginBoxes = c.marginBoxes
+        left, top, width, height = getFrameDimensions(data, *c.pageSize)
+        pt.pisaPageMargins = (
+            top,
+            c.pageSize[0] - left - width,
+            c.pageSize[1] - top - height,
+            left,
+        )
         pt.marks = parse_marks(data.get("marks", "none"))
         pt.bleed = parse_bleed(data.get("bleed"), pt.marks)
         pt.pisaBackground = background
@@ -755,8 +792,27 @@ class pisaCSSBuilder(css.CSSBuilder):
 
         c.templateList[name] = pt
         c.template = None
+        if pseudopage is None:
+            c.pageRules[name] = (
+                dict(data),
+                c.marginBoxes,
+                list(c.frameList),
+                isLandscape,
+            )
         c.frameList = []
         c.frameStaticList = []
+        c.marginBoxes = {}
+
+        pending = c.pendingFirstPages.pop(name, None) if pseudopage is None else None
+        if pending is not None:
+            first_data, c.marginBoxes, c.frameList, landscape, border = pending
+            self.atPage(
+                f"{name}_first",
+                "first",
+                first_data,
+                isLandscape=landscape,
+                pageBorder=border,
+            )
 
         return {}, {}
 
@@ -776,6 +832,21 @@ class pisaCSSBuilder(css.CSSBuilder):
                 )
 
         return {}, {}  # TODO: It always returns empty dicts?
+
+    def atMarginBox(self, name: str, declarations) -> tuple[dict, dict]:
+        """Keep a page-margin box's declarations for the @page around it."""
+        data: dict = {}
+        if declarations:
+            result = self.ruleset([self.selector("*")], declarations)[0]
+            if result:
+                data = dict(next(iter(result.values())))
+        self.c.marginBoxes.setdefault(name, {}).update(data)
+        return {}, {}
+
+
+def _merge_boxes(base: dict[str, dict], own: dict[str, dict]) -> dict[str, dict]:
+    """Margin boxes of a page rule over those of the @page it builds on."""
+    return {name: {**base.get(name, {}), **own.get(name, {})} for name in {*base, *own}}
 
 
 class pisaCSSParser(css.CSSParser):
@@ -936,6 +1007,15 @@ class pisaContext:
         self.fragStack: list = []
         self.frameList: list = []
         self.frameStaticList: list = []
+        #: The page-margin boxes of the @page being read: name -> declarations.
+        self.marginBoxes: dict[str, dict] = {}
+        #: What each plain @page declared, for its :first and :left/:right to
+        #: build on: name -> (declarations, margin boxes, frames, landscape).
+        self.pageRules: dict[str, tuple] = {}
+        #: An @page :first read before the @page it belongs to, kept for it.
+        self.pendingFirstPages: dict[str, tuple] = {}
+        #: (name, text) of string-set, waiting for the next paragraph.
+        self.pendingStringSets: list[tuple[str, str]] = []
         self.frameStatioundList: list = []
         self.log: list = []
         self.path: list = []
@@ -1416,7 +1496,7 @@ class pisaContext:
         maxLeading: int = 0
         # fontSize = 0
         for frag in self.fragList:
-            leading = getSize(frag.leadingSource, frag.fontSize) + frag.leadingSpace
+            leading = leadingFrom(frag.leadingSource, frag.fontSize) + frag.leadingSpace
             maxLeading = max(leading, frag.fontSize + frag.leadingSpace, maxLeading)
             frag.leading = leading
 
@@ -1453,7 +1533,8 @@ class pisaContext:
                 style.leading = maxLeading
             else:
                 style.leading = (
-                    getSize(first.leadingSource, first.fontSize) + first.leadingSpace
+                    leadingFrom(first.leadingSource, first.fontSize)
+                    + first.leadingSpace
                 )
 
             bulletText = copy.copy(first.bulletText)
@@ -1503,6 +1584,9 @@ class pisaContext:
                     self.tocNamesUsed.add(para.tocName)
                 para.keepWithNext = first.keepWithNext
                 para.autoLeading = "max"
+                if self.pendingStringSets:
+                    para.stringSets = self.pendingStringSets
+                    self.pendingStringSets = []
 
                 if self.image:
                     para = PmlParagraphAndImage(

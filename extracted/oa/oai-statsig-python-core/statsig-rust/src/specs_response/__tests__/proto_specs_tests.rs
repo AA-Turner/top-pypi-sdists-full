@@ -408,6 +408,24 @@ fn spec_from_pb_preserves_session_update_mode() {
 }
 
 #[test]
+fn spec_from_pb_preserves_served_version_when_serialized_for_delta_generation() {
+    let spec = spec_from_pb(
+        "checksum".to_string(),
+        pb::Spec {
+            entity: pb::EntityType::EntityDynamicConfig as i32,
+            version: 42,
+            served_version: Some(41),
+            ..pb::Spec::default()
+        },
+    )
+    .unwrap();
+
+    let json = serde_json::to_value(spec).unwrap();
+    assert_eq!(json["version"], 42);
+    assert_eq!(json["servedVersion"], 41);
+}
+
+#[test]
 fn spec_from_pb_rejects_unhydrated_remote_config_metadata() {
     let result = spec_from_pb(
         "checksum".to_string(),

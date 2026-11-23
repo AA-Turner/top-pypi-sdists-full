@@ -16,8 +16,8 @@ class TimeoutPolicy:
     """
     Attributes:
         mode (TimeoutPolicyMode):
-        after_seconds (int | Unset): Required for enabled; forbidden for disabled. Explicitly saving restarts only this
-            policy’s clock.
+        after_seconds (int | Unset): Required for enabled and forbidden for disabled. An explicit save restarts only
+            this policy’s clock.
     """
 
     mode: TimeoutPolicyMode

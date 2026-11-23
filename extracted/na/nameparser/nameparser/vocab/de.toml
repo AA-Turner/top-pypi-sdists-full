@@ -50,6 +50,7 @@ academic = { same_as = "priv.-doz", dotted = true }
 [[word]]
 text = "ra"
 academic = { expands = "Rechtsanwalt, the address of a lawyer, 'RA Müller'" }
+credential = { issue = 1483, expands = "Rechtsanwalt written after the name, 'Hans Müller, RA'", note = "en.toml's credential, here so a plain German choice, which turns the other files' vocabulary readings of the word off, keeps one (#1483), gated as en.toml's is by ko.toml's name readings" }
 
 [[word]]
 text = "univ.prof"
@@ -168,6 +169,11 @@ text = "auf"
 preposition = { may_be_given = false, issue = 18, expands = "upon: \"auf der Heide\"" }
 
 [[word]]
+text = "aus"
+preposition = { issue = 1284, expands = "out of, from: \"aus der Fünten\"", note = "the German surnames aus der and Aus Der: ORCID family boxes 21 (DE 3), PatentsView family boxes 19 (DE 9); US Census 2010 378 surname bearers (2026-11-20). With the given reading beside it, an Aus written as a middle name before a surname is read into the family (Kevin Aus Smith), none in the local corpora (2026-11-20)" }
+given = { note = "the Arabic and Indonesian given name Aus: ORCID given boxes 14 (IQ 2, AU, CL, ID, IL), PatentsView given boxes 5 (DE 4, SA 1), US SSA under 5 a year; it keeps the word positional where it opens a name (Aus Rahman, reported particle-or-given), where may_be_given = false would fold the whole name into the family, as 6 corpus names showed (2026-11-20)" }
+
+[[word]]
 text = "tho"
 given = { us_ssa = 52, as_of = 2026-10-25, note = "US SSA births summed over both sexes; nam_dict band 8 in Vietnam" }
 preposition = { issue = 18, expands = "to, Low German zu" }
@@ -225,90 +231,90 @@ birth_marker = { issue = 274, gender = "f" }
 
 [[word]]
 text = "aleks"
-familiar = { short_for = ["aleksandra"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["aleksandra"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "andi"
-familiar = { short_for = ["andreas"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["andreas"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "andy"
-familiar = { short_for = ["andreas"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["andreas"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "bernd"
-familiar = { short_for = ["bernhard"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["bernhard"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "chris"
-familiar = { short_for = ["christoph"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["christoph"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "fritz"
-familiar = { short_for = ["friedrich"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["friedrich"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hannes"
-familiar = { short_for = ["johannes"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["johannes"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "hans"
-familiar = { short_for = ["johann"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["johann"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "jochen"
-familiar = { short_for = ["joachim"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["joachim"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "leo"
-familiar = { short_for = ["leonhard"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["leonhard"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "max"
-familiar = { short_for = ["maximilian"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["maximilian"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "niko"
-familiar = { short_for = ["nikolaus"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["nikolaus"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "rudi"
-familiar = { short_for = ["rudolf"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["rudolf"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "slava"
-familiar = { short_for = ["viacheslav"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["viacheslav"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "susi"
-familiar = { short_for = ["susanne"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["susanne"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "theo"
-familiar = { short_for = ["theodor", "theodoros"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["theodor", "theodoros"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "tobi"
-familiar = { short_for = ["tobias"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["tobias"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "uli"
-familiar = { short_for = ["ulrich"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+familiar = { short_for = ["ulrich"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "jorg"
-spelling = { spelling_of = ["joerg"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["joerg"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "jurgen"
-spelling = { spelling_of = ["juergen"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["juergen"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "sergey"
-spelling = { spelling_of = ["sergej"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["sergej"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 [[word]]
 text = "tatjana"
-spelling = { spelling_of = ["tatiana"], note = "found in CC0 or public-domain data and reviewed, tools/vocab/familiar_reviewed.tsv" }
+spelling = { spelling_of = ["tatiana"], note = "found in openly licensed data and reviewed, tools/vocab/familiar_reviewed.tsv" }
 
 # -- END generated --

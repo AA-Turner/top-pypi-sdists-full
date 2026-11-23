@@ -35,6 +35,7 @@ static void module_free(void *self) {
     Py_XDECREF(state->node_type);
     Py_XDECREF(state->parser_type);
     Py_XDECREF(state->point_type);
+    Py_XDECREF(state->query_cursor_type);
     Py_XDECREF(state->query_predicate_anyof_type);
     Py_XDECREF(state->query_predicate_eq_capture_type);
     Py_XDECREF(state->query_predicate_eq_string_type);
@@ -64,7 +65,7 @@ PyMODINIT_FUNC PyInit__binding(void) {
 
     ModuleState *state = PyModule_GetState(module);
 
-    ts_set_allocator(PyMem_Malloc, PyMem_Calloc, PyMem_Realloc, PyMem_Free);
+    ts_set_allocator(PyMem_RawMalloc, PyMem_RawCalloc, PyMem_RawRealloc, PyMem_RawFree);
 
     state->language_type =
         (PyTypeObject *)PyType_FromModuleAndSpec(module, &language_type_spec, NULL);

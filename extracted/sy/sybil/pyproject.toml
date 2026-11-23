@@ -1,6 +1,6 @@
 [project]
 name = "sybil"
-version = "10.1.0"
+version = "10.2.0"
 description = "Automated testing for the examples in your code and documentation."
 readme = "README.rst"
 authors = [{ name = "Chris Withers", email = "chris@withers.org" }]
@@ -31,7 +31,7 @@ dev = [
     "pytest-cov>=6",
     "ruff>=0.15.7",
     "seedir",
-    "testfixtures>=11",
+    "testfixtures>=12.0.0",
     "types-PyYAML",
 ]
 docs = [
@@ -66,6 +66,9 @@ ignore_errors = true
 
 [tool.ruff]
 line-length = 100
+# Fixtures and doc examples contain deliberately quirky Python inside markdown
+# code fences; ruff 0.16 formats those, which would defeat what they test.
+extend-exclude = ["docs/examples", "tests/samples"]
 
 [tool.ruff.format]
 quote-style = "preserve"

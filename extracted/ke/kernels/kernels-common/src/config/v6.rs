@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use monostate::MustBe;
 use serde::{Deserialize, Serialize};
 
-use super::{ConfigError, Dependency, GitUrl, KernelDependency, KernelName};
+use super::{BuildLayout, ConfigError, Dependency, GitUrl, KernelDependency, KernelName};
 use crate::version::Version;
 
 // `monostate` validates the edition on read but provides no `Serialize` impl for it.
@@ -30,6 +30,7 @@ pub struct Build {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Framework {
+    MlxNoarch(MlxNoarch),
     Torch(Torch),
     TorchNoarch(TorchNoarch),
     TvmFfi(TvmFfi),
@@ -53,6 +54,9 @@ pub struct General {
     pub source: Option<GitUrl>,
 
     pub backends: Vec<Backend>,
+
+    #[serde(default)]
+    pub build_layout: BuildLayout,
 
     pub cuda: Option<CudaGeneral>,
 
@@ -123,6 +127,12 @@ pub struct Torch {
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct MlxNoarch {
+    pub pyext: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TorchNoarch {
     pub pyext: Option<Vec<String>>,
@@ -163,8 +173,19 @@ pub enum Kernel {
     RustCpu {
         /// Path of the crate's `Cargo.toml`, relative to the kernel directory.
         cargo_manifest: String,
-        depends: Vec<Dependency>,
         src: Vec<String>,
+    },
+    #[serde(rename_all = "kebab-case")]
+    RustCudaOxide {
+        cargo_manifest: String,
+        cuda_capabilities: Option<Vec<String>>,
+        src: Vec<String>,
+    },
+    #[serde(rename_all = "kebab-case")]
+    RustCutile {
+        cargo_manifest: String,
+        src: Vec<String>,
+        tileiras_minver: Version<2>,
     },
     #[serde(rename_all = "kebab-case")]
     CppCuda {
@@ -219,15 +240,45 @@ impl TryFrom<Build> for super::Build {
     type Error = ConfigError;
 
     fn try_from(build: Build) -> Result<Self, Self::Error> {
+        if matches!(build.framework, Framework::MlxNoarch(_))
+            && let Some(backend) = build
+                .general
+                .backends
+                .iter()
+                .find(|backend| **backend != Backend::Metal)
+        {
+            return Err(ConfigError::InvalidFramework {
+                reason: format!(
+                    "`[mlx-noarch]` only supports the `metal` backend, got `{}`",
+                    super::Backend::from(*backend)
+                ),
+            });
+        }
+
         let tvm_ffi = matches!(build.framework, Framework::TvmFfi(_));
         let kernels: HashMap<String, super::Kernel> = build
             .kernels
             .into_iter()
             .map(|(name, kernel)| match kernel {
-                Kernel::RustCpu { .. } if !tvm_ffi => Err(ConfigError::InvalidKernel {
-                    name,
-                    reason: "Rust kernels require a `[tvm-ffi]` framework".into(),
-                }),
+                Kernel::RustCpu { .. } | Kernel::RustCudaOxide { .. } | Kernel::RustCutile { .. }
+                    if !tvm_ffi =>
+                {
+                    Err(ConfigError::InvalidKernel {
+                        name,
+                        reason: "Rust kernels require a `[tvm-ffi]` framework".into(),
+                    })
+                }
+                Kernel::RustCutile {
+                    tileiras_minver, ..
+                } if tileiras_minver < super::MIN_TILEIRAS_VERSION => {
+                    Err(ConfigError::InvalidKernel {
+                        name,
+                        reason: format!(
+                            "`tileiras-minver` must be at least {}, the first CUDA version with cuTile",
+                            super::MIN_TILEIRAS_VERSION
+                        ),
+                    })
+                }
                 kernel => Ok((name, kernel.into())),
             })
             .collect::<Result<_, _>>()?;
@@ -249,6 +300,7 @@ impl From<General> for super::General {
             upstream: general.upstream,
             source: general.source,
             backends: general.backends.into_iter().map(Into::into).collect(),
+            build_layout: general.build_layout,
             cuda: general.cuda.map(Into::into),
             hub: general.hub.map(Into::into),
             kernel_depends: general.kernel_depends,
@@ -263,6 +315,7 @@ impl From<General> for super::General {
 impl From<Framework> for super::Framework {
     fn from(framework: Framework) -> Self {
         match framework {
+            Framework::MlxNoarch(mlx_noarch) => super::Framework::MlxNoarch(mlx_noarch.into()),
             Framework::Torch(torch) => super::Framework::Torch(torch.into()),
             Framework::TorchNoarch(torch_noarch) => {
                 super::Framework::TorchNoarch(torch_noarch.into())
@@ -332,6 +385,14 @@ impl From<Torch> for super::Torch {
     }
 }
 
+impl From<MlxNoarch> for super::MlxNoarch {
+    fn from(mlx_noarch: MlxNoarch) -> Self {
+        Self {
+            pyext: mlx_noarch.pyext,
+        }
+    }
+}
+
 impl From<TorchNoarch> for super::TorchNoarch {
     fn from(torch_noarch: TorchNoarch) -> Self {
         Self {
@@ -382,13 +443,29 @@ impl From<Kernel> for super::Kernel {
                 include,
                 src,
             },
+            Kernel::RustCudaOxide {
+                cargo_manifest,
+                cuda_capabilities,
+                src,
+            } => super::Kernel::RustCudaOxide {
+                cargo_manifest,
+                cuda_capabilities,
+                src,
+            },
+            Kernel::RustCutile {
+                cargo_manifest,
+                src,
+                tileiras_minver,
+            } => super::Kernel::RustCutile {
+                cargo_manifest,
+                src,
+                tileiras_minver,
+            },
             Kernel::RustCpu {
                 cargo_manifest,
-                depends,
                 src,
             } => super::Kernel::RustCpu {
                 cargo_manifest,
-                depends,
                 src,
             },
             Kernel::CppCuda {
@@ -475,6 +552,7 @@ impl From<super::General> for General {
             upstream: general.upstream,
             source: general.source,
             backends: general.backends.into_iter().map(Into::into).collect(),
+            build_layout: general.build_layout,
             cuda: general.cuda.map(Into::into),
             hub: general.hub.map(Into::into),
             kernel_depends: general.kernel_depends,
@@ -489,6 +567,7 @@ impl From<super::General> for General {
 impl From<super::Framework> for Framework {
     fn from(framework: super::Framework) -> Self {
         match framework {
+            super::Framework::MlxNoarch(mlx_noarch) => Framework::MlxNoarch(mlx_noarch.into()),
             super::Framework::Torch(torch) => Framework::Torch(torch.into()),
             super::Framework::TorchNoarch(torch_noarch) => {
                 Framework::TorchNoarch(torch_noarch.into())
@@ -558,6 +637,14 @@ impl From<super::Torch> for Torch {
     }
 }
 
+impl From<super::MlxNoarch> for MlxNoarch {
+    fn from(mlx_noarch: super::MlxNoarch) -> Self {
+        Self {
+            pyext: mlx_noarch.pyext,
+        }
+    }
+}
+
 impl From<super::TorchNoarch> for TorchNoarch {
     fn from(torch_noarch: super::TorchNoarch) -> Self {
         Self {
@@ -610,12 +697,28 @@ impl From<super::Kernel> for Kernel {
             },
             super::Kernel::RustCpu {
                 cargo_manifest,
-                depends,
                 src,
             } => Kernel::RustCpu {
                 cargo_manifest,
-                depends,
                 src,
+            },
+            super::Kernel::RustCudaOxide {
+                cargo_manifest,
+                cuda_capabilities,
+                src,
+            } => Kernel::RustCudaOxide {
+                cargo_manifest,
+                cuda_capabilities,
+                src,
+            },
+            super::Kernel::RustCutile {
+                cargo_manifest,
+                src,
+                tileiras_minver,
+            } => Kernel::RustCutile {
+                cargo_manifest,
+                src,
+                tileiras_minver,
             },
             super::Kernel::CppCuda {
                 cuda_capabilities,

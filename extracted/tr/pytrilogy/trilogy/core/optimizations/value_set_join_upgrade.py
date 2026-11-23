@@ -38,7 +38,6 @@ from trilogy.core.models.build import (
     BuildComparison,
     BuildConcept,
     BuildRowsetItem,
-    nonstandard_grouping_lineage,
 )
 from trilogy.core.models.execute import (
     CTE,
@@ -443,14 +442,13 @@ def _null_groups_differ(
     """A side can NULL the key and the two do not read the same rows
     (`same_rows`): whether either holds a NULL group is data, so null-safe
     equality may find it no partner. NULL is no member of a complete domain.
-    A `declared` relation speaks for its keys' value NULLs, never for a guest
-    (a fact row whose key found no dimension row: an undated sale)."""
-    if declared:
-        if not (_guest_padded(left, left_cte) or _guest_padded(right, right_cte)):
-            return False
-        return not _same_filtered_rows(left_cte, right_cte)
+    A `declared` relation speaks for its keys' values, never for a NULL: a
+    nullable binding (`?`, a null-propagating derivation) or a guest (a fact
+    row whose key found no dimension row) keeps its rows."""
     if not (_key_nullable(left, left_cte) or _key_nullable(right, right_cte)):
         return False
+    if declared:
+        return not _same_filtered_rows(left_cte, right_cte)
     return not (
         isinstance(left_cte, CTE)
         and isinstance(right_cte, CTE)
@@ -590,23 +588,6 @@ def _complete_values(
             )
         ):
             return True
-    seed = _recursion_seed(side_cte)
-    if seed is not None:
-        # A recursive concept's domain is its image over the seed rows; the edge
-        # column is read off those same rows, so only the seed must be complete.
-        targets = (
-            concept.concept_arguments[:1]
-            if concept.derivation == Derivation.RECURSIVE
-            else [concept]
-        )
-        return bool(targets) and all(
-            any(
-                column.all_spellings & target.all_spellings
-                and _complete_values(column, seed, graph)
-                for column in seed.output_columns
-            )
-            for target in targets
-        )
     if concept.derivation in _COMPLETENESS_TRANSFERRING:
         args = concept.concept_arguments
         return bool(args) and all(
@@ -667,39 +648,12 @@ def _declared_partial(concept: BuildConcept, side_cte: CTE | UnionCTE) -> bool:
 def _proven_subset_of(
     graph: DomainGraph, sub_concept: BuildConcept, sup_concept: BuildConcept
 ) -> bool:
-    """The graph proves the sub side's concept a subset of the sup side's: a
-    directed subset path over declared and structural edges (rowset/filter
-    lineage mints the latter). Deliberately ignores incomparable declarations:
-    an authored one can be conservatively wrong in one direction, and a proven
-    subset path makes the narrowing row-identical (rule B). The sub side keys
-    on its own exact address (the two relation endpoints are distinct
-    concepts, one per side) while the sup side matches through its
-    pseudonym/canonical closure, since rendering may have re-addressed it.
-
-    That closure is not a free stand-in for the sup side: a scoped
-    incomparable merge collapses every member of a chained group onto one
-    canonical, so the sup side's pseudonyms include its own siblings,
-    independent populations the declaration says are incomparable. Proving
-    `sub ⊑ sibling` says nothing about `sub ⊑ sup`, and rule-B narrowing on
-    it drops rows present on only one side. Siblings are excluded; sup's own
-    address stays, so a genuine subset path through the merge still narrows.
-    So is a spelling sup is itself a subset of: `subset join kb = ka` and
-    `subset join kc = ka` spell `kc` as `ka` too, and `kb ⊑ ka` says nothing
-    about `kb ⊑ kc`."""
-    if sub_concept.address == sup_concept.address:
-        return False
-    group = graph.join_key_groups().get(graph.canonical(sup_concept.address), set())
-    siblings = (group & graph.coalescing_relation_members()) - {sup_concept.address}
-    for candidate in sorted(sup_concept.all_spellings):
-        if candidate == sub_concept.address or candidate in siblings:
-            continue
-        if candidate != sup_concept.address and graph.proven_subset(
-            sup_concept.address, candidate
-        ):
-            continue
-        if graph.proven_subset(sub_concept.address, candidate):
-            return True
-    return False
+    """The graph proves the sub side's concept within the sup side's
+    (`DomainGraph.proven_within`): a directed subset path over declared and
+    structural edges, ignoring incomparable declarations (rule B)."""
+    return graph.proven_within(
+        sub_concept.address, sup_concept.address, sup_concept.all_spellings
+    )
 
 
 def _genuine_partial_stamp(
@@ -811,7 +765,8 @@ def _emits_null(concept: BuildConcept, cte: CTE | UnionCTE) -> bool:
 
 
 def _emits_grouping_set_rows(cte: CTE | UnionCTE) -> bool:
-    """True when this CTE emits ROLLUP/CUBE/GROUPING SETS rows.
+    """True when this CTE emits ROLLUP/CUBE/GROUPING SETS rows: it runs the
+    pass, or carries a parent's rows without regrouping them.
 
     Its grouping-key columns then carry a NULL on every subtotal row that no
     ordinary source has, so the two sides of a join on those keys do NOT hold
@@ -820,9 +775,12 @@ def _emits_grouping_set_rows(cte: CTE | UnionCTE) -> bool:
     tests can see. Narrowing to INNER there deletes exactly the subtotal and
     grand-total rows the query asked for.
     """
-    return any(
-        nonstandard_grouping_lineage(column) is not None
-        for column in cte.output_columns
+    if not isinstance(cte, CTE):
+        return False
+    if cte.grouping_sets is not None:
+        return True
+    return not cte.group_to_grain and any(
+        _emits_grouping_set_rows(parent) for parent in cte.parent_ctes
     )
 
 

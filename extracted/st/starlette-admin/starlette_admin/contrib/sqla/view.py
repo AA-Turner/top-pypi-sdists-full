@@ -7,6 +7,7 @@ from sqlalchemy.exc import DBAPIError, NoInspectionAvailable, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import (
     InstrumentedAttribute,
+    Mapped,
     Mapper,
     RelationshipProperty,
     Session,
@@ -34,6 +35,7 @@ from starlette_admin.fields import (
     EmailField,
     EnumField,
     FileField,
+    IPAddressField,
     PhoneField,
     RelationField,
     SlugField,
@@ -56,7 +58,7 @@ from starlette_admin.views import InlineModelView as BaseInlineModelView
 _log = get_logger(__name__)
 
 
-class ModelView(BaseModelView):
+class ModelView(BaseModelView[Mapped[Any]]):
     """A view for managing SQLAlchemy models."""
 
     sortable_field_mapping: ClassVar[dict[str, InstrumentedAttribute]] = {}
@@ -202,7 +204,9 @@ class ModelView(BaseModelView):
             self._pk_coerce = extract_column_python_type(self._pk_column)  # type: ignore[arg-type]
             try:
                 # Reuse the already-converted field if the PK is declared.
-                self.pk_field = next(f for f in self.fields if f.name == _pk_attrs[0])
+                self.pk_field = next(
+                    f for f in self._resolved_fields if f.name == _pk_attrs[0]
+                )
             except StopIteration:
                 # The PK is not among the declared fields, so fall back to
                 # treating its value as a plain string.
@@ -328,6 +332,7 @@ class ModelView(BaseModelView):
                 PhoneField,
                 ColorField,
                 EnumField,
+                IPAddressField,
             ]:
                 attr = getattr(self.model, field.name)
                 clauses.append(cast(attr, String).ilike(f"%{term}%"))
@@ -820,7 +825,7 @@ class ModelView(BaseModelView):
         raise exc  # pragma: no cover
 
 
-class InlineModelView(BaseInlineModelView, ModelView):
+class InlineModelView(BaseInlineModelView[Mapped[Any]], ModelView):
     """Inline editing of SQLAlchemy-backed related records inside a parent form.
 
     Declare `model` as a class attribute. `fk_attr` is optional: when omitted,
@@ -869,7 +874,7 @@ class InlineModelView(BaseInlineModelView, ModelView):
             raise RuntimeError(
                 "Cannot auto-detect fk_attr before the inline is wired to a parent view"
             )
-        parent_mapper = inspect(self.parent_view.model)  # ty: ignore[unresolved-attribute]
+        parent_mapper = inspect(self.parent_view.model)  # ty: ignore[missing-attribute]
         child_mapper: Any = inspect(self.model)
         for rel in parent_mapper.relationships:
             if rel.mapper.class_ is not self.model:
@@ -886,7 +891,7 @@ class InlineModelView(BaseInlineModelView, ModelView):
                     "%s: auto-detected fk_attr=%r from relationship to %s",
                     type(self).__name__,
                     fk_keys[0],
-                    self.parent_view.model.__name__,  # ty: ignore[unresolved-attribute]
+                    self.parent_view.model.__name__,  # ty: ignore[missing-attribute]
                 )
                 return fk_keys[0]
             if fk_keys:
@@ -894,18 +899,18 @@ class InlineModelView(BaseInlineModelView, ModelView):
                     "%s: auto-detected composite fk_attr=%r from relationship to %s",
                     type(self).__name__,
                     tuple(fk_keys),
-                    self.parent_view.model.__name__,  # ty: ignore[unresolved-attribute]
+                    self.parent_view.model.__name__,  # ty: ignore[missing-attribute]
                 )
                 return tuple(fk_keys)
         _log.error(
             "%s: cannot auto-detect fk_attr, no relationship from %s to %s",
             type(self).__name__,
-            self.parent_view.model.__name__,  # ty: ignore[unresolved-attribute]
+            self.parent_view.model.__name__,  # ty: ignore[missing-attribute]
             self.model.__name__,
         )
         raise ValueError(
             f"{type(self).__name__}: cannot auto-detect fk_attr, "
-            f"no relationship from {self.parent_view.model.__name__} to "  # ty: ignore[unresolved-attribute]
+            f"no relationship from {self.parent_view.model.__name__} to "  # ty: ignore[missing-attribute]
             f"{self.model.__name__} found. Set fk_attr explicitly."
         )
 

@@ -28,13 +28,10 @@ from yarl import URL
 from .alexalogin import AlexaLogin
 from .const import (
     ALEXA_API_BASE,
-    API_USER_AGENT,
-    CALL_VERSION,
-    DEFAULT_ACCEPT_LANGUAGE,
     DEFAULT_LOCALE,
     GQL_SMARTHOME_QUERY,
     GQL_SMARTHOME_QUERY_LEGACY,
-    USER_AGENT,
+    LOGIN_APP_VERSION,
 )
 from .errors import (
     AlexapyConnectionError,
@@ -43,6 +40,7 @@ from .errors import (
     AlexapyTooManyRequestsError,
 )
 from .helpers import _catch_all_exceptions, get_json_value, hide_email, hide_serial
+from .request import RequestProfile, send_request
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -182,15 +180,9 @@ class AlexaAPI:
         # login.url is usually 'amazon.ca' or 'amazon.com'
         endpoints_url = URL(f"https://alexa.{login.url}/api/endpoints")
 
-        headers = getattr(login, "_headers", {}) or {}
-        # Make sure we have some UA + Accept to look like a real client
-        local_headers = headers.copy()
-        local_headers.setdefault("User-Agent", API_USER_AGENT)
-        local_headers.setdefault("Accept", "application/json")
-
         try:
-            resp = await session.get(
-                endpoints_url, headers=local_headers, ssl=login._ssl
+            resp = await send_request(
+                session, "get", endpoints_url, login, RequestProfile.DISCOVERY
             )
             text = await resp.text()
             _LOGGER.debug(
@@ -201,19 +193,20 @@ class AlexaAPI:
                 resp.reason,
                 resp.content_type,
             )
-            _LOGGER.debug("%s: Response text: %s", hide_email(login.email), text)
             if resp.status == 200:
                 try:
                     data = json.loads(text)
-                    api_url = data.get("websiteApiUrl", "").rstrip("/")
-                    if api_url:
-                        login._alexa_api_url = api_url
+                    api_url = (
+                        data.get("websiteApiUrl") if isinstance(data, dict) else None
+                    )
+                    if isinstance(api_url, str) and api_url.rstrip("/"):
+                        login._alexa_api_url = api_url.rstrip("/")
                         _LOGGER.debug(
                             "%s: Using websiteApiUrl from /api/endpoints: %s",
                             hide_email(login.email),
                             api_url,
                         )
-                        return api_url
+                        return login._alexa_api_url
                     else:
                         _LOGGER.debug(
                             "%s: Unable to extract websiteApiUrl from /api/endpoints",
@@ -221,9 +214,8 @@ class AlexaAPI:
                         )
                 except ValueError:
                     _LOGGER.debug(
-                        "%s: /api/endpoints invalid JSON: %s",
+                        "%s: /api/endpoints returned invalid JSON",
                         hide_email(login.email),
-                        hide_serial(text),
                     )
         except ClientConnectionError as exc:
             _LOGGER.debug(
@@ -234,12 +226,7 @@ class AlexaAPI:
 
         # Fallback: use region-based default, then web host as last resort
         domain = getattr(login, "url", "")  # e.g. 'amazon.ca'
-        suffix = ""
-        for sfx in ALEXA_API_BASE:
-            if domain.endswith(sfx[1:]):  # strip leading dot
-                suffix = sfx
-                break
-
+        suffix = domain.lower().removeprefix("amazon")
         api_base = ALEXA_API_BASE.get(suffix)
         if not api_base:
             api_base = f"https://alexa.{domain}"
@@ -278,6 +265,33 @@ class AlexaAPI:
             return None
         return response
 
+    @staticmethod
+    async def _refresh_csrf_overrides(
+        login: AlexaLogin, url: URL, headers: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        """Rebuild endpoint-specific CSRF overrides after reauthentication."""
+        if not headers:
+            return headers
+
+        refreshed = headers.copy()
+        for name in headers:
+            if name.lower() == "anti-csrftoken-a2z":
+                token = await login.get_csrf_token()
+            elif name.lower() == "x-amzn-csrf":
+                cookies = login._get_cookies_from_session(url.host or "")
+                cookie = cookies.get("ft-panda-csrf-token")
+                token = cookie.value if cookie else None
+            else:
+                continue
+
+            if token:
+                refreshed[name] = token
+            else:
+                # Let the rebuilt session supply any current header value.
+                refreshed.pop(name)
+
+        return refreshed
+
     @backoff.on_exception(
         _min_expo_wait(random.uniform(0.5, 1.5)),
         (AlexapyTooManyRequestsError, AlexapyConnectionError, ClientConnectionError),
@@ -294,28 +308,7 @@ class AlexaAPI:
         data: dict[str, str] | None = None,
         query: dict[str, str | int] | None = None,
     ) -> ClientResponse | None:
-        async with self._login._oauth_lock:
-            if self._login.expires_in and (self._login.expires_in - time.time() < 0):
-                _LOGGER.debug(
-                    "%s: Detected access token expiration; refreshing",
-                    hide_email(self._login.email),
-                )
-                if (
-                    # await self._login.get_tokens()
-                    # and
-                    await self._login.refresh_access_token()
-                    and await self._login.exchange_token_for_cookies()
-                    and await self._login.get_csrf()
-                ):
-                    await self._login.finalize_login()
-                else:
-                    _LOGGER.debug(
-                        "%s: Unable to refresh oauth",
-                        hide_email(self._login.email),
-                    )
-                    self._login.access_token = None
-                    self._login.refresh_token = None
-                    self._login.expires_in = None
+        await self._login._refresh_session_if_expired()
         if method == "get":
             if query and not query.get("_"):
                 query["_"] = math.floor(time.time() * 1000)
@@ -353,12 +346,8 @@ class AlexaAPI:
             raise AlexapyLoginError("Login error detected; not contacting API")
         if self._session and self._session.closed:
             raise AlexapyLoginError("Session is closed")
-        response = await getattr(self._session, method)(
-            url,
-            json=data,
-            # cookies=self._login._cookies,
-            headers=self._login._headers,
-            ssl=self._login._ssl,
+        response = await send_request(
+            self._session, method, url, self._login, RequestProfile.WEB_API, data=data
         )
         _LOGGER.debug(
             "%s: %s: %s returned %s:%s:%s",
@@ -423,28 +412,7 @@ class AlexaAPI:
         sub_domain: str = "alexa",
         with_status: bool = False,
     ) -> tuple[int, ClientResponse] | ClientResponse | None:
-        async with login._oauth_lock:
-            if login.expires_in and (login.expires_in - time.time() < 0):
-                _LOGGER.debug(
-                    "%s: Detected access token expiration; refreshing",
-                    hide_email(login.email),
-                )
-                if (
-                    # await login.get_tokens()
-                    # and
-                    await login.refresh_access_token()
-                    and await login.exchange_token_for_cookies()
-                    and await login.get_csrf()
-                ):
-                    await login.finalize_login()
-                else:
-                    _LOGGER.debug(
-                        "%s: Unable to refresh oauth",
-                        hide_email(login.email),
-                    )
-                    login.access_token = None
-                    login.refresh_token = None
-                    login.expires_in = None
+        await login._refresh_session_if_expired()
         session = login.session
         url: URL = URL("https://" + sub_domain + "." + login.url + uri).update_query(
             query
@@ -479,14 +447,19 @@ class AlexaAPI:
             raise AlexapyLoginError("Login error detected; not contacting API")
         if session and session.closed:
             raise AlexapyLoginError("Session is closed")
-        headers = login._headers.copy()
-        if additional_headers:
-            headers.update(additional_headers)
-        response = await getattr(session, method)(
+        profile = (
+            RequestProfile.WEB_API
+            if sub_domain == "alexa"
+            else RequestProfile.AUXILIARY_API
+        )
+        response = await send_request(
+            session,
+            method,
             url,
-            json=data,
-            headers=headers,
-            ssl=login._ssl,
+            login,
+            profile,
+            data=data,
+            overrides=additional_headers,
         )
         _LOGGER.debug(
             "%s: static %s %s returned %s:%s:%s",
@@ -498,14 +471,18 @@ class AlexaAPI:
             response.content_type,
         )
 
-        # (401 retry handling stays as-is here)
         if response.status == 401 and await login.test_loggedin():
-            response = await getattr(session, method)(
+            additional_headers = await AlexaAPI._refresh_csrf_overrides(
+                login, url, additional_headers
+            )
+            response = await send_request(
+                login.session,
+                method,
                 url,
-                json=data,
-                # cookies=login._cookies,
-                headers=login._headers,
-                ssl=login._ssl,
+                login,
+                profile,
+                data=data,
+                overrides=additional_headers,
             )
             _LOGGER.debug(
                 "Error 401, retried once request: %s: static %s: %s returned %s:%s:%s",
@@ -1689,18 +1666,15 @@ class AlexaAPI:
             sub_domain=sub_domain,
         )
         additional_headers = {
-            "Referer": (
-                f"https://{host}"
-                f"/oobe/brownie/start/{device_type}/{serial}"
-            ),
+            "Referer": (f"https://{host}/oobe/brownie/start/{device_type}/{serial}"),
             "Origin": f"https://{host}",
         }
         try:
             # The ft-panda-csrf-token cookie is scoped to the parent-dashboard
             # host, so it must be read for that host (not the default one).
-            additional_headers["x-amzn-csrf"] = login._get_cookies_from_session(
-                host
-            )["ft-panda-csrf-token"].value
+            additional_headers["x-amzn-csrf"] = login._get_cookies_from_session(host)[
+                "ft-panda-csrf-token"
+            ].value
         except (KeyError, AttributeError):
             _LOGGER.debug(
                 "%s: ft-panda-csrf-token not found after bootstrap; "
@@ -1924,7 +1898,7 @@ class AlexaAPI:
         response = await AlexaAPI._static_request(
             "get",
             login,
-            f"/api/users/me?platform=ios&version={CALL_VERSION}",
+            f"/api/users/me?platform=ios&version={LOGIN_APP_VERSION}",
             query=None,
         )
         json_resp, *_ = await get_json_value(response, None, dict)
@@ -2716,37 +2690,6 @@ class AlexaAPI:
         return False
 
     @staticmethod
-    def _build_notifications_headers(login: AlexaLogin) -> dict[str, str]:
-        """Build headers for the notifications request."""
-        base_headers = getattr(login, "_headers", {}) or {}
-        cookie = base_headers.get("Cookie") or base_headers.get("cookie")
-        csrf = (
-            base_headers.get("anti-csrftoken-a2z")
-            or base_headers.get("csrf")
-            or base_headers.get("x-amzn-csrf")
-        )
-
-        headers: dict[str, str] = {}
-        if cookie:
-            headers["Cookie"] = cookie
-        if csrf:
-            if "anti-csrftoken-a2z" in base_headers:
-                headers["anti-csrftoken-a2z"] = csrf
-            else:
-                headers["csrf"] = csrf
-
-        headers["User-Agent"] = API_USER_AGENT
-        headers["Accept-Language"] = DEFAULT_ACCEPT_LANGUAGE
-        headers["Accept"] = "application/json"
-        headers["Connection"] = "keep-alive"
-
-        referer = base_headers.get("Referer") or base_headers.get("referer")
-        if referer:
-            headers["Referer"] = referer
-
-        return headers
-
-    @staticmethod
     @_catch_all_exceptions
     async def get_notifications(login: AlexaLogin) -> list[dict[str, Any]] | None:
         """Get Alexa notifications using discovered API base."""
@@ -2769,67 +2712,27 @@ class AlexaAPI:
             .update_query({"cached": "true", "_": str(ts)})
         )
 
-        headers = AlexaAPI._build_notifications_headers(login)
-
         try:
-            resp = await session.get(url, headers=headers, ssl=login._ssl)
+            response = await send_request(
+                session, "get", url, login, RequestProfile.NOTIFICATIONS_PITANGUI
+            )
+            body = await response.text()
         except ClientConnectionError as exc:
             raise AlexapyConnectionError(str(exc)) from exc
 
-        body = await resp.text()
-        _LOGGER.debug(
-            "%s: notifications GET %s returned %s:%s:%s",
-            hide_email(email),
-            url,
-            resp.status,
-            resp.reason,
-            resp.content_type,
-        )
-        try:
-            parsed = json.loads(body)
-            count = len(parsed.get("notifications", []))
-            summary = f"{count} notifications"
-        except Exception:
-            summary = "<non-JSON body>"
-
-        _LOGGER.debug(
-            "%s: notifications GET JSON summary: %s",
-            hide_email(email),
-            summary,
-        )
-
-        if resp.status == 400 and "Rate exceeded" in body:
-            _LOGGER.debug(
-                "%s: notifications throttled (%s); not retrying this call",
-                hide_email(email),
-                hide_serial(body),
-            )
-            return None
-
-        if resp.status == 401:
+        if response.status == 401:
             login.status["login_successful"] = False
-            raise AlexapyLoginError(resp.reason)
-
-        if resp.status >= 400:
-            _LOGGER.debug(
-                "%s: notifications returning None due to status %s; body: %s",
-                hide_email(email),
-                resp.status,
-                hide_serial(body),
-            )
+            raise AlexapyLoginError(response.reason)
+        if response.status >= 400:
             return None
 
-        try:
-            data = json.loads(body)
-        except ValueError:
-            _LOGGER.debug(
-                "%s: notifications invalid JSON body: %s",
-                hide_email(email),
-                hide_serial(body),
-            )
-            return None
-
-        return data.get("notifications")
+        with contextlib.suppress(ValueError):
+            payload = json.loads(body)
+            if isinstance(payload, dict):
+                notifications = payload.get("notifications")
+                if isinstance(notifications, list):
+                    return notifications
+        return None
 
     @staticmethod
     @_catch_all_exceptions
@@ -2881,16 +2784,10 @@ class AlexaAPI:
             api_url = api_url.rstrip("/")
             login._alexa_alarms_api_url = api_url
         url = URL(f"{api_url}/v1/alerts/alarms{uri}")
-        response = await getattr(login.session, method)(
-            url,
-            json=data,
-            headers={
-                "authorization": login.access_token,
-                "Accept": "application/json",
-                "Content-Type": "application/json; charset=UTF-8",
-                "User-Agent": USER_AGENT,
-            },
-            ssl=login._ssl,
+        if not login.access_token:
+            return None
+        response = await send_request(
+            login.session, method, url, login, RequestProfile.ALARMS, data=data
         )
         _LOGGER.debug(
             "%s: %s %s returned %s:%s",

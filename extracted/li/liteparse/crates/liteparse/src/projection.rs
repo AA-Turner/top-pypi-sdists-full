@@ -699,6 +699,18 @@ fn form_lines(
         prev.orig_height = y2 - y1;
     }
 
+    // Every joiner must leave the merged item with `next`'s trailing-space
+    // state; a stale flag would add a space later. The line pass joins
+    // through here; the bbox pass below appends in stream order.
+    fn append_text(prev: &mut ProjectedTextItem, next: &ProjectedTextItem, sep: &str) {
+        join_in_reading_order(&mut prev.item.text, &next.item.text, sep);
+        prev.item.followed_by_space = next.item.followed_by_space;
+    }
+
+    fn trailing_sep(prev: &ProjectedTextItem) -> &'static str {
+        if prev.item.followed_by_space { " " } else { "" }
+    }
+
     // Merge continuous bbox items in a single linear pass.
     let merge_y_tolerance = 0.1;
     let merge_h_tolerance = 0.1;
@@ -721,7 +733,11 @@ fn form_lines(
         if should_merge {
             if let Some(prev) = merged_items.last_mut() {
                 let merged = merge_bbox(prev, &cur);
+                if prev.item.followed_by_space && !prev.item.text.ends_with(' ') {
+                    prev.item.text.push(' ');
+                }
                 prev.item.text.push_str(&cur.item.text);
+                prev.item.followed_by_space = cur.item.followed_by_space;
                 prev.item.words.append(&mut cur.item.words);
                 prev.item.x = merged.0;
                 prev.item.y = merged.1;
@@ -934,7 +950,7 @@ fn form_lines(
                         record_style_piece(&mut prev.item, &item.item, "");
                     }
                     prev.item.width = item.item.x + item.item.width - prev.item.x;
-                    prev.item.text.push_str(&item.item.text);
+                    append_text(prev, &item, "");
                     prev.item.words.append(&mut item.item.words);
                     merge_orig_bbox(prev, &item);
                     continue;
@@ -977,11 +993,12 @@ fn form_lines(
                     && !alpha_alpha_gap
                     && delta_x <= MERGE_THRESHOLD
                 {
+                    let sep = trailing_sep(prev);
                     if keep_pieces {
-                        record_style_piece(&mut prev.item, &item.item, "");
+                        record_style_piece(&mut prev.item, &item.item, sep);
                     }
                     prev.item.width = item.item.x + item.item.width - prev.item.x;
-                    join_in_reading_order(&mut prev.item.text, &item.item.text, "");
+                    append_text(prev, &item, sep);
                     prev.item.words.append(&mut item.item.words);
                     merge_orig_bbox(prev, &item);
                     continue;
@@ -994,7 +1011,7 @@ fn form_lines(
                         record_style_piece(&mut prev.item, &item.item, " ");
                     }
                     prev.item.width = item.item.x + item.item.width - prev.item.x;
-                    join_in_reading_order(&mut prev.item.text, &item.item.text, " ");
+                    append_text(prev, &item, " ");
                     prev.item.words.append(&mut item.item.words);
                     merge_orig_bbox(prev, &item);
                     continue;
@@ -1140,6 +1157,91 @@ struct BoxMeta {
     force_unsnapped: bool,
     rendered: bool,
     projected_x: usize,
+    // Recorded only when projection signals are collected: which block the item sits in,
+    // whether that block rendered as flowing prose, and how many items share each of its
+    // anchors (0 = no anchor of that kind).
+    block_idx: usize,
+    flowing: bool,
+    left_count: usize,
+    right_count: usize,
+    center_count: usize,
+}
+
+/// Per-item projection signals (see `dump_projection`).
+#[derive(serde::Serialize)]
+struct ProjDumpItem {
+    t: String,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    line: usize,
+    block: usize,
+    flow: bool,
+    snap: &'static str,
+    lc: usize,
+    rc: usize,
+    cc: usize,
+    px: usize,
+}
+
+thread_local! {
+    static PROJ_DUMP: std::cell::RefCell<Vec<ProjDumpItem>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Debug builds only (`projection-dump` feature): the file `LITEPARSE_PROJECTION_DUMP` names.
+#[cfg(feature = "projection-dump")]
+fn projection_dump_path() -> Option<std::ffi::OsString> {
+    std::env::var_os("LITEPARSE_PROJECTION_DUMP")
+}
+
+#[cfg(not(feature = "projection-dump"))]
+fn projection_dump_path() -> Option<std::ffi::OsString> {
+    None
+}
+
+fn projection_dump_enabled() -> bool {
+    COLLECT_SIGNALS.with(|c| c.get()) || projection_dump_path().is_some()
+}
+
+/// Per-item projection signals of one page, kept in memory for the table model
+/// (`table_model`).
+#[derive(Clone, Debug, Default)]
+pub struct ProjSignals {
+    pub width: f32,
+    pub height: f32,
+    /// original box (x, y, w, h), flowing, left / right / centre anchor counts, snap, block
+    pub items: Vec<ProjSignalItem>,
+    /// XY-cut leaf membership: an item's original box and its leaf path
+    pub leaves: Vec<([f32; 4], Vec<u16>)>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProjSignalItem {
+    pub text: String,
+    pub bx: [f32; 4],
+    pub flow: bool,
+    pub lc: usize,
+    pub rc: usize,
+    pub cc: usize,
+    pub snap: char,
+    pub block: usize,
+}
+
+thread_local! {
+    static COLLECT_SIGNALS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static SIGNALS: std::cell::RefCell<std::collections::HashMap<usize, ProjSignals>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Keep each projected page's signals in memory (for the table model) until [`take_signals`].
+pub fn collect_signals(on: bool) {
+    COLLECT_SIGNALS.with(|c| c.set(on));
+}
+
+/// The signals collected on this thread since the last call, by page number.
+pub fn take_signals() -> std::collections::HashMap<usize, ProjSignals> {
+    SIGNALS.with(|s| std::mem::take(&mut *s.borrow_mut()))
 }
 
 fn anchor_key(x: f32) -> i32 {
@@ -1983,7 +2085,12 @@ fn project_to_grid(
     let mut forward_center: BTreeMap<i32, usize> = BTreeMap::new();
     let mut forward_floating: BTreeMap<i32, usize> = BTreeMap::new();
 
-    for block in &blocks {
+    for (block_idx, block) in blocks.iter().enumerate() {
+        for meta_line in meta.iter_mut().take(block.end).skip(block.start) {
+            for m in meta_line {
+                m.block_idx = block_idx;
+            }
+        }
         // --- Anchor extraction (per block) ---
         let (mut anchor_left, mut anchor_right, mut anchor_center) =
             extract_block_anchors(&lines, block);
@@ -2060,6 +2167,11 @@ fn project_to_grid(
             page.page_width,
             median_width,
         ) {
+            for meta_line in meta.iter_mut().take(block.end).skip(block.start) {
+                for m in meta_line {
+                    m.flowing = true;
+                }
+            }
             render_flowing_block(&mut lines, block, &mut raw_lines, &mut meta, median_width);
             continue;
         }
@@ -2096,6 +2208,9 @@ fn project_to_grid(
                     .center_anchor
                     .and_then(|k| anchor_center.get(&k).map(|v| v.len()))
                     .unwrap_or(0);
+                m.left_count = left_count;
+                m.right_count = right_count;
+                m.center_count = center_count;
 
                 if left_count == 0 && right_count == 0 && center_count == 0 {
                     continue;
@@ -2949,8 +3064,33 @@ fn project_to_grid(
     // Persist projected positions and flatten in line order.
     let mut flattened: Vec<ProjectedTextItem> =
         Vec::with_capacity(lines.iter().map(|l| l.len()).sum());
+    let dump = projection_dump_enabled();
     for (line_idx, line) in lines.into_iter().enumerate() {
         for (box_idx, mut item) in line.into_iter().enumerate() {
+            if dump {
+                let m = &meta[line_idx][box_idx];
+                let rec = ProjDumpItem {
+                    t: item.item.text.clone(),
+                    x: item.orig_x,
+                    y: item.orig_y,
+                    w: item.orig_width,
+                    h: item.orig_height,
+                    line: line_idx,
+                    block: m.block_idx,
+                    flow: m.flowing,
+                    snap: match m.snap {
+                        Some(SnapKind::Left) => "L",
+                        Some(SnapKind::Right) => "R",
+                        Some(SnapKind::Center) => "C",
+                        None => "",
+                    },
+                    lc: m.left_count,
+                    rc: m.right_count,
+                    cc: m.center_count,
+                    px: m.projected_x,
+                };
+                PROJ_DUMP.with(|d| d.borrow_mut().push(rec));
+            }
             item.force_unsnapped = meta[line_idx][box_idx].force_unsnapped;
             item.num_spaces = meta[line_idx][box_idx].should_space;
 
@@ -3095,6 +3235,9 @@ fn project_pages(pages: Vec<Page>, style_runs: bool) -> Vec<ParsedPage> {
                 page.page_height,
                 &obstacles,
             );
+            if projection_dump_enabled() {
+                dump_projection(&page, &projected_items, &regions);
+            }
             let projected_item_frames = projected_item_frames(&projected_items);
             ParsedPage {
                 page_number: page.page_number,
@@ -3121,6 +3264,9 @@ fn project_pages(pages: Vec<Page>, style_runs: bool) -> Vec<ParsedPage> {
                 vector_graphics: page.vector_graphics,
                 figures,
                 projected_item_frames,
+                model_tables: Vec::new(),
+                model_classes: Vec::new(),
+                model_blocks: Vec::new(),
                 struct_nodes: page.struct_nodes,
                 image_refs: page.image_refs,
                 complexity: None,
@@ -5072,6 +5218,81 @@ pub(crate) fn xy_cut(
 
 /// Pre-order walk of leaves. Each leaf yields its `region_path` (index trail
 /// from the root) and item indices. Leaves with no items are skipped.
+/// Hands the page's projection signals to the table model when it asked for them. Debug
+/// builds (`projection-dump` feature) can also append them, one JSON line per page, to the file
+/// `LITEPARSE_PROJECTION_DUMP` names, for inspecting the projection: per-item anchor-group
+/// sizes, snap, grid column, line/block and flowing prose, plus each item's XY-cut leaf path.
+/// Boxes are the items' original page coordinates, so the two lists join by box.
+fn dump_projection(page: &Page, items: &[ProjectedTextItem], regions: &Region) {
+    #[derive(serde::Serialize)]
+    struct Leaf {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        path: Vec<u16>,
+    }
+    let recs = PROJ_DUMP.with(|d| std::mem::take(&mut *d.borrow_mut()));
+    let mut leaves = Vec::new();
+    xy_walk_leaves(regions, &mut Vec::new(), &mut leaves);
+    let mut leaf_items = Vec::new();
+    for (path, idxs) in leaves {
+        for i in idxs {
+            if let Some(it) = items.get(i) {
+                leaf_items.push(Leaf {
+                    x: it.orig_x,
+                    y: it.orig_y,
+                    w: it.orig_width,
+                    h: it.orig_height,
+                    path: path.clone(),
+                });
+            }
+        }
+    }
+    if COLLECT_SIGNALS.with(|c| c.get()) {
+        let sig = ProjSignals {
+            width: page.page_width,
+            height: page.page_height,
+            items: recs
+                .iter()
+                .map(|r| ProjSignalItem {
+                    text: r.t.clone(),
+                    bx: [r.x, r.y, r.w, r.h],
+                    flow: r.flow,
+                    lc: r.lc,
+                    rc: r.rc,
+                    cc: r.cc,
+                    snap: r.snap.chars().next().unwrap_or(' '),
+                    block: r.block,
+                })
+                .collect(),
+            leaves: leaf_items
+                .iter()
+                .map(|l| ([l.x, l.y, l.w, l.h], l.path.clone()))
+                .collect(),
+        };
+        SIGNALS.with(|s| s.borrow_mut().insert(page.page_number, sig));
+    }
+    let Some(path) = projection_dump_path() else {
+        return;
+    };
+    let line = serde_json::json!({
+        "page": page.page_number,
+        "width": page.page_width,
+        "height": page.page_height,
+        "items": recs,
+        "leaves": leaf_items,
+    });
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
 fn xy_walk_leaves(region: &Region, path: &mut Vec<u16>, out: &mut Vec<(Vec<u16>, Vec<usize>)>) {
     match &region.kind {
         RegionKind::Leaf { item_indices } => {
@@ -5522,6 +5743,9 @@ fn build_one_line(
         all_mono: majority(mono_chars),
         all_strike: false,
         spans,
+        // `items` is flattened 1:1 into `ParsedPage::text_items`, so these
+        // are the public item indices.
+        span_item_indices: sorted,
         region_path,
         mcid,
         in_figure,
@@ -5668,6 +5892,22 @@ mod tests {
         assert_eq!(lines.len(), 1);
         assert!(lines[0].iter().any(|i| i.item.text == "7.7"));
         assert!(lines[0].iter().all(|i| !i.is_margin_line_number));
+    }
+
+    #[test]
+    fn merged_item_inherits_trailing_space_of_its_last_part() {
+        // "case" was split at a space; "estimates" joins it through the spaced
+        // merge, so the abutting "." must not see "case"'s flag.
+        let mut case = item_at("case", 10.0, 100.0, 20.0, 10.0);
+        case.item.followed_by_space = true;
+        let mut items = vec![
+            case,
+            item_at("estimates", 33.0, 100.0, 45.0, 10.0),
+            item_at(".", 78.0, 101.0, 2.0, 9.0),
+        ];
+        let lines = form_lines(&mut items, 10.0, 10.0, 612.0, 792.0, true);
+        let texts: Vec<_> = lines[0].iter().map(|i| i.item.text.as_str()).collect();
+        assert_eq!(texts, ["case estimates."]);
     }
 
     #[test]
@@ -6752,5 +6992,50 @@ mod tests {
         // including angles near (but not within tolerance of) 360°.
         assert_eq!(canonical_rotation(45.0), 45);
         assert_eq!(canonical_rotation(357.0), 357);
+    }
+
+    #[test]
+    fn lines_index_the_returned_text_items() {
+        let mut text_items = Vec::new();
+        for row in 0..5 {
+            let y = 100.0 + row as f32 * 14.0;
+            for (text, x) in [(format!("left{row}"), 50.0), (format!("right{row}"), 350.0)] {
+                text_items.push(TextItem {
+                    text,
+                    x,
+                    y,
+                    width: 200.0,
+                    height: 10.0,
+                    ..Default::default()
+                });
+            }
+        }
+        let page = Page {
+            page_number: 1,
+            page_label: None,
+            page_width: 612.0,
+            page_height: 792.0,
+            content_bounds: None,
+            text_items,
+            graphics: Vec::new(),
+            vector_graphics: None,
+            struct_nodes: Vec::new(),
+            image_refs: Vec::new(),
+            annotations: None,
+            form_fields: None,
+            structure_tree: None,
+            ocr_deskew: None,
+        };
+        let page = project_pages_to_grid(vec![page]).remove(0);
+        let mut seen = Vec::new();
+        for line in &page.projected_lines {
+            assert_eq!(line.spans.len(), line.span_item_indices.len());
+            for (span, &i) in line.spans.iter().zip(&line.span_item_indices) {
+                assert_eq!(page.text_items[i].text, span.text);
+                seen.push(i);
+            }
+        }
+        seen.sort_unstable();
+        assert_eq!(seen, (0..page.text_items.len()).collect::<Vec<_>>());
     }
 }

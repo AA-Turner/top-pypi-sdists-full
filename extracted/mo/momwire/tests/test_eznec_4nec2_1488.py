@@ -6,7 +6,7 @@ and printout paths on stdin (``..\\out\\EXAMPLE3.inp``, ``..\\out\\EXAMPLE3.out`
 a deck with no ``EN`` card, and, when the deck's ``GE`` carries a third field
 of 1, a ``<printout stem>.GMO`` geometry file expected beside the printout.
 
-The byte oracle is ONE sample: Ward AE6TY's razor-2p port (76.7) on Dan
+The byte oracle is ONE sample: Ward AE6TY's razor2p port (76.7) on Dan
 AC6LA's 4nec2 Example 3 (``tests/fixtures/4nec2_example3/``). The other
 geometry gates below pin the conventions this engine chose where that sample
 cannot speak (first-appearance node order, no image nodes, the last structure
@@ -424,7 +424,7 @@ def _impedance(printout: bytes) -> complex:
     raise AssertionError("no ANTENNA INPUT PARAMETERS row")
 
 
-@pytest.mark.parametrize("basis", [_serve.BASIS, "razor-2p"])
+@pytest.mark.parametrize("basis", [_serve.BASIS, "razor2p"])
 def test_the_shell_reads_4nec2s_names_from_stdin(tmp_path, monkeypatch, capsys, basis):
     """No arguments, the two relative names on stdin with CRLF, a deck with
     no EN: the printout and the sample's ``.GMO`` land beside the deck, and
@@ -449,10 +449,10 @@ def test_the_shell_reads_4nec2s_names_from_stdin(tmp_path, monkeypatch, capsys, 
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("basis", [_serve.BASIS, "razor-2p"])
+@pytest.mark.parametrize("basis", [_serve.BASIS, "razor2p"])
 def test_dans_example3_over_sommerfeld_ground_end_to_end(tmp_path, monkeypatch, basis):
     """The deck exactly as Dan sent it, Sommerfeld ground and all: the
-    sample's ``.GMO``, and on razor-2p the impedance Ward's port of the same
+    sample's ``.GMO``, and on razor2p the impedance Ward's port of the same
     formulation printed, 61.409 + j18.768 ohms (measured here 61.406 +
     j18.765; his port builds its own Sommerfeld grid, ours blends a cached
     one, and the two are documented to differ at this level)."""
@@ -466,7 +466,7 @@ def test_dans_example3_over_sommerfeld_ground_end_to_end(tmp_path, monkeypatch, 
         EXAMPLE3 / "EXAMPLE3.GMO"
     ).read_bytes()
     z = _impedance((out_dir / "EXAMPLE3.out").read_bytes())
-    if basis == "razor-2p":
+    if basis == "razor2p":
         assert abs(z - complex(61.409, 18.768)) < 0.01, z
     else:
         # bs2 answers in its own basis; pinned so a change is noticed.
@@ -597,7 +597,7 @@ def test_the_two_argument_form_writes_the_gmo_too(tmp_path):
     named on the command line, gets the same ``.GMO``."""
     deck = tmp_path / "EXAMPLE3.nec"
     deck.write_bytes(_free_space_example3() + b"EN\r\n")
-    _shell.run(deck, tmp_path / "EXAMPLE3.out", basis="razor-2p")
+    _shell.run(deck, tmp_path / "EXAMPLE3.out", basis="razor2p")
     assert (tmp_path / "EXAMPLE3.GMO").read_bytes() == (
         EXAMPLE3 / "EXAMPLE3.GMO"
     ).read_bytes()
@@ -621,7 +621,7 @@ def _in_process_server(monkeypatch, basis: str) -> list[bytes]:
 
 @pytest.mark.parametrize(
     ("name", "basis"),
-    [("momwire-nec5", _serve.BASIS), ("momwire-nec5-razor-2p", "razor-2p")],
+    [("momwire-nec5", _serve.BASIS), ("momwire-nec5-razor2p", "razor2p")],
 )
 def test_the_thin_client_reads_4nec2s_names_from_stdin(
     tmp_path, monkeypatch, capsys, name, basis
@@ -635,7 +635,9 @@ def test_the_thin_client_reads_4nec2s_names_from_stdin(
     assert eznec_client.main(None) == 0
 
     assert capsys.readouterr().out == ""
-    assert len(sent) == 1 and sent[0].startswith(mech.EN_OPTIONAL_REQUEST)
+    # the advisories' request (on by default) rides ahead of the stdin form's
+    assert len(sent) == 1
+    assert sent[0].startswith(mech.ADVISORIES_REQUEST + mech.EN_OPTIONAL_REQUEST)
     assert (out_dir / "EXAMPLE3.GMO").read_bytes() == (
         EXAMPLE3 / "EXAMPLE3.GMO"
     ).read_bytes()
@@ -663,7 +665,9 @@ def test_the_thin_client_reads_4nec2s_names_from_stdin_for_nec42(
     assert eznec_client.main(None) == 0
 
     assert capsys.readouterr().out == ""
-    assert len(sent) == 1 and sent[0].startswith(mech.EN_OPTIONAL_REQUEST)
+    # the advisories' request (on by default) rides ahead of the stdin form's
+    assert len(sent) == 1
+    assert sent[0].startswith(mech.ADVISORIES_REQUEST + mech.EN_OPTIONAL_REQUEST)
     printout = (out_dir / "EXAMPLE3.out").read_bytes().decode("latin-1")
     assert "NEC ERROR" not in printout and "NEC-4.2" in printout
     assert sorted(p.name for p in out_dir.iterdir()) == ["EXAMPLE3.inp", "EXAMPLE3.out"]
@@ -679,5 +683,6 @@ def test_the_thin_clients_two_argument_form_sends_the_deck_verbatim(
     )
     sent = _in_process_server(monkeypatch, _serve.BASIS)
     assert eznec_client.main(None) == 0
-    assert sent == [deck.read_bytes()]
+    # verbatim behind the advisories' request, which is on by default
+    assert sent == [mech.ADVISORIES_REQUEST + deck.read_bytes()]
     assert not (tmp_path / "d.GMO").exists()

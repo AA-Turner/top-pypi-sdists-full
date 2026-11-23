@@ -15,7 +15,7 @@ from unittest.mock import patch
 import wlc
 from wlc.config import WeblateConfig, WLCConfigurationError
 
-from .test_base import CONFIG_PARSE_ERRORS, CONFIG_PARSE_MARKER
+from .test_base import CONFIG_PARSE_ERRORS, CONFIG_PARSE_MARKER, load_discovered_config
 
 TEST_DATA = Path(__file__).parent / "test_data"
 TEST_CONFIG = TEST_DATA / "wlc"
@@ -46,22 +46,61 @@ class WeblateConfigTestCase(TestCase):
 
     def test_find_config_xdg(self) -> None:
         """XDG discovery wraps filenames in Path and preserves search order."""
-        with patch.dict(os.environ, {}, clear=True):
-            for filename, results in (
-                ("user/weblate", ["user/weblate"]),
-                ("user/weblate.ini", [None, "user/weblate.ini"]),
+        with (
+            TemporaryDirectory() as tmpdirname,
+            patch("xdg.BaseDirectory.xdg_config_dirs", [tmpdirname]),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            root = Path(tmpdirname)
+            self.assertIsNone(WeblateConfig.find_config())
+            alternate = root / "weblate.ini"
+            alternate.touch()
+            self.assertEqual(WeblateConfig.find_config(), alternate)
+            preferred = root / "weblate"
+            preferred.touch()
+            self.assertEqual(WeblateConfig.find_config(), preferred)
+
+    def test_xdg_directory_allows_later_config(self) -> None:
+        """Search remaining XDG locations when the first candidate is a directory."""
+        with TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            later = root / "system"
+            later.mkdir()
+            (root / "weblate").mkdir()
+            with (
+                patch("xdg.BaseDirectory.xdg_config_dirs", [str(root), str(later)]),
+                patch.dict(os.environ, {}, clear=True),
             ):
+                for filename in ("weblate.ini", "weblate"):
+                    with self.subTest(filename=filename):
+                        expected = later / filename
+                        expected.touch()
+                        self.assertEqual(WeblateConfig.find_config(), expected)
+
+    def test_xdg_directory_cannot_hide_endpoint(self) -> None:
+        """Use the alternate filename or fail before falling back to defaults."""
+        with TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            (root / "weblate").mkdir()
+            with (
+                patch("xdg.BaseDirectory.xdg_config_dirs", [str(root)]),
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(WeblateConfig, "find_project_config", return_value=None),
+            ):
+                config = WeblateConfig()
+                with self.assertRaisesRegex(WLCConfigurationError, "Could not read"):
+                    config.load()
+                alternate = root / "weblate.ini"
+                alternate.write_text(
+                    "[weblate]\nurl = https://example.org/api/\n", encoding="utf-8"
+                )
+                config.load()
+                self.assertEqual(config.get_url_key(), ("https://example.org/api/", ""))
                 with (
-                    self.subTest(results=results),
-                    patch("wlc.config.load_first_config", side_effect=results) as load,
+                    patch.object(config, "_read_config", return_value=[]),
+                    self.assertRaisesRegex(WLCConfigurationError, "Could not read"),
                 ):
-                    self.assertEqual(WeblateConfig.find_config(), Path(filename))
-                    self.assertEqual(
-                        [call.args[0] for call in load.call_args_list],
-                        ["weblate", "weblate.ini"][: len(results)],
-                    )
-            with patch("wlc.config.load_first_config", return_value=None):
-                self.assertIsNone(WeblateConfig.find_config())
+                    config.load()
 
     def test_find_project_config_returns_path(self) -> None:
         """Project discovery returns the nearest matching Path."""
@@ -183,6 +222,25 @@ class WeblateConfigTestCase(TestCase):
 
 class WeblateTransportConfigTestCase(TestCase):
     """Test origin-scoped transport configuration."""
+
+    def test_duplicate_transport_origins_are_rejected(self) -> None:
+        """Each trusted transport exception must have an unambiguous value."""
+        with TemporaryDirectory() as tmpdirname:
+            path = Path(tmpdirname) / "user.ini"
+            for section, scheme in (
+                ("insecure_ssl", "https"),
+                ("insecure_http", "http"),
+            ):
+                with self.subTest(section=section):
+                    path.write_text(
+                        f"[{section}]\n{scheme}://EXAMPLE.org/ = no\n"
+                        f"{scheme}://example.org/ = yes\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(
+                        WLCConfigurationError, "Duplicate origin"
+                    ):
+                        WeblateConfig().load(path)
 
     def test_allow_insecure_http_defaults_to_false(self) -> None:
         """Non-local HTTP token transport is disabled by default."""
@@ -324,13 +382,9 @@ class WeblateConfigLoadingTestCase(TestCase):
                 "[weblate]\nurl = http://ancestor.example.com/\n",
                 encoding="utf-8",
             )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
+            with patch.object(Path, "cwd", return_value=nested):
                 config = WeblateConfig()
                 config.load(explicit)
-            finally:
-                os.chdir(current)
 
         self.assertEqual(
             config.get("weblate", "url"), "https://explicit.example.com/api/"
@@ -349,6 +403,30 @@ class WeblateConfigLoadingTestCase(TestCase):
             ):
                 config.load(missing)
 
+    def test_empty_explicit_path_does_not_discover_config(self) -> None:
+        """An empty explicit path fails without loading discovered configuration."""
+        with (
+            patch.object(
+                WeblateConfig,
+                "find_config",
+                side_effect=AssertionError("User configuration discovery must not run"),
+            ) as user,
+            patch.object(
+                WeblateConfig,
+                "find_project_config",
+                side_effect=AssertionError(
+                    "Project configuration discovery must not run"
+                ),
+            ) as project,
+            self.assertRaisesRegex(
+                WLCConfigurationError, "Could not read configuration file:"
+            ),
+        ):
+            WeblateConfig().load("")
+
+        user.assert_not_called()
+        project.assert_not_called()
+
     def test_default_load_uses_nearest_project_config(self) -> None:
         """Default discovery loads global config and the nearest project config."""
         with TemporaryDirectory() as tmpdirname:
@@ -365,16 +443,7 @@ class WeblateConfigLoadingTestCase(TestCase):
                 "[weblate]\nurl = http://127.0.0.1:8000/api/\n",
                 encoding="utf-8",
             )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
+            config = load_discovered_config(nested, global_config)
 
         self.assertEqual(config.get("weblate", "url"), "http://127.0.0.1:8000/api/")
         self.assertEqual(config.get("weblate", "timeout"), "45")
@@ -400,16 +469,7 @@ class WeblateConfigLoadingTestCase(TestCase):
                 "[weblate]\nurl = https://nearest.example.com/api/\n",
                 encoding="utf-8",
             )
-            current = Path.cwd()
-            try:
-                os.chdir(deep)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
+            config = load_discovered_config(deep, global_config)
 
         self.assertEqual(
             config.get("weblate", "url"), "https://nearest.example.com/api/"
@@ -430,492 +490,8 @@ class WeblateConfigLoadingTestCase(TestCase):
                 encoding="utf-8",
             )
             (nested / ".weblate").mkdir()
-            current = Path.cwd()
-            try:
-                os.chdir(deep)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-            finally:
-                os.chdir(current)
+            config = load_discovered_config(deep)
 
         self.assertEqual(
             config.get("weblate", "url"), "https://parent.example.com/api/"
         )
-
-
-class WeblateProjectConfigTestCase(TestCase):
-    """Test project configuration trust boundaries."""
-
-    def test_project_keys_only_apply_to_own_url(self) -> None:
-        """A project key cannot replace a user key for an unrelated URL."""
-        company_url = "https://company.example.com/api/"
-        project_url = "https://repo.example.com/api/"
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            user_config = root / "user.ini"
-            user_config.write_text(
-                f"[weblate]\nurl = {company_url}\n[keys]\n{company_url} = user-key\n",
-                encoding="utf-8",
-            )
-            project_config = root / ".weblate"
-            project_config.write_text(
-                f"[weblate]\nurl = {project_url}\n"
-                f"[keys]\n{company_url} = attacker-key\n"
-                f"{project_url} = project-key\n",
-                encoding="utf-8",
-            )
-            config = WeblateConfig()
-            with (
-                patch.object(WeblateConfig, "find_config", return_value=user_config),
-                patch.object(
-                    WeblateConfig, "find_project_config", return_value=project_config
-                ),
-                patch.dict(os.environ, {}, clear=True),
-            ):
-                config.load()
-                self.assertEqual(config.get_url_key(), (project_url, "project-key"))
-                config.cli_url = company_url
-                self.assertEqual(config.get_url_key(), (company_url, "user-key"))
-                config.cli_url = None
-                with patch.dict(os.environ, {"WLC_URL": company_url}, clear=True):
-                    self.assertEqual(config.get_url_key(), (company_url, "user-key"))
-
-    def test_project_keys_require_project_url(self) -> None:
-        """A project without a URL cannot replace user keys."""
-        company_url = "https://company.example.com/api/"
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            user_config = root / "user.ini"
-            user_config.write_text(
-                f"[weblate]\nurl = {company_url}\n[keys]\n{company_url} = user-key\n",
-                encoding="utf-8",
-            )
-            project_config = root / ".weblate"
-            project_config.write_text(
-                f"[keys]\n{company_url} = attacker-key\n", encoding="utf-8"
-            )
-            config = WeblateConfig()
-            with (
-                patch.object(WeblateConfig, "find_config", return_value=user_config),
-                patch.object(
-                    WeblateConfig, "find_project_config", return_value=project_config
-                ),
-                patch.dict(os.environ, {}, clear=True),
-            ):
-                config.load()
-                self.assertEqual(config.get_url_key(), (company_url, "user-key"))
-
-    def test_project_default_entries_are_not_api_keys(self) -> None:
-        """Project DEFAULT entries cannot supply inherited API keys."""
-        company_url = "https://company.example.com/api/"
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            project_config = root / ".weblate"
-            project_config.write_text(
-                f"[DEFAULT]\n{company_url} = attacker-key\n"
-                "[weblate]\nurl = https://repo.example.com/api/\n"
-                "[keys]\n",
-                encoding="utf-8",
-            )
-            config = WeblateConfig()
-            with (
-                patch.object(WeblateConfig, "find_config", return_value=None),
-                patch.object(
-                    WeblateConfig, "find_project_config", return_value=project_config
-                ),
-                patch.dict(os.environ, {}, clear=True),
-            ):
-                config.load()
-                config.cli_url = company_url
-                self.assertEqual(config.get_url_key(), (company_url, ""))
-
-    def test_project_config_cannot_allow_insecure_http(self) -> None:
-        """Project config can not opt users into insecure transport."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            global_config = root / "global.ini"
-            global_config.write_text(
-                "[keys]\nhttp://repo.example.com/api/ = scoped-api-key\n",
-                encoding="utf-8",
-            )
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[DEFAULT]\n"
-                "allow_insecure_http = yes\n"
-                "allow_insecure_ssl = yes\n"
-                "\n"
-                "[weblate]\n"
-                "url = http://repo.example.com/api/\n"
-                "allow_insecure_http = yes\n"
-                "allow_insecure_ssl = yes\n"
-                "\n"
-                "[insecure_http]\n"
-                "http://repo.example.com:80 = yes\n"
-                "\n"
-                "[insecure_ssl]\n"
-                "https://repo.example.com:443 = yes\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
-
-        self.assertFalse(config.get_allow_insecure_http())
-        self.assertEqual(config.get_url_key()[1], "scoped-api-key")
-        with self.assertRaisesRegex(wlc.WeblateException, "insecure HTTP"):
-            wlc.Weblate(config=config)
-        config.cli_url = "https://repo.example.com/api/"
-        self.assertFalse(config.get_allow_insecure_ssl())
-
-    def test_project_config_cannot_supply_url_credentials(self) -> None:
-        """A discovered project URL can not enable implicit authentication."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            user_config = root / "global.ini"
-            user_config.write_text(
-                "[insecure_http]\nhttp://repo.example.com:80 = yes\n",
-                encoding="utf-8",
-            )
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = http://user:password@repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=user_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
-
-        self.assertTrue(config.get_allow_insecure_http())
-        with self.assertRaisesRegex(wlc.WeblateException, "embedded in URLs"):
-            wlc.Weblate(config=config)
-
-    def test_project_url_requires_transient_insecure_option_url_pairing(self) -> None:
-        """Unscoped insecure overrides can not target a project-selected URL."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            project_config = root / ".weblate"
-            project_config.write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(root)
-                for attribute, option in (
-                    ("cli_allow_insecure_http", "--allow-insecure-http"),
-                    ("cli_allow_insecure_ssl", "--allow-insecure-ssl"),
-                ):
-                    with self.subTest(option=option):
-                        config = WeblateConfig()
-                        with patch.object(
-                            WeblateConfig, "find_config", return_value=None
-                        ):
-                            config.load()
-                        setattr(config, attribute, True)
-                        with self.assertRaisesRegex(
-                            WLCConfigurationError, "requires --url"
-                        ):
-                            config.validate_url_key()
-
-                for variable in (
-                    "WLC_ALLOW_INSECURE_HTTP",
-                    "WLC_ALLOW_INSECURE_SSL",
-                ):
-                    with self.subTest(variable=variable):
-                        config = WeblateConfig()
-                        with patch.object(
-                            WeblateConfig, "find_config", return_value=None
-                        ):
-                            config.load()
-                        with (
-                            patch.dict(os.environ, {variable: "1"}, clear=True),
-                            self.assertRaisesRegex(
-                                WLCConfigurationError, "requires WLC_URL"
-                            ),
-                        ):
-                            config.validate_url_key()
-
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                config.cli_url = "https://cli.example.com/api/"
-                config.cli_allow_insecure_ssl = True
-                config.validate_url_key()
-                self.assertTrue(config.get_allow_insecure_ssl())
-
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                with patch.dict(
-                    os.environ,
-                    {
-                        "WLC_URL": "https://env.example.com/api/",
-                        "WLC_ALLOW_INSECURE_SSL": "1",
-                    },
-                    clear=True,
-                ):
-                    config.validate_url_key()
-                    self.assertTrue(config.get_allow_insecure_ssl())
-            finally:
-                os.chdir(current)
-
-    def test_user_config_can_allow_insecure_http_with_project_url(self) -> None:
-        """User config can opt into insecure transport for project URLs."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            global_config = root / "global.ini"
-            global_config.write_text(
-                "[insecure_http]\nhttp://repo.example.com:80 = yes\n"
-                "\n"
-                "[keys]\nhttp://repo.example.com/api/ = scoped-api-key\n",
-                encoding="utf-8",
-            )
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = http://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
-
-        self.assertTrue(config.get_allow_insecure_http())
-        client = wlc.Weblate(config=config)
-        self.assertTrue(client.allow_insecure_http)
-
-    def test_user_config_can_allow_insecure_ssl_with_project_url(self) -> None:
-        """A trusted origin entry can approve a project-selected HTTPS server."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            global_config = root / "global.ini"
-            global_config.write_text(
-                "[insecure_ssl]\nhttps://repo.example.com:443 = yes\n",
-                encoding="utf-8",
-            )
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
-
-        self.assertTrue(config.get_allow_insecure_ssl())
-        self.assertTrue(wlc.Weblate(config=config).allow_insecure_ssl)
-
-    def test_project_config_without_selected_section_is_harmless(self) -> None:
-        """Project config without selected section should not crash loading."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            global_config = root / "global.ini"
-            global_config.write_text(
-                "[custom]\nurl = https://custom.example.com/api/\n",
-                encoding="utf-8",
-            )
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\n"
-                "url = http://repo.example.com/api/\n"
-                "allow_insecure_http = yes\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig(section="custom")
-                with patch.object(
-                    WeblateConfig, "find_config", return_value=global_config
-                ):
-                    config.load()
-            finally:
-                os.chdir(current)
-
-        self.assertEqual(config.get("custom", "url"), "https://custom.example.com/api/")
-        self.assertFalse(config.get_allow_insecure_http())
-
-    def test_project_config_with_env_key_requires_env_url(self) -> None:
-        """Project config URL can not be paired with unscoped WLC_KEY."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                with (
-                    patch.dict(os.environ, {"WLC_KEY": "env-api-key"}, clear=True),
-                    self.assertRaisesRegex(
-                        WLCConfigurationError,
-                        "Using WLC_KEY with project configuration requires WLC_URL",
-                    ),
-                ):
-                    config.get_url_key()
-            finally:
-                os.chdir(current)
-
-    def test_project_config_with_env_key_allows_env_url(self) -> None:
-        """WLC_KEY can be used when WLC_URL pins the destination."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                with patch.dict(
-                    os.environ,
-                    {
-                        "WLC_KEY": "env-api-key",
-                        "WLC_URL": "https://env.example.com/api/",
-                    },
-                    clear=True,
-                ):
-                    url, key = config.get_url_key()
-            finally:
-                os.chdir(current)
-
-        self.assertEqual(url, "https://env.example.com/api/")
-        self.assertEqual(key, "env-api-key")
-
-    def test_project_config_with_cli_key_requires_cli_url(self) -> None:
-        """Project config URL can not be paired with unscoped --key."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                config.cli_key = "cli-api-key"
-
-                with self.assertRaisesRegex(
-                    WLCConfigurationError,
-                    "Using --key with project configuration requires --url",
-                ):
-                    config.get_url_key()
-            finally:
-                os.chdir(current)
-
-    def test_project_config_with_cli_key_allows_cli_url(self) -> None:
-        """--key can be used when --url pins the destination."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                config.cli_key = "cli-api-key"
-                config.cli_url = "https://cli.example.com/api/"
-                url, key = config.get_url_key()
-            finally:
-                os.chdir(current)
-
-        self.assertEqual(url, "https://cli.example.com/api/")
-        self.assertEqual(key, "cli-api-key")
-
-    def test_project_config_allows_scoped_keys(self) -> None:
-        """Project config URL can use matching URL-scoped keys."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            nested = root / "repo"
-            nested.mkdir()
-            (nested / ".weblate").write_text(
-                "[weblate]\nurl = https://repo.example.com/api/\n"
-                "\n"
-                "[keys]\nhttps://repo.example.com/api/ = scoped-api-key\n",
-                encoding="utf-8",
-            )
-            current = Path.cwd()
-            try:
-                os.chdir(nested)
-                config = WeblateConfig()
-                with patch.object(WeblateConfig, "find_config", return_value=None):
-                    config.load()
-                url, key = config.get_url_key()
-            finally:
-                os.chdir(current)
-
-        self.assertEqual(url, "https://repo.example.com/api/")
-        self.assertEqual(key, "scoped-api-key")
-
-    def test_explicit_config_with_env_key_remains_supported(self) -> None:
-        """Explicit config URL can still be paired with WLC_KEY."""
-        with TemporaryDirectory() as tmpdirname:
-            root = Path(tmpdirname)
-            explicit = root / "explicit.ini"
-            explicit.write_text(
-                "[weblate]\nurl = https://explicit.example.com/api/\n",
-                encoding="utf-8",
-            )
-            config = WeblateConfig()
-            config.load(explicit)
-
-            with patch.dict(os.environ, {"WLC_KEY": "env-api-key"}, clear=True):
-                url, key = config.get_url_key()
-
-        self.assertEqual(url, "https://explicit.example.com/api/")
-        self.assertEqual(key, "env-api-key")

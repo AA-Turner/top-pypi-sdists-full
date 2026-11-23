@@ -1,58 +1,90 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: passlib
-Version: 1.7.4
-Summary: comprehensive password hashing framework supporting over 30 schemes
-Home-page: https://passlib.readthedocs.io
-Author: Eli Collins
-Author-email: elic@assurancetechnologies.com
-License: BSD
-Download-URL: https://pypi.python.org/packages/source/p/passlib/passlib-1.7.4.tar.gz
-Description: Passlib is a password hashing library for Python 2 & 3, which provides
-        cross-platform implementations of over 30 password hashing algorithms, as well
-        as a framework for managing existing password hashes. It's designed to be useful
-        for a wide range of tasks, from verifying a hash found in /etc/shadow, to
-        providing full-strength password hashing for multi-user applications.
-        
-        * See the `documentation <https://passlib.readthedocs.io>`_
-          for details, installation instructions, and examples.
-        
-        * See the `homepage <https://foss.heptapod.net/python-libs/passlib/wikis/home>`_
-          for the latest news and more information.
-        
-        * See the `changelog <https://passlib.readthedocs.io/en/stable/history>`_
-          for a description of what's new in Passlib.
-        
-        All releases are signed with the gpg key
-        `4D8592DF4CE1ED31 <http://pgp.mit.edu:11371/pks/lookup?op=get&search=0x4D8592DF4CE1ED31>`_.
-        
-Keywords: password secret hash security
-crypt md5-crypt
-sha256-crypt sha512-crypt pbkdf2 argon2 scrypt bcrypt
-apache htpasswd htdigest
-totp 2fa
-Platform: UNKNOWN
+Version: 1.9.5
+Summary: Comprehensive password hashing framework supporting over 30 schemes
+Project-URL: Homepage, https://github.com/notypecheck/passlib
+Project-URL: Repository, https://github.com/notypecheck/passlib
+Project-URL: Docs, https://notypecheck.github.io/passlib/
+Project-URL: Issues, https://github.com/notypecheck/passlib/issues
+Project-URL: Changelog, https://github.com/notypecheck/passlib/blob/main/CHANGELOG.md
+Author-email: Eli Collins <elic@assurancetechnologies.com>
+Maintainer-email: Noel <notypecheck@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: 2fa,apache,argon2,bcrypt,crypt,hash,htdigest,htpasswd,md5-crypt,passlib,password,pbkdf2,scrypt,secret,security,sha256-crypt,sha512-crypt,totp
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: Jython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.11
 Provides-Extra: argon2
+Requires-Dist: argon2-cffi>=18.2.0; extra == 'argon2'
 Provides-Extra: bcrypt
+Requires-Dist: bcrypt>=3.1.0; extra == 'bcrypt'
 Provides-Extra: totp
-Provides-Extra: build_docs
+Requires-Dist: cryptography>=43.0.1; extra == 'totp'
+Description-Content-Type: text/markdown
+
+# Passlib
+
+![PyPI Version](https://img.shields.io/pypi/v/passlib?style=for-the-badge)
+![PyPI Python Version](https://img.shields.io/pypi/pyversions/passlib?style=for-the-badge)
+
+
+This is the official repository of Passlib, published on PyPI as
+[passlib](https://pypi.org/project/passlib/). It continues the original
+project at https://foss.heptapod.net/python-libs/passlib (unmaintained since
+its final release, 1.7.4, in 2020).
+
+Passlib is a password hashing library for Python 3, which provides
+cross-platform implementations of over 30 password hashing algorithms, as well
+as a framework for managing existing password hashes. It's designed to be useful
+for a wide range of tasks, from verifying a hash found in /etc/shadow, to
+providing full-strength password hashing for multi-user application.
+
+Versions 1.7.5 through 1.9.4 were published on PyPI as
+[libpass](https://pypi.org/project/libpass/); releases from 1.9.5 onward
+are published under `passlib` again.
+
+- See the [documentation](https://notypecheck.github.io/passlib/)
+  for details, installation instructions, and examples.
+- See the [changelog](https://github.com/notypecheck/passlib/blob/main/CHANGELOG.md)
+  for a description of what's new in Passlib.
+- Visit [PyPI](https://pypi.org/project/passlib/) for the latest stable release.
+
+## Installation
+```shell
+pip install passlib
+```
+
+Available extras:
+```shell
+pip install passlib[argon2]
+pip install passlib[bcrypt]
+pip install passlib[totp]
+```
+
+## Usage
+A quick example of using passlib to integrate into a new application:
+```python
+from passlib.context import CryptContext
+
+context = CryptContext(schemes=["sha512_crypt"])
+
+hash = context.hash("password")
+# $6$rounds=656000$jFKvvPmUywlqjSs.$iNeK/OWVry7KThNyzR01xzqZzgk/VA75.sR4yXXblsPAoEugtdO3zn/O4VEG3Izp8l5.//lMGpuRCOqvKknHo1
+
+# Verifying a password
+is_valid = context.verify("password", hash)
+# > True
+```
+For more details and an extended set of examples, see the [full documentation](https://notypecheck.github.io/passlib/)

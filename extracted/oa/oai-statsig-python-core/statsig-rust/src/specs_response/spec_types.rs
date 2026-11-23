@@ -50,6 +50,7 @@ pub struct Spec {
     pub has_shared_params: Option<bool>,
     pub is_active: Option<bool>,
     pub version: Option<u32>,
+    pub served_version: Option<u32>,
     #[serde(rename = "targetAppIDs")]
     pub target_app_ids: Option<Vec<InternedString>>,
     pub forward_all_exposures: Option<bool>,

@@ -1,5 +1,6 @@
 """Shared ID lists with eight real SDKs constructed after fork on Linux."""
 
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -7,7 +8,7 @@ import select
 import signal
 import subprocess
 import sys
-from time import monotonic, sleep, time
+from time import monotonic, sleep
 
 import pytest
 from shared_id_lists_http_server import IdListHTTPFixture
@@ -31,7 +32,6 @@ class SDKWorkers:
         disk_access=True,
         enable_id_list_elias_fano=None,
         lazy_load_id_lists=None,
-        experimental_flags=None,
         evaluation_cache=False,
         enable_logging=False,
     ):
@@ -44,7 +44,6 @@ class SDKWorkers:
             "enable_id_lists": enabled,
             "enable_id_list_elias_fano": enable_id_list_elias_fano,
             "lazy_load_id_lists": lazy_load_id_lists,
-            "experimental_flags": sorted(experimental_flags) if experimental_flags is not None else None,
             "disable_disk_access": not disk_access,
             "evaluation_cache": evaluation_cache,
             "enable_logging": enable_logging,
@@ -117,14 +116,14 @@ class SDKWorkers:
 
 
 def wait_for_membership(workers, expected):
+    values = {
+        user: {"gate": value is True, "config": {} if value is None else {"member": value}}
+        for user, value in expected.items()
+    }
     deadline = monotonic() + 15
     while True:
         results = workers.command("evaluate", users=list(expected))
-        if all(
-            result["values"][user] == {"gate": value, "config": {"member": value}}
-            for result in results.values()
-            for user, value in expected.items()
-        ):
+        if all(result["values"] == values for result in results.values()):
             return results
         assert monotonic() < deadline, results
         sleep(0.05)
@@ -138,28 +137,9 @@ def file_requests(server):
     ]
 
 
-def current_downloader(server):
-    request = file_requests(server)[-1]
-    return int(request["worker"].removeprefix("shared-id-list-worker-"))
-
-
-def shared_manifest(directory):
-    manifests = list(directory.rglob("manifest.json"))
-    assert len(manifests) == 1, manifests
-    return manifests[0]
-
-
-def assert_mapped_by_all_workers(workers, directory, expected_version):
-    path = shared_manifest(directory)
-    namespace_root = directory / "elias-fano-v1" if expected_version == 3 else directory
-    assert path.parent.parent == namespace_root
-    manifest = json.loads(path.read_text())
-    data_file = path.parent / manifest["lists"]["members"]["data_file"]
-    with data_file.open("rb") as snapshot:
-        snapshot.seek(8)  # The data-file version follows its eight-byte magic.
-        assert int.from_bytes(snapshot.read(4), "little") == expected_version
+def assert_mapped_by_all_workers(workers, base):
     for index, result in workers.command("mapped_files").items():
-        assert str(data_file) in result["files"], f"Worker {index} has no shared ID-list map"
+        assert result["files"] == [str(base)], f"Worker {index} has no shared ID-list map"
 
 
 def assert_events_delivered(workers, server, phase):
@@ -178,41 +158,72 @@ def assert_events_delivered(workers, server, phase):
     }
 
 
-@pytest.mark.parametrize("evaluation_cache", [False, True])
 @pytest.mark.parametrize(
-    ("elias_fano", "expected_version"),
-    [(None, 2), (False, 2), (True, 3)],
-    ids=["default-v2", "false-v2", "ef-v3"],
+    ("elias_fano", "lazy", "evaluation_cache"),
+    [
+        (False, False, False),
+        (False, True, True),
+        (None, False, True),
+        (True, True, False),
+    ],
+    ids=["hash-eager", "hash-lazy", "ef-eager", "ef-lazy"],
 )
-def test_eight_workers_share_updates_and_leadership_handoffs(
-    tmp_path, evaluation_cache, elias_fano, expected_version
+def test_eight_workers_share_initial_base_and_refresh_independently(
+    tmp_path, elias_fano, lazy, evaluation_cache
 ):
     directory = tmp_path / "shared"
     with IdListHTTPFixture() as server, SDKWorkers(
         server,
         directory,
         tmp_path / "workers.log",
+        count=1,
         evaluation_cache=evaluation_cache,
         enable_id_list_elias_fano=elias_fano,
+        lazy_load_id_lists=lazy,
         enable_logging=True,
     ) as workers:
-        initial_pids = workers.pids.copy()
+        wait_for_membership(workers, {"alice": True, "steady": True, "bob": False})
+        [base] = directory.rglob("*.ids")
+        with base.open("rb") as image:
+            image.seek(8)  # Skip the file magic.
+            assert int.from_bytes(image.read(4), "little") == (2 if elias_fano is False else 3)
+
+        joining = range(1, 8)
+        workers.command("start_worker", workers=joining)
+        if lazy:
+            readers = workers.command("mapped_files", workers=joining)
+            assert all(not reader["files"] for reader in readers.values())
         wait_for_membership(workers, {"alice": True, "steady": True, "bob": False})
         workers.command("evaluate", users=["alice", "bob"], hold_results=True)
         assert len(file_requests(server)) == 1
-        assert_mapped_by_all_workers(workers, directory, expected_version)
+        assert_mapped_by_all_workers(workers, base)
         assert_events_delivered(workers, server, "initialized")
 
         initial_size = server.state()["manifest"]["members"]["size"]
         server.control({"op": "append", "add_users": ["bob"], "remove_users": ["alice"]})
-        wait_for_membership(workers, {"alice": False, "steady": True, "bob": True})
-        assert file_requests(server)[-1]["start"] == initial_size
+        expected = {"alice": False, "steady": True, "bob": True}
+        wait_for_membership(workers, expected)
+        tails = file_requests(server)[1:]
+        assert {request["worker"] for request in tails} == {
+            f"shared-id-list-worker-{i}" for i in workers.active
+        }
+        assert all(request["start"] == initial_size for request in tails)
+        assert_mapped_by_all_workers(workers, base)
+
+        workers.command("kill", workers=[0])
+        workers.command("shutdown", workers=[1])
+        workers.command("drop", workers=[2])
+        workers.command("start_worker", workers=[0])
+        workers.command("restart", workers=[1, 2])
+        wait_for_membership(workers, expected)
+        assert all(request["start"] == initial_size for request in file_requests(server)[1:])
+        assert_mapped_by_all_workers(workers, base)
+        assert_events_delivered(workers, server, "restarted")
 
         server.control({"op": "replace", "users": ["carol"]})
         expected = {"alice": False, "steady": False, "bob": False, "carol": True}
         wait_for_membership(workers, expected)
         assert file_requests(server)[-1]["start"] == 0
-        assert_mapped_by_all_workers(workers, directory, expected_version)
 
         metadata = server.state()["manifest"]["members"]
         server.control(
@@ -227,35 +238,16 @@ def test_eight_workers_share_updates_and_leadership_handoffs(
         wait_for_membership(workers, expected)
         assert file_requests(server)[-1]["start"] == 0
 
-        for operation in ("kill", "shutdown", "drop"):
-            leader = current_downloader(server)
-            workers.command(operation, workers=[leader])
-            server.control({"op": "reset_counters"})
-            new_user = f"after-{operation}"
-            server.control({"op": "append", "add_users": [new_user]})
-            expected[new_user] = True
-            wait_for_membership(workers, expected)
-            assert current_downloader(server) != leader
-            assert len({request["worker"] for request in file_requests(server)}) == 1
-            restart = "start_worker" if operation == "kill" else "restart"
-            workers.command(restart, workers=[leader])
-            wait_for_membership(workers, expected)
-            assert len(workers.active) == 8
-            assert_mapped_by_all_workers(workers, directory, expected_version)
-            assert_events_delivered(workers, server, operation)
-
-        # Python results remain stable; native old-mmap snapshots are tested in Rust.
-        held = workers.command("held_results")
-        for index, result in held.items():
-            if workers.pids[int(index)] == initial_pids[int(index)]:
-                assert result["values"] == [
-                    {"gate": True, "config": {"member": True}},
-                    {"gate": False, "config": {"member": False}},
-                ]
+        for result in workers.command("held_results", workers=range(3, 8)).values():
+            assert result["values"] == [
+                {"gate": True, "config": {"member": True}},
+                {"gate": False, "config": {"member": False}},
+            ]
 
         downloads_before_removal = len(file_requests(server))
         server.control({"op": "set_manifest", "names": []})
-        wait_for_membership(workers, dict.fromkeys(expected, False))
+        # Lazy reports unknown membership. Eager uses the config default.
+        wait_for_membership(workers, dict.fromkeys(expected, None if lazy else False))
         assert len(file_requests(server)) == downloads_before_removal
 
 
@@ -282,34 +274,44 @@ def test_private_default_disabled_and_unavailable_directory(tmp_path, mode):
                 assert not directory.exists()
 
 
-@pytest.mark.parametrize("failure", ["malformed_manifest", "malformed_file", "stale"])
-def test_invalid_shared_snapshot_falls_back_to_current_http_data(tmp_path, failure):
-    import fcntl
-
+def test_truncated_base_is_downloaded_again_and_repaired(tmp_path):
     directory = tmp_path / "shared"
     with IdListHTTPFixture() as server:
         with SDKWorkers(server, directory, tmp_path / "seed.log", count=1) as seed:
             wait_for_membership(seed, {"alice": True, "bob": False})
-        path = shared_manifest(directory)
-        manifest = json.loads(path.read_text())
-        if failure == "malformed_manifest":
-            path.write_text("not a valid shared manifest")
-        elif failure == "malformed_file":
-            data_file = path.parent / manifest["lists"]["members"]["data_file"]
-            data_file.write_bytes(b"truncated")
-        else:
-            manifest["successful_refresh_ms"] = int(time() * 1000) - 600_000
-            path.write_text(json.dumps(manifest))
+        [base] = directory.rglob("*.ids")
+        base.write_bytes(b"truncated")
+        with SDKWorkers(server, directory, tmp_path / "repair.log", count=1) as workers:
+            wait_for_membership(workers, {"alice": True, "bob": False})
+            assert [request["start"] for request in file_requests(server)] == [0, 0]
+            workers.command("start_worker", workers=[1])
+            wait_for_membership(workers, {"alice": True, "bob": False})
+            assert len(file_requests(server)) == 2
 
-        # Hold the real process lock so no SDK writer can repair the fixture.
-        # All SDKs must use current HTTP data instead of the invalid/stale snapshot.
-        with (path.parent / "leader.lock").open("a+") as lease:
-            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            server.control({"op": "replace", "users": ["bob"]})
-            server.control({"op": "reset_counters"})
-            with SDKWorkers(server, directory, tmp_path / "fallback.log") as workers:
-                wait_for_membership(workers, {"alice": False, "bob": True})
-                assert len({request["worker"] for request in file_requests(server)}) == 8
+
+@contextmanager
+def eager_sdk(
+    server, *, partial_refresh=False, directory=None, sync_interval_ms=60_000
+):
+    from statsig_python_core import Statsig, StatsigOptions
+
+    sdk = Statsig(
+        "secret-local-partial-refresh",
+        StatsigOptions(
+            specs_url=server.url("/v2/download_config_specs"),
+            id_lists_url=server.url("/v1/get_id_lists"),
+            enable_id_lists=True,
+            shared_id_lists_dir=str(directory) if directory is not None else None,
+            experimental_flags={"partial_id_list_refresh"} if partial_refresh else None,
+            id_lists_sync_interval_ms=sync_interval_ms,
+            disable_all_logging=True,
+            output_log_level="none",
+        ),
+    )
+    try:
+        yield sdk, sdk.initialize_with_details().result()
+    finally:
+        sdk.shutdown().wait(10)
 
 
 @pytest.mark.parametrize(
@@ -318,7 +320,7 @@ def test_invalid_shared_snapshot_falls_back_to_current_http_data(tmp_path, failu
      (True, "false", False), (True, "", False), (True, "invalid", False)],
 )
 def test_failed_cold_refresh_keeps_eager_gate_semantics(monkeypatch, flag, environment, expected):
-    from statsig_python_core import Statsig, StatsigOptions, StatsigUser
+    from statsig_python_core import StatsigUser
 
     if environment is None:
         monkeypatch.delenv("STATSIG_PARTIAL_ID_LIST_REFRESH", raising=False)
@@ -328,55 +330,47 @@ def test_failed_cold_refresh_keeps_eager_gate_semantics(monkeypatch, flag, envir
         server.control({"op": "set_failures", "file_status": {"b-initial": 403}})
         # The failed list is absent: its negative condition keeps the ordinary eager result.
         server.specs["condition_map"]["member-1"]["operator"] = "not_in_segment_list"
-        sdk = Statsig("secret-local-partial-refresh", StatsigOptions(
-            specs_url=server.url("/v2/download_config_specs"),
-            id_lists_url=server.url("/v1/get_id_lists"),
-            enable_id_lists=True,
-            experimental_flags={"partial_id_list_refresh"} if flag else None,
-            id_lists_sync_interval_ms=60_000,
-            disable_all_logging=True,
-            output_log_level="none",
-        ))
-        try:
-            details = sdk.initialize_with_details().result()
+        with eager_sdk(server, partial_refresh=flag) as (sdk, details):
             assert details.is_config_spec_ready
             assert details.is_id_list_ready is False
             user = StatsigUser("member")
             assert sdk.check_gate(user, "a") is expected
             assert sdk.check_gate(user, "b")
-        finally:
-            sdk.shutdown().wait(10)
 
 
-@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
-@pytest.mark.parametrize("elias_fano", [False, True], ids=["hash", "ef"])
-def test_workers_map_initial_base_and_poll_their_own_tails(tmp_path, lazy, elias_fano):
-    directory = tmp_path / "shared"
-    options = dict(
-        enable_id_list_elias_fano=elias_fano,
-        lazy_load_id_lists=lazy,
-        experimental_flags={"shared_initial_id_list_base"},
-    )
-    with IdListHTTPFixture() as server:
-        with SDKWorkers(server, directory, tmp_path / "seed.log", count=1, **options) as seed:
-            if lazy:
-                assert not file_requests(server)
-            wait_for_membership(seed, {"alice": True, "bob": False})
-            [base] = seed.command("mapped_files")["0"]["files"]
-            offset = server.state()["manifest"]["members"]["size"]
-        with SDKWorkers(server, directory, tmp_path / "readers.log", count=2, **options) as workers:
-            wait_for_membership(workers, {"alice": True, "bob": False})
-            assert len(file_requests(server)) == 1
-            for reader in workers.command("mapped_files").values():
-                assert base in reader["files"]
-            server.control({"op": "append", "add_users": ["bob"], "remove_users": ["alice"]})
-            wait_for_membership(workers, {"alice": False, "bob": True})
-            tails = file_requests(server)[1:]
-            assert {r["worker"] for r in tails} == {
-                "shared-id-list-worker-0", "shared-id-list-worker-1"
-            }
-            assert all(r["start"] == offset for r in tails)
-            for reader in workers.command("mapped_files").values():
-                assert reader["files"] == [base]
-            server.control({"op": "replace", "users": ["carol"]})
-            wait_for_membership(workers, {"bob": False, "carol": True})
+@pytest.mark.parametrize("partial_refresh", [False, True], ids=["default", "partial"])
+def test_eager_join_with_cached_base_and_failed_replacement(
+    tmp_path, monkeypatch, partial_refresh
+):
+    from statsig_python_core import StatsigUser
+
+    monkeypatch.delenv("STATSIG_PARTIAL_ID_LIST_REFRESH", raising=False)
+    member = StatsigUser("member")
+    with IdListHTTPFixture({"a": ["member"], "b": ["member"]}) as server:
+        with eager_sdk(server, directory=tmp_path) as (_, details):
+            assert details.is_id_list_ready
+
+        server.control({"op": "reset_counters"})
+        server.control(
+            {"op": "replace", "list": "b", "file_id": "b-new", "users": ["new"]}
+        )
+        server.control({"op": "set_failures", "file_status": {"b-new": 403}})
+        with eager_sdk(
+            server,
+            directory=tmp_path,
+            partial_refresh=partial_refresh,
+            sync_interval_ms=1000,
+        ) as (sdk, details):
+            assert details.is_config_spec_ready
+            assert details.is_id_list_ready is False
+            assert sdk.check_gate(member, "a") is partial_refresh
+            assert not sdk.check_gate(member, "b")
+            assert {r["status"] for r in file_requests(server)} == {403}
+
+            server.control({"op": "set_failures"})
+            deadline = monotonic() + 10
+            while not sdk.check_gate(StatsigUser("new"), "b"):
+                assert monotonic() < deadline, "B did not recover"
+                sleep(0.05)
+            assert sdk.check_gate(member, "a")
+            assert {r["path"] for r in file_requests(server)} == {"/files/b-new"}

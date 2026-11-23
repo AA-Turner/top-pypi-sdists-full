@@ -44,6 +44,12 @@ class SpecificationFeature(enum.StrEnum):
     STATUS_CODE_ANALYSIS = "status_code_analysis"
     # Probing how the server handles HTTP edge cases (null bytes in headers, encoded path separators).
     HTTP_PROBES = "http_probes"
+    # Filling dictionaries from API responses before testing starts.
+    OPERATION_DICTIONARIES = "operation_dictionaries"
+    # Recording HTTP/1.1 exchanges in HAR, VCR, WFC and pytest reports.
+    HTTP_REPORTS = "http_reports"
+    # Describing REST endpoints in Web Fuzzing Commons reports.
+    WFC_REPORTS = "wfc_reports"
 
 
 @dataclass(slots=True)
@@ -96,10 +102,19 @@ _FEATURES: dict[SpecificationKind, frozenset[SpecificationFeature]] = {
             SpecificationFeature.AUTH_BOOTSTRAP,
             SpecificationFeature.STATUS_CODE_ANALYSIS,
             SpecificationFeature.HTTP_PROBES,
+            SpecificationFeature.OPERATION_DICTIONARIES,
+            SpecificationFeature.HTTP_REPORTS,
+            SpecificationFeature.WFC_REPORTS,
         }
     ),
     SpecificationKind.GRAPHQL: frozenset(
-        {SpecificationFeature.STATEFUL_TESTING, SpecificationFeature.COVERAGE, SpecificationFeature.HTTP_PROBES}
+        {
+            SpecificationFeature.STATEFUL_TESTING,
+            SpecificationFeature.COVERAGE,
+            SpecificationFeature.HTTP_PROBES,
+            SpecificationFeature.OPERATION_DICTIONARIES,
+            SpecificationFeature.HTTP_REPORTS,
+        }
     ),
     SpecificationKind.GRPC: frozenset(
         {

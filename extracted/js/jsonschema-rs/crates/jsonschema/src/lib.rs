@@ -179,7 +179,9 @@
 //! - `vocabularies = ["<uri>"]` -> [`ValidationOptions::with_vocabulary`]
 //! - `validate_formats = true|false` -> [`ValidationOptions::should_validate_formats`]
 //! - `ignore_unknown_formats = true|false` -> [`ValidationOptions::should_ignore_unknown_formats`]
-//! - `formats = { "name" => crate::path::to::fn }` -> [`ValidationOptions::with_format`]
+//! - `formats = { "name" => crate::path::to::fn, "other" => number(crate::path::to::fn) }` ->
+//!   [`ValidationOptions::with_format`], and [`ValidationOptions::with_number_format`] for
+//!   `number(...)`
 //! - `keywords = { "name" => crate::path::to::factory }` -> [`ValidationOptions::with_keyword`]
 //! - `content_media_types = { "type" => crate::path::to::fn }` -> [`ValidationOptions::with_content_media_type`]
 //! - `content_encodings = { "name" => { check = ..., convert = ... } }` -> [`ValidationOptions::with_content_encoding`]
@@ -695,7 +697,8 @@
 //! ## Offline validation
 //!
 //! [`ValidationOptions::offline`] disables retrieval, so a reference that is not already in the
-//! registry fails at construction instead of being fetched:
+//! registry fails at construction instead of being fetched. The meta-schemas of every supported
+//! draft ship with the crate, so references to them resolve whatever the draft of the schema:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -703,6 +706,10 @@
 //!
 //! let schema = json!({"$ref": "https://example.com/schema.json"});
 //! assert!(jsonschema::options().offline().build(&schema).is_err());
+//!
+//! let schema = json!({"$ref": "https://json-schema.org/draft/2020-12/schema"});
+//! let validator = jsonschema::draft7::options().offline().build(&schema)?;
+//! assert!(!validator.is_valid(&json!({"type": 12})));
 //! # Ok(())
 //! # }
 //! ```
@@ -906,7 +913,8 @@
 //!
 //! ### Notes on Custom Format Validators
 //!
-//! - Custom format validators are only called for string instances.
+//! - A custom format checks strings; [`ValidationOptions::with_number_format`] registers one that
+//!   checks numbers. Instances of other types pass the format.
 //! - In Draft 2019-09 and 2020-12, `format` checks nothing unless you call
 //!   `.should_validate_formats(true)`.
 //!
@@ -1042,6 +1050,15 @@ pub(crate) use jsonschema_value::{
 /// order, and keys and strings are read as UTF-8. An error's instance is built on first access;
 /// past 128 levels of nesting it holds `null`, and `json::jsonb::take_pending_error` returns
 /// the message.
+///
+/// Enable the `json-text` feature for `json::JsonText`, which validates JSON text without building
+/// a `serde_json::Value`. `JsonText::parse` accepts exactly what `serde_json::from_slice` accepts,
+/// returning its error otherwise, and a repeated key keeps its last value:
+///
+/// ```rust,ignore
+/// let document = JsonText::parse(bytes)?;
+/// validator.is_valid(document.root())
+/// ```
 ///
 /// The accessors are infallible, so every node must map to a JSON value: reject nodes with no
 /// JSON meaning (tags, foreign objects) before validation, or track them on a side channel of
@@ -1272,6 +1289,8 @@ pub mod json {
         magnus_probe_root, magnus_string_node, magnus_take_pending_error, Magnus,
         MagnusPendingErrorScope, PendingError, RbNode,
     };
+    #[cfg(feature = "json-text")]
+    pub use jsonschema_value::{JsonText, JsonTextDocument, JsonTextNode};
 }
 mod http;
 mod keywords;
@@ -6413,14 +6432,22 @@ mod tests {
             .contains("htt://json-schema.org/draft-07/schema"));
     }
 
-    #[test_case(Draft::Draft4)]
-    #[test_case(Draft::Draft6)]
-    #[test_case(Draft::Draft7)]
-    fn meta_schemas(draft: Draft) {
-        // The bundled meta-schemas accept an empty `enum` and one with equal members.
-        for schema in [json!({"enum": [0, 0.0]}), json!({"enum": []})] {
-            assert!(crate::options().with_draft(draft).build(&schema).is_ok());
-        }
+    #[test_case("http://json-schema.org/draft-04/schema#", &json!([]), Some("[] has less than 1 item") ; "draft4 empty")]
+    #[test_case("http://json-schema.org/draft-04/schema#", &json!([0, 0.0]), Some("[0,0.0] has non-unique elements") ; "draft4 equal members")]
+    #[test_case("http://json-schema.org/draft-06/schema#", &json!([]), None ; "draft6 empty")]
+    #[test_case("http://json-schema.org/draft-06/schema#", &json!([0, 0.0]), None ; "draft6 equal members")]
+    #[test_case("http://json-schema.org/draft-07/schema#", &json!([]), None ; "draft7 empty")]
+    #[test_case("http://json-schema.org/draft-07/schema#", &json!([0, 0.0]), None ; "draft7 equal members")]
+    fn enum_members_in_meta_schemas(schema_uri: &str, members: &Value, expected: Option<&str>) {
+        // Draft 4 requires a non-empty `enum` with unique members; Draft 6 and 7 only recommend it.
+        let schema = json!({"$schema": schema_uri, "enum": members});
+        assert_eq!(crate::meta::is_valid(&schema), expected.is_none());
+        assert_eq!(
+            crate::validator_for(&schema)
+                .err()
+                .map(|error| error.to_string()),
+            expected.map(str::to_owned)
+        );
     }
 
     #[test]

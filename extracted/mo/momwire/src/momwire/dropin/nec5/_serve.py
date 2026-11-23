@@ -88,13 +88,13 @@ The basis, and why it is the one
 --------------------------------
 ``BSplineSolver`` at the repo's own default configuration — ``degree=2``,
 ``feed_model="point"``, no enrichment — which is what
-``momwire.deck.build_solver``'s ``"bspline"`` entry constructs and what the
+``momwire.deck.build_solver``'s ``"bs2"`` entry constructs and what the
 portal solves every NEC-2 deck with, plus the EXTENDED KERNEL (momwire#1326):
 NEC-5's own kernel behaves as EK-on and this dialect has no card to say
 otherwise, so every basis here takes it unless it or the deck cannot, and
 then solves reduced with an ``ExtendedKernelDefault`` advisory.  A deck with
-buried wires keeps it above ground on ``bspline`` (momwire#1170 stage 0), on
-``razor-2p`` (momwire#1614) and on ``sinusoidal-galerkin`` (momwire#1626): the
+buried wires keeps it above ground on ``bs2`` (momwire#1170 stage 0), on
+``razor2p`` (momwire#1614) and on ``sg`` (momwire#1626): the
 buried wires solve reduced, and the same advisory says which.
 
 The family used to be no choice at all, and that claim was wrong.  NEC-5
@@ -662,9 +662,9 @@ EPSC_CONDUCTIVITY_FACTOR = 59.96
 # committed printout in `tests/fixtures/eznec/printouts` is byte-gated
 # against it — a silent change here would move every number in every one of
 # them and break nothing else.  No degree sits beside it any more: the roster
-# entry carries that (`BASES["bspline-d1"]`), and `BSplineSolver`'s own
+# entry carries that (`BASES["bs1"]`), and `BSplineSolver`'s own
 # default is the 2 this seam wants.
-BASIS = "bspline"
+BASIS = "bs2"
 
 # The families that keep the CUT spelling of a series EMF, and the whole of
 # why: their committed printouts are byte-gated against it.  Moving them
@@ -860,8 +860,8 @@ _REFUSE_CROSSING_SOURCE_NO_KNOT = (
     "never on a node, and the only segment-centre spelling of this source is "
     "a segment straddling the interface, which is not a well-posed feed - "
     "NEC-4.2, whose sources are segment-centred too, refuses it or solves it "
-    "wrong. The knot bases serve it - bspline, bspline-d1, razor-2p and "
-    "sinusoidal-galerkin"
+    "wrong. The knot bases serve it - bspline, bs1, razor2p and "
+    "sg"
 )
 _REFUSE_BURIED_NO_MEDIUM = (
     "wire {tag} runs below the ground plane (min z = {zmin:g} m) under a "
@@ -1859,6 +1859,8 @@ class Structure:
     # fused node key -> how many ELEMENT ends meet there, image included
     degree: dict[tuple[int, int, int], int]
     ground_plane: bool
+    # each wire's `_node_key` per node, beside `points`
+    keys: tuple[tuple[tuple[int, int, int], ...], ...] = ()
 
     @property
     def node_count(self) -> int:
@@ -1953,6 +1955,7 @@ def structure_of(deck: Nec5Deck) -> Structure:
         points=points,
         degree=degree,
         ground_plane=ground_plane,
+        keys=tuple(tuple(wire_keys) for _, wire_keys in nodes),
     )
 
 
@@ -2118,6 +2121,10 @@ class _Piece:
     piece is served (momwire#608 — a junctioned one-segment wire carries the
     tents an interior segment carries), so this is a conditioning preference
     now and not a refusal.
+
+    Every basis also cuts a ``GW`` at a node inside it that another wire's
+    node lands on (:func:`_junction_cuts`, momwire#2093): a crossing or a T is
+    a junction, and the mesh junctions piece ends only.
     """
 
     tag: int
@@ -2307,6 +2314,109 @@ def _addressed_nodes(deck: Nec5Deck) -> dict[int, set[int]]:
     return at
 
 
+def _junction_cuts(
+    structure: Structure, phantom: frozenset[int]
+) -> dict[int, tuple[int, ...]]:
+    """wire index -> the nodes inside it that another wire's node lands on.
+
+    NEC-5 connects wires wherever they share a node, interior or end: two
+    wires crossing at an interior node of each give the impedance their
+    four-wire spelling gives, and a wire whose end lands mid-wire is a T
+    (momwire#2093; licensed NEC-5, black box: 69.718 - j106.22 ohm for both
+    spellings of the crossing deck, `tests/test_nec5_junction_cuts_2093.py`).
+    The mesh junctions piece ENDS, so each such node becomes one by cutting
+    the wire there, which is lossless: the same elements, the same nodes, and
+    the junction's KCL row is the connection.
+
+    An interior node has two element ends of its own wire, so a degree above
+    two (:attr:`Structure.degree`, which adds a ground image at wire ends
+    only) is another wire there.  A phantom wire is no geometry and stands
+    clear of everything by construction, so it is skipped.
+
+    A node where either of the wire's own elements is also another wire's
+    element is not cut: that is overlapping metal, not a junction, and it is
+    meshed as before (an exact copy is the solver's duplicate-wire rule,
+    momwire#1042; a node gap on one stays the solver's refusal).
+    """
+    degree = structure.degree
+    candidates: dict[int, list[int]] = {}
+    for index, (wire, keys) in enumerate(
+        zip(structure.wires, structure.keys, strict=True)
+    ):
+        if wire.tag in phantom:
+            continue
+        joins = [k for k in range(1, len(keys) - 1) if degree[keys[k]] > 2]
+        if joins:
+            candidates[index] = joins
+    if not candidates:
+        return {}
+    # element (its two node keys, unordered) -> the wires carrying it
+    carriers: dict[tuple, set[int]] = {}
+    for index, (wire, keys) in enumerate(
+        zip(structure.wires, structure.keys, strict=True)
+    ):
+        if wire.tag in phantom:
+            continue
+        for a, b in zip(keys[:-1], keys[1:]):
+            carriers.setdefault((a, b) if a <= b else (b, a), set()).add(index)
+
+    def shared(index: int, a, b) -> bool:
+        return len(carriers[(a, b) if a <= b else (b, a)] - {index}) > 0
+
+    cuts: dict[int, tuple[int, ...]] = {}
+    for index, joins in candidates.items():
+        keys = structure.keys[index]
+        kept = tuple(
+            k
+            for k in joins
+            if not shared(index, keys[k - 1], keys[k])
+            and not shared(index, keys[k], keys[k + 1])
+        )
+        if kept:
+            cuts[index] = kept
+    return cuts
+
+
+def _join_branches(
+    deck: Nec5Deck, structure: Structure, cuts: dict[int, tuple[int, ...]]
+) -> dict[tuple[int, int], str]:
+    """``(tag, node)`` at a junction cut -> the end of the piece a card there
+    names: ``"end"`` (the piece holding segment ``node``) or ``"start"`` (the
+    piece holding segment ``node + 1``).
+
+    At a node where only the wire itself passes the two are one series gap; at
+    a junction cut they are two branches, and NEC-5 puts the card in the
+    branch of the segment the card names (black box, momwire#2093): the signed
+    node ``k`` and an explicit ``(segment k, end 2)`` both name segment ``k``,
+    and ``(segment k + 1, end 1)`` names segment ``k + 1`` -- each answers as
+    the split spelling's address on that piece does. ``TL`` and ``NT`` have
+    the signed spelling only. Two cards naming the two branches of one
+    address would be two sites at one ``(tag, node)``, which is refused.
+    """
+    joined = {
+        (structure.wires[index].tag, k) for index, nodes in cuts.items() for k in nodes
+    }
+    if not joined:
+        return {}
+    branch: dict[tuple[int, int], str] = {}
+    named = [(s.at, s.end_code) for s in deck.sources]
+    named += [(ld.at, ld.end_code) for ld in deck.loads]
+    named += [(end, 0) for end in _network_ends(deck)]
+    for at, end_code in named:
+        key = (at.tag, at.node)
+        if key not in joined:
+            continue
+        which = "start" if end_code == 1 else "end"
+        if branch.setdefault(key, which) != which:
+            raise ServeRefusal(
+                f"cards address node {at.node} of tag {at.tag} through both of "
+                f"its segments ({at.node} and {at.node + 1}); another wire joins "
+                f"wire {at.tag} at that node, so the two name different branches "
+                f"of one junction, and this seam serves one branch per address"
+            )
+    return branch
+
+
 def build_mesh(
     deck: Nec5Deck,
     structure: Structure,
@@ -2322,6 +2432,12 @@ def build_mesh(
     junction's KCL row carries the current across, and the deck's own node
     structure survives into the mesh, which is the whole point of a dialect
     that addresses nodes.
+
+    A ``GW`` IS cut, on every basis, where another wire's node lands inside it
+    (:func:`_junction_cuts`): NEC-5 connects there, and the cut piece ends meet
+    in an ordinary junction.  Every piece keeps its deck nodes
+    (``first_node``/``last_node``), so element and node numbering stay the
+    deck's; a card at the cut names the branch :func:`_join_branches` gives.
 
     Two ways to spell one series EMF
     --------------------------------
@@ -2401,6 +2517,8 @@ def build_mesh(
             stacklevel=2,
         )
     addressed = _addressed_nodes(deck)
+    joins = _junction_cuts(structure, phantom)
+    branches = _join_branches(deck, structure, joins)
     crossings = _plane_crossings(deck)
     crossing_nodes = frozenset(_crossing_nodes(deck))
     piece_of_node: dict[tuple[int, int], tuple[int, str]] = {}
@@ -2413,7 +2531,9 @@ def build_mesh(
     # its (tag, node) entries; a later wire carrying the tag is meshed plain.
     owned: set[int] = set()
 
-    for wire, points in zip(structure.wires, structure.points, strict=True):
+    for wire_index, (wire, points) in enumerate(
+        zip(structure.wires, structure.points, strict=True)
+    ):
         last = wire.segment_count
         owner = wire.tag not in owned
         owned.add(wire.tag)
@@ -2427,6 +2547,11 @@ def build_mesh(
             k for k in (addressed.get(wire.tag, ()) if owner else ()) if 0 < k < last
         )
         bounds = [0, *addressed_inside, last] if cut else [0, last]
+        wire_joins = joins.get(wire_index, ())
+        if wire_joins:
+            bounds = sorted({*bounds, *wire_joins})
+        # junction cut -> the piece ending there, for `branches`' "end"
+        ending_at: dict[int, int] = {}
         lower_half = _NO_PIECE
         for a, b, start, end, cut_start, cut_end in _wire_runs(
             points, bounds, crossings.get(wire.tag)
@@ -2458,6 +2583,7 @@ def build_mesh(
                 piece_of_node[(wire.tag, a)] = (index, "start")
             if owner and not cut_end:
                 piece_of_node.setdefault((wire.tag, b), (index, "end"))
+                ending_at[b] = index
             for k in addressed_inside:
                 if a < k < b:
                     piece = mesh.pieces[index]
@@ -2479,6 +2605,10 @@ def build_mesh(
                 continue
             for element in range(b - a):
                 mesh.element_of.append((index, element))
+        if owner:
+            for k in wire_joins:
+                if branches.get((wire.tag, k), "end") == "end" and k in ending_at:
+                    piece_of_node[(wire.tag, k)] = (ending_at[k], "end")
 
     # -- junctions: fused node key -> the piece ends that meet there --------
     #
@@ -2774,11 +2904,10 @@ def _interior_site(
 
     The node must be one this wire alone passes through.  Its degree counts
     ELEMENT ends (:meth:`Structure.unknown_count`), so an untouched interior
-    node has exactly two; anything more is another wire's end landing on it,
-    which the cut used to weld and a delta gap does not.  Serving that as a
-    gap would model a T-junction as an unconnected wire — a well-posed WRONG
-    answer — so it refuses instead.  No captured deck writes one: all 78
-    addressed interior nodes in the corpus have degree 2.
+    node has exactly two.  Another wire's node landing there is a junction
+    cut (:func:`_junction_cuts`, momwire#2093) and never reaches here; what
+    can is overlapping metal, which a delta gap on one wire's knot would
+    leave unconnected, so it refuses.
     """
     piece_index, arclength = inside
     point = structure.points[structure.index_of(tag)][node]
@@ -3106,7 +3235,7 @@ def _solver_for(
     presence of a keyword rather than by its value, so a seam that spelled
     its own rule here would be a second copy of a list that has to stay
     exactly the first one.  ``basis_kwargs`` is the roster entry's own —
-    ``degree`` for ``bspline-d1``, ``nec5_quadrature`` for ``razor-nec5`` —
+    ``degree`` for ``bs1``, ``nec5_quadrature`` for ``razor2p`` —
     which is why no degree is named here: ``BSplineSolver``'s default IS the
     2 this seam wants, and passing it explicitly is what a family without a
     degree axis refuses.
@@ -5184,6 +5313,18 @@ def _prepare(
         # an INTERNAL ERROR frame (momwire#667).
         raise ServeRefusal(str(exc)) from None
     except ValueError as exc:
+        # A wire listed twice that the constructor cannot merge (momwire#1042)
+        # is a statement about the deck, refused by name in its GW tags, not
+        # an INTERNAL ERROR frame (momwire#2107).
+        duplicate = getattr(exc, "duplicate", None)
+        if duplicate is not None:
+            named, copy = _duplicate_tags(duplicate, mesh)
+            raise ServeRefusal(
+                f"the GW wires of {named} are one wire listed twice, and "
+                f"{duplicate.why}, so they cannot be merged into one conductor: "
+                f"delete the copy (tag {copy}), or make the two copies "
+                f"identical - momwire#1042"
+            ) from None
         _refuse_if_grazing(exc)
         raise
     _thread_policy.measured(*_solve_size(mesh, medium))
@@ -5248,6 +5389,17 @@ def _solve_size(mesh: _Mesh, medium: GroundMedium | None) -> tuple[int, int, int
     return below, 0, below * below
 
 
+def _duplicate_tags(duplicate, mesh: _Mesh) -> tuple[str, int]:
+    """``(named, copy tag)`` for a wire listed twice that the solver cannot
+    merge (momwire#2107; ``duplicate`` is its ValueError's
+    ``_wire_spec.DuplicateWireRefusal``): the deck's own ``GW`` tags, which
+    :func:`_prepare` refuses in. The solver's wires are the mesh's pieces,
+    one for one (:func:`_solver_for`), and a piece carries its card's tag."""
+    first = mesh.pieces[duplicate.twin].tag
+    copy = mesh.pieces[duplicate.copy].tag
+    return (f"tags {first} and {copy}" if first != copy else f"tag {first}"), copy
+
+
 def _refuse_if_grazing(exc: ValueError) -> None:
     """:class:`ServeRefusal` for a buried plan's grazing-floor refusal.
 
@@ -5304,7 +5456,7 @@ def _port_solution(solver, shared: dict | None):
         )
         if 2 * nm * nm * sum_ne2 * 16 > solver.swept_mem_mb * 2**20:
             return solver.compute_port_solution()
-        key = ("bspline", type(solver), solver.extended_kernel, _geometry_digest(geom))
+        key = ("bs2", type(solver), solver.extended_kernel, _geometry_digest(geom))
         prep = shared.get(key)
         if prep is None:
             prep = shared[key] = solver._same_edge_prep(geom)

@@ -7,7 +7,7 @@ use crate::{
     content_media_type::{ContentMediaTypeCheckType, DEFAULT_CONTENT_MEDIA_TYPE_CHECKS},
     keywords::{
         custom::KeywordFactory,
-        format::{builtin_format, Format},
+        format::{builtin_format, builtin_formats, CustomFormat},
     },
     paths::Location,
     regex::{Compiled, LazyRegex, SequenceMatcher},
@@ -17,7 +17,7 @@ use crate::{
 use ahash::{AHashMap, AHashSet};
 use email_address::Options as EmailAddressOptions;
 use referencing::{Draft, Retrieve};
-use serde_json::Value;
+use serde_json::{Number, Value};
 use std::{
     fmt,
     marker::PhantomData,
@@ -35,7 +35,7 @@ pub struct ValidationOptions<'i, R = Arc<dyn Retrieve>, F: Json = SerdeJson> {
     pub(crate) base_uri: Option<String>,
     pub(crate) retriever: R,
     pub(crate) registry: Option<&'i referencing::Registry<'i>>,
-    formats: AHashMap<String, Arc<dyn Format>>,
+    formats: AHashMap<String, CustomFormat>,
     validate_formats: Option<bool>,
     pub(crate) validate_schema: bool,
     ignore_unknown_formats: bool,
@@ -366,10 +366,40 @@ impl<'i, R, F: Json> ValidationOptions<'i, R, F> {
         N: Into<String>,
         Check: Fn(&str) -> bool + Send + Sync + 'static,
     {
-        self.formats.insert(name.into(), Arc::new(format));
+        self.formats
+            .insert(name.into(), CustomFormat::String(Arc::new(format)));
         self
     }
-    pub(crate) fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)> {
+    /// Register a custom format validator that checks numbers; instances of other types pass it.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use serde_json::{json, Number};
+    /// fn int32(number: &Number) -> bool {
+    ///     number.as_i64().is_some_and(|value| i32::try_from(value).is_ok())
+    /// }
+    /// let validator = jsonschema::options()
+    ///     .with_number_format("int32", int32)
+    ///     .should_validate_formats(true)
+    ///     .build(&json!({"format": "int32"}))
+    ///     .expect("Valid schema");
+    ///
+    /// assert!(validator.is_valid(&json!(42)));
+    /// assert!(!validator.is_valid(&json!(2_147_483_648_i64)));
+    /// assert!(validator.is_valid(&json!("42")));
+    /// ```
+    #[must_use]
+    pub fn with_number_format<N, Check>(mut self, name: N, format: Check) -> Self
+    where
+        N: Into<String>,
+        Check: Fn(&Number) -> bool + Send + Sync + 'static,
+    {
+        self.formats
+            .insert(name.into(), CustomFormat::Number(Arc::new(format)));
+        self
+    }
+    pub(crate) fn get_format(&self, format: &str) -> Option<(&String, &CustomFormat)> {
         self.formats.get_key_value(format)
     }
 
@@ -380,6 +410,33 @@ impl<'i, R, F: Json> ValidationOptions<'i, R, F> {
     #[must_use]
     pub fn is_known_format(&self, draft: Draft, name: &str) -> bool {
         self.get_format(name).is_some() || builtin_format(draft, name).is_some()
+    }
+    /// The names of the formats with a check under `draft`, sorted and without duplicates.
+    ///
+    /// Lists the built-in formats and those registered here, with
+    /// [`with_format`](Self::with_format) or [`with_number_format`](Self::with_number_format).
+    /// `idn-email` and `idn-hostname` appear only with the `idna` feature.
+    ///
+    /// Whether a `format` asserts depends on the draft, the meta-schema and
+    /// [`ValidationOptions::should_validate_formats`], as for
+    /// [`is_known_format`](Self::is_known_format).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::Draft;
+    ///
+    /// assert!(jsonschema::options()
+    ///     .known_formats(Draft::Draft202012)
+    ///     .contains(&"iri"));
+    /// ```
+    #[must_use]
+    pub fn known_formats(&self, draft: Draft) -> Vec<&str> {
+        let mut names: Vec<&str> = builtin_formats(draft).collect();
+        names.extend(self.formats.keys().map(String::as_str));
+        names.sort_unstable();
+        names.dedup();
+        names
     }
     /// Disable schema validation during compilation.
     ///
@@ -1390,7 +1447,7 @@ impl From<EmailAddressOptions> for EmailOptions {
 mod tests {
     use super::*;
     use referencing::{Registry, Resource, Retrieve, Uri};
-    use serde_json::{json, Value};
+    use serde_json::{json, Number, Value};
     use std::sync::Mutex;
     use test_case::test_case;
 
@@ -1447,6 +1504,87 @@ mod tests {
         assert!(!crate::options().is_known_format(Draft::Draft7, "idn-email"));
     }
 
+    #[test_case(Draft::Draft7, "duration", false; "a format the draft does not carry")]
+    #[test_case(Draft::Draft7, "uuid", false; "a format added after the draft")]
+    #[test_case(Draft::Draft202012, "duration", true; "a format the draft carries")]
+    #[test_case(Draft::Draft202012, "uuid", true; "a format added by the draft")]
+    fn test_known_formats_follow_the_draft(draft: Draft, name: &str, listed: bool) {
+        assert_eq!(
+            crate::options().known_formats(draft).contains(&name),
+            listed
+        );
+    }
+
+    #[test]
+    fn test_known_formats_are_sorted_unique_and_known() {
+        const CANDIDATES: [&str; 19] = [
+            "date",
+            "date-time",
+            "duration",
+            "email",
+            "hostname",
+            "idn-email",
+            "idn-hostname",
+            "ipv4",
+            "ipv6",
+            "iri",
+            "iri-reference",
+            "json-pointer",
+            "regex",
+            "relative-json-pointer",
+            "time",
+            "uri",
+            "uri-reference",
+            "uri-template",
+            "uuid",
+        ];
+        for draft in [
+            Draft::Draft4,
+            Draft::Draft6,
+            Draft::Draft7,
+            Draft::Draft201909,
+            Draft::Draft202012,
+        ] {
+            let options = crate::options();
+            let names = options.known_formats(draft);
+            assert!(
+                names.windows(2).all(|pair| pair[0] < pair[1]),
+                "{draft:?}: {names:?} is not sorted and unique"
+            );
+            assert_eq!(names.iter().filter(|name| **name == "hostname").count(), 1);
+            for name in &names {
+                assert!(options.is_known_format(draft, name), "{draft:?}: {name}");
+            }
+            for name in CANDIDATES {
+                assert_eq!(
+                    names.contains(&name),
+                    options.is_known_format(draft, name),
+                    "{draft:?}: {name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_a_registered_format_is_listed() {
+        let options = crate::options().with_format("ends-with-42", custom);
+        assert!(options
+            .known_formats(Draft::Draft202012)
+            .contains(&"ends-with-42"));
+        assert!(!crate::options()
+            .known_formats(Draft::Draft202012)
+            .contains(&"ends-with-42"));
+    }
+
+    #[cfg(feature = "idna")]
+    #[test]
+    fn test_the_international_formats_are_listed_with_their_feature() {
+        let options = crate::options();
+        let names = options.known_formats(Draft::Draft202012);
+        assert!(names.contains(&"idn-hostname"));
+        assert!(names.contains(&"idn-email"));
+    }
+
     #[test]
     fn test_offline_refuses_remote_references() {
         let schema = json!({"$ref": "https://example.com/schema.json"});
@@ -1460,6 +1598,146 @@ mod tests {
              and retrieving it failed: Retrieval is disabled, cannot fetch \
              https://example.com/schema.json"
         );
+    }
+
+    const ROOT_DRAFTS: [(Draft, &str); 5] = [
+        (Draft::Draft4, "http://json-schema.org/draft-04/schema#"),
+        (Draft::Draft6, "http://json-schema.org/draft-06/schema#"),
+        (Draft::Draft7, "http://json-schema.org/draft-07/schema#"),
+        (
+            Draft::Draft201909,
+            "https://json-schema.org/draft/2019-09/schema",
+        ),
+        (
+            Draft::Draft202012,
+            "https://json-schema.org/draft/2020-12/schema",
+        ),
+    ];
+
+    // Every root draft, set with `with_draft`, declared with `$schema`, or left to the default
+    fn meta_schema_reference_roots(target: &str) -> Vec<(Option<Draft>, Value)> {
+        let mut roots = vec![(None, json!({"$ref": target}))];
+        for (draft, uri) in ROOT_DRAFTS {
+            roots.push((Some(draft), json!({"$ref": target})));
+            roots.push((None, json!({"$schema": uri, "$ref": target})));
+        }
+        roots
+    }
+
+    #[test_case("http://json-schema.org/draft-04/schema#")]
+    #[test_case("http://json-schema.org/draft-06/schema#")]
+    #[test_case("http://json-schema.org/draft-07/schema#")]
+    #[test_case("https://json-schema.org/draft/2019-09/schema")]
+    #[test_case("https://json-schema.org/draft/2019-09/meta/validation")]
+    #[test_case("https://json-schema.org/draft/2020-12/schema")]
+    #[test_case("https://json-schema.org/draft/2020-12/meta/validation")]
+    fn test_bundled_meta_schema_reference_resolves(target: &str) {
+        for (draft, schema) in meta_schema_reference_roots(target) {
+            for offline in [false, true] {
+                let mut options = crate::options();
+                if let Some(draft) = draft {
+                    options = options.with_draft(draft);
+                }
+                if offline {
+                    options = options.offline();
+                }
+                let validator = options.build(&schema).unwrap_or_else(|error| {
+                    panic!("{schema} (draft {draft:?}, offline {offline}): {error}")
+                });
+                assert!(validator.is_valid(&json!({"type": "string"})));
+                assert!(!validator.is_valid(&json!({"type": 12})));
+            }
+        }
+    }
+
+    #[test_case(
+        "http://json-schema.org/draft-03/schema#",
+        "http://json-schema.org/draft-03/schema"
+    )]
+    #[test_case(
+        "http://json-schema.org/draft-07/hyper-schema#",
+        "http://json-schema.org/draft-07/hyper-schema"
+    )]
+    #[test_case(
+        "https://json-schema.org/draft/2020-12/output/schema",
+        "https://json-schema.org/draft/2020-12/output/schema"
+    )]
+    #[test_case(
+        "https://json-schema.org/draft/next/schema",
+        "https://json-schema.org/draft/next/schema"
+    )]
+    #[test_case(
+        "https://json-schema.org/draft/2019-09/meta/format-annotation",
+        "https://json-schema.org/draft/2019-09/meta/format-annotation"
+    )]
+    fn test_offline_refuses_unbundled_meta_schema_reference(target: &str, uri: &str) {
+        let error = crate::options()
+            .offline()
+            .build(&json!({"$ref": target}))
+            .expect_err("must refuse to fetch");
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Resource '{uri}' is not present in a registry and retrieving it failed: \
+                 Retrieval is disabled, cannot fetch {uri}"
+            )
+        );
+    }
+
+    // The `$ref` sits in a registry resource, prepared under its own draft
+    #[test_case(
+        Draft::Draft202012,
+        "https://example.com/meta",
+        "http://json-schema.org/draft-04/schema#"
+    )]
+    #[test_case(
+        Draft::Draft202012,
+        "https://example.com/meta",
+        "https://json-schema.org/draft/2019-09/meta/validation"
+    )]
+    #[test_case(
+        Draft::Draft7,
+        "https://example.com/meta",
+        "https://json-schema.org/draft/2020-12/schema"
+    )]
+    #[test_case(Draft::Draft7, "https://json-schema.org/draft/2020-12/alias", "schema"; "relative reference")]
+    #[test_case(Draft::Draft7, "https://json-schema.org/draft/2020-12/schema", "meta/validation"; "replaced bundled meta-schema")]
+    fn test_bundled_meta_schema_reference_resolves_with_registry(
+        registry_draft: Draft,
+        uri: &str,
+        target: &str,
+    ) {
+        let registry = Registry::new()
+            .draft(registry_draft)
+            .add(uri, json!({"$ref": target}))
+            .expect("a valid URI")
+            .prepare()
+            .expect("a valid registry");
+        for (draft, schema) in meta_schema_reference_roots(uri) {
+            let mut options = crate::options().with_registry(&registry).offline();
+            if let Some(draft) = draft {
+                options = options.with_draft(draft);
+            }
+            let validator = options
+                .build(&schema)
+                .unwrap_or_else(|error| panic!("{schema} (draft {draft:?}): {error}"));
+            assert!(validator.is_valid(&json!({"type": "string"})));
+            assert!(!validator.is_valid(&json!({"type": 12})));
+        }
+    }
+
+    #[test_case(Draft::Draft7, "https://json-schema.org/draft/2020-12/schema")]
+    #[test_case(Draft::Draft202012, "http://json-schema.org/draft-07/schema#")]
+    fn test_bundled_meta_schema_reference_resolves_in_validator_map(draft: Draft, target: &str) {
+        let schema = json!({"properties": {"meta": {"$ref": target}}});
+        let map = crate::options()
+            .with_draft(draft)
+            .offline()
+            .build_map(&schema)
+            .expect("a valid schema");
+        let validator = map.get("#/properties/meta").expect("a subschema");
+        assert!(validator.is_valid(&json!({"type": "string"})));
+        assert!(!validator.is_valid(&json!({"type": 12})));
     }
 
     #[cfg(all(feature = "resolve-async", not(target_family = "wasm")))]
@@ -1489,6 +1767,41 @@ mod tests {
             .expect("Valid schema");
         assert!(!validator.is_valid(&json!("foo")));
         assert!(validator.is_valid(&json!("foo42!")));
+    }
+
+    fn int32(number: &Number) -> bool {
+        number
+            .as_i64()
+            .is_some_and(|value| i32::try_from(value).is_ok())
+    }
+
+    #[test_case(&json!(42), true ; "integer in range")]
+    #[test_case(&json!(2_147_483_648_i64), false ; "integer out of range")]
+    #[test_case(&json!(1.5), false ; "fraction")]
+    #[test_case(&json!("text"), true ; "string")]
+    #[test_case(&json!([2_147_483_648_i64]), true ; "array")]
+    fn number_format(instance: &Value, valid: bool) {
+        let validator = crate::options()
+            .with_number_format("int32", int32)
+            .should_validate_formats(true)
+            .build(&json!({"format": "int32"}))
+            .expect("Valid schema");
+        assert_eq!(validator.is_valid(instance), valid);
+        assert_eq!(validator.validate(instance).is_ok(), valid);
+        assert_eq!(validator.iter_errors(instance).next().is_none(), valid);
+        assert_eq!(validator.evaluate(instance).flag().valid, valid);
+    }
+
+    #[test]
+    fn number_format_error() {
+        let validator = crate::options()
+            .with_number_format("int32", int32)
+            .should_validate_formats(true)
+            .build(&json!({"format": "int32"}))
+            .expect("Valid schema");
+        let instance = json!(2_147_483_648_i64);
+        let error = validator.validate(&instance).expect_err("Out of range");
+        assert_eq!(error.to_string(), r#"2147483648 is not a "int32""#);
     }
 
     #[test]

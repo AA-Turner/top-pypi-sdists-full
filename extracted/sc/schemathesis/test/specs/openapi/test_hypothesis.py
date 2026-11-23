@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import re
 import string
 import subprocess
@@ -72,7 +73,7 @@ def operation(ctx):
         ({"path_parameters": {}}, {"path_parameters": {"p1": "FOO"}}),
         ({"headers": {"h1": "TEST"}}, {"headers": {"h1": "TEST"}}),
         ({"headers": {}}, {"headers": {"h1": "FOO"}}),
-        # Even if the explicit value does not match the schema, it should appear in the output
+        # Explicit values appear even when they do not match the schema
         ({"headers": {"invalid": "T"}}, {"headers": {"h1": "FOO", "invalid": "T"}}),
         ({"cookies": {"c1": "TEST"}}, {"cookies": {"c1": "TEST"}}),
         ({"cookies": {}}, {"cookies": {"c1": "FOO"}}),
@@ -81,12 +82,10 @@ def operation(ctx):
     ],
 )
 def test_explicit_attributes(operation, values, expected):
-    # When some Case's attribute is passed explicitly to the case strategy
     strategy = operation.as_strategy(**values)
 
     @run_given(strategy, max_examples=1)
     def test(case):
-        # Then it should appear in the final result
         for attr_name, expected_values in expected.items():
             value = getattr(case, attr_name)
             assert value == expected_values
@@ -104,7 +103,7 @@ def deeply_nested_schema(ctx):
                             "in": "query",
                             "required": True,
                             "schema": {
-                                # In the end it will be replaced with "#/components/schemas/bar"
+                                # Resolves to `#/components/schemas/bar`
                                 "$ref": "#/components/schemas/foo1"
                             },
                         }
@@ -134,19 +133,16 @@ def deeply_nested_schema(ctx):
 
 def test_missed_ref(ctx, deeply_nested_schema):
     # See GH-1167
-    # When not resolved references are present in the schema during constructing a strategy
     schema = ctx.openapi.load_schema(deeply_nested_schema["paths"], components=deeply_nested_schema["components"])
 
     @run_given(schema["/data"]["GET"].as_strategy(), max_examples=10)
     def test(case):
-        # Then the reference should be correctly resolved
         assert isinstance(case.query["key"], str)
 
 
 @pytest.mark.parametrize("location", ["query", "header"])
 def test_required_array_parameter_is_non_empty(ctx, location):
-    # An empty array for a required parameter serializes to nothing, dropping the parameter
-    # from the wire and violating `required: true`.
+    # An empty array for a required parameter serializes to nothing, violating `required: true`.
     operation = ctx.openapi.load_operation(
         "GET /data",
         {
@@ -275,15 +271,13 @@ def test_null_path_parameter_is_sent(ctx):
 
 def test_inlined_definitions(deeply_nested_schema):
     # See GH-1162
-    # When not resolved references are present in the schema during constructing a strategy
-    # And the referenced schema contains Open API specific keywords
     deeply_nested_schema["components"]["schemas"]["bar"]["nullable"] = True
 
     schema = schemathesis.openapi.from_dict(deeply_nested_schema)
 
     @run_given(schema["/data"]["GET"].as_strategy(), max_examples=1)
     def test(case):
-        # Then the referenced schema should be properly transformed to the JSON Schema form
+        # The referenced `nullable` schema must convert to JSON Schema.
         assume(case.query["key"] == "null")
 
 
@@ -384,8 +378,6 @@ def test_contains_over_recursive_reference_keeps_items_valid(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_valid_headers():
-    # When headers are generated
-    # And there is no other keywords than "type"
     strategy = make_positive_strategy(
         {
             "type": "object",
@@ -402,15 +394,12 @@ def test_valid_headers():
 
     @run_given(strategy, max_examples=100)
     def test(headers):
-        # Then headers are always valid
         assert is_valid_header(headers)
 
 
 @pytest.mark.parametrize("spec_required", [True, False], ids=["spec-required", "spec-optional"])
 def test_header_schema_dedupes_case_insensitive_duplicates(ctx, spec_required):
-    # HTTP header names are case-insensitive; the merged headers schema must collapse
-    # spec parameter and security-scheme entries that differ only by case, and the
-    # canonical first-seen casing must end up `required` whenever any duplicate is required.
+    # Spec and security headers differing only by case merge, and the merged one is required if any of them is.
     operation = ctx.openapi.load_operation(
         "POST /v2/",
         {
@@ -435,7 +424,7 @@ def test_header_schema_dedupes_case_insensitive_duplicates(ctx, spec_required):
     assert len(seen) == len(properties), f"case-insensitive duplicates in headers schema: {sorted(properties)}"
     seen_required = {name.lower() for name in required}
     assert len(seen_required) == len(required), f"case-insensitive duplicates in required: {sorted(required)}"
-    # Security scheme always demands the header — the canonical casing must be required either way.
+    # The security scheme demands the header, so it is required either way.
     assert "authorization" in seen_required
 
 
@@ -462,7 +451,6 @@ def test_configure_headers():
 
     @run_given(strategy, max_examples=100)
     def test(headers):
-        # Then headers are always valid
         assert is_valid_header(headers)
         assert set(headers["X-Foo"]) - {"A", "B", "C"} == set()
 
@@ -479,6 +467,78 @@ def test_format_values_follow_codec_changed_after_generation():
     config.update(codec="ascii")
     strategy = make_positive_strategy(schema, "GET /y", ParameterLocation.QUERY, None, config, Draft4Validator)
     assert [value["q"] for value in generate_many(strategy, 50) if not value["q"].isascii()] == []
+
+
+# Hypothesis draws literals from local modules, so the data for a seed would depend on what is imported.
+def test_seed_generates_same_cases_whatever_local_modules_are_imported(ctx):
+    properties = {
+        **{f"text_{index}": {"type": "string"} for index in range(10)},
+        **{f"number_{index}": {"type": "integer"} for index in range(10)},
+    }
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": properties,
+                            "required": list(properties),
+                            "additionalProperties": False,
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    before = [case.body for case in generate_many(operation.as_strategy(), 10)]
+    importlib.import_module(
+        ctx.write_pymodule('REGION = "eu-north-7"\nTENANT = "acme-corp"\nLIMIT = 4096', filename="local_settings")
+    )
+    assert [case.body for case in generate_many(operation.as_strategy(), 10)] == before
+
+
+_CACHED_LITERALS_PROBE = """
+from hypothesis import given, seed, settings, strategies as st
+
+import account_settings
+import schemathesis
+
+
+def draw(max_examples):
+    drawn = []
+
+    @seed(0)
+    @settings(max_examples=max_examples, database=None)
+    @given(st.integers(900000000, 999999990))
+    def test(value):
+        drawn.append(value)
+
+    test()
+    return drawn
+
+
+draw(50)
+schemathesis.openapi.from_dict(
+    {
+        "openapi": "3.0.2",
+        "info": {"title": "Test", "version": "1"},
+        "paths": {"/items": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    }
+)["/items"]["GET"].as_strategy()
+print([value for value in draw(300) if value == account_settings.ACCOUNT_ID])
+"""
+
+
+# Hypothesis caches the literals it may draw, also before Schemathesis generation starts in the process.
+def test_literals_cached_before_generation_are_not_drawn(tmp_path):
+    (tmp_path / "account_settings.py").write_text("ACCOUNT_ID = 937418265\n")
+    script = tmp_path / "probe.py"
+    script.write_text(_CACHED_LITERALS_PROBE)
+    assert subprocess.run([sys.executable, str(script)], capture_output=True, text=True, check=True).stdout == "[]\n"
 
 
 def test_as_strategy_keeps_passed_containers_unchanged(ctx):
@@ -602,8 +662,7 @@ CONSTRAINED_HEADER_SCHEMAS = [
 
 
 def _strings_in(value):
-    # Arrays and objects reach the wire joined into one header value, so every string inside
-    # one of them has to be carryable on its own.
+    # Arrays and objects join into one header value, so each inner string must be valid on its own.
     if isinstance(value, str):
         yield value
     elif isinstance(value, list):
@@ -638,8 +697,7 @@ def test_constrained_headers_are_valid(subschema):
 
 
 def test_header_length_floor_is_reachable():
-    # Header values used to come from a generator that trimmed leading whitespace after the draw,
-    # so a length floor starved on the values it shortened.
+    # Trimming whitespace after the draw would shorten values below the length floor.
     strategy = make_positive_strategy(
         {
             "type": "object",
@@ -761,8 +819,6 @@ def test_cookie_values_keep_declared_literals(ctx, schema, expected):
 
 @pytest.mark.hypothesis_nested
 def test_no_much_filtering_in_headers():
-    # When headers are generated
-    # And there are keywords other than "type"
     strategy = make_positive_strategy(
         {
             "type": "object",
@@ -779,7 +835,7 @@ def test_no_much_filtering_in_headers():
 
     @run_given(strategy, max_examples=100)
     def test(_):
-        # Then there should be no failed health checks
+        # The test fails only on a health check.
         pass
 
 
@@ -788,13 +844,12 @@ def _remote_schema(testdir):
 
 
 def _nested_remote_schema(testdir):
-    # Remote reference contains a remote reference
     testdir.makefile(".json", bar='{"bar": {"$ref": "spam.json#/spam"}}')
     testdir.makefile(".json", spam='{"spam": {"type": "integer"}}')
 
 
 def _deep_nested_remote_schema(testdir):
-    # Remote reference contains a remote reference located inside a keyword
+    # The nested remote reference sits inside a keyword.
     testdir.makefile(
         ".json", bar='{"bar": {"properties": {"a": {"$ref": "spam.json#/spam"}}, "type": "object", "required": ["a"]}}'
     )
@@ -814,16 +869,14 @@ def _colliding_remote_schema(testdir):
 
 
 def _back_reference_remote_schema(testdir):
-    # Remote reference (1) contains a remote reference (2) that points back to 1
     testdir.makefile(".json", bar='{"bar": {"$ref": "spam.json#/spam"}, "baz": {"type": "integer"}}')
     testdir.makefile(".json", spam='{"spam": {"$ref": "bar.json#/baz"}}')
 
 
 def _scoped_remote_schema(testdir):
-    # The same references might lead to difference files, depending on the resolution scope
+    # The same relative `$ref` resolves to different files depending on the resolution scope.
     testdir.makefile(".json", bar='{"bar": {"$ref": "./sub/foo.json#/foo"}}')
     sub = testdir.mkdir("sub")
-    # `$ref` value is the same, but it is pointing to a different file (as it is a relative path)
     (sub / "foo.json").write_text('{"foo": {"$ref": "./sub/foo.json#/foo"}}', "utf8")
     subsub = sub.mkdir("sub")
     (subsub / "foo.json").write_text('{"foo": {"type": "integer"}}', "utf8")
@@ -853,10 +906,8 @@ def test_inline_remote_refs(testdir, deeply_nested_schema, setup, check):
 
     @run_given(schema["/data"]["GET"].as_strategy(), max_examples=1)
     def test(case):
-        # Then the referenced schema should be resolved and the right value generated
         assert check(case.query)
 
-    # And the original schema is not mutated
     assert jsonschema_rs.canonical.json.to_string(deeply_nested_schema) == original
 
 
@@ -896,9 +947,7 @@ def test_boolean_header_schema(ctx, subschema):
 
 
 def test_missing_header_filter(ctx):
-    # Regression. See GH-1142
-    # When some header parameters have the `format` keyword
-    # And some don't
+    # GH-1142: some header parameters have `format`, others don't.
     operation = ctx.openapi.load_operation(
         "GET /data",
         {
@@ -1023,8 +1072,7 @@ def test_declared_content_type_header_keeps_values_its_schema_admits(ctx, header
 
 
 def test_filter_urlencoded(ctx):
-    # When API schema allows for inputs that can't be serialized to `application/x-www-form-urlencoded`
-    # Then such examples should be filtered out during generation
+    # Generation filters out values that `application/x-www-form-urlencoded` cannot serialize.
     operation = ctx.openapi.load_operation(
         "POST /test",
         {
@@ -1118,7 +1166,6 @@ def test_email_format_passes_jsonschema_rs_validation(ctx):
 @pytest.mark.hypothesis_nested
 def test_builtin_format_override(ctx):
     # See GH-3269
-    # When a built-in format is overridden with a custom strategy
     today = date.today()
     schemathesis.openapi.format("date", st.dates(max_value=today).map(str))
     operation = ctx.openapi.load_operation(
@@ -1139,7 +1186,6 @@ def test_builtin_format_override(ctx):
     @given(case=operation.as_strategy())
     @settings(max_examples=20, deadline=None)
     def inner(case):
-        # Then all generated values respect the override
         assert date.fromisoformat(case.query["start_date"]) <= today
 
     with warnings.catch_warnings():
@@ -1170,6 +1216,73 @@ def test_custom_format_path_value_with_slash_is_accepted_when_explicit(ctx):
     @run_given(case=operation.as_strategy(), max_examples=1)
     def inner(case):
         assert case.path_parameters["block"] == "192.168.1.0%2F24"
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("a%e0b", "a%25e0b"),
+        ("a%41b", "a%2541b"),
+        ("x%40y@example.com", "x%2540y%40example.com"),
+    ],
+    ids=["invalid-utf8-escape", "ascii-escape", "escaped-at"],
+)
+def test_generated_path_value_with_percent_escape_keeps_literal_percent(ctx, value, expected):
+    # A generated value is the logical value: its `%` is a literal character, so the server must decode it back as is
+    format_name = f"percent-escape-{expected}"
+    schemathesis.openapi.format(format_name, st.just(value))
+    operation = ctx.openapi.load_operation(
+        "GET /accounts/{email}",
+        {
+            "parameters": [
+                {
+                    "name": "email",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "format": format_name},
+                }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    @run_given(case=operation.as_strategy(), max_examples=1)
+    def inner(case):
+        assert case.path_parameters["email"] == expected
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    ("schema", "extra"),
+    [
+        ({"type": "string"}, {"example": "user%40example"}),
+        ({"type": "string", "enum": ["user%40example"]}, {}),
+        ({"type": "string", "const": "user%40example"}, {}),
+        ({"anyOf": [{"type": "string", "enum": ["user%40example"]}, {"type": "integer"}]}, {}),
+        ({"allOf": [{"$ref": "#/components/schemas/Email"}]}, {}),
+    ],
+    ids=["example", "enum", "const", "nested-enum", "referenced-enum"],
+)
+def test_listed_path_value_sent_as_written(ctx, schema, extra):
+    # Listed values may be written percent-encoded and must not be encoded twice; examples come in one draw in five
+    operation = ctx.openapi.load_operation(
+        "GET /accounts/{email}",
+        {
+            "parameters": [{"name": "email", "in": "path", "required": True, "schema": schema, **extra}],
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.1.0",
+        components={"schemas": {"Email": {"type": "string", "enum": ["user%40example"]}}},
+    )
+    seen = set()
+
+    @run_given(case=operation.as_strategy(), max_examples=100)
+    def inner(case):
+        seen.add(case.path_parameters["email"])
+
+    assert "user%40example" in seen
+    assert "user%2540example" not in seen
 
 
 @pytest.mark.hypothesis_nested
@@ -2102,6 +2215,26 @@ def test_empty_enum_body_is_omitted(ctx):
     test()
 
 
+def test_enum_with_repeated_members_body(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"enum": ["a", "a", 1, 1.0]}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    @given(operation.as_strategy())
+    @settings(max_examples=5, deadline=None, database=InMemoryExampleDatabase())
+    def test(case):
+        assert case.body in ("a", 1)
+
+    test()
+
+
 def test_multitype_null_boolean_body(ctx):
     # A 3.1 `type: [null, boolean]` body lifts to a multi-type union; values stay null or boolean.
     operation = ctx.openapi.load_operation(
@@ -2217,8 +2350,7 @@ def test_anyof_disjoint_branches_body(ctx):
 @pytest.mark.filterwarnings("ignore:.*method is good for exploring strategies.*")
 def test_get_examples(ctx, location):
     if location == ParameterLocation.BODY:
-        # In Open API 2.0, the `body` parameter has a name, which is ignored
-        # But we'd like to use this object as a payload; therefore, we put one extra level of nesting
+        # Open API 2.0 ignores the `body` parameter name, so the example object is the payload as is.
         example = expected = {"name": "John"}
         media_type = "application/json"
         definition = {
@@ -2231,7 +2363,7 @@ def test_get_examples(ctx, location):
     else:
         example = "John"
         expected = {"name": example}
-        media_type = None  # there is no payload
+        media_type = None
         definition = {
             "in": location,
             "name": "name",
@@ -2311,7 +2443,7 @@ def test_default_strategies_binary(ctx):
     case = examples.generate_one(operation.as_strategy())
     assert isinstance(case.body["upfile"], Binary)
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
-    assert kwargs["files"] == [("upfile", ("upfile.png", case.body["upfile"].data))]
+    assert kwargs["files"] == [("upfile", ("upfile.png", case.body["upfile"].data, "application/octet-stream"))]
 
 
 def test_merge_length_into_pattern(ctx):
@@ -2774,16 +2906,13 @@ def make_swagger(*parameters):
 @pytest.mark.hypothesis_nested
 def test_valid_form_data(ctx, raw_schema):
     api = ctx.openapi.apps.success()
-    # When the request definition contains a schema, matching values of which cannot be encoded to multipart
-    # straightforwardly
+    # These values have no direct multipart encoding and must be cast to bytes.
     schema = ctx.openapi.from_full_schema(raw_schema)
     schema.config.update(base_url=f"{api.base_url}/api")
 
     @run_given(case=schema["/form"]["POST"].as_strategy(), max_examples=10)
     def inner(case):
         case.call()
-
-    # Then these values should be cast to bytes and handled successfully
 
 
 @pytest.mark.hypothesis_nested
@@ -2807,17 +2936,12 @@ def test_optional_form_data(ctx):
             }
         }
     )
-    # When the multipart form is optional
-    # Note, this test is similar to the one above, but has a simplified schema & conditions
-    # It is done mostly due to performance reasons
     schema.config.update(base_url=f"{api.base_url}/api")
 
     @run_given(case=schema["/form"]["POST"].as_strategy(), max_examples=1)
     def inner(case):
         assume(case.body is NOT_SET)
         case.call()
-
-    # Then payload can be absent
 
 
 def test_path_parameter_space_encoded_in_url(ctx):
@@ -2832,9 +2956,7 @@ def test_path_parameter_space_encoded_in_url(ctx):
 
 
 def test_percent_encoded_base_url_reserved_char_preserved(ctx):
-    # A base URL with a percent-encoded reserved character in its path (e.g. an Azure-style
-    # basePath that embeds a literal "?" as "%3F") must reach the wire with that encoding
-    # intact; decoding it back to "?" turns a static path segment into a query delimiter.
+    # A percent-encoded `?` in the base path must stay `%3F`; decoding it turns a path segment into a query.
     schema = ctx.openapi.load_schema(
         {"/current-Movie-Data.csv&imdb_id={IMDBid}": {"get": {"responses": {"200": {"description": "OK"}}}}},
         version="2.0",
@@ -2847,8 +2969,7 @@ def test_percent_encoded_base_url_reserved_char_preserved(ctx):
 
 @pytest.mark.parametrize("expected", ["null", "true", "false"])
 def test_parameters_jsonified(ctx, expected):
-    # See GH-1166
-    # When `None` or `True` / `False` are generated in path or query
+    # GH-1166: `None`, `True` and `False` in path or query serialize as JSON literals.
     operation = ctx.openapi.load_operation(
         "GET /foo/{param_path}",
         {
@@ -2869,14 +2990,12 @@ def test_parameters_jsonified(ctx, expected):
 
     @run_given(case=strategy, max_examples=1)
     def test(case):
-        # Then they should be converted to their JSON equivalents
         assume(case.path_parameters["param_path"] == expected)
         assume(case.query["param_query"] == expected)
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0.2"])
 def test_optional_payload(ctx, version):
-    # When body are not required
     paths = {"/users": {"post": {"responses": {"200": {"description": "OK"}}}}}
     if version == "2.0":
         paths["/users"]["post"]["parameters"] = [{"in": "body", "name": "body", "schema": {"type": "string"}}]
@@ -2884,7 +3003,6 @@ def test_optional_payload(ctx, version):
         paths["/users"]["post"]["requestBody"] = {"content": {"application/json": {"schema": {"type": "string"}}}}
     schema = ctx.openapi.load_schema(paths, version=version)
     strategy = schema["/users"]["post"].as_strategy()
-    # Then `None` could be generated by Schemathesis
     assert find_first(strategy, lambda x: x.body is NOT_SET, max_examples=2000).body is NOT_SET
 
 
@@ -2951,20 +3069,27 @@ def test_large_minimum_array_size(ctx, cli, snapshot_cli, min_items):
 
 
 @pytest.mark.parametrize(
-    ("discriminator", "valid_values"),
+    ("cat_name", "discriminator", "valid_values"),
     [
-        ({"propertyName": "petType"}, {"Cat", "Dog"}),
+        ("Cat", {"propertyName": "petType"}, {"Cat", "Dog"}),
         (
+            "Cat",
             {
                 "propertyName": "petType",
                 "mapping": {"feline": "#/components/schemas/Cat", "canine": "#/components/schemas/Dog"},
             },
             {"feline", "canine", "Cat", "Dog"},
         ),
+        ("Cat", {"propertyName": "petType", "mapping": {"feline": "Cat", "canine": "Dog"}}, {"feline", "canine"}),
+        (
+            "Pet.Cat",
+            {"propertyName": "petType", "mapping": {"feline": "Pet.Cat", "canine": "Dog"}},
+            {"feline", "canine"},
+        ),
     ],
-    ids=["implicit", "explicit"],
+    ids=["implicit", "explicit", "schema-name", "dotted-schema-name"],
 )
-def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_values):
+def test_discriminator_property_pinned_in_generation(ctx, cat_name, discriminator, valid_values):
     operation = ctx.openapi.load_operation(
         "POST /pets",
         {
@@ -2974,7 +3099,7 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
                     "application/json": {
                         "schema": {
                             "oneOf": [
-                                {"$ref": "#/components/schemas/Cat"},
+                                {"$ref": f"#/components/schemas/{cat_name}"},
                                 {"$ref": "#/components/schemas/Dog"},
                             ],
                             "discriminator": discriminator,
@@ -2986,7 +3111,7 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
         },
         components={
             "schemas": {
-                "Cat": {"type": "object", "properties": {"petType": {"type": "string"}}, "required": ["petType"]},
+                cat_name: {"type": "object", "properties": {"petType": {"type": "string"}}, "required": ["petType"]},
                 "Dog": {"type": "object", "properties": {"petType": {"type": "string"}}, "required": ["petType"]},
             }
         },
@@ -2995,6 +3120,70 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
     @run_given(case=operation.as_strategy(), max_examples=10, phases=[Phase.generate])
     def inner(case):
         assert case.body["petType"] in valid_values
+
+
+def _pets_with_default_mapping(ctx, default_mapping, other_pet_tag):
+    return ctx.openapi.load_operation(
+        "POST /pets",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "oneOf": [
+                                {"$ref": "#/components/schemas/Cat"},
+                                {"$ref": "#/components/schemas/OtherPet"},
+                            ],
+                            "discriminator": {
+                                "propertyName": "petType",
+                                "mapping": {"cat": "#/components/schemas/Cat"},
+                                "defaultMapping": default_mapping,
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+        components={
+            "schemas": {
+                "Cat": {
+                    "type": "object",
+                    "properties": {"petType": {"type": "string"}, "meows": {"type": "boolean"}},
+                    "required": ["petType", "meows"],
+                    "additionalProperties": False,
+                },
+                "OtherPet": {"type": "object", "properties": {"petType": other_pet_tag}, "required": ["petType"]},
+            }
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("default_mapping", "other_pet_tag", "expected"),
+    [
+        ("OtherPet", {"type": "string"}, {"petType": ""}),
+        ("#/components/schemas/OtherPet", {"type": "string"}, {"petType": ""}),
+        ("OtherPet", {"type": "string", "enum": ["cat", "fish"]}, {"petType": "fish"}),
+    ],
+    ids=["unmapped-value", "uri-reference", "mapped-value-excluded"],
+)
+def test_discriminator_default_mapping_branch_takes_unrouted_values(ctx, default_mapping, other_pet_tag, expected):
+    operation = _pets_with_default_mapping(ctx, default_mapping, other_pet_tag)
+    # Only the default branch produces bodies without `meows`.
+    assert find(operation.as_strategy(), lambda case: "meows" not in case.body).body == expected
+
+
+def test_discriminator_default_mapping_unrouted_values_not_negative(ctx):
+    operation = _pets_with_default_mapping(ctx, "OtherPet", {"type": "string"})
+
+    # Any string tag but Cat's routes to OtherPet, which accepts it; few negative draws carry such a tag.
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=50, derandomize=True)
+    def inner(case):
+        tag = case.body.get("petType") if isinstance(case.body, dict) else None
+        assert not isinstance(tag, str) or tag in ("cat", "Cat"), f"Valid body generated as negative: {case.body!r}"
 
 
 def test_hypothesis_observability_serialization(ctx):
@@ -3410,10 +3599,11 @@ def test_canonical_contains_demand_behind_a_branch_pointer(ctx):
 BOUNDED_INTEGER = {"type": "integer", "minimum": 1, "maximum": 100}
 
 
-def _positive_values(schema, location, media_type, validator_cls, count=25):
+def _positive_values(schema, location, media_type, validator_cls, count=25, config=None):
     # Both spellings need enough draws to show up.
     return generate_many(
-        make_positive_strategy(schema, "test", location, media_type, GenerationConfig(), validator_cls), count
+        make_positive_strategy(schema, "test", location, media_type, config or GenerationConfig(), validator_cls),
+        count,
     )
 
 
@@ -3427,6 +3617,19 @@ def test_integer_json_body_drawn_as_whole_float():
     assert any(isinstance(value, float) for value in values)
     is_valid = jsonschema_rs.Draft202012Validator(BOUNDED_INTEGER).is_valid
     assert all(is_valid(value) for value in values), values
+
+
+def test_integer_json_body_stays_whole_when_whole_floats_are_off():
+    # A strict decoder rejects `2.0` for an integer on purpose.
+    values = _positive_values(
+        BOUNDED_INTEGER,
+        ParameterLocation.BODY,
+        "application/json",
+        jsonschema_rs.Draft202012Validator,
+        config=GenerationConfig.from_dict({"allow-whole-floats": False}),
+    )
+
+    assert all(isinstance(value, int) for value in values), values
 
 
 def test_integer_json_body_stays_whole_on_draft_4():

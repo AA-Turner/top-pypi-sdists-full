@@ -117,7 +117,7 @@ def test_pcre_pattern_in_response_schema_during_dependency_analysis(cli, ctx, sn
                             "content": {
                                 "application/json": {
                                     "schema": {
-                                        # allOf triggers canonicalize() call in dependency analysis
+                                        # `allOf` makes dependency analysis canonicalize the schema
                                         "allOf": [
                                             {"$ref": "#/components/schemas/Owner"},
                                             {"description": "An owner"},
@@ -136,7 +136,7 @@ def test_pcre_pattern_in_response_schema_during_dependency_analysis(cli, ctx, sn
                     "type": "object",
                     "properties": {
                         "id": {"type": "integer"},
-                        # PCRE Unicode property escape - this caused the crash
+                        # PCRE Unicode property escape
                         "firstName": {"type": "string", "pattern": r"^[\p{L}]+([ '-][\p{L}]+){0,2}\.?$"},
                         "lastName": {"type": "string", "pattern": r"^[\p{L}]+([ '-][\p{L}]+){0,2}\.?$"},
                     },
@@ -153,7 +153,7 @@ def test_pcre_pattern_in_response_schema_during_dependency_analysis(cli, ctx, sn
     def get_owner(owner_id):
         return jsonify({"id": owner_id, "firstName": "John", "lastName": "Doe"})
 
-    # This should not crash with SchemaError about invalid regex
+    # Must not crash with an invalid-regex SchemaError
     assert (
         cli.run_openapi_app(
             app,
@@ -443,6 +443,26 @@ def test_quantifier_rewrite_within_reach_is_taken():
             {"type": "string", "pattern": "^a{1,2}b{1,2}c{3}$", "minLength": 7, "maxLength": 7},
             {"type": "string", "pattern": "^a{2}b{2}c{3}$"},
         ),
+        (
+            {"type": "string", "pattern": r"^\{[a-f0-9]{8}\}$", "minLength": 10, "maxLength": 10},
+            {"type": "string", "pattern": r"^\{[a-f0-9]{8}\}$", "minLength": 10, "maxLength": 10},
+        ),
+        (
+            {"type": "string", "pattern": "^[{][a-f0-9]{8}[}]$", "minLength": 10, "maxLength": 10},
+            {"type": "string", "pattern": r"^\{[a-f0-9]{8}\}$"},
+        ),
+        (
+            {"type": "string", "pattern": r"^\[[a-f]{3}\]$", "minLength": 5, "maxLength": 5},
+            {"type": "string", "pattern": r"^\[[a-f]{3}\]$", "minLength": 5, "maxLength": 5},
+        ),
+        (
+            {"type": "string", "pattern": "^\U000f0000a+$", "minLength": 3, "maxLength": 5},
+            {"type": "string", "pattern": "^\U000f0000a{2,4}$"},
+        ),
+        (
+            {"type": "string", "pattern": "^[^\U000f0000]a+$", "minLength": 3, "maxLength": 5},
+            {"type": "string", "pattern": "^[^\U000f0000]a{2,4}$"},
+        ),
     ],
     ids=[
         "leading-anchor-floor",
@@ -454,6 +474,11 @@ def test_quantifier_rewrite_within_reach_is_taken():
         "capturing-group-inside-repeat",
         "exact-length-alternation",
         "exact-length-searched",
+        "escaped-braces",
+        "braces-in-classes",
+        "escaped-brackets",
+        "non-printable-astral-literal",
+        "non-printable-astral-literal-in-class",
     ],
 )
 def test_length_bounds_beside_a_pattern(ctx, parameter_schema, expected):

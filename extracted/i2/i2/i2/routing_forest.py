@@ -180,13 +180,13 @@ class DelegateToMappingAttrMixin:
     def __iter__(self):
         yield from self.mapping
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.mapping)
 
-    def __delitem__(self, k):
+    def __delitem__(self, k) -> None:
         del self.mapping[k]
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k, v) -> None:
         self.mapping[k] = v
 
 
@@ -488,20 +488,21 @@ class FeatCondNode(RoutingNode):
         """
         A FeatCondNode where the conditions are equality checks on the feature value
 
-        # >>> fvn = FeatCondNode.from_feature_val_map(
-        # ...     feat=lambda x: x % 3,
-        # ...     feat_cond_thens={
-        # ...         0: lambda x: 'zero_mod_3',
-        # ...         1: lambda x: 'one_mod_3',
-        # ...         2: lambda x: 'two_mod_3',
-        # ...     }
-        # ... )
-        # >>> list(fvn(0))
-        #
-        # >>> assert list(fvn(0)) == ['zero_mod_3']
-        # >>> assert list(fvn(1)) == ['one_mod_3']
-        # >>> assert list(fvn(2)) == ['two_mod_3']
-        #
+        Example (not run as a doctest):
+
+        .. code-block:: python
+
+            fvn = FeatCondNode.from_feature_val_map(
+                feat=lambda x: x % 3,
+                feat_cond_thens={
+                    0: lambda x: 'zero_mod_3',
+                    1: lambda x: 'one_mod_3',
+                    2: lambda x: 'two_mod_3',
+                }
+            )
+            assert list(fvn(0)) == ['zero_mod_3']
+            assert list(fvn(1)) == ['one_mod_3']
+            assert list(fvn(2)) == ['two_mod_3']
         """
         feat_cond_map = dict(feat_cond_thens)
         feat_cond_thens = tuple(
@@ -622,7 +623,7 @@ def wrap_leafs_with_final_node(x):
             yield FinalNode(xx)
 
 
-def test_routing_forest():
+def test_routing_forest() -> None:
     """Exercise the routing nodes end to end (kept here as a runnable example)."""
 
     def could_be_int(obj):

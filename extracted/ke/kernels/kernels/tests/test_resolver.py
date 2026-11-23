@@ -8,21 +8,11 @@ import pytest
 from huggingface_hub.errors import IncompleteSnapshotError
 from huggingface_hub.hf_api import GitRefInfo, HfApi
 
-import kernels.resolver as resolver_module
-from kernels._rust import (
-    KernelDependency,
-    KernelLock,
-    KernelLocks,
-    KernelName,
-    KernelPaths,
-    KernelVersion,
-    Metadata,
-    Oid,
-)
-from kernels._versions import resolve_version_spec_as_ref
-from kernels.hf_hub import _get_hf_api
-from kernels.install import install_kernel
-from kernels.resolver import (
+import kernels._internals.resolver as resolver_module
+from kernels._internals._versions import resolve_version_spec_as_ref
+from kernels._internals.hf_hub import _get_hf_api
+from kernels._internals.install import install_kernel
+from kernels._internals.resolver import (
     HubCacheResolver,
     HubResolver,
     KernelPathsResolver,
@@ -37,8 +27,19 @@ from kernels.resolver import (
     _locked_revision,
     resolve_hub_cache_kernel,
     resolve_hub_kernel,
+    resolve_local_kernel,
 )
-from kernels.variants import parse_variant
+from kernels._internals.variants import parse_variant
+from kernels._rust import (
+    KernelDependency,
+    KernelLock,
+    KernelLocks,
+    KernelName,
+    KernelPaths,
+    KernelVersion,
+    Metadata,
+    Oid,
+)
 
 
 @pytest.fixture(scope="module")
@@ -555,3 +556,14 @@ def test_locked_revision_requires_lock():
 )
 def test_resolver_protocol_conformance(resolver):
     assert isinstance(resolver, Resolver)
+
+
+def test_resolve_local_kernel_keeps_rejection_reasons(tmp_path):
+    (tmp_path / "torch-xpu").mkdir()
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        resolve_local_kernel(tmp_path, backend="cpu")
+
+    # The `build/` pass finds no variants and must not drop the reasons from
+    # the pass over `tmp_path`.
+    assert "torch-xpu: " in str(exc_info.value)

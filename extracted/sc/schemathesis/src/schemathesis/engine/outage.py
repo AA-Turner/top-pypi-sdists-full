@@ -19,6 +19,7 @@ from schemathesis.engine.errors import (
     build_code_sample,
     is_connection_refused,
     is_unrecoverable_network_error,
+    server_address,
 )
 from schemathesis.engine.health import HealthState
 
@@ -206,16 +207,19 @@ class ServerMonitor:
             crashed_at = min((item.finished for item in resets), default=0)
             cut_off = [item for item in reversed(resets) if item.started < crashed_at]
             after_crash = [item for item in resets if item.started > crashed_at]
-            # Without a reset, a request still in flight is the likeliest culprit. Only one of them can be it,
-            # and the remaining room goes to what the server is known to have seen - otherwise workers left
-            # hanging by the same outage fill the list and hide the payload that caused it.
+            # Without a reset, a request still in flight is the likeliest culprit. List only one, so workers left
+            # hanging by the same outage do not crowd out the payload that caused it.
             in_flight = [item for item in newest if item.reached_server is None][:1]
             # A crash that hangs the server times out its cause and every later request, so the oldest timeout since the
             # last answer is shown, after requests the server still held when it went away: slow servers time out too.
             timed_out = [
                 item for item in recent if isinstance(item.error, requests.ReadTimeout) and item.finished > last_answer
             ][:1]
-            self._message = _render_outage(url, cut_off + in_flight + timed_out + after_crash + answered)
+            # Masked like the reproduction commands listed under it.
+            sanitization = newest[0].case.operation.schema.config.output.sanitization
+            self._message = _render_outage(
+                server_address(url, sanitization), cut_off + in_flight + timed_out + after_crash + answered
+            )
             self._recordable = _scheme(url).recordable
             self._culprit_error = next((item.error for item in cut_off + timed_out), None)
         return True
@@ -238,13 +242,12 @@ class ServerMonitor:
         )
 
 
-def _render_outage(url: str, candidates: list[SentRequest]) -> str:
-    parts = urlsplit(url)
+def _render_outage(address: str, candidates: list[SentRequest]) -> str:
     # A case sent again reproduces the same way, so it is listed once.
     listed = list(dict.fromkeys(item.as_reproduction_command() for item in candidates))[:REPORTED_REQUESTS]
     noun = "request" if len(listed) == 1 else "requests"
     commands = "\n\n".join(textwrap.indent(command, "    ") for command in listed)
-    return f"{parts.scheme}://{parts.netloc} stopped responding. Last {noun} before it went away:\n\n{commands}"
+    return f"{address} stopped responding. Last {noun} before it went away:\n\n{commands}"
 
 
 def _is_reset(exc: requests.RequestException) -> bool:

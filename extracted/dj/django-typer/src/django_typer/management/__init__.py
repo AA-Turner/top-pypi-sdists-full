@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 import inspect
+import os
 import sys
 import threading
 import typing as t
@@ -35,9 +36,9 @@ from typer.core import TyperCommand as CoreTyperCommand
 from typer.core import TyperGroup as CoreTyperGroup
 from typer.core import TyperOption as CoreTyperOption
 from typer.main import (
+    _get_params_name_from_function,
     _typer_developer_exception_attr_name,
     except_hook,
-    get_params_convertors_ctx_param_name_from_function,
 )
 from typer.main import get_command as _build_click_command
 from typer.models import Context as TyperContext
@@ -284,9 +285,7 @@ def _get_common_params(
     """Use typer to convert the common options to click options"""
     global _common_params
     if not _common_params:
-        _common_params = get_params_convertors_ctx_param_name_from_function(
-            _common_options
-        )[0]
+        _common_params = _get_params_name_from_function(_common_options)[0]
     suppressed = _normalize_suppressed_arguments(command)
     return [
         param for param in _common_params if param.name and param.name not in suppressed
@@ -405,13 +404,38 @@ class _ParsedArgs(SimpleNamespace):
     """
 
     def __init__(self, args: t.Sequence[t.Any], **kwargs: t.Any):
+        kwargs.setdefault("pythonpath", None)
+        kwargs.setdefault("settings", None)
         super().__init__(**kwargs)
         self.args = args
         self.traceback = kwargs.get("traceback", TyperCommand._traceback)
-        if not hasattr(self, "pythonpath"):
-            self.pythonpath = None
-        if not hasattr(self, "settings"):
-            self.settings = None
+
+    @staticmethod
+    def _as_str(value: t.Any) -> t.Any:
+        # only paths are converted - any other type a command overrides these
+        # parameters with (e.g. a falsy flag) is passed through as before
+        return os.fspath(value) if isinstance(value, os.PathLike) else value
+
+    # Django's handle_default_options() reads settings and pythonpath as attributes
+    # and writes them into os.environ and sys.path, which need strings. Typer hands
+    # us converted values (e.g. Path), including for commands that override these
+    # parameters. These properties give Django strings while vars() - what is
+    # passed on to execute() - keeps the converted values the command expects.
+    @property
+    def settings(self) -> t.Any:
+        return self._as_str(self.__dict__.get("settings"))
+
+    @settings.setter
+    def settings(self, value: t.Any) -> None:
+        self.__dict__["settings"] = value
+
+    @property
+    def pythonpath(self) -> t.Any:
+        return self._as_str(self.__dict__.get("pythonpath"))
+
+    @pythonpath.setter
+    def pythonpath(self, value: t.Any) -> None:
+        self.__dict__["pythonpath"] = value
 
     def _get_kwargs(self):
         return vars(self)
@@ -507,6 +531,66 @@ class Context(TyperContext):
             {k: v for k, v in self.params.items() if k not in self.supplied_params}
         )
         self.params = self.ParamDict(merged, supplied=list(self.supplied_params.keys()))
+
+
+def _parser_label(param: CoreTyperOption | CoreTyperArgument) -> str | None:
+    """
+    Typer_ labels parameter types in help (``<int>``) from the type annotation. Before
+    Typer_ 0.29 a parameter with a ``parser`` was labeled with the parser's name,
+    which our parsers use to describe their input (e.g. ``<uuid>`` for a
+    :class:`~django_typer.parsers.model.ModelObjectParser` on a UUIDField). Return
+    that label for parameters that have a named parser, otherwise None.
+
+    The name is the parser's ``__name__``, or its ``name`` attribute (the deprecated
+    ``ParamType`` convention). Choice and tuple parameters, and parsers without a
+    usable name (lambdas), keep Typer_'s label.
+    """
+    descriptor = param.type_descriptor
+    parser = descriptor.parameter_info.parser
+    if parser is None or descriptor.is_choice or descriptor.is_tuple:
+        return None
+    name = getattr(parser, "__name__", None) or getattr(parser, "name", None)
+    if not (name and isinstance(name, str)) or not name.isprintable() or "<" in name:
+        return None
+    return f"<list[{name}]>" if descriptor.is_list else f"<{name}>"
+
+
+class DTOption(CoreTyperOption):
+    """
+    The option class used for the parameters of
+    :class:`~django_typer.management.TyperCommand` commands and groups.
+    """
+
+    # no added state - instances Typer built are switched to this class
+    __slots__ = ()
+
+    def display_type(self, ctx: _click.Context) -> str:
+        return _parser_label(self) or super().display_type(ctx)
+
+
+class DTArgument(CoreTyperArgument):
+    """
+    The argument class used for the parameters of
+    :class:`~django_typer.management.TyperCommand` commands and groups.
+    """
+
+    # no added state - instances Typer built are switched to this class
+    __slots__ = ()
+
+    def display_type(self, ctx: _click.Context) -> str:
+        return _parser_label(self) or super().display_type(ctx)
+
+
+def _use_dt_params(params: t.Iterable[_click.Parameter]) -> None:
+    """
+    Typer_ offers no hook to choose the classes it builds parameters from, so the
+    parameters it built are switched to our subclasses, which add no state.
+    """
+    for param in params:
+        if type(param) is CoreTyperOption:
+            param.__class__ = DTOption
+        elif type(param) is CoreTyperArgument:
+            param.__class__ = DTArgument
 
 
 class DjangoTyperMixin(with_typehint(CoreTyperGroup)):  # type: ignore[misc]
@@ -673,19 +757,12 @@ class DjangoTyperMixin(with_typehint(CoreTyperGroup)):  # type: ignore[misc]
                 ),
             )
 
-        super().__init__(
-            *args,
-            params=[
-                *(params[1:] if self.is_method else params),
-                *[
-                    param
-                    for param in self.common_params()
-                    if param.name not in expected
-                ],
-            ],
-            callback=call_with_self,
-            **kwargs,
-        )
+        all_params = [
+            *(params[1:] if self.is_method else params),
+            *[param for param in self.common_params() if param.name not in expected],
+        ]
+        _use_dt_params(all_params)
+        super().__init__(*args, params=all_params, callback=call_with_self, **kwargs)
 
 
 class DTCommand(DjangoTyperMixin, CoreTyperCommand):

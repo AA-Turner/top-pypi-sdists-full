@@ -22,8 +22,7 @@ JSON_MEDIA_TYPES: frozenset[tuple[str, str]] = frozenset(
 
 FORM_MEDIA_TYPES: frozenset[str] = frozenset(["multipart/form-data", "application/x-www-form-urlencoded"])
 
-# Registry of user-supplied strategies for content types. Populated via the public
-# `schemathesis.openapi.media_type(...)` API, but the storage is spec-agnostic.
+# Strategies registered via `schemathesis.openapi.media_type(...)`; the storage itself is spec-agnostic.
 MEDIA_TYPE_STRATEGIES: dict[str, st.SearchStrategy[bytes]] = {}
 
 
@@ -91,7 +90,7 @@ def _parse_header(line: str) -> tuple[str, dict]:
 
 @lru_cache
 def parse(media_type: str) -> tuple[str, str]:
-    """Parse Content Type and return main type and subtype."""
+    """Lowercase `(main type, subtype)`; raises `MalformedMediaType`."""
     try:
         media_type, _ = _parse_header(media_type)
         main_type, sub_type = media_type.split("/", 1)
@@ -100,11 +99,14 @@ def parse(media_type: str) -> tuple[str, str]:
     return main_type.lower(), sub_type.lower()
 
 
-def is_json(value: str) -> bool:
-    """Detect whether the content type is JSON-compatible.
+def parse_list(value: object) -> list[str]:
+    """Media types listed in one string separated by commas, e.g. `image/png, image/*`, or in a list of strings."""
+    items = value.split(",") if isinstance(value, str) else value if isinstance(value, list) else []
+    return [item.strip() for item in items if isinstance(item, str) and item.strip()]
 
-    For example - ``application/problem+json`` matches.
-    """
+
+def is_json(value: str) -> bool:
+    """True for JSON-compatible media types, e.g. `application/problem+json`."""
     return is_json_parts(parse(value))
 
 
@@ -122,21 +124,16 @@ _YAML_MEDIA_TYPE_PARTS: frozenset[tuple[str, str]] = frozenset(parse(media_type)
 
 
 def is_yaml(value: str) -> bool:
-    """Detect whether the content type is YAML-compatible.
-
-    For example - ``application/apply-patch+yaml`` matches.
-    """
+    """True for YAML-compatible media types, e.g. `application/apply-patch+yaml`."""
     main, sub = parse(value)
     return (main, sub) in _YAML_MEDIA_TYPE_PARTS or (main == "application" and sub.endswith("+yaml"))
 
 
 def is_plain_text(value: str) -> bool:
-    """Detect variations of the ``text/plain`` media type."""
     return parse(value) == ("text", "plain")
 
 
 def is_sse(value: str | None) -> bool:
-    """Detect the text/event-stream media type for Server-Sent Events."""
     if value is None:
         return False
     try:
@@ -150,14 +147,23 @@ def is_json_sequence(value: str | None) -> bool:
     if value is None:
         return False
     try:
-        main, sub = parse(value)
+        return is_json_sequence_parts(parse(value))
     except MalformedMediaType:
         return False
+
+
+def is_json_sequence_parts(media_type: tuple[str, str]) -> bool:
+    main, sub = media_type
     return main == "application" and (sub in ("jsonl", "x-ndjson", "json-seq") or sub.endswith("+json-seq"))
 
 
+def is_json_text_sequence(value: str) -> bool:
+    """Detect JSON Text Sequences, whose records each start with the ASCII record separator."""
+    main, sub = parse(value)
+    return main == "application" and (sub == "json-seq" or sub.endswith("+json-seq"))
+
+
 def is_form_urlencoded(value: str | None) -> bool:
-    """Detect the application/x-www-form-urlencoded media type."""
     if value is None:
         return False
     try:
@@ -167,7 +173,6 @@ def is_form_urlencoded(value: str | None) -> bool:
 
 
 def is_multipart(value: str | None) -> bool:
-    """Detect any ``multipart/*`` media type."""
     if value is None:
         return False
     try:
@@ -176,8 +181,12 @@ def is_multipart(value: str | None) -> bool:
         return False
 
 
+def is_positional_multipart(value: str) -> bool:
+    """Detect multipart media types with unnamed, ordered parts: all but `multipart/form-data` and `multipart/*`."""
+    return is_multipart(value) and parse(value)[1] not in ("form-data", "*")
+
+
 def is_json_parts(media_type: tuple[str, str]) -> bool:
-    """Detect variations of the ``application/json`` media type from a parsed tuple."""
     if media_type in JSON_MEDIA_TYPES:
         return True
     main, sub = media_type
@@ -198,13 +207,11 @@ def is_sent_as_text_parts(media_type: tuple[str, str]) -> bool:
 
 
 def is_xml(value: str) -> bool:
-    """Detect variations of the ``application/xml`` media type."""
     _, sub = parse(value)
     return sub == "xml" or sub.endswith("+xml")
 
 
 def is_xml_parts(media_type: tuple[str, str]) -> bool:
-    """Detect variations of the ``application/xml`` media type from a parsed tuple."""
     _, sub = media_type
     return sub == "xml" or sub.endswith("+xml")
 
@@ -215,7 +222,7 @@ def is_form_parts(media_type: tuple[str, str] | None) -> bool:
 
 
 def matches_parts(expected: tuple[str, str], actual: tuple[str, str]) -> bool:
-    """Check if two parsed media types match with wildcard support."""
+    """True if `actual` matches `expected`, where `*` in `expected` is a wildcard."""
     expected_main, expected_sub = expected
     actual_main, actual_sub = actual
     main_matches = expected_main == "*" or expected_main == actual_main
@@ -234,4 +241,6 @@ def matches_either(first: tuple[str, str], second: tuple[str, str]) -> bool:
 
 def same_family(first: str, second: str) -> bool:
     """Whether both media types are variations of the same well-known type, e.g. `application/json` and `+json`."""
-    return any(check(first) and check(second) for check in (is_json, is_xml, is_plain_text, is_yaml))
+    return any(
+        check(first) and check(second) for check in (is_json, is_xml, is_plain_text, is_yaml, is_json_text_sequence)
+    )

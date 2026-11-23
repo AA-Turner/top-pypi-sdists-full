@@ -33,6 +33,7 @@ from xhtml2pdf.builders.flex import (
     draw_stack,
     split_stack,
 )
+from xhtml2pdf.builders.opacity import paint_with_opacity
 from xhtml2pdf.builders.position import PositionAnchor
 from xhtml2pdf.util import drawBoxBackground, drawBoxBorders, getSize, toList
 from xhtml2pdf.xhtml2pdf_reportlab import (
@@ -131,6 +132,11 @@ def _stack(
     if not bottom_margin:
         height -= previous_after
     return entries, height
+
+
+def _has_content(flowables) -> bool:
+    """Whether any of `flowables` draws something: not only zero-size markers."""
+    return any(not getattr(f, "_ZEROSIZE", False) for f in flowables)
 
 
 class BlockBox(Flowable, PmlMaxHeightMixIn):
@@ -237,10 +243,27 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
 
         at = availHeight - style.content_top
         if at > _FUZZ:
-            head, tail = split_stack(
-                self._entries, at, self._inner, getattr(self, "canv", None)
-            )
-            if any(not getattr(f, "_ZEROSIZE", False) for f in head):
+            canv = getattr(self, "canv", None)
+            head, tail = split_stack(self._entries, at, self._inner, canv)
+            bottom = style.paddingBottom + style.border("Bottom")
+            if (
+                not _has_content(tail)
+                and self._stacked + style.vertical > availHeight + _FUZZ
+            ):
+                # All the content fits, but not the bottom padding and border
+                # after it: the box would go on with nothing in it. The last
+                # part of a box carries its bottom, so the cut is made where
+                # that fits too, and with nothing above it the box moves on
+                # whole, as a browser does. When it is only a declared height
+                # that does not fit, the bottom still does, here.
+                head, tail = (
+                    split_stack(self._entries, at - bottom, self._inner, canv)
+                    if at - bottom > _FUZZ
+                    else ([], self._entries)
+                )
+                if not _has_content(tail):
+                    head = []
+            if _has_content(head):
                 # Nothing of the box's bottom is drawn at the cut, and
                 # nothing of its top where it goes on.
                 return [
@@ -253,11 +276,14 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
         # next wrap lays the content out afresh.
         self._key = None
 
-        # Only a first flowable that no page can hold is shrunk to fit:
-        # anything else waits for the next frame, where it gets a whole one.
+        # Only a first flowable that no page can hold is shrunk to fit, and
+        # only once the box has a whole frame to itself: with less, it waits
+        # for the next frame, where that flowable may split after all.
         first = next((e for e in self._entries if e.height > _FUZZ), None)
         needed = (first.height if first is not None else 0.0) + style.vertical
-        if needed > room + _FUZZ:
+        at_top = getattr(getattr(self, "_frame", None), "_atTop", False)
+        whole_frame = at_top or availHeight + _FUZZ >= room
+        if whole_frame and needed > room + _FUZZ:
             return [
                 PmlKeepInFrame(
                     maxWidth=availWidth,
@@ -278,6 +304,9 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
         return part
 
     def draw(self) -> None:
+        paint_with_opacity(self.canv, self.style.opacity, self._draw)
+
+    def _draw(self) -> None:
         if self._key is None:
             self.wrap(self.width, LARGE)
         canv = self.canv
@@ -535,6 +564,7 @@ def block_box_style(c, kw: dict) -> BoxStyle | None:
         or style.backgroundImage
         or declared_height(c)
         or declared_width(c)
+        or style.opacity < 1.0
     ):
         return None
     return style

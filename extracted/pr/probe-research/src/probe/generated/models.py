@@ -38,6 +38,7 @@ from .enums import (  # noqa: F401 - re-exported
     CanvasEndType,
     CanvasInclude,
     CanvasPaperEdgeType,
+    Capacity,
     Source,
     CaptureField,
     Mode,
@@ -59,6 +60,7 @@ from .enums import (  # noqa: F401 - re-exported
     ClientMode,
     ClientSurface,
     ClientUpdateStatus,
+    ClusterKind,
     Fn1,
     CodeAccess,
     CodeSourceStatus,
@@ -132,6 +134,7 @@ from .enums import (  # noqa: F401 - re-exported
     Outcome,
     IndexCorpus,
     InheritedKind,
+    InstallMode,
     Role5,
     IntentEntity,
     Role6,
@@ -152,6 +155,7 @@ from .enums import (  # noqa: F401 - re-exported
     LogSourceKind,
     LossRole,
     MaskEvidence,
+    MatchRule,
     MatchSource,
     MessageCode,
     MessageSource,
@@ -168,10 +172,13 @@ from .enums import (  # noqa: F401 - re-exported
     MetricReduce,
     MirrorSource,
     NextStep,
+    NodeKeySource,
     NodeKind,
+    NodeState,
     NoteKind,
     NoteSource,
     NoticeSurface,
+    OccupantKind,
     OnboardingFlow,
     OnboardingStep,
     OriginType,
@@ -205,6 +212,7 @@ from .enums import (  # noqa: F401 - re-exported
     PointsCheck,
     PointsStore,
     PointsUnavailable,
+    Pricing,
     ProjectKind,
     ProjectSetting,
     Content2,
@@ -266,6 +274,7 @@ from .enums import (  # noqa: F401 - re-exported
     SourceKind,
     SourceProvider,
     StageState,
+    StintEndReason,
     StoredState,
     SummaryDetail,
     SummaryFormat,
@@ -293,6 +302,7 @@ from .enums import (  # noqa: F401 - re-exported
     WebState,
     Fn6,
     WorkKind,
+    WorkloadKind,
     State2,
     WorkspaceKind,
     WriteMode,
@@ -1192,6 +1202,13 @@ class ClusterOut(BaseModel):
     y: float = Field(..., title='Y')
 
 
+class ClusterRef(BaseModel):
+    cluster_key: str = Field(..., title='Cluster Key')
+    id: UUID = Field(..., title='Id')
+    kind: ClusterKind
+    name: str | None = Field(..., title='Name')
+
+
 class Reason1(RootModel[str]):
     root: str = Field(..., max_length=500, title='Reason')
 
@@ -1408,6 +1425,19 @@ class CompositionPartIn(BaseModel):
     rows: Rows | None = Field(None, title='Rows')
     share: float | None = Field(None, title='Share')
     target: str = Field(..., max_length=2048, min_length=1, title='Target')
+
+
+class ComputeClusterOut(BaseModel):
+    active_node_count: int = Field(..., title='Active Node Count')
+    cluster_key: str = Field(..., title='Cluster Key')
+    first_seen_at: AwareDatetime = Field(..., title='First Seen At')
+    gpu_count: int = Field(..., title='Gpu Count')
+    id: UUID = Field(..., title='Id')
+    kind: ClusterKind
+    last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
+    name: str | None = Field(..., title='Name')
+    node_count: int = Field(..., title='Node Count')
+    provider: str | None = Field(..., title='Provider')
 
 
 class ConfigComparison(BaseModel):
@@ -1840,7 +1870,7 @@ class DirectionOut(BaseModel):
     status_source: str = Field(..., title='Status Source')
 
 
-class Name1(RootModel[str]):
+class Name2(RootModel[str]):
     root: str = Field(..., max_length=200, title='Name')
 
 
@@ -1849,7 +1879,7 @@ class Statement(RootModel[str]):
 
 
 class DirectionPatch(BaseModel):
-    name: Name1 | None = Field(None, title='Name')
+    name: Name2 | None = Field(None, title='Name')
     parent_id: UUID | None = Field(None, title='Parent Id')
     statement: Statement | None = Field(None, title='Statement')
     status: Status3 | None = Field(None, title='Status')
@@ -2013,6 +2043,91 @@ class EngineStats(BaseModel):
     spec_accept_rate: SpecAcceptRate | None = Field(None, title='Spec Accept Rate')
 
 
+class InstanceId(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Instance Id')
+
+
+class InstanceType(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Instance Type')
+
+
+class Provider(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Provider')
+
+
+class Region(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Region')
+
+
+class Zone(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Zone')
+
+
+class EnrollOut(BaseModel):
+    """
+    The node's id and its own credential (shown once), plus what the server expects of it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    evidence_salt: str = Field(..., title='Evidence Salt')
+    min_daemon_version: str = Field(..., title='Min Daemon Version')
+    node_credential: str = Field(..., title='Node Credential')
+    node_id: UUID = Field(..., title='Node Id')
+    report_interval_seconds: int = Field(..., title='Report Interval Seconds')
+    server_time: AwareDatetime = Field(..., title='Server Time')
+
+
+class MaxNodes(RootModel[int]):
+    root: int = Field(..., ge=1, title='Max Nodes')
+
+
+class EnrollmentTokenCreate(BaseModel):
+    """
+    Body of `POST /v1/compute/enrollment-tokens` (`probe compute token create`).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    expires_in_seconds: int | None = Field(
+        2592000, ge=60, le=31536000, title='Expires In Seconds'
+    )
+    labels: dict[str, str] | None = Field(None, max_length=32, title='Labels')
+    max_nodes: MaxNodes | None = Field(None, title='Max Nodes')
+    name: str = Field(..., max_length=128, min_length=1, title='Name')
+
+
+class EnrollmentTokenCreated(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: UUID | None = Field(..., title='Created By')
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    id: UUID = Field(..., title='Id')
+    labels: dict[str, str] = Field(..., title='Labels')
+    last_used_at: AwareDatetime | None = Field(..., title='Last Used At')
+    max_nodes: int | None = Field(..., title='Max Nodes')
+    name: str = Field(..., title='Name')
+    nodes_enrolled: int = Field(..., title='Nodes Enrolled')
+    revoked_at: AwareDatetime | None = Field(..., title='Revoked At')
+    token: str = Field(..., title='Token')
+    token_prefix: str = Field(..., title='Token Prefix')
+
+
+class EnrollmentTokenOut(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: UUID | None = Field(..., title='Created By')
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    id: UUID = Field(..., title='Id')
+    labels: dict[str, str] = Field(..., title='Labels')
+    last_used_at: AwareDatetime | None = Field(..., title='Last Used At')
+    max_nodes: int | None = Field(..., title='Max Nodes')
+    name: str = Field(..., title='Name')
+    nodes_enrolled: int = Field(..., title='Nodes Enrolled')
+    revoked_at: AwareDatetime | None = Field(..., title='Revoked At')
+    token_prefix: str = Field(..., title='Token Prefix')
+
+
 class Project(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Project')
 
@@ -2109,7 +2224,7 @@ class ExecutionRecordOut(BaseModel):
     settings: dict[str, Any] | None = Field(None, title='Settings')
 
 
-class Name2(RootModel[str]):
+class Name3(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the fork.',
@@ -2133,7 +2248,7 @@ class ExperimentForkCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name2 | None = Field(
+    name: Name3 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the fork.',
         title='Name',
@@ -2339,7 +2454,7 @@ class ExportPoint(BaseModel):
     wall_clock: AwareDatetime = Field(..., title='Wall Clock')
 
 
-class Provider(RootModel[str]):
+class Provider1(RootModel[str]):
     root: str = Field(..., max_length=128, title='Provider')
 
 
@@ -2354,7 +2469,7 @@ class ExternalRef(BaseModel):
 
     kind: Literal['external'] = Field('external', title='Kind')
     name: str = Field(..., max_length=512, min_length=1, title='Name')
-    provider: Provider | None = Field(None, title='Provider')
+    provider: Provider1 | None = Field(None, title='Provider')
     revision: Revision | None = Field(None, title='Revision')
 
 
@@ -2536,6 +2651,47 @@ class GoogleDocList(BaseModel):
 class GoogleDocsAdd(BaseModel):
     connection_id: UUID = Field(..., title='Connection Id')
     doc_ids: list[str] = Field(..., max_length=20, min_length=1, title='Doc Ids')
+
+
+class Architecture(RootModel[str]):
+    root: str = Field(..., max_length=32, title='Architecture')
+
+
+class FabricCliqueId(RootModel[int]):
+    root: int = Field(..., ge=0, le=4294967295, title='Fabric Clique Id')
+
+
+class FabricClusterUuid(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Fabric Cluster Uuid')
+
+
+class MigParentUuid(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Mig Parent Uuid')
+
+
+class MigProfile(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Mig Profile')
+
+
+class GpuInventory(BaseModel):
+    """
+    One physical GPU or MIG slice, keyed by its UUID (globally unique, burned into the hardware).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    architecture: Architecture | None = Field(None, title='Architecture')
+    fabric_clique_id: FabricCliqueId | None = Field(None, title='Fabric Clique Id')
+    fabric_cluster_uuid: FabricClusterUuid | None = Field(
+        None, title='Fabric Cluster Uuid'
+    )
+    index: int = Field(..., ge=0, title='Index')
+    memory_bytes: int = Field(..., ge=0, title='Memory Bytes')
+    mig_parent_uuid: MigParentUuid | None = Field(None, title='Mig Parent Uuid')
+    mig_profile: MigProfile | None = Field(None, title='Mig Profile')
+    model: str = Field(..., max_length=128, title='Model')
+    uuid: str = Field(..., max_length=128, min_length=4, title='Uuid')
 
 
 class ConsumedStep(RootModel[int]):
@@ -3287,7 +3443,7 @@ class MergedInto(BaseModel):
     name: str = Field(..., title='Name')
 
 
-class Name3(RootModel[str]):
+class Name4(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
@@ -3464,7 +3620,7 @@ class MetricViewOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Name4(RootModel[str]):
+class Name5(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -3501,7 +3657,7 @@ class MirrorBlock(BaseModel):
     state: str = Field(..., title='State')
 
 
-class Name5(RootModel[str]):
+class Name6(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -3565,6 +3721,28 @@ class NamedToolChoice(BaseModel):
 class NextToOut(BaseModel):
     next_to: str = Field(..., title='Next To')
     score: float = Field(..., title='Score')
+
+
+class NodeInventory(BaseModel):
+    """
+    Machine facts that change rarely; resent only when they change.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    cpu_count: int | None = Field(None, title='Cpu Count')
+    cuda_driver_version: str | None = Field(None, title='Cuda Driver Version')
+    driver_version: str | None = Field(None, title='Driver Version')
+    kernel: str | None = Field(None, title='Kernel')
+    memory_bytes: int | None = Field(None, title='Memory Bytes')
+    nvlink_pairs: list[str] | None = Field(None, title='Nvlink Pairs')
+    os: str | None = Field(None, title='Os')
+
+
+class NodeSeriesPoint(BaseModel):
+    at: AwareDatetime = Field(..., title='At')
+    value: float = Field(..., title='Value')
 
 
 class NoteVersionOut(BaseModel):
@@ -3653,6 +3831,18 @@ class ObservedClientOut(BaseModel):
     latest: str | None = Field(None, title='Latest')
     min: str | None = Field(None, title='Min')
     status: ClientUpdateStatus | None = None
+
+
+class OccupantRun(BaseModel):
+    """
+    The run on a GPU, present only when the reader may read that run.
+    """
+
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(..., title='Name')
+    project_id: UUID | None = Field(..., title='Project Id')
+    slug: str | None = Field(..., title='Slug')
 
 
 class OpenAIErrorBody(BaseModel):
@@ -3936,7 +4126,7 @@ class PaneFileRow(BaseModel):
     step: int | None = Field(None, title='Step')
 
 
-class Name7(RootModel[str]):
+class Name8(RootModel[str]):
     root: str = Field(..., max_length=256, min_length=1, title='Name')
 
 
@@ -3961,7 +4151,7 @@ class PaneFilesEntry(BaseModel):
     )
     kind: ArtifactKind | None = None
     limit: int | None = Field(2000, ge=1, le=2000, title='Limit')
-    name: Name7 | None = Field(None, title='Name')
+    name: Name8 | None = Field(None, title='Name')
     prefix: Prefix | None = Field(None, title='Prefix')
     source: Literal['files'] = Field(..., title='Source')
     span: Span2 | None = Field(None, title='Span')
@@ -4690,7 +4880,7 @@ class Document(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Document')
 
 
-class Name8(RootModel[str]):
+class Name9(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -4698,7 +4888,7 @@ class PartOfReason(RootModel[str]):
     root: str = Field(..., max_length=500, title='Part Of Reason')
 
 
-class Name9(RootModel[str]):
+class Name10(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
@@ -4720,7 +4910,7 @@ class ProjectExperimentCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name9 | None = Field(
+    name: Name10 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
         title='Name',
@@ -5012,7 +5202,7 @@ class ExpectedDocument(RootModel[str]):
     )
 
 
-class Name10(RootModel[str]):
+class Name11(RootModel[str]):
     root: str = Field(
         ...,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
@@ -5086,7 +5276,7 @@ class ProjectExperimentPatch(BaseModel):
         description='Replace the notes WITHOUT a precondition: the one way to say "I know the notes moved and I mean to overwrite them" (an operator\'s escape hatch, and the way forward when no read version is at hand). Only with `notes`, and never with `base_version`.',
         title='Force',
     )
-    name: Name10 | None = Field(
+    name: Name11 | None = Field(
         None,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
         title='Name',
@@ -5197,7 +5387,7 @@ class ExpectedDocument1(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Expected Document')
 
 
-class Name11(RootModel[str]):
+class Name12(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -5232,7 +5422,7 @@ class ProjectPatch(BaseModel):
     force: bool | None = Field(False, title='Force')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name11 | None = Field(None, title='Name')
+    name: Name12 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -6063,7 +6253,7 @@ class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
     root: LivenessProtocolEnum | None = Field(None, title='Liveness Protocol')
 
 
-class Name12(RootModel[str]):
+class Name13(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -6149,7 +6339,7 @@ class RunGroupPatch(BaseModel):
 
     base_version: int | None = Field(None, deprecated=True, title='Base Version')
     force: bool | None = Field(False, deprecated=True, title='Force')
-    name: Name12 | None = Field(None, title='Name')
+    name: Name13 | None = Field(None, title='Name')
     notes: str | None = Field(None, deprecated=True, title='Notes')
     notes_append: str | None = Field(None, deprecated=True, title='Notes Append')
     notes_edit: dict[str, Any] | None = Field(None, deprecated=True, title='Notes Edit')
@@ -6194,6 +6384,7 @@ class RunInputsWriteOut(BaseModel):
     received: int = Field(..., title='Received')
     run_id: UUID = Field(..., title='Run Id')
     stored: int = Field(..., title='Stored')
+    truncated: bool | None = Field(False, title='Truncated')
 
 
 class RunLogOut(BaseModel):
@@ -6949,6 +7140,14 @@ class SeriesNode(BaseModel):
     op: Literal['series'] = Field(..., title='Op')
 
 
+class SeriesOut(BaseModel):
+    agg: str = Field(..., title='Agg')
+    dims: dict[str, str] = Field(..., title='Dims')
+    gpu_uuid: str = Field(..., title='Gpu Uuid')
+    key: str = Field(..., title='Key')
+    points: list[NodeSeriesPoint] = Field(..., title='Points')
+
+
 class SeriesPoint(BaseModel):
     smoothed: float | None = Field(None, title='Smoothed')
     step_index: int | None = Field(None, title='Step Index')
@@ -7536,6 +7735,22 @@ class StepCreate(BaseModel):
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
 
 
+class StintGpu(BaseModel):
+    index: int | None = Field(..., title='Index')
+    memory_bytes: int | None = Field(..., title='Memory Bytes')
+    model: str | None = Field(..., title='Model')
+    uuid: str = Field(..., title='Uuid')
+
+
+class StintNode(BaseModel):
+    cluster_id: UUID | None = Field(..., title='Cluster Id')
+    hostname: str | None = Field(..., title='Hostname')
+    id: UUID = Field(..., title='Id')
+    instance_type: str | None = Field(..., title='Instance Type')
+    node_key: str = Field(..., title='Node Key')
+    provider: str | None = Field(..., title='Provider')
+
+
 class StoredAsOut(BaseModel):
     """
     One catalog entry holding a read's exact bytes (`RunInputOut.stored_as`).
@@ -7827,7 +8042,7 @@ class SyncSummary(BaseModel):
     stale: bool | None = Field(False, title='Stale')
 
 
-class Name15(RootModel[str]):
+class Name16(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
@@ -7841,7 +8056,7 @@ class TaskCurve(BaseModel):
     task_id: UUID = Field(..., title='Task Id')
 
 
-class Name16(RootModel[str]):
+class Name17(RootModel[str]):
     root: str = Field(..., max_length=256, min_length=1, title='Name')
 
 
@@ -7853,7 +8068,7 @@ class TaskIn(BaseModel):
     dataset: DatasetRow | None = None
     description: Description3 | None = Field(None, title='Description')
     label: Any = None
-    name: Name16 | None = Field(None, title='Name')
+    name: Name17 | None = Field(None, title='Name')
     prompt: str | None = Field(None, title='Prompt')
     prompt_blob: BlobRef | None = None
     reward_max: float | None = Field(None, title='Reward Max')
@@ -8331,7 +8546,7 @@ class Description6(RootModel[str]):
     root: str = Field(..., max_length=2000, title='Description')
 
 
-class Name19(RootModel[str]):
+class Name20(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -8356,7 +8571,7 @@ class TrialPatch(BaseModel):
     """
 
     description: Description6 | None = Field(None, title='Description')
-    name: Name19 | None = Field(None, title='Name')
+    name: Name20 | None = Field(None, title='Name')
 
 
 class Error(RootModel[str]):
@@ -8597,13 +8812,13 @@ class UseTargetOut(BaseModel):
     type: str = Field(..., title='Type')
 
 
-class Name20(RootModel[str]):
+class Name21(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
 class UserMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name20 | None = Field(None, title='Name')
+    name: Name21 | None = Field(None, title='Name')
     role: Literal['user'] = Field(..., title='Role')
 
 
@@ -8749,7 +8964,7 @@ class VisualsSetOut(BaseModel):
     visuals: list[VisualSetEntryOut] = Field(..., title='Visuals')
 
 
-class Name21(RootModel[str]):
+class Name22(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -8783,7 +8998,7 @@ class WandbCopyOut(BaseModel):
     representation: Representation | None = None
 
 
-class Name22(RootModel[str]):
+class Name23(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -8810,7 +9025,7 @@ class WandbRunClaim(BaseModel):
         title='External Id',
     )
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name22 | None = Field(None, title='Name')
+    name: Name23 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     parent_external_id: ParentExternalId | None = Field(
         None, title='Parent External Id'
@@ -8966,7 +9181,7 @@ class WithoutSectionOut(BaseModel):
     state: VisualsState
 
 
-class Name23(RootModel[str]):
+class Name24(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -9006,16 +9221,40 @@ class WriteOut(BaseModel):
     version: int | None = Field(None, title='Version')
 
 
+class ContainerId(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Container Id')
+
+
 class DrainingForSeconds(RootModel[float]):
     root: float = Field(..., ge=0.0, title='Draining For Seconds')
+
+
+class GpuUuids(RootModel[list[str]]):
+    root: list[str] = Field(..., max_length=64, title='Gpu Uuids')
 
 
 class Host7(RootModel[str]):
     root: str = Field(..., max_length=255, title='Host')
 
 
+class K8sNode(RootModel[str]):
+    root: str = Field(..., max_length=256, title='K8S Node')
+
+
 class LocalRank(RootModel[int]):
     root: int = Field(..., ge=0, title='Local Rank')
+
+
+class NodeKey(RootModel[str]):
+    root: str = Field(..., max_length=300, title='Node Key')
+
+
+class Pidns(RootModel[int]):
+    root: int = Field(..., ge=0, title='Pidns')
+
+
+class PodUid(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Pod Uid')
 
 
 class Progress(RootModel[int]):
@@ -9036,6 +9275,10 @@ class ProgressLongestGapSeconds(RootModel[float]):
 
 class Rank(RootModel[int]):
     root: int = Field(..., ge=0, title='Rank')
+
+
+class SlurmJobId(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Slurm Job Id')
 
 
 class WorldSize(RootModel[int]):
@@ -9703,6 +9946,19 @@ class ClientVersionOut(BaseModel):
     tap: VersionPair | None = Field({}, validate_default=True)
 
 
+class ClusterEvidence(BaseModel):
+    """
+    What the machine knows about the cluster it belongs to (kube-system UID, SLURM ClusterName, a pool label).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    key: str = Field(..., max_length=256, min_length=1, title='Key')
+    kind: ClusterKind
+    name: Name | None = Field(None, title='Name')
+
+
 class CodeSourceCreate(BaseModel):
     add_readme_embed: bool | None = Field(False, title='Add Readme Embed')
     path_prefix: str | None = Field('', title='Path Prefix')
@@ -10087,6 +10343,33 @@ class EditCreate(BaseModel):
     reason: str = Field(..., max_length=2000, min_length=1, title='Reason')
     replace: bool | None = Field(False, title='Replace')
     target: EditTarget | None = None
+
+
+class EnrollIn(BaseModel):
+    """
+    `POST /v1/nodes/enroll`, authorized by an enrollment token (Authorization: Bearer probe_nodeenroll_...).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    capacity: Capacity | None = None
+    cluster: ClusterEvidence | None = None
+    daemon_version: str = Field(..., max_length=64, title='Daemon Version')
+    gpus: list[GpuInventory] | None = Field(None, max_length=64, title='Gpus')
+    hostname: str = Field(..., max_length=255, title='Hostname')
+    identity_evidence: dict[str, str] | None = Field(None, title='Identity Evidence')
+    install_mode: InstallMode
+    instance_id: InstanceId | None = Field(None, title='Instance Id')
+    instance_type: InstanceType | None = Field(None, title='Instance Type')
+    inventory: NodeInventory | None = None
+    labels: dict[str, str] | None = Field(None, max_length=32, title='Labels')
+    node_key: str = Field(..., max_length=256, min_length=1, title='Node Key')
+    node_key_source: NodeKeySource
+    pricing: Pricing | None = None
+    provider: Provider | None = Field(None, title='Provider')
+    region: Region | None = Field(None, title='Region')
+    zone: Zone | None = Field(None, title='Zone')
 
 
 class EntityFilters(BaseModel):
@@ -11035,7 +11318,7 @@ class LiveTurnList(BaseModel):
 class Message(BaseModel):
     content: str | None = Field('', title='Content')
     is_trainable: bool | None = Field(False, title='Is Trainable')
-    name: Name3 | None = Field(None, title='Name')
+    name: Name4 | None = Field(None, title='Name')
     reasoning: str | None = Field(None, title='Reasoning')
     role: str = Field(..., max_length=64, title='Role')
     source: MessageSource
@@ -11079,7 +11362,7 @@ class MetricViewData(BaseModel):
 
 class MirrorConnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
-    name: Name5 | None = Field(None, title='Name')
+    name: Name6 | None = Field(None, title='Name')
     scope: list[ScopeEntry] | None = Field(None, max_length=1000, title='Scope')
     source: MirrorSource
     sync_enabled: bool | None = Field(False, title='Sync Enabled')
@@ -11121,7 +11404,7 @@ class Scope1(RootModel[list[ScopeEntry]]):
 
 class MirrorPatchIn(BaseModel):
     expected_revision: ExpectedRevision | None = Field(None, title='Expected Revision')
-    name: Name5 | None = Field(None, title='Name')
+    name: Name6 | None = Field(None, title='Name')
     scope: Scope1 | None = Field(None, title='Scope')
     sync_enabled: bool | None = Field(None, title='Sync Enabled')
 
@@ -11185,6 +11468,23 @@ class NodeOrigin(BaseModel):
     relation: str | None = Field(None, title='Relation')
     type: OriginType
     via: OriginVia
+
+
+class NodeReportAck(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    accepted_seq: int = Field(..., title='Accepted Seq')
+    min_daemon_version: str = Field(..., title='Min Daemon Version')
+    node_state: NodeState
+    server_time: AwareDatetime = Field(..., title='Server Time')
+
+
+class NodeSeriesOut(BaseModel):
+    from_at: AwareDatetime = Field(..., title='From At')
+    node_id: UUID = Field(..., title='Node Id')
+    series: list[SeriesOut] = Field(..., title='Series')
+    to_at: AwareDatetime = Field(..., title='To At')
 
 
 class NoteCatalogAncestor(BaseModel):
@@ -11305,6 +11605,34 @@ class NoticeView(BaseModel):
     text: str = Field(..., max_length=500, title='Text')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     updated_by: str = Field(..., title='Updated By')
+
+
+class OccupantOut(BaseModel):
+    """
+    One open stint: who is on the GPU now. A run the reader cannot read is `is_redacted` (still
+    occupied, still its owner and workload kind).
+    """
+
+    agent_session_id: str | None = Field(..., title='Agent Session Id')
+    exe: str | None = Field(..., title='Exe')
+    gpu_memory_bytes: int | None = Field(None, title='Gpu Memory Bytes')
+    gpu_share: float = Field(..., title='Gpu Share')
+    gpu_share_estimated: bool = Field(..., title='Gpu Share Estimated')
+    gpu_uuid: str = Field(..., title='Gpu Uuid')
+    is_redacted: bool = Field(..., title='Is Redacted')
+    is_tracked: bool = Field(..., title='Is Tracked')
+    kind: OccupantKind
+    matched_by: MatchRule
+    owner: str | None = Field(..., title='Owner')
+    owner_name: str | None = Field(None, title='Owner Name')
+    peak_gpu_memory_bytes: int | None = Field(..., title='Peak Gpu Memory Bytes')
+    pid: int | None = Field(..., title='Pid')
+    run: OccupantRun | None
+    run_id: UUID | None = Field(None, title='Run Id')
+    run_name: str | None = Field(None, title='Run Name')
+    started_at: AwareDatetime = Field(..., title='Started At')
+    stint_id: int = Field(..., title='Stint Id')
+    workload_kind: WorkloadKind
 
 
 class OnboardingProgressRequest(BaseModel):
@@ -11495,7 +11823,7 @@ class ProjectCreate(BaseModel):
     document: Document | None = Field(None, title='Document')
     kind: ProjectKind
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name8 | None = Field(None, title='Name')
+    name: Name9 | None = Field(None, title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     part_of: list[UUID] | None = Field(None, max_length=100, title='Part Of')
     part_of_reason: PartOfReason | None = Field(None, title='Part Of Reason')
@@ -12024,6 +12352,27 @@ class RunFailuresOut(BaseModel):
     failures: list[RunFailure] = Field(..., title='Failures')
 
 
+class RunGpuStintOut(BaseModel):
+    """
+    `GET /v1/runs/{id}/gpus`: one stint of the run on one GPU.
+    """
+
+    end_reason: StintEndReason | None
+    ended_at: AwareDatetime | None = Field(..., title='Ended At')
+    gpu: StintGpu
+    gpu_share: float = Field(..., title='Gpu Share')
+    gpu_share_estimated: bool = Field(..., title='Gpu Share Estimated')
+    job_exit_code: int | None = Field(None, title='Job Exit Code')
+    job_exit_signal: str | None = Field(None, title='Job Exit Signal')
+    matched_by: MatchRule
+    node: StintNode
+    peak_gpu_memory_bytes: int | None = Field(..., title='Peak Gpu Memory Bytes')
+    pid: int | None = Field(..., title='Pid')
+    rate_usd_per_gpu_hour: float | None = Field(..., title='Rate Usd Per Gpu Hour')
+    started_at: AwareDatetime = Field(..., title='Started At')
+    stint_id: int = Field(..., title='Stint Id')
+
+
 class RunInputOut(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     fingerprint: str | None = Field(None, title='Fingerprint')
@@ -12296,7 +12645,7 @@ class RunPatch(BaseModel):
     metric_expectations: dict[str, MetricExpectation | None] | None = Field(
         None, title='Metric Expectations'
     )
-    name: Name12 | None = Field(None, title='Name')
+    name: Name13 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -12825,7 +13174,7 @@ class SyncOut(BaseModel):
 
 class SystemMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name15 | None = Field(None, title='Name')
+    name: Name16 | None = Field(None, title='Name')
     role: Literal['developer', 'system'] = Field(..., title='Role')
 
 
@@ -12838,7 +13187,7 @@ class TaskDetail(BaseModel):
     description: Description3 | None = Field(None, title='Description')
     files: list[Artifact] | None = Field(None, title='Files')
     label: Any = None
-    name: Name16 | None = Field(None, title='Name')
+    name: Name17 | None = Field(None, title='Name')
     prompt: str | None = Field(None, title='Prompt')
     prompt_blob: BlobRef | None = None
     reward_max: float | None = Field(None, title='Reward Max')
@@ -12857,7 +13206,7 @@ class TaskSummary(BaseModel):
     """
 
     dataset: DatasetRow | None = None
-    name: Name16 | None = Field(None, title='Name')
+    name: Name17 | None = Field(None, title='Name')
     run_id: UUID | None = Field(None, title='Run Id')
     scenario: (
         dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
@@ -12987,7 +13336,7 @@ class WandbAccountConnect(BaseModel):
         extra='forbid',
     )
     credentials: WandbAccountCredentials
-    name: Name21 | None = Field(None, title='Name')
+    name: Name22 | None = Field(None, title='Name')
 
 
 class WandbRunClaimOut(BaseModel):
@@ -13088,21 +13437,28 @@ class WriterBeat(BaseModel):
     """
     Body of `POST /v1/runs/{id}/writers/{session}/beat` (2.8). The lease
     fields again (a beat upserts the lease: the first one registers it), the
-    writer's epoch, and its progress counter (Signal 1).
+    writer's epoch, its progress counter (Signal 1) and where it runs (0512).
     """
 
     attached: bool | None = Field(False, title='Attached')
     capabilities: RunCapabilities | None = None
+    container_id: ContainerId | None = Field(None, title='Container Id')
     delivery: DeliveryBacklog | None = None
     draining_for_seconds: DrainingForSeconds | None = Field(
         None, title='Draining For Seconds'
     )
+    gpu_uuids: GpuUuids | None = Field(None, title='Gpu Uuids')
     host: Host7 | None = Field(None, title='Host')
+    instance_id: InstanceId | None = Field(None, title='Instance Id')
     interactive: bool | None = Field(False, title='Interactive')
     interval_seconds: float | None = Field(60.0, gt=0.0, title='Interval Seconds')
+    k8s_node: K8sNode | None = Field(None, title='K8S Node')
     launch_id: UUID | None = Field(None, title='Launch Id')
     local_rank: LocalRank | None = Field(None, title='Local Rank')
+    node_key: NodeKey | None = Field(None, title='Node Key')
     pid: Pid | None = Field(None, title='Pid')
+    pidns: Pidns | None = Field(None, title='Pidns')
+    pod_uid: PodUid | None = Field(None, title='Pod Uid')
     progress: Progress | None = Field(None, title='Progress')
     progress_gap_p99_seconds: ProgressGapP99Seconds | None = Field(
         None, title='Progress Gap P99 Seconds'
@@ -13116,6 +13472,7 @@ class WriterBeat(BaseModel):
     rank: Rank | None = Field(None, title='Rank')
     role: WriterRoleModel
     session_id: UUID | None = Field(None, title='Session Id')
+    slurm_job_id: SlurmJobId | None = Field(None, title='Slurm Job Id')
     world_size: WorldSize | None = Field(None, title='World Size')
     write_epoch: int = Field(..., ge=1, title='Write Epoch')
 
@@ -13674,6 +14031,23 @@ class ExperimentSharingOut(BaseModel):
     publication: ExperimentShareOut | None = None
 
 
+class GpuOut(BaseModel):
+    architecture: str | None = Field(None, title='Architecture')
+    fabric_clique_id: int | None = Field(None, title='Fabric Clique Id')
+    fabric_cluster_uuid: str | None = Field(None, title='Fabric Cluster Uuid')
+    gpu_uuid: str = Field(..., title='Gpu Uuid')
+    index: int = Field(..., title='Index')
+    memory_bytes: int | None = Field(..., title='Memory Bytes')
+    memory_used_bytes: int | None = Field(None, title='Memory Used Bytes')
+    mig_parent_uuid: str | None = Field(..., title='Mig Parent Uuid')
+    mig_profile: str | None = Field(..., title='Mig Profile')
+    model: str | None = Field(..., title='Model')
+    occupants: list[OccupantOut] | None = Field(None, title='Occupants')
+    power_watts: float | None = Field(None, title='Power Watts')
+    temperature_c: float | None = Field(None, title='Temperature C')
+    utilization_percent: float | None = Field(None, title='Utilization Percent')
+
+
 class GroupOut(BaseModel):
     """
     The branches measured on one metric, ranked. Never compared across groups.
@@ -13775,6 +14149,65 @@ class MixtureOut(BaseModel):
     cleared: int = Field(..., title='Cleared')
     items: list[UseOut] = Field(..., title='Items')
     role: str = Field(..., title='Role')
+
+
+class NodeDetailOut(BaseModel):
+    capacity: Capacity | None
+    cluster: ClusterRef | None
+    daemon_version: str | None = Field(..., title='Daemon Version')
+    enrolled_at: AwareDatetime = Field(..., title='Enrolled At')
+    ephemeral: bool = Field(..., title='Ephemeral')
+    gpus: list[GpuOut] = Field(..., title='Gpus')
+    health: dict[str, Any] | None = Field(..., title='Health')
+    hostname: str | None = Field(..., title='Hostname')
+    hourly_rate_usd: float | None = Field(..., title='Hourly Rate Usd')
+    id: UUID = Field(..., title='Id')
+    install_mode: InstallMode
+    instance_id: str | None = Field(..., title='Instance Id')
+    instance_type: str | None = Field(..., title='Instance Type')
+    inventory: dict[str, Any] = Field(..., title='Inventory')
+    labels: dict[str, str] = Field(..., title='Labels')
+    last_report_at: AwareDatetime | None = Field(..., title='Last Report At')
+    last_report_seq: int | None = Field(..., title='Last Report Seq')
+    node_key: str = Field(..., title='Node Key')
+    node_key_source: NodeKeySource
+    pricing: Pricing | None
+    provider: str | None = Field(..., title='Provider')
+    rate_source: str | None = Field(..., title='Rate Source')
+    region: str | None = Field(..., title='Region')
+    retired_at: AwareDatetime | None = Field(..., title='Retired At')
+    state: NodeState
+    state_changed_at: AwareDatetime = Field(..., title='State Changed At')
+    state_reason: str | None = Field(..., title='State Reason')
+    zone: str | None = Field(..., title='Zone')
+
+
+class NodeOut(BaseModel):
+    capacity: Capacity | None
+    cluster: ClusterRef | None
+    daemon_version: str | None = Field(..., title='Daemon Version')
+    enrolled_at: AwareDatetime = Field(..., title='Enrolled At')
+    ephemeral: bool = Field(..., title='Ephemeral')
+    gpus: list[GpuOut] = Field(..., title='Gpus')
+    hostname: str | None = Field(..., title='Hostname')
+    hourly_rate_usd: float | None = Field(..., title='Hourly Rate Usd')
+    id: UUID = Field(..., title='Id')
+    install_mode: InstallMode
+    instance_id: str | None = Field(..., title='Instance Id')
+    instance_type: str | None = Field(..., title='Instance Type')
+    labels: dict[str, str] = Field(..., title='Labels')
+    last_report_at: AwareDatetime | None = Field(..., title='Last Report At')
+    node_key: str = Field(..., title='Node Key')
+    node_key_source: NodeKeySource
+    pricing: Pricing | None
+    provider: str | None = Field(..., title='Provider')
+    rate_source: str | None = Field(..., title='Rate Source')
+    region: str | None = Field(..., title='Region')
+    retired_at: AwareDatetime | None = Field(..., title='Retired At')
+    state: NodeState
+    state_changed_at: AwareDatetime = Field(..., title='State Changed At')
+    state_reason: str | None = Field(..., title='State Reason')
+    zone: str | None = Field(..., title='Zone')
 
 
 class Pane(BaseModel):
@@ -14427,7 +14860,7 @@ class RunCreate(BaseModel):
     liveness_mode: str | None = Field(None, title='Liveness Mode')
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name12 | None = Field(None, title='Name')
+    name: Name13 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
@@ -14871,7 +15304,7 @@ class WorkspaceCreate(BaseModel):
     requires an explicit opt-in and the necessary write access.
     """
 
-    name: Name23 | None = Field(None, title='Name')
+    name: Name24 | None = Field(None, title='Name')
     slug: str = Field(..., max_length=120, min_length=1, title='Slug')
     writers: WorkspaceWriters | None = None
 
@@ -15295,7 +15728,7 @@ class MetricViewCreate(BaseModel):
 
 class MetricViewPatch(BaseModel):
     expected_updated_at: AwareDatetime | None = Field(None, title='Expected Updated At')
-    name: Name4 | None = Field(None, title='Name')
+    name: Name5 | None = Field(None, title='Name')
     spec: MetricViewSpec | None = None
 
 

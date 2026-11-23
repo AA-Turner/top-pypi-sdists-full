@@ -22,8 +22,8 @@ class CloudAgentComputerSession:
         agent_id (str):
         runtime_id (str):
         expires_at (datetime.datetime):
-        channels (CloudAgentComputerSessionChannels): Extensible set of transports authorized by this Runta session. VNC
-            is available now; computer-use transports can be added without changing the session envelope.
+        channels (CloudAgentComputerSessionChannels): Transports that this Runta session authorizes. VNC is available
+            now. Additional computer-use transports can use the same session envelope.
     """
 
     agent_id: str

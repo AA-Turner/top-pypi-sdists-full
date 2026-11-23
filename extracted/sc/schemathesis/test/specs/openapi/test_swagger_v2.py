@@ -320,17 +320,17 @@ def test_response_header_validation_only_complains_about_headers(ctx, app_runner
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     stream = EventStream(schema, checks=[response_headers_conformance], max_examples=1).execute()
-    failures = [
+    failures = {
         str(check.failure_info.failure)
         for finished in stream.find_all(events.ScenarioFinished)
         for checks in finished.recorder.checks.values()
         for check in checks
         if check.status == Status.FAILURE
-    ]
-    assert failures == [
+    }
+    assert failures == {
         'Response header does not conform to the schema\n\n"not-a-number" is not of type "integer"\n\n'
         'Schema:\n\n    {\n        "type": "integer"\n    }\n\nValue:\n\n    "not-a-number"'
-    ]
+    }
 
 
 def test_default_response_used_when_status_undocumented(ctx):
@@ -677,7 +677,7 @@ def test_multiple_path_parameters_resolve(ctx):
     captured = api.calls_under("/api/orgs/")
     assert captured
     for call in captured:
-        # Path: /api/orgs/{org_id}/users/{user_id} — both segments must be filled.
+        # `/api/orgs/{org_id}/users/{user_id}` needs both segments filled.
         segments = call.path.split("/")
         assert len(segments) == 6
         assert segments[3] and segments[5]
@@ -722,8 +722,7 @@ def test_diverse_response_headers_accepted(ctx):
 
 
 def test_array_response_header_with_collection_format(ctx):
-    # Swagger 2.0 array response header serialised via collectionFormat: csv —
-    # the validator must split on the delimiter before evaluating against `type: array`.
+    # Swagger 2.0 sends a `csv` array header joined; the validator must split it before checking `type: array`.
     app, spec = ctx.openapi.make_flask_app(
         {
             "/array-header": {

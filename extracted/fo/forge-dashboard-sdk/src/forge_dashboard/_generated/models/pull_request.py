@@ -359,6 +359,21 @@ class PullRequest:
                 say "Update branch queued for 14:32" from `runAt` and offer
                 Cancel with `id`. A final outcome is not here: it is in the
                 dashboard's `queuedActions`.
+            last_comment_at (datetime.datetime | Unset): When the newest comment on the pull request was written (RFC
+                3339), its creation time: an edit is not new activity. It covers
+                conversation comments and review comments alike. Absent when
+                there are no comments or the forge can't say. A client decides how
+                to word it; the dashboard shows it, as "last comment 2 hours ago",
+                in the comment pill's tip. On GitHub it comes from the pull
+                request query, the newest conversation comment and the newest
+                comment of each of the first 30 review threads, so it costs no
+                request. Forgejo's pull request payload carries only a count, and
+                a timestamp would take a request per pull request, so Forgejo
+                leaves the field out. GitHub's unauthenticated fallback has no
+                comment data and leaves it out too. GitHub returns the oldest 30
+                review threads, so on a pull request with more than 30 a newer
+                comment in a later thread is missed and the time can read older
+                than the truth.
             auto_merge_enabled (bool | Unset): Whether auto-merge is currently scheduled on this pull request.
                 On Forgejo it is true when the signed-in user armed it in this
                 app, which holds the intent itself, or when a merge is scheduled
@@ -472,6 +487,7 @@ class PullRequest:
     bot_request: BotRequest | None | Unset = UNSET
     update_request: None | Unset | UpdateRequest = UNSET
     queued: None | QueuedAction | Unset = UNSET
+    last_comment_at: datetime.datetime | Unset = UNSET
     auto_merge_enabled: bool | Unset = UNSET
     auto_merge_held_by: str | Unset = UNSET
     base_requires_up_to_date: bool | Unset = UNSET
@@ -659,6 +675,10 @@ class PullRequest:
         else:
             queued = self.queued
 
+        last_comment_at: str | Unset = UNSET
+        if not isinstance(self.last_comment_at, Unset):
+            last_comment_at = self.last_comment_at.isoformat()
+
         auto_merge_enabled = self.auto_merge_enabled
 
         auto_merge_held_by = self.auto_merge_held_by
@@ -738,6 +758,8 @@ class PullRequest:
             field_dict["updateRequest"] = update_request
         if queued is not UNSET:
             field_dict["queued"] = queued
+        if last_comment_at is not UNSET:
+            field_dict["lastCommentAt"] = last_comment_at
         if auto_merge_enabled is not UNSET:
             field_dict["autoMergeEnabled"] = auto_merge_enabled
         if auto_merge_held_by is not UNSET:
@@ -1045,6 +1067,16 @@ class PullRequest:
         queued = _parse_queued(d.pop("queued", UNSET))
 
 
+        _last_comment_at = d.pop("lastCommentAt", UNSET)
+        last_comment_at: datetime.datetime | Unset
+        if isinstance(_last_comment_at,  Unset):
+            last_comment_at = UNSET
+        else:
+            last_comment_at = datetime.datetime.fromisoformat(_last_comment_at)
+
+
+
+
         auto_merge_enabled = d.pop("autoMergeEnabled", UNSET)
 
         auto_merge_held_by = d.pop("autoMergeHeldBy", UNSET)
@@ -1133,6 +1165,7 @@ class PullRequest:
             bot_request=bot_request,
             update_request=update_request,
             queued=queued,
+            last_comment_at=last_comment_at,
             auto_merge_enabled=auto_merge_enabled,
             auto_merge_held_by=auto_merge_held_by,
             base_requires_up_to_date=base_requires_up_to_date,

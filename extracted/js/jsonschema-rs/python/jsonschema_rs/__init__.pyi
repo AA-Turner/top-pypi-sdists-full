@@ -657,6 +657,95 @@ class Draft202012Validator(Validator):
     False
     """
 
+@final
+class NumberFormat:
+    """A `format` check that reads numbers, made by `number_format`; calling it runs the check."""
+
+    def __call__(self, number: int | float | Decimal) -> bool: ...
+
+def number_format(check: Callable[[int | float | Decimal], bool]) -> NumberFormat:
+    """A `format` check that reads numbers, for the `formats` argument.
+
+    `check` receives an `int`, `float` or `Decimal`; instances of other types pass the format.
+
+    >>> is_int32 = number_format(lambda number: isinstance(number, int) and -(2**31) <= number < 2**31)
+    >>> validator_for({"format": "int32"}, formats={"int32": is_int32}, validate_formats=True).is_valid(2**31)
+    False
+    """
+
+def known_formats(draft: int, formats: dict[str, _FormatFunc] | None = None) -> list[str]:
+    """The names of the formats with a check under `draft`, sorted and without duplicates.
+
+    Lists the built-in formats and those in `formats`.
+
+    >>> "uuid" in known_formats(Draft202012)
+    True
+    """
+
+@final
+class JsonTextValidator:
+    """A validator for instances given as JSON text, without building Python objects for them.
+
+    The draft comes from `draft`, or from the schema's `$schema` (Draft 2020-12 without one).
+
+    >>> validator = JsonTextValidator({"minimum": 5})
+    >>> validator.is_valid("3")
+    False
+    """
+
+    def __new__(
+        cls,
+        schema: _Schema | str,
+        draft: int | None = None,
+        formats: dict[str, _FormatFunc] | None = None,
+        validate_formats: bool | None = None,
+        ignore_unknown_formats: bool = True,
+        retriever: RetrieverProtocol | None = None,
+        registry: Registry | None = None,
+        mask: str | None = None,
+        base_uri: str | None = None,
+        pattern_options: PatternOptionsType | None = None,
+        email_options: EmailOptions | None = None,
+        http_options: HttpOptions | None = None,
+        keywords: dict[str, type[KeywordValidator]] | None = None,
+        vocabularies: Sequence[str] | None = None,
+        offline: bool | None = None,
+    ) -> Self: ...
+    def is_valid(self, instance: str | bytes) -> bool:
+        """Return whether the JSON text `instance` holds a valid document. Stops at the first error.
+
+        >>> validator = JsonTextValidator({"minimum": 5})
+        >>> validator.is_valid(b"3")
+        False
+        """
+        ...
+    def validate(self, instance: str | bytes) -> None:
+        """Raise `ValidationError` for the first error of the document in the JSON text `instance`.
+
+        >>> validator = JsonTextValidator({"minimum": 5})
+        >>> validator.validate("3")
+        ...
+        ValidationError: 3 is less than the minimum of 5
+        """
+        ...
+    def iter_errors(self, instance: str | bytes) -> Iterator[ValidationError]:
+        """Iterate over every `ValidationError` of the document in the JSON text `instance`.
+
+        >>> validator = JsonTextValidator({"minimum": 5})
+        >>> print(next(validator.iter_errors("3")).message)
+        3 is less than the minimum of 5
+        """
+        ...
+    def evaluate(self, instance: str | bytes) -> Evaluation:
+        """Evaluate the document in the JSON text `instance` and return an `Evaluation` holding the output formats.
+
+        >>> validator = JsonTextValidator({"type": "integer"})
+        >>> validator.evaluate("true").flag()["valid"]
+        False
+        """
+        ...
+    def __repr__(self) -> str: ...
+
 def validator_for(
     schema: _Schema | str,
     formats: dict[str, _FormatFunc] | None = None,
@@ -979,6 +1068,9 @@ __all__ = [
     "validator_for",
     "validator_map_for",
     "ValidatorMap",
+    "number_format",
+    "known_formats",
+    "NumberFormat",
     "Draft4",
     "Draft6",
     "Draft7",
@@ -990,6 +1082,7 @@ __all__ = [
     "Draft201909Validator",
     "Draft202012Validator",
     "Validator",
+    "JsonTextValidator",
     "Registry",
     "Resolver",
     "Resolved",

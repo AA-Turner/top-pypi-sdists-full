@@ -14,8 +14,10 @@ import contextlib
 import contextvars
 import functools
 import string
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, ParamSpec
 
 _P = ParamSpec("_P")
@@ -27,6 +29,29 @@ _INERT_CHARS = frozenset(string.ascii_letters + string.digits + "._-/+@=,:")
 # A leading `-` would turn a path into an option; a leading `@` is PowerShell splatting.
 _FORBIDDEN_LEADING = ("-", "@")
 MANUAL_QUOTING_NOTE = "path requires manual quoting"
+
+
+def repo_uses_uv(root: Path) -> bool:
+    """Return True when *root* declares uv usage via ``uv.lock`` or ``[tool.uv]``."""
+    from tensor_grep.cli.repo_map_input_provenance import (
+        is_file_with_receipt,
+        read_text_with_receipt,
+    )
+
+    if is_file_with_receipt(root / "uv.lock"):
+        return True
+    pyproject = root / "pyproject.toml"
+    if not is_file_with_receipt(pyproject):
+        return False
+    try:
+        data = tomllib.loads(read_text_with_receipt(pyproject))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return False
+    tool = data.get("tool")
+    if not isinstance(tool, dict) or "uv" not in tool:
+        return False
+    uv_cfg = tool["uv"]
+    return not (isinstance(uv_cfg, dict) and uv_cfg.get("managed") is False)
 
 
 def is_shell_inert_path(value: str) -> bool:

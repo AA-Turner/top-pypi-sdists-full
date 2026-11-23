@@ -30,12 +30,6 @@ def sync(
           so a fresh run can reprocess them; whatever data
           is attached reflects whatever the previous run managed to
           write before being torn down, not a settled processing status.
-        - ``PARTIALLY_COMPLETED``: Sparse override
-          at ``detailed_status.status_code`` whenever child fragment
-          (``tree_live`` or ``remaining_floor > 0``); when the override is
-          absent, callers should treat the parent's ``status_code`` as the
-          effective value:
-          ``detailed_status.status_code or status_code``.
 
         Callers that need a definitive answer (e.g. "is this entity
         finished?") should gate on
@@ -89,14 +83,6 @@ def sync(
           - ``has_missing_branches`` (bool): orphan children or declared shortfall.
           - ``partial`` (bool): visit cap hit or query error; annotates trust and
             does NOT veto ``fully_complete``.
-          - ``status_code`` (str, optional): sparse rollup-effective status
-            override. Set only when it differs from the parent's
-            ``status_code`` -- in practice, only ``"PARTIALLY_COMPLETED"``
-            ever appears here (when the rollup is unsettled for a
-            ``COMPLETED`` parent). Consumers should compute the effective
-            status as
-            ``detailed_status.status_code or status_code`` so a missing
-            override falls through to the parent value.
 
         - ``detailed_status_hash``: SHA-256 of ``detailed_status``.
 
@@ -139,14 +125,6 @@ async def asyncio(
           so a fresh run can reprocess them; whatever data
           is attached reflects whatever the previous run managed to
           write before being torn down, not a settled processing status.
-        - ``PARTIALLY_COMPLETED``: synthetic value. It never appears as the
-          parent ``status_code`` (the doc is stored as ``COMPLETED`` with an
-          unsettled ``detailed_status``). It does appear as a sparse override
-          at ``detailed_status.status_code`` whenever the rollup is unsettled
-          (``tree_live`` or ``remaining_floor > 0``); when the override is
-          absent, callers should treat the parent's ``status_code`` as the
-          effective value:
-          ``detailed_status.status_code or status_code``.
 
         Callers that need a definitive answer (e.g. "is this entity
         finished?") should gate on
@@ -200,14 +178,6 @@ async def asyncio(
           - ``has_missing_branches`` (bool): orphan children or declared shortfall.
           - ``partial`` (bool): visit cap hit or query error; annotates trust and
             does NOT veto ``fully_complete``.
-          - ``status_code`` (str, optional): sparse rollup-effective status
-            override. Set only when it differs from the parent's
-            ``status_code`` -- in practice, only ``"PARTIALLY_COMPLETED"``
-            ever appears here (when the rollup is unsettled for a
-            ``COMPLETED`` parent). Consumers should compute the effective
-            status as
-            ``detailed_status.status_code or status_code`` so a missing
-            override falls through to the parent value.
 
         - ``detailed_status_hash``: SHA-256 of ``detailed_status``.
 

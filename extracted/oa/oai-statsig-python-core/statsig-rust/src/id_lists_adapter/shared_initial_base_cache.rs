@@ -1,14 +1,17 @@
 use super::shared_id_list_format::{digest, hex};
-use super::{IdList, IdListEncoding, IdListMetadata, SharedIdListStore};
+use super::{IdList, IdListEncoding, IdListMetadata};
 use crate::StatsigOptions;
 use crate::networking::normalize_default_cdn_id_lists_manifest_url;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
-use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
-use std::collections::HashMap;
+use crate::observability::ops_stats::OpsStatsForInstance;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
+use store::BaseStore;
 use tokio::sync::Semaphore;
+
+#[path = "shared_id_list_store.rs"]
+mod store;
 
 const CACHE_DIR: &str = "initial-base-v1";
 const STORAGE_WORKERS: u32 = 2;
@@ -23,13 +26,22 @@ pub(crate) struct SharedInitialBaseCache {
 }
 
 impl SharedInitialBaseCache {
-    pub(crate) fn from_options(sdk_key: &str, options: &StatsigOptions) -> Option<Self> {
-        let flags = options.experimental_flags.as_ref()?;
-        if !flags.contains("shared_initial_id_list_base") {
+    pub(super) fn from_options(
+        sdk_key: &str,
+        options: &StatsigOptions,
+        ops_stats: &Arc<OpsStatsForInstance>,
+    ) -> Option<Self> {
+        if options.disable_disk_access == Some(true)
+            || options.disable_network == Some(true)
+            || options.proxy_config.is_some()
+        {
             return None;
         }
-        // LocalIdLists checks whether this worker can share files.
-        let directory = PathBuf::from(options.shared_id_lists_dir.as_deref()?).join(CACHE_DIR);
+        let root = options
+            .shared_id_lists_dir
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())?;
+        let directory = std::path::absolute(root).ok()?.join(CACHE_DIR);
         let source = serde_json::to_vec(&(
             CACHE_DIR,
             sdk_key,
@@ -38,17 +50,11 @@ impl SharedInitialBaseCache {
             options.fallback_to_statsig_api.unwrap_or(false),
         ))
         .expect("ID-list source options serialize");
-        let _output_scope = crate::output_policy::OutputPolicy::from_options(Some(options)).enter();
         Some(Self {
-            encoding: if options.enable_id_list_elias_fano == Some(true) {
-                IdListEncoding::EliasFano
-            } else {
-                IdListEncoding::Hash
-            },
-            directory: std::path::absolute(&directory).unwrap_or(directory),
+            encoding: IdListEncoding::from_options(Some(options)),
+            directory,
             source: hex(&digest(&source)),
-            ops_stats: OPS_STATS
-                .get_for_instance_with_options(options.get_sdk_instance_id(sdk_key), Some(options)),
+            ops_stats: ops_stats.clone(),
             permits: Arc::new(Semaphore::new(STORAGE_WORKERS as usize)),
         })
     }
@@ -63,29 +69,34 @@ impl SharedInitialBaseCache {
             && metadata.file_id.as_deref().is_some_and(|id| !id.is_empty())
     }
 
-    fn store(&self, name: &str) -> io::Result<SharedIdListStore> {
-        SharedIdListStore::for_initial_base(&self.directory, &self.source, name, self.encoding)
+    fn store(&self, name: &str) -> io::Result<BaseStore> {
+        BaseStore::new(&self.directory, &self.source, name, self.encoding)
     }
 
     pub(super) fn lookup(&self, target: &IdListMetadata) -> Option<IdList> {
         let cached = self
             .store(&target.name)
-            .and_then(|store| {
-                store.load_initial_base(&target.name, |meta| {
-                    meta.file_id == target.file_id
-                        && meta.creation_time == target.creation_time
-                        && meta.size > 0
-                        && meta.size <= target.size
-                })
-            })
             .inspect_err(|_| self.record_failure("read"))
+            .and_then(|store| self.read_compatible(&store, target, target.size))
             .ok()?;
         self.record_lookup(cached.is_some());
-        cached.map(|list| with_manifest_url(list, target))
+        cached
     }
 
-    pub(super) fn offer(&self, candidate: IdList) -> IdList {
-        self.install(&candidate)
+    fn read_compatible(
+        &self,
+        store: &BaseStore,
+        target: &IdListMetadata,
+        manifest_size: u64,
+    ) -> io::Result<Option<IdList>> {
+        let cached = store
+            .load(&target.name, |meta| compatible(meta, target, manifest_size))
+            .inspect_err(|_| self.record_failure("read"))?;
+        Ok(cached.map(|list| with_manifest_url(list, target)))
+    }
+
+    pub(super) fn offer_prefix(&self, candidate: IdList, manifest_size: u64) -> IdList {
+        self.install(&candidate, manifest_size)
             .inspect_err(|_| self.record_failure("publish"))
             .ok()
             .flatten()
@@ -110,14 +121,16 @@ impl SharedInitialBaseCache {
         ));
     }
 
-    fn install(&self, candidate: &IdList) -> io::Result<Option<IdList>> {
+    fn install(&self, candidate: &IdList, manifest_size: u64) -> io::Result<Option<IdList>> {
         let target = &candidate.metadata;
         let store = self.store(&target.name)?;
-        let Some(lease) = store.try_acquire_lease()? else {
-            return Ok(None);
+        let Some(lock) = store.try_lock()? else {
+            return Ok(self
+                .read_compatible(&store, target, manifest_size)
+                .unwrap_or_default());
         };
         // Validate only bases new enough to keep.
-        let existing = match store.load_initial_base(&target.name, |meta| {
+        let existing = match store.load(&target.name, |meta| {
             meta.creation_time >= target.creation_time
         }) {
             Ok(list) => list,
@@ -131,29 +144,22 @@ impl SharedInitialBaseCache {
             }
             Err(error) => return Err(error),
         };
-        let _ = store.cleanup(&lease);
         if let Some(existing) = existing {
-            if existing.metadata.file_version() == target.file_version() {
+            if compatible(&existing.metadata, target, manifest_size) {
                 return Ok(Some(with_manifest_url(existing, target)));
             }
             // File IDs have no ordering. Keep the first valid prefix on timestamp ties.
             return Ok(None);
         }
-        let mut base = candidate.clone();
-        base.metadata.url.clear();
-        let mut catalog = store.publish_with_clock(
-            &lease,
-            &HashMap::from([(target.name.clone(), base)]),
-            &HashMap::new(),
-            &HashMap::new(),
-            None,
-            || 0,
-        )?;
-        Ok(catalog
-            .lists
-            .remove(&target.name)
-            .map(|list| with_manifest_url(list, target)))
+        store.publish(&lock, candidate).map(Some)
     }
+}
+
+fn compatible(meta: &IdListMetadata, target: &IdListMetadata, manifest_size: u64) -> bool {
+    meta.file_id == target.file_id
+        && meta.creation_time == target.creation_time
+        && meta.size > 0
+        && meta.size <= manifest_size
 }
 
 fn with_manifest_url(mut list: IdList, target: &IdListMetadata) -> IdList {

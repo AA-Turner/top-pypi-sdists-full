@@ -1,31 +1,33 @@
-"""passlib.apache - apache password support"""
+"""Apache password support"""
+
 # XXX: relocate this to passlib.ext.apache?
-#=============================================================================
-# imports
-#=============================================================================
-from __future__ import with_statement
-# core
-import logging; log = logging.getLogger(__name__)
+from __future__ import annotations
+
 import os
+from io import BytesIO
+from os import PathLike
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 from warnings import warn
-# site
-# pkg
+
+from passlib._logging import logger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+    from typing import Self
+
 from passlib import exc, registry
 from passlib.context import CryptContext
 from passlib.exc import ExpectedStringError
 from passlib.hash import htdigest
-from passlib.utils import render_bytes, to_bytes, is_ascii_codec
-from passlib.utils.decor import deprecated_method
-from passlib.utils.compat import join_bytes, unicode, BytesIO, PY3
+from passlib.utils import is_ascii_codec, render_bytes, to_bytes
+from passlib.utils.compat import join_bytes
+
 # local
 __all__ = [
-    'HtpasswdFile',
-    'HtdigestFile',
+    "HtpasswdFile",
+    "HtdigestFile",
 ]
 
-#=============================================================================
-# constants & support
-#=============================================================================
 _UNSET = object()
 
 _BCOLON = b":"
@@ -35,62 +37,76 @@ _BHASH = b"#"
 _INVALID_FIELD_CHARS = b":\n\r\t\x00"
 
 #: _CommonFile._source token types
-_SKIPPED = "skipped"
-_RECORD = "record"
+_SKIPPED: Literal["skipped"] = "skipped"
+_RECORD: Literal["record"] = "record"
+_TRecordKey = TypeVar("_TRecordKey")
 
-#=============================================================================
-# common helpers
-#=============================================================================
-class _CommonFile(object):
-    """common framework for HtpasswdFile & HtdigestFile"""
-    #===================================================================
-    # instance attrs
-    #===================================================================
+if TYPE_CHECKING:
+    _SourceTypes = (
+        tuple[Literal["skipped"], bytes] | tuple[Literal["record"], _TRecordKey]
+    )
+else:
+    _SourceTypes = None
 
-    # charset encoding used by file (defaults to utf-8)
-    encoding = None
 
-    # whether users() and other public methods should return unicode or bytes?
-    # (defaults to False under PY2, True under PY3)
-    return_unicode = None
+class _CommonFile(Generic[_TRecordKey]):
+    """Common framework for HtpasswdFile & HtdigestFile"""
 
-    # if bound to local file, these will be set.
-    _path = None # local file path
-    _mtime = None # mtime when last loaded, or 0
+    def __init__(
+        self,
+        path: PathLike | None = None,
+        new: bool = False,
+        autosave: bool = False,
+        encoding: str = "utf-8",
+        return_unicode: bool = True,
+    ) -> None:
+        # set encoding
+        if not encoding:
+            raise TypeError("'encoding' is required")
+        if not is_ascii_codec(encoding):
+            # htpasswd/htdigest files assumes 1-byte chars, and use ":" separator,
+            # so only ascii-compatible encodings are allowed.
+            raise ValueError("encoding must be 7-bit ascii compatible")
 
-    # if true, automatically save to local file after changes are made.
-    autosave = False
+        # charset encoding used by file (defaults to utf-8)
+        self.encoding = encoding
+        # whether users() and other public methods should return str or bytes?
+        self.return_unicode = return_unicode
+        # if true, automatically save to local file after changes are made.
+        self.autosave = autosave
+        self._path = path  # local file path
+        self._mtime: float = 0  # mtime when last loaded, or 0
 
-    # dict mapping key -> value for all records in database.
-    # (e.g. user => hash for Htpasswd)
-    _records = None
+        # dict mapping key -> value for all records in database.
+        # (e.g. user => hash for Htpasswd)
+        self._records: dict[_TRecordKey, str] = {}
+        #: list of tokens for recreating original file contents when saving. if present,
+        #: will be sequence of (_SKIPPED, b"whitespace/comments") and (_RECORD, <record key>) tuples.
+        self._source: list[_SourceTypes] = []
 
-    #: list of tokens for recreating original file contents when saving. if present,
-    #: will be sequence of (_SKIPPED, b"whitespace/comments") and (_RECORD, <record key>) tuples.
-    _source = None
+        # init db
+        if path and not new:
+            self.load()
 
-    #===================================================================
-    # alt constuctors
-    #===================================================================
     @classmethod
-    def from_string(cls, data, **kwds):
+    def from_string(cls, data: str | bytes, **kwargs: Any) -> Self:
         """create new object from raw string.
 
-        :type data: unicode or bytes
+        :type data: str or bytes
         :arg data:
             database to load, as single string.
 
         :param \\*\\*kwds:
             all other keywords are the same as in the class constructor
         """
-        if 'path' in kwds:
+        if "path" in kwargs:
             raise TypeError("'path' not accepted by from_string()")
-        self = cls(**kwds)
-        self.load_string(data)
-        return self
+        instance = cls(**kwargs)
+        instance.load_string(data)
+        return instance
 
     @classmethod
-    def from_path(cls, path, **kwds):
+    def from_path(cls, path: PathLike, **kwds: Any) -> Self:
         """create new object from file, without binding object to file.
 
         :type path: str
@@ -104,131 +120,75 @@ class _CommonFile(object):
         self.load(path)
         return self
 
-    #===================================================================
-    # init
-    #===================================================================
-    def __init__(self, path=None, new=False, autoload=True, autosave=False,
-                 encoding="utf-8", return_unicode=PY3,
-                 ):
-        # set encoding
-        if not encoding:
-            warn("``encoding=None`` is deprecated as of Passlib 1.6, "
-                 "and will cause a ValueError in Passlib 1.8, "
-                 "use ``return_unicode=False`` instead.",
-                 DeprecationWarning, stacklevel=2)
-            encoding = "utf-8"
-            return_unicode = False
-        elif not is_ascii_codec(encoding):
-            # htpasswd/htdigest files assumes 1-byte chars, and use ":" separator,
-            # so only ascii-compatible encodings are allowed.
-            raise ValueError("encoding must be 7-bit ascii compatible")
-        self.encoding = encoding
+    # XXX: add a new() classmethod, ala TOTP.new()?
 
-        # set other attrs
-        self.return_unicode = return_unicode
-        self.autosave = autosave
-        self._path = path
-        self._mtime = 0
-
-        # init db
-        if not autoload:
-            warn("``autoload=False`` is deprecated as of Passlib 1.6, "
-                 "and will be removed in Passlib 1.8, use ``new=True`` instead",
-                 DeprecationWarning, stacklevel=2)
-            new = True
-        if path and not new:
-            self.load()
-        else:
-            self._records = {}
-            self._source = []
-
-    def __repr__(self):
-        tail = ''
+    def __repr__(self) -> str:
+        tail = ""
         if self.autosave:
-            tail += ' autosave=True'
+            tail += " autosave=True"
         if self._path:
-            tail += ' path=%r' % self._path
+            tail += f" path={self._path!r}"
         if self.encoding != "utf-8":
-            tail += ' encoding=%r' % self.encoding
-        return "<%s 0x%0x%s>" % (self.__class__.__name__, id(self), tail)
+            tail += f" encoding={self.encoding!r}"
+        return f"<{self.__class__.__name__} 0x{id(self):0x}{tail}>"
 
     # NOTE: ``path`` is a property so that ``_mtime`` is wiped when it's set.
 
     @property
-    def path(self):
+    def path(self) -> PathLike | None:
         return self._path
 
     @path.setter
-    def path(self, value):
+    def path(self, value: PathLike | None) -> None:
         if value != self._path:
             self._mtime = 0
         self._path = value
 
     @property
-    def mtime(self):
+    def mtime(self) -> float:
         """modify time when last loaded (if bound to a local file)"""
         return self._mtime
 
-    #===================================================================
-    # loading
-    #===================================================================
-    def load_if_changed(self):
+    def load_if_changed(self) -> bool:
         """Reload from ``self.path`` only if file has changed since last load"""
         if not self._path:
-            raise RuntimeError("%r is not bound to a local file" % self)
+            raise RuntimeError(f"{self!r} is not bound to a local file")
         if self._mtime and self._mtime == os.path.getmtime(self._path):
             return False
         self.load()
         return True
 
-    def load(self, path=None, force=True):
+    def load(self, path: PathLike | None = None) -> bool:
         """Load state from local file.
         If no path is specified, attempts to load from ``self.path``.
 
         :type path: str
         :arg path: local file to load from
-
-        :type force: bool
-        :param force:
-            if ``force=False``, only load from ``self.path`` if file
-            has changed since last load.
-
-            .. deprecated:: 1.6
-                This keyword will be removed in Passlib 1.8;
-                Applications should use :meth:`load_if_changed` instead.
         """
         if path is not None:
             with open(path, "rb") as fh:
                 self._mtime = 0
                 self._load_lines(fh)
-        elif not force:
-            warn("%(name)s.load(force=False) is deprecated as of Passlib 1.6,"
-                 "and will be removed in Passlib 1.8; "
-                 "use %(name)s.load_if_changed() instead." %
-                 dict(name=self.__class__.__name__),
-                 DeprecationWarning, stacklevel=2)
-            return self.load_if_changed()
         elif self._path:
             with open(self._path, "rb") as fh:
                 self._mtime = os.path.getmtime(self._path)
                 self._load_lines(fh)
         else:
-            raise RuntimeError("%s().path is not set, an explicit path is required" %
-                               self.__class__.__name__)
+            raise RuntimeError(
+                f"{self.__class__.__name__}().path is not set, an explicit path is required"
+            )
         return True
 
-    def load_string(self, data):
+    def load_string(self, data: str | bytes) -> None:
         """Load state from unicode or bytes string, replacing current state"""
-        data = to_bytes(data, self.encoding, "data")
         self._mtime = 0
-        self._load_lines(BytesIO(data))
+        self._load_lines(BytesIO(to_bytes(data, self.encoding, "data")))
 
-    def _load_lines(self, lines):
+    def _load_lines(self, lines: Iterable[bytes]) -> None:
         """load from sequence of lists"""
-        parse = self._parse_record
         records = {}
-        source = []
-        skipped = b''
+        source: list[_SourceTypes] = []
+        skipped = b""
         for idx, line in enumerate(lines):
             # NOTE: per htpasswd source (https://github.com/apache/httpd/blob/trunk/support/htpasswd.c),
             #       lines with only whitespace, or with "#" as first non-whitespace char,
@@ -239,19 +199,22 @@ class _CommonFile(object):
                 continue
 
             # parse valid line
-            key, value = parse(line, idx+1)
+            key, value = self._parse_record(line, idx + 1)
 
             # NOTE: if multiple entries for a key, we use the first one,
             #       which seems to match htpasswd source
             if key in records:
-                log.warning("username occurs multiple times in source file: %r" % key)
+                logger.warning(
+                    "username occurs multiple times in source file: %r",
+                    key,
+                )
                 skipped += line
                 continue
 
             # flush buffer of skipped whitespace lines
             if skipped:
                 source.append((_SKIPPED, skipped))
-                skipped = b''
+                skipped = b""
 
             # store new user line
             records[key] = value
@@ -265,33 +228,31 @@ class _CommonFile(object):
         self._records = records
         self._source = source
 
-    def _parse_record(self, record, lineno): # pragma: no cover - abstract method
+    def _parse_record(
+        self, record: bytes, lineno: int
+    ) -> tuple[_TRecordKey, Any]:  # pragma: no cover - abstract method
         """parse line of file into (key, value) pair"""
         raise NotImplementedError("should be implemented in subclass")
 
-    def _set_record(self, key, value):
+    def _set_record(self, key: _TRecordKey, value: Any) -> bool:
         """
         helper for setting record which takes care of inserting source line if needed;
 
         :returns:
             bool if key already present
         """
-        records = self._records
-        existing = (key in records)
-        records[key] = value
+        existing = key in self._records
+        self._records[key] = value
         if not existing:
             self._source.append((_RECORD, key))
         return existing
 
-    #===================================================================
-    # saving
-    #===================================================================
-    def _autosave(self):
+    def _autosave(self) -> None:
         """subclass helper to call save() after any changes"""
         if self.autosave and self._path:
             self.save()
 
-    def save(self, path=None):
+    def save(self, path: PathLike | None = None) -> None:
         """Save current state to file.
         If no path is specified, attempts to save to ``self.path``.
         """
@@ -302,10 +263,11 @@ class _CommonFile(object):
             self.save(self._path)
             self._mtime = os.path.getmtime(self._path)
         else:
-            raise RuntimeError("%s().path is not set, cannot autosave" %
-                               self.__class__.__name__)
+            raise RuntimeError(
+                f"{self.__class__.__name__}().path is not set, cannot autosave"
+            )
 
-    def to_string(self):
+    def to_string(self) -> bytes:
         """Export current state as a string of bytes"""
         return join_bytes(self._iter_lines())
 
@@ -317,7 +279,7 @@ class _CommonFile(object):
     #     self._source = [(_RECORD, key) for key in sorted(self._records)]
     #     self._autosave()
 
-    def _iter_lines(self):
+    def _iter_lines(self) -> Iterator[Any]:
         """iterator yielding lines of database"""
         # NOTE: this relies on <records> being an OrderedDict so that it outputs
         #       records in a deterministic order.
@@ -330,6 +292,10 @@ class _CommonFile(object):
                 yield content
             else:
                 assert action == _RECORD
+                content = cast(
+                    "_TRecordKey", content
+                )  # Should be _TRecordKey at this point
+
                 # 'content' is record key
                 if content not in records:
                     # record was deleted
@@ -342,24 +308,23 @@ class _CommonFile(object):
         if __debug__:
             # sanity check that we actually wrote all the records
             # (otherwise _source & _records are somehow out of sync)
-            assert not pending, "failed to write all records: missing=%r" % (pending,)
+            assert not pending, f"failed to write all records: missing={pending!r}"
 
-    def _render_record(self, key, value): # pragma: no cover - abstract method
+    def _render_record(self, key, value):  # pragma: no cover - abstract method
         """given key/value pair, encode as line of file"""
         raise NotImplementedError("should be implemented in subclass")
 
-    #===================================================================
-    # field encoding
-    #===================================================================
-    def _encode_user(self, user):
+    def _encode_user(self, user: str | bytes) -> bytes:
         """user-specific wrapper for _encode_field()"""
         return self._encode_field(user, "user")
 
-    def _encode_realm(self, realm): # pragma: no cover - abstract method
+    def _encode_realm(
+        self, realm: str | bytes
+    ) -> bytes:  # pragma: no cover - abstract method
         """realm-specific wrapper for _encode_field()"""
         return self._encode_field(realm, "realm")
 
-    def _encode_field(self, value, param="field"):
+    def _encode_field(self, value: str | bytes, param="field") -> bytes:
         """convert field to internal representation.
 
         internal representation is always bytes. byte strings are left as-is,
@@ -376,19 +341,18 @@ class _CommonFile(object):
         :returns:
             encoded identifer as bytes
         """
-        if isinstance(value, unicode):
+        if isinstance(value, str):
             value = value.encode(self.encoding)
         elif not isinstance(value, bytes):
             raise ExpectedStringError(value, param)
+
         if len(value) > 255:
-            raise ValueError("%s must be at most 255 characters: %r" %
-                             (param, value))
+            raise ValueError(f"{param} must be at most 255 characters: {value!r}")
         if any(c in _INVALID_FIELD_CHARS for c in value):
-            raise ValueError("%s contains invalid characters: %r" %
-                             (param, value,))
+            raise ValueError(f"{param} contains invalid characters: {value!r}")
         return value
 
-    def _decode_field(self, value):
+    def _decode_field(self, value: bytes) -> bytes | str:
         """decode field from internal representation to format
         returns by users() method, etc.
 
@@ -397,24 +361,20 @@ class _CommonFile(object):
             (usually indicates wrong encoding set for file).
 
         :returns:
-            field as unicode or bytes, as appropriate.
+            field as str or bytes, as appropriate.
         """
         assert isinstance(value, bytes), "expected value to be bytes"
         if self.return_unicode:
             return value.decode(self.encoding)
-        else:
-            return value
+        return value
 
     # FIXME: htpasswd doc says passwords limited to 255 chars under Windows & MPE,
     # and that longer ones are truncated. this may be side-effect of those
     # platforms supporting the 'plaintext' scheme. these classes don't currently
     # check for this.
 
-    #===================================================================
-    # eoc
-    #===================================================================
 
-#=============================================================================
+# =============================================================================
 # htpasswd context
 #
 # This section sets up a CryptContexts to mimic what schemes Apache
@@ -426,14 +386,14 @@ class _CommonFile(object):
 #
 # Apache 2.4 added builtin bcrypt support (even for platforms w/o native support).
 # c.f. http://httpd.apache.org/docs/2.4/programs/htpasswd.html vs the 2.2 docs.
-#=============================================================================
+# =============================================================================
 
 #: set of default schemes that (if chosen) should be using bcrypt,
 #: but can't due to lack of bcrypt.
-_warn_no_bcrypt = set()
+_warn_no_bcrypt: set[str] = set()
+
 
 def _init_default_schemes():
-
     #: pick strongest one for host
     host_best = None
     for name in ["bcrypt", "sha256_crypt"]:
@@ -446,18 +406,23 @@ def _init_default_schemes():
     bcrypt = "bcrypt" if registry.has_backend("bcrypt") else None
     _warn_no_bcrypt.clear()
     if not bcrypt:
-        _warn_no_bcrypt.update(["portable_apache_24", "host_apache_24",
-                                "linux_apache_24", "portable", "host"])
+        _warn_no_bcrypt.update(
+            [
+                "portable_apache_24",
+                "host_apache_24",
+                "linux_apache_24",
+                "portable",
+                "host",
+            ]
+        )
 
     defaults = dict(
         # strongest hash builtin to specific apache version
         portable_apache_24=bcrypt or "apr_md5_crypt",
         portable_apache_22="apr_md5_crypt",
-
         # strongest hash across current host & specific apache version
         host_apache_24=bcrypt or host_best or "apr_md5_crypt",
         host_apache_22=host_best or "apr_md5_crypt",
-
         # strongest hash on a linux host
         linux_apache_24=bcrypt or "sha256_crypt",
         linux_apache_22="sha256_crypt",
@@ -467,36 +432,33 @@ def _init_default_schemes():
     # XXX: could check for apache install, and pick correct host 22/24 default?
     #      could reuse _detect_htpasswd() helper in UTs
     defaults.update(
-        portable=defaults['portable_apache_24'],
-        host=defaults['host_apache_24'],
+        portable=defaults["portable_apache_24"],
+        host=defaults["host_apache_24"],
     )
     return defaults
+
 
 #: dict mapping default alias -> appropriate scheme
 htpasswd_defaults = _init_default_schemes()
 
-def _init_htpasswd_context():
 
+def _init_htpasswd_context():
     # start with schemes built into apache
     schemes = [
         # builtin support added in apache 2.4
         # (https://bz.apache.org/bugzilla/show_bug.cgi?id=49288)
         "bcrypt",
-
         # support not "builtin" to apache, instead it requires support through host's crypt().
         # adding them here to allow editing htpasswd under windows and then deploying under unix.
         "sha256_crypt",
         "sha512_crypt",
         "des_crypt",
-
         # apache default as of 2.2.18, and still default in 2.4
         "apr_md5_crypt",
-
         # NOTE: apache says ONLY intended for transitioning htpasswd <-> ldap
         "ldap_sha1",
-
         # NOTE: apache says ONLY supported on Windows, Netware, TPF
-        "plaintext"
+        "plaintext",
     ]
 
     # apache can verify anything supported by the native crypt(),
@@ -511,22 +473,18 @@ def _init_htpasswd_context():
     # create context object
     return CryptContext(
         schemes=schemes,
-
         # NOTE: default will change to "portable" in passlib 2.0
-        default=htpasswd_defaults['portable_apache_22'],
-
+        default=htpasswd_defaults["portable_apache_22"],
         # NOTE: bcrypt "2y" is required, "2b" isn't recognized by libapr (issue 95)
         bcrypt__ident="2y",
     )
 
+
 #: CryptContext configured to match htpasswd
 htpasswd_context = _init_htpasswd_context()
 
-#=============================================================================
-# htpasswd editing
-#=============================================================================
 
-class HtpasswdFile(_CommonFile):
+class HtpasswdFile(_CommonFile[bytes]):
     """class for reading & writing Htpasswd files.
 
     The class constructor accepts the following arguments:
@@ -563,7 +521,7 @@ class HtpasswdFile(_CommonFile):
 
         .. versionadded:: 1.6
             This feature was previously enabled by setting ``autoload=False``.
-            That alias has been deprecated, and will be removed in Passlib 1.8
+            That alias was removed in Passlib 1.8
 
     :type autosave: bool
     :param autosave:
@@ -615,7 +573,7 @@ class HtpasswdFile(_CommonFile):
 
         .. versionadded:: 1.6
             This keyword was previously named ``default``. That alias
-            has been deprecated, and will be removed in Passlib 1.8.
+            was removed in Passlib 1.8.
 
         .. versionchanged:: 1.6.3
 
@@ -640,23 +598,6 @@ class HtpasswdFile(_CommonFile):
             formats to an htpasswd file. However, the resulting file
             will probably not be usable by another application,
             and particularly not by Apache.
-
-    :param autoload:
-        Set to ``False`` to prevent the constructor from automatically
-        loaded the file from disk.
-
-        .. deprecated:: 1.6
-            This has been replaced by the *new* keyword.
-            Instead of setting ``autoload=False``, you should use
-            ``new=True``. Support for this keyword will be removed
-            in Passlib 1.8.
-
-    :param default:
-        Change the default algorithm used to hash new passwords.
-
-        .. deprecated:: 1.6
-            This has been renamed to *default_scheme* for clarity.
-            Support for this alias will be removed in Passlib 1.8.
 
     Loading & Saving
     ================
@@ -701,50 +642,35 @@ class HtpasswdFile(_CommonFile):
         any user name contains a forbidden character (one of ``:\\r\\n\\t\\x00``),
         or is longer than 255 characters.
     """
-    #===================================================================
-    # instance attrs
-    #===================================================================
 
     # NOTE: _records map stores <user> for the key, and <hash> for the value,
     #       both in bytes which use self.encoding
-
-    #===================================================================
-    # init & serialization
-    #===================================================================
-    def __init__(self, path=None, default_scheme=None, context=htpasswd_context,
-                 **kwds):
-        if 'default' in kwds:
-            warn("``default`` is deprecated as of Passlib 1.6, "
-                 "and will be removed in Passlib 1.8, it has been renamed "
-                 "to ``default_scheem``.",
-                 DeprecationWarning, stacklevel=2)
-            default_scheme = kwds.pop("default")
+    def __init__(
+        self, path=None, default_scheme=None, context=htpasswd_context, **kwds
+    ):
         if default_scheme:
             if default_scheme in _warn_no_bcrypt:
-                warn("HtpasswdFile: no bcrypt backends available, "
-                     "using fallback for default scheme %r" % default_scheme,
-                     exc.PasslibSecurityWarning)
+                warn(
+                    "HtpasswdFile: no bcrypt backends available, "
+                    f"using fallback for default scheme {default_scheme!r}",
+                    exc.PasslibSecurityWarning,
+                )
             default_scheme = htpasswd_defaults.get(default_scheme, default_scheme)
             context = context.copy(default=default_scheme)
         self.context = context
-        super(HtpasswdFile, self).__init__(path, **kwds)
+        super().__init__(path, **kwds)
 
     def _parse_record(self, record, lineno):
         # NOTE: should return (user, hash) tuple
         result = record.rstrip().split(_BCOLON)
         if len(result) != 2:
-            raise ValueError("malformed htpasswd file (error reading line %d)"
-                             % lineno)
+            raise ValueError("malformed htpasswd file (error reading line %d)" % lineno)
         return result
 
     def _render_record(self, user, hash):
         return render_bytes("%s:%s\n", user, hash)
 
-    #===================================================================
-    # public methods
-    #===================================================================
-
-    def users(self):
+    def users(self) -> list[bytes | str]:
         """
         Return list of all users in database
         """
@@ -772,24 +698,17 @@ class HtpasswdFile(_CommonFile):
         .. versionchanged:: 1.6
             This method was previously called ``update``, it was renamed
             to prevent ambiguity with the dictionary method.
-            The old alias is deprecated, and will be removed in Passlib 1.8.
+            The old alias was removed in Passlib 1.8.
         """
         hash = self.context.hash(password)
         return self.set_hash(user, hash)
-
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="set_password")
-    def update(self, user, password):
-        """set password for user"""
-        return self.set_password(user, password)
 
     def get_hash(self, user):
         """Return hash stored for user, or ``None`` if user not found.
 
         .. versionchanged:: 1.6
             This method was previously named ``find``, it was renamed
-            for clarity. The old name is deprecated, and will be removed
-            in Passlib 1.8.
+            for clarity. The old name was removed in Passlib 1.8.
         """
         try:
             return self._records[self._encode_user(user)]
@@ -807,18 +726,12 @@ class HtpasswdFile(_CommonFile):
         .. versionadded:: 1.7
         """
         # assert self.context.identify(hash), "unrecognized hash format"
-        if PY3 and isinstance(hash, str):
+        if isinstance(hash, str):
             hash = hash.encode(self.encoding)
         user = self._encode_user(user)
         existing = self._set_record(user, hash)
         self._autosave()
         return existing
-
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="get_hash")
-    def find(self, user):
-        """return hash for user"""
-        return self.get_hash(user)
 
     # XXX: rename to something more explicit, like delete_user()?
     def delete(self, user):
@@ -848,13 +761,13 @@ class HtpasswdFile(_CommonFile):
         .. versionchanged:: 1.6
             This method was previously called ``verify``, it was renamed
             to prevent ambiguity with the :class:`!CryptContext` method.
-            The old alias is deprecated, and will be removed in Passlib 1.8.
+            The old alias was removed in Passlib 1.8.
         """
         user = self._encode_user(user)
         hash = self._records.get(user)
         if hash is None:
             return None
-        if isinstance(password, unicode):
+        if isinstance(password, str):
             # NOTE: encoding password to match file, making the assumption
             # that server will use same encoding to hash the password.
             password = password.encode(self.encoding)
@@ -866,20 +779,8 @@ class HtpasswdFile(_CommonFile):
             self._autosave()
         return ok
 
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="check_password")
-    def verify(self, user, password):
-        """verify password for user"""
-        return self.check_password(user, password)
 
-    #===================================================================
-    # eoc
-    #===================================================================
-
-#=============================================================================
-# htdigest editing
-#=============================================================================
-class HtdigestFile(_CommonFile):
+class HtdigestFile(_CommonFile[tuple[bytes, bytes]]):
     """class for reading & writing Htdigest files.
 
     The class constructor accepts the following arguments:
@@ -928,7 +829,7 @@ class HtdigestFile(_CommonFile):
 
         .. versionadded:: 1.6
             This feature was previously enabled by setting ``autoload=False``.
-            That alias has been deprecated, and will be removed in Passlib 1.8
+            That alias was removed in Passlib 1.8
 
     :type autosave: bool
     :param autosave:
@@ -948,16 +849,6 @@ class HtdigestFile(_CommonFile):
         is the only other commonly encountered encoding.
 
         This is also exposed as a readonly instance attribute.
-
-    :param autoload:
-        Set to ``False`` to prevent the constructor from automatically
-        loaded the file from disk.
-
-        .. deprecated:: 1.6
-            This has been replaced by the *new* keyword.
-            Instead of setting ``autoload=False``, you should use
-            ``new=True``. Support for this keyword will be removed
-            in Passlib 1.8.
 
     Loading & Saving
     ================
@@ -1011,9 +902,6 @@ class HtdigestFile(_CommonFile):
         any user name or realm contains a forbidden character (one of ``:\\r\\n\\t\\x00``),
         or is longer than 255 characters.
     """
-    #===================================================================
-    # instance attrs
-    #===================================================================
 
     # NOTE: _records map stores (<user>,<realm>) for the key,
     # and <hash> as the value, all as <self.encoding> bytes.
@@ -1025,18 +913,14 @@ class HtdigestFile(_CommonFile):
     # is provided to a method call. otherwise realm is always required.
     default_realm = None
 
-    #===================================================================
-    # init & serialization
-    #===================================================================
     def __init__(self, path=None, default_realm=None, **kwds):
         self.default_realm = default_realm
-        super(HtdigestFile, self).__init__(path, **kwds)
+        super().__init__(path, **kwds)
 
     def _parse_record(self, record, lineno):
         result = record.rstrip().split(_BCOLON)
         if len(result) != 3:
-            raise ValueError("malformed htdigest file (error reading line %d)"
-                             % lineno)
+            raise ValueError("malformed htdigest file (error reading line %d)" % lineno)
         user, realm, hash = result
         return (user, realm), hash
 
@@ -1048,8 +932,10 @@ class HtdigestFile(_CommonFile):
         if realm is None:
             realm = self.default_realm
             if realm is None:
-                raise TypeError("you must specify a realm explicitly, "
-                                "or set the default_realm attribute")
+                raise TypeError(
+                    "you must specify a realm explicitly, "
+                    "or set the default_realm attribute"
+                )
         return realm
 
     def _encode_realm(self, realm):
@@ -1058,10 +944,6 @@ class HtdigestFile(_CommonFile):
 
     def _encode_key(self, user, realm):
         return self._encode_user(user), self._encode_realm(realm)
-
-    #===================================================================
-    # public methods
-    #===================================================================
 
     def realms(self):
         """Return list of all realms in database"""
@@ -1075,8 +957,7 @@ class HtdigestFile(_CommonFile):
         * returns empty list if realm not found.
         """
         realm = self._encode_realm(realm)
-        return [self._decode_field(key[0]) for key in self._records
-                if key[1] == realm]
+        return [self._decode_field(key[0]) for key in self._records if key[1] == realm]
 
     ##def has_user(self, user, realm=None):
     ##    "check if user+realm combination exists"
@@ -1121,12 +1002,6 @@ class HtdigestFile(_CommonFile):
         hash = htdigest.hash(password, user, realm, encoding=self.encoding)
         return self.set_hash(user, realm, hash)
 
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="set_password")
-    def update(self, user, realm, password):
-        """set password for user"""
-        return self.set_password(user, realm, password)
-
     def get_hash(self, user, realm=None):
         """Return :class:`~passlib.hash.htdigest` hash stored for user.
 
@@ -1135,16 +1010,13 @@ class HtdigestFile(_CommonFile):
 
         .. versionchanged:: 1.6
             This method was previously named ``find``, it was renamed
-            for clarity. The old name is deprecated, and will be removed
-            in Passlib 1.8.
+            for clarity. The old name is was removed Passlib 1.8.
         """
         key = self._encode_key(user, realm)
         hash = self._records.get(key)
         if hash is None:
             return None
-        if PY3:
-            hash = hash.decode(self.encoding)
-        return hash
+        return hash.decode(self.encoding)
 
     def set_hash(self, user, realm=None, hash=_UNSET):
         """
@@ -1165,18 +1037,12 @@ class HtdigestFile(_CommonFile):
             # called w/ two args - (user, hash), use default realm
             realm, hash = None, realm
         # assert htdigest.identify(hash), "unrecognized hash format"
-        if PY3 and isinstance(hash, str):
+        if isinstance(hash, str):
             hash = hash.encode(self.encoding)
         key = self._encode_key(user, realm)
         existing = self._set_record(key, hash)
         self._autosave()
         return existing
-
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="get_hash")
-    def find(self, user, realm):
-        """return hash for user"""
-        return self.get_hash(user, realm)
 
     # XXX: rename to something more explicit, like delete_user()?
     def delete(self, user, realm=None):
@@ -1227,29 +1093,14 @@ class HtdigestFile(_CommonFile):
         .. versionchanged:: 1.6
             This method was previously called ``verify``, it was renamed
             to prevent ambiguity with the :class:`!CryptContext` method.
-            The old alias is deprecated, and will be removed in Passlib 1.8.
+            The old alias was removed in Passlib 1.8.
         """
         if password is _UNSET:
             # called w/ two args - (user, password), use default realm
             realm, password = None, realm
         user = self._encode_user(user)
         realm = self._encode_realm(realm)
-        hash = self._records.get((user,realm))
+        hash = self._records.get((user, realm))
         if hash is None:
             return None
-        return htdigest.verify(password, hash, user, realm,
-                               encoding=self.encoding)
-
-    @deprecated_method(deprecated="1.6", removed="1.8",
-                       replacement="check_password")
-    def verify(self, user, realm, password):
-        """verify password for user"""
-        return self.check_password(user, realm, password)
-
-    #===================================================================
-    # eoc
-    #===================================================================
-
-#=============================================================================
-# eof
-#=============================================================================
+        return htdigest.verify(password, hash, user, realm, encoding=self.encoding)

@@ -47,7 +47,7 @@ def validate_against_schema(
         If the document does not conform to the schema.
     """
     try:
-        import jsonschema
+        import jsonschema  # noqa: PLC0415 — deliberately lazy; see the comment above _SCHEMA_PATH
     except ImportError as exc:
         raise ImportError(missing_dependency_hint) from exc
 
@@ -59,7 +59,7 @@ def validate_against_schema(
     jsonschema.validate(instance=doc, schema=_load_schema(schema_path))
 
 
-def validate_sarif(report_or_dict: Any) -> None:  # type: ignore[misc]
+def validate_sarif(report_or_dict: Any) -> None:
     """Validate *report_or_dict* against the vendored SARIF 2.1.0 JSON Schema.
 
     Parameters

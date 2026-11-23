@@ -131,6 +131,13 @@ HONORIFIC_WORD_TAG = "vocab:honorific-word"
 #: names, and dropped from the published token like the kind tags above.
 PATRONYMIC_TAG = "vocab:patronymic"
 
+#: On a word the lexicon holds as an alias marker (`@`, `urf`), which
+#: group reads to take the words after it as the nickname (rules/N4,
+#: #1164). Kept on the published token, as "vocab:maiden-marker" is: a
+#: marker the rule takes leaves no token, and one read as a word keeps
+#: its tag.
+ALIAS_MARKER_TAG = "vocab:alias-marker"
+
 #: On each word of a particle chain opening a family-first name past
 #: the reach of rules/P1's fold (#828), written by post_rules whether or
 #: not the fold cuts the chain there, so assemble can tell where a
@@ -160,15 +167,17 @@ def reported_suffix_fork(ambiguities: Sequence[PendingAmbiguity],
 ATTACHED_TAG = "vocab:attached"
 
 #: On each word of the second name unit rules/O6 reads a family as,
-#: written where O6 takes its word, and dropped from the published
+#: written by `_post_rules._divide_family` wherever O6 divides a family
+#: into two, a word taken or not (and by W5's surname pair), and
+#: dropped from the published
 #: token like the kind tags above: `Reading.second_surname` carries it
 #: out (rules/R10, 3.0's 4d).
 SECOND_SURNAME_TAG = "vocab:second-surname"
 
-#: Its twin on each word of the FIRST name unit: written where O6 reads
-#: two, on the family O6 found under a family-first order (a particle
-#: P6 attached included) and on the unit it took under the default one,
-#: and where O6 marked none, by O3 on the family it folds middles into,
+#: Its twin on each word of the FIRST name unit: written by
+#: `_post_rules._divide_family` wherever O6 divides a family into two
+#: (a particle P6 attached going with it), by W5's surname pair, and
+#: where O6 marked none, by O3 on the family it folds middles into,
 #: so a folded middle is in no unit; carried out on
 #: `Reading.first_surname` (rules/R11, #1022).
 FIRST_SURNAME_TAG = "vocab:first-surname"
@@ -233,7 +242,10 @@ DOTTED_TITLE_TAG = "vocab:dotted-title"
 #: On a word of `Lexicon.given_name_abbreviations`, a given name written
 #: short ('Chas.', 'Ma.'): rules/H2's shape test declines a word
 #: carrying it, so the given reading outranks the shape-derived title
-#: (`_pieces.is_leading_title`, `_vocab.is_title_shaped`).
+#: (`_pieces.is_leading_title`, `_vocab.is_title_shaped`); rules/C13's
+#: given-name Except (`_comma._given_name_written_short`) and rules/S8's
+#: one-case clause (`_pieces.short_given_name_in_one_case`, #1394) read
+#: it too.
 GIVEN_ABBREVIATION_TAG = "vocab:given-abbreviation"
 
 #: On a word of `Lexicon.shared_names`, a name a community gives every
@@ -252,11 +264,21 @@ SHARED_NAME_TAG = "vocab:shared-name"
 PARTICLE_GIVEN_TAG = "vocab:particle-given"
 
 #: On a bound given name whose word and the word after it are a phrase
-#: of `Lexicon.bound_phrases` ('عبد' before 'الله'), which rules/P12
-#: joins past the first name word (`_group._join_bound_phrases`), and
-#: group leaves it only on a pair it joined. Dropped
-#: from the published token like the kind tags above (#694).
+#: of `Lexicon.bound_phrases` ('عبد' before 'الله'), or one of
+#: `Lexicon.bound_completes_any` before a plain name word (#1464; one
+#: of `Lexicon.bound_long_names_only` post_rules strips again in a name
+#: of fewer than four name words), which rules/P12 joins past the first
+#: name word
+#: (`_group._join_bound_phrases`), and group leaves it only on a pair
+#: it joined. Dropped from the published token like the kind tags
+#: above (#694).
 BOUND_PHRASE_TAG = "vocab:bound-phrase"
+#: On the first word of a pair joined backward, from a word of
+#: `Lexicon.bound_seconds` or a pair of `Lexicon.bound_second_phrases`
+#: ('عز' before 'الدين'), beside BOUND_PHRASE_TAG: group joins such a
+#: pair at the first name word too (rules/P12, #1072). Dropped from the
+#: published token like the kind tags above.
+BOUND_SECOND_TAG = "vocab:bound-second"
 #: rules/O9 ("the capitals settle the field"): a word in capitals that
 #: Policy.capitals_as_family read as the family, written by post_rules,
 #: so assemble reads its reading as the shape's (a word in capitals)
@@ -415,7 +437,10 @@ class ParseState:
     changes the token COUNT: an unspaced CJK token, or a word glued at
     its full stop before any comma (rules/T8), splits into n+1 pieces,
     still as sub-slices of the original, and every later index in the
-    segment runs shifts by n); classify -> token tags AND
+    segment runs shifts by n; the slash after a title opening the name
+    or the given part after a family comma is cut off its word where
+    glued and its token dropped, rules/T9, every later index remapped
+    by the net count); classify -> token tags AND
     one_case; group -> structure (its head decides a comma form, #613)
     AND the SUFFIX/TITLE roles of a postnominal part after the comma,
     whose segment it empties so no join reaches it,

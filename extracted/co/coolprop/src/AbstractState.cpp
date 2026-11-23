@@ -17,6 +17,7 @@
 #include "CoolProp/DataStructures.h"
 #include "qmass_conversions.h"
 #include "Backends/IF97/IF97Backend.h"
+#include "Backends/Bollengier/BollengierBackend.h"
 #include "Backends/Cubics/CubicBackend.h"
 #include "Backends/Cubics/VTPRBackend.h"
 #include "Backends/Incompressible/IncompressibleBackend.h"
@@ -106,6 +107,23 @@ class IF97BackendGenerator : public AbstractStateGenerator
 // but is out of this PR's scope.
 // NOLINTNEXTLINE(cert-err58-cpp)
 static GeneratorInitializer<IF97BackendGenerator> if97_gen(IF97_BACKEND_FAMILY);
+
+class BollengierBackendGenerator : public AbstractStateGenerator
+{
+   public:
+    AbstractState* get_AbstractState(const std::vector<std::string>& fluid_names) override {
+        if (fluid_names.size() != 1) {
+            throw ValueError(format("The Bollengier backend does not support mixtures, only Water"));
+        }
+        const std::string& str = fluid_names[0];
+        if ((upper(str) == "WATER") || (upper(str) == "H2O")) {
+            return new BollengierBackend();
+        }
+        throw ValueError(format("The Bollengier backend returns Water props only; fluid name [%s] not allowed", fluid_names[0].c_str()));
+    };
+};
+// NOLINTNEXTLINE(cert-err58-cpp)
+static GeneratorInitializer<BollengierBackendGenerator> bollengier_gen(BOLLENGIER_BACKEND_FAMILY);
 class SRKGenerator : public AbstractStateGenerator
 {
    public:
@@ -168,6 +186,26 @@ static CoolProp::GeneratorInitializer<PCSAFTGenerator> pcsaft_gen(CoolProp::PCSA
 AbstractState* AbstractState::factory(const std::string& backend, const std::vector<std::string>& fluid_names) {
     if (get_debug_level() > 0) {
         std::cout << "AbstractState::factory(" << backend << "," << stringvec_to_string(fluid_names) << ")" << '\n';
+    }
+
+    // No backend can be built from zero fluid names: the "?" / "" branch
+    // below reads element 0, and the HEOS / cubic backends would otherwise
+    // hand back a state with no components[0].
+    if (fluid_names.empty()) {
+        throw ValueError("factory: fluid_names cannot be empty");
+    }
+
+    // The component count is simply the number of '&'-separated names in the
+    // (possibly user-supplied) fluid string.  The mixture backends size their
+    // per-component data and N x N interaction matrices from it before any
+    // other validation (the cubic backends even accept a repeated name), so a
+    // long enough string turns into gigabytes of allocation.  Refuse absurd
+    // counts here, before any backend is constructed, so that every family
+    // (including the tabular ones, which recurse into factory()) is covered.
+    constexpr std::size_t max_components = 256;
+    if (fluid_names.size() > max_components) {
+        throw ValueError(format("Size of fluid vector [%d] is larger than the maximum number of components [%d]",
+                                static_cast<int>(fluid_names.size()), static_cast<int>(max_components)));
     }
 
     // Split off any "?<options>" suffix once at the entry-point so the
@@ -235,20 +273,14 @@ AbstractState* AbstractState::factory(const std::string& backend, const std::vec
     }
 #if !defined(NO_TABULAR_BACKENDS)
     else if (f1 == TTSE_BACKEND_FAMILY) {
-        // Will throw if there is a problem with this backend.  These
-        // tabular backends don't accept options today; if the caller
-        // supplied any, fail loud so the suffix isn't silently dropped.
-        if (!options_json.empty()) {
-            throw NotImplementedError("TTSE backend does not yet accept factory-string options");
-        }
+        // Will throw if there is a problem with this backend.  The JSON
+        // options payload is forwarded verbatim to the constructor, which
+        // validates against kTabularOptionsSchemaJson before applying.
         const shared_ptr<AbstractState> AS(factory(f2, clean_fluid_names));
-        return new TTSEBackend(AS);
+        return new TTSEBackend(AS, options_json);
     } else if (f1 == BICUBIC_BACKEND_FAMILY) {
-        if (!options_json.empty()) {
-            throw NotImplementedError("BICUBIC backend does not yet accept factory-string options");
-        }
         const shared_ptr<AbstractState> AS(factory(f2, clean_fluid_names));
-        return new BicubicBackend(AS);
+        return new BicubicBackend(AS, options_json);
     } else if (f1 == SVDSBTL_BACKEND_FAMILY) {
         // SVDSBTL requires an explicit source-of-truth backend in
         // its name (e.g. "SVDSBTL&HEOS").  No default — see
@@ -279,6 +311,14 @@ AbstractState* AbstractState::factory(const std::string& backend, const std::vec
             // No '::' found, default to HEOS.
             return factory("HEOS" + suffix, clean_fluid_names);
         } else {
+            // Resolve exactly one "BACKEND::" prefix here.  An empty or "?"
+            // backend (and TTSE/BICUBIC without "&XXXX") lands straight back
+            // in this branch, so every further "::" in the remainder would
+            // cost one more level of recursion and a long enough fluid
+            // string would exhaust the stack.
+            if (clean_fluid_names[0].find("::", idel + 2) != std::string::npos) {
+                throw ValueError("factory: the fluid string may contain only one '::' backend delimiter");
+            }
             std::string inner_backend = clean_fluid_names[0].substr(0, idel) + suffix;
             std::vector<std::string> inner_fluid = {clean_fluid_names[0].substr(idel + 2)};
             return factory(inner_backend, inner_fluid);
@@ -485,6 +525,8 @@ double AbstractState::trivial_keyed_output(parameters key) {
             return this->rhomass_critical();
         case iODP:
             return this->calc_ODP();
+        case iHmolar_formation:
+            return this->calc_Hmolar_formation();
         case iGWP100:
             return this->calc_GWP100();
         case iGWP20:
@@ -827,6 +869,14 @@ CoolPropDbl AbstractState::calc_Qmass() {
     // This avoids NaN propagation when one phase is unpopulated by the backend
     // at a saturation-curve endpoint (e.g. Q=0 on the bubble line).
     if (_Q == 0.0 || _Q == 1.0) return static_cast<CoolPropDbl>(_Q);
+    // Pure / pseudo-pure: Qmass IS Qmolar, for every quality and not just the
+    // endpoints.  calc_phase_molar_masses() returns {mm, mm} here, so the lever
+    // rule below is an identity in exact arithmetic -- but not in floating point:
+    // (Q*mm)/(Q*mm + (1-Q)*mm) rounds, and comes back an ULP off the caller's
+    // value for a good fraction of molar masses (CO2 and Nitrogen at Q=0.75 both
+    // do; Water happens not to).  It would also divide by zero if a backend left
+    // the phase compositions unpopulated.  Return _Q directly.
+    if (get_mole_fractions().size() == 1) return static_cast<CoolPropDbl>(_Q);
     const auto MM = calc_phase_molar_masses();
     return static_cast<CoolPropDbl>(detail::Qmolar_to_Qmass(_Q, MM.liquid, MM.vapor));
 }
@@ -839,14 +889,11 @@ AbstractState::PhaseMolarMasses AbstractState::calc_phase_molar_masses() {
     }
     throw NotImplementedError("calc_phase_molar_masses must be overridden by mixture backends");
 }
-void AbstractState::update_Qmass_pair(CoolProp::input_pairs pair, double v1, double v2) {
-    // Map Qmass-pair to its molar sibling and identify which slot (1=value1, 2=value2)
-    // holds the Qmass value.
-    struct Mapping
-    {
-        CoolProp::input_pairs molar;
-        int qmass_slot;
-    };
+/// Map a Qmass input pair to its molar sibling and to the slot (1=value1, 2=value2)
+/// that carries the Qmass value.  Shared by update_Qmass_pair and by the range check
+/// backends need when they rewrite the pair themselves instead of iterating.
+AbstractState::QmassPairMapping AbstractState::qmass_pair_mapping(CoolProp::input_pairs pair) {
+    using Mapping = AbstractState::QmassPairMapping;
     Mapping m;
     switch (pair) {
         case QmassT_INPUTS:
@@ -874,14 +921,46 @@ void AbstractState::update_Qmass_pair(CoolProp::input_pairs pair, double v1, dou
             m = {DmassQ_INPUTS, 2};
             break;
         default:
-            throw ValueError("update_Qmass_pair called with non-Qmass pair");
+            throw ValueError("qmass_pair_mapping called with non-Qmass pair");
     }
+    return m;
+}
+
+void AbstractState::check_Qmass_pair_range(CoolProp::input_pairs pair, double v1, double v2) {
+    const QmassPairMapping m = qmass_pair_mapping(pair);
+    const double Qmass_target = (m.qmass_slot == 1) ? v1 : v2;
+    if (!(Qmass_target >= 0 && Qmass_target <= 1)) {
+        throw ValueError(format("Qmass out of range [0,1]: %g", Qmass_target));
+    }
+}
+
+void AbstractState::check_input_quality_value(double Q) {
+    if (!is_in_closed_range(0.0, 1.0, Q)) {
+        throw OutOfRangeError(format("Input vapor quality [Q] must be between 0 and 1, got %g", Q));
+    }
+}
+
+void AbstractState::check_input_quality(CoolProp::input_pairs pair, double v1, double v2) {
+    if (CoolProp::is_Qmass_pair(pair)) {
+        check_Qmass_pair_range(pair, v1, v2);
+        return;
+    }
+    // Fail closed: a pair split_input_pair does not know (INPUT_PAIR_INVALID, an
+    // out-of-range value, or a newly added pair nobody registered) throws here
+    // rather than skip the quality check.  A known pair that a backend merely does
+    // not support passes through to that backend's own "not supported" error.
+    parameters p1, p2;
+    split_input_pair(pair, p1, p2);
+    if (p1 == iQ) check_input_quality_value(v1);
+    if (p2 == iQ) check_input_quality_value(v2);
+}
+
+void AbstractState::update_Qmass_pair(CoolProp::input_pairs pair, double v1, double v2) {
+    const QmassPairMapping m = qmass_pair_mapping(pair);
     const double Qmass_target = (m.qmass_slot == 1) ? v1 : v2;
     const double partner = (m.qmass_slot == 1) ? v2 : v1;
 
-    if (Qmass_target < 0 || Qmass_target > 1) {
-        throw ValueError(format("Qmass out of range [0,1]: %g", Qmass_target));
-    }
+    check_Qmass_pair_range(pair, v1, v2);
 
     auto run_molar = [&](double Qmolar) {
         if (m.qmass_slot == 1)
@@ -940,9 +1019,15 @@ double AbstractState::fugacity(std::size_t i) {
     // TODO: Cache the fug. coeff for each component
     return calc_fugacity(i);
 }
+std::vector<double> AbstractState::fugacities() {
+    return calc_fugacities();
+}
 double AbstractState::chemical_potential(std::size_t i) {
     // TODO: Cache the chemical potential for each component
     return calc_chemical_potential(i);
+}
+std::vector<double> AbstractState::chemical_potentials() {
+    return calc_chemical_potentials();
 }
 void AbstractState::build_phase_envelope(const std::string& type) {
     calc_phase_envelope(type);
@@ -1317,6 +1402,22 @@ TEST_CASE("Check AbstractState", "[AbstractState]") {
     }
     SECTION("good backend - incomp") {
         CHECK_NOTHROW(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("INCOMP", "DEB")));
+    }
+    SECTION("too many components") {
+        // The cubic backends accept a repeated name, so without the bound this would build 1000 x 1000 matrices
+        CHECK_THROWS(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("PR", std::vector<std::string>(1000, "R32"))));
+    }
+    SECTION("backend parsed from the fluid string") {
+        CHECK_NOTHROW(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("?", "HEOS::Water")));
+        CHECK_NOTHROW(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("", "::Water")));
+        // Only one "::" is resolved; repeated delimiters must throw rather than recurse once per "::"
+        CHECK_THROWS(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("?", "::::Water")));
+        CHECK_THROWS(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("?", "TTSE::TTSE::Water")));
+        std::string nested;
+        for (int i = 0; i < 20000; ++i) {
+            nested += "::";
+        }
+        CHECK_THROWS(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("?", nested + "Water")));
     }
     // SECTION("good backend - REFPROP") {
     //     CHECK_NOTHROW(shared_ptr<CoolProp::AbstractState>(CoolProp::AbstractState::factory("REFPROP", "Water")));

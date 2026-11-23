@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: panel
-Version: 1.10.0
+Version: 1.10.1
 Summary: The powerful data exploration & web app framework for Python.
 Project-URL: Homepage, https://panel.holoviz.org
 Project-URL: Source, https://github.com/holoviz/panel
@@ -41,7 +41,7 @@ Requires-Dist: narwhals>=2
 Requires-Dist: nh3
 Requires-Dist: packaging
 Requires-Dist: pandas>=1.2
-Requires-Dist: panel-material-ui<0.17,>=0.16.6
+Requires-Dist: panel-material-ui<0.17.0a0,>=0.16.6
 Requires-Dist: param<3.0,>=2.1.0
 Requires-Dist: pyviz-comms>=2.0.0
 Requires-Dist: requests

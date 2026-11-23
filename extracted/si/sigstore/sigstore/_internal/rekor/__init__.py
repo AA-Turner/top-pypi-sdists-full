@@ -23,7 +23,7 @@ import typing
 from abc import ABC, abstractmethod
 
 import rekor_types
-import requests
+import urllib3
 from cryptography.x509 import Certificate
 
 from sigstore._utils import base64_encode_pem_cert
@@ -34,10 +34,14 @@ if typing.TYPE_CHECKING:
     from sigstore.models import TransparencyLogEntry
 
 __all__ = [
+    "DEFAULT_REKOR_TIMEOUT",
     "_hashedrekord_from_parts",
 ]
 
 EntryRequestBody = typing.NewType("EntryRequestBody", dict[str, typing.Any])
+
+# Overloaded Rekor typically errors after 30 secs so timeout is only a fallback.
+DEFAULT_REKOR_TIMEOUT = urllib3.Timeout(connect=5, read=60)
 
 
 class RekorClientError(Exception):
@@ -45,20 +49,25 @@ class RekorClientError(Exception):
     A generic error in the Rekor client.
     """
 
-    def __init__(self, http_error: requests.HTTPError):
+    @classmethod
+    def from_response(cls, response: urllib3.BaseHTTPResponse) -> RekorClientError:
         """
-        Create a new `RekorClientError` from the given `requests.HTTPError`.
+        Create a new `RekorClientError` from the given `urllib3.BaseHTTPResponse`.
         """
-        if http_error.response is not None:
-            try:
-                error = rekor_types.Error.model_validate_json(http_error.response.text)
-                super().__init__(f"{error.code}: {error.message}")
-            except Exception:
-                super().__init__(
-                    f"Rekor returned an unknown error with HTTP {http_error.response.status_code}"
-                )
-        else:
-            super().__init__(f"Unexpected Rekor error: {http_error}")
+        try:
+            error = rekor_types.Error.model_validate_json(response.data)
+            return cls(f"{error.code}: {error.message}")
+        except Exception:  # noqa: BLE001
+            return cls(f"Rekor returned an error with HTTP {response.status}")
+
+    @classmethod
+    def from_http_error(
+        cls, http_error: urllib3.exceptions.HTTPError
+    ) -> RekorClientError:
+        """
+        Create a new `RekorClientError` from the given `urllib3.exceptions.HTTPError`.
+        """
+        return cls(f"Unexpected Rekor error: {http_error}")
 
 
 class RekorLogSubmitter(ABC):
@@ -76,7 +85,6 @@ class RekorLogSubmitter(ABC):
         """
         Submit the request to Rekor.
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -86,7 +94,6 @@ class RekorLogSubmitter(ABC):
         """
         Construct a hashed rekord request to submit to Rekor.
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -96,7 +103,6 @@ class RekorLogSubmitter(ABC):
         """
         Construct a dsse request to submit to Rekor.
         """
-        pass
 
 
 # TODO: This should probably live somewhere better.

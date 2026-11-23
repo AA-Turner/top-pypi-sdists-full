@@ -44,7 +44,7 @@ import signal
 import sys
 import threading
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -112,6 +112,7 @@ from autoware_carla_scenario.rerun import (
     RerunUnavailableError,
 )
 from autoware_carla_scenario.rerun import report as rerun_report
+from autoware_carla_scenario.rerun_report import rerun_errors as _rerun_errors
 from autoware_carla_scenario.coordinate.snap import check_ray_distances
 from autoware_carla_scenario.run_dirs import (
     _batch_output_dir_refusal as _batch_output_dir_refusal,
@@ -176,13 +177,20 @@ from autoware_carla_scenario.slurm.stems import sequential_stems
 from autoware_carla_scenario.value_text import shown
 
 from .argv import (
+    _RUN_DIR_KEY,
+    _SWEEP_DIR_KEY,
     BatchCase,
     _arena_max_set_by_user,
+    _batch_dir_text,
     _case_labels,
+    _errored_case,
     _extract_resume_from,
     _extract_resume_into,
     _extract_scenario_override,
     _is_glob_pattern,
+    _plain_overrides,
+    _split_batch_output_dir,
+    _sweep_failed_lines,
 )
 from .configs import (
     IntersectionPassingConfig,
@@ -2138,14 +2146,9 @@ def rerun_errors(
     the cases whose ``rerun_recording`` is among the failed *conversions*.
 
     A recording converted more than once (a retried case, which writes under
-    the stem of the attempt it replaces) goes by its last conversion."""
-    latest = {str(c.recording): c.error for c in conversions}
-    failed = {path: error for path, error in latest.items() if error is not None}
-    return {
-        i: failed[result.rerun_recording]
-        for i, result in enumerate(results)
-        if result.rerun_recording is not None and result.rerun_recording in failed
-    }
+    the stem of the attempt it replaces) goes by its last conversion: the
+    checked :func:`.rerun_report.rerun_errors`, over the cases' recordings."""
+    return _rerun_errors([result.rerun_recording for result in results], conversions)
 
 
 def _finish_rerun(rerun: RerunConverter | None) -> list[RerunConversion]:
@@ -3289,8 +3292,14 @@ def run_batch(
         )
 
     # A case that raises becomes a failed result and the batch goes on: its
-    # crash report goes to the batch's directory.
+    # crash report goes to the batch's directory, and runs that case again
+    # (_CaseCrashReports).
     crash_report.set_output_dir(output_dir)
+    case_reports = _CaseCrashReports(
+        output_dir,
+        [[f"scenario={name}", *case] for name, case in cases],
+        configs,
+    )
     queue = _batch_queue(first_cfg, map_paths, output_dir, rerun=rerun)
 
     for cfg, scenario, stem in zip(configs, scenarios, run_stems):
@@ -3345,9 +3354,10 @@ def run_batch(
             # The batch goes on: its summary is written again at the end.
             logger.warning("Could not write the batch's results so far", exc_info=True)
 
-    def case_done(_index: int, result: ScenarioResult) -> None:
+    def case_done(index: int, result: ScenarioResult) -> None:
         done.append(result)
         write_done()
+        case_reports.enter(index + 1)
 
     finished = False
     try:
@@ -3386,12 +3396,14 @@ def run_batch(
                     remove_run_outputs(output_dir, stem)
             # A case that cannot run (a spawn point without ground, say) is
             # recorded as errored, and the rest of the batch still runs.
+            case_reports.enter(0)
             results = queue.run_all(
                 release=True, continue_on_error=True, on_result=case_done
             )
             errored = queue.errored_indices()
         finished = True
     finally:
+        case_reports.close()
         if not finished and len(done) > len(kept):
             # Cut short: the cases it ran, as the last case's end wrote them.
             # (One cut short before any case ended keeps the summary written
@@ -3417,6 +3429,45 @@ def run_batch(
         stems=all_stems,
     )
     sys.exit(0 if all_passed else 1)
+
+
+class _CaseCrashReports:
+    """The crash report context of each case of a local batch, as a SLURM
+    task's worker gives each of its cases (:func:`crash_report.run_context`):
+    a report of a case is in the batch's directory, and its ``repro.sh`` runs
+    that case again, with its own overrides and config.
+
+    The queue runs every case in one ``run_all()``: case *i*'s context is
+    entered before it starts (:meth:`enter`: at the start, and from the
+    queue's ``on_result`` of the case before), and left when the next is
+    entered or the batch ends (:meth:`close`).
+    """
+
+    def __init__(
+        self, output_dir: Path, overrides: list[list[str]], configs: list[Any]
+    ) -> None:
+        self._output_dir = output_dir
+        self._overrides = overrides
+        self._configs = configs
+        self._stack = ExitStack()
+
+    def enter(self, index: int) -> None:
+        """Leave the context entered last, and enter case *index*'s (none
+        past the last case)."""
+        self.close()
+        if not crash_report.installed() or index >= len(self._overrides):
+            return
+        self._stack.enter_context(
+            crash_report.run_context(
+                self._output_dir,
+                overrides=self._overrides[index],
+                config_yaml=config_yaml(self._configs[index]),
+            )
+        )
+
+    def close(self) -> None:
+        """Leave the context entered last, if any."""
+        self._stack.close()
 
 
 def config_seed(cfg: DictConfig) -> int | None:
@@ -4481,9 +4532,7 @@ def _record_basic_sweeper_error(exc: BaseException) -> bool:
         exc_info=exc,
     )
     _multirun_ran.append(case)
-    lines = str(exc).strip().splitlines()
-    reason = f"{type(exc).__name__}: {lines[0]}" if lines else type(exc).__name__
-    _multirun_failed.append(f"{case} (errored: {reason})")
+    _multirun_failed.append(_errored_case(case, type(exc).__name__, str(exc)))
     return True
 
 
@@ -4579,13 +4628,8 @@ def _exit_if_multirun_failed() -> None:
     """
     if not _multirun_failed:
         return
-    print(  # noqa: T201
-        f"Sweep failed: {len(_multirun_failed)} of {len(_multirun_ran)} "
-        "case(s) failed:",
-        file=sys.stderr,
-    )
-    for case in _multirun_failed:
-        print(f"  {case}", file=sys.stderr)  # noqa: T201
+    for line in _sweep_failed_lines(_multirun_failed, len(_multirun_ran)):
+        print(line, file=sys.stderr)  # noqa: T201
     sys.exit(1)
 
 
@@ -4675,12 +4719,58 @@ _REFUSALS: tuple[type[BaseException], ...] = (
 )
 
 
+def _quiet_interrupt(exc: KeyboardInterrupt) -> None:
+    """Let *exc*, re-raised, end the process without a traceback (#2333).
+
+    Python still ends the process as it ends one Ctrl-C stopped: once it has
+    finalized (``atexit`` included), it kills itself with ``SIGINT``, so a
+    parent sees a death by signal (a shell's 130), not an exit status.  Only
+    *exc* is silenced: any other uncaught exception goes to the hook as it
+    did, and an embedding program that catches *exc* sees it as before.
+
+    The hook puts the one it replaced back the first time it is called, and
+    a hook an earlier call left (its caller caught that interrupt) is
+    replaced rather than wrapped: calling ``main()`` again in one process
+    neither stacks hooks nor keeps every interrupt (and its frames) alive.
+    """
+    previous = sys.excepthook
+    if isinstance(previous, _QuietInterruptHook):
+        previous = previous.previous
+    sys.excepthook = _QuietInterruptHook(exc, previous)
+
+
+class _QuietInterruptHook:
+    """``sys.excepthook`` silencing one interrupt (:func:`_quiet_interrupt`)."""
+
+    def __init__(self, exc: KeyboardInterrupt, previous: Any) -> None:
+        self.exc = exc
+        self.previous = previous
+
+    def __call__(
+        self, kind: type[BaseException], value: BaseException, tb: Any
+    ) -> None:
+        if sys.excepthook is self:
+            sys.excepthook = self.previous
+        if value is not self.exc:
+            self.previous(kind, value, tb)
+
+
 def main() -> None:
     """CLI entry point: detect glob patterns and dispatch accordingly.
 
-    A ``SIGTERM`` stops the run as Ctrl-C does, and it exits 143.  What it
-    raises or a native crash leaves a crash report (:mod:`..crash_report`).
+    A ``SIGTERM`` stops the run as Ctrl-C does, and it exits 143.  Ctrl-C
+    prints ``scenario: interrupted`` rather than a traceback, and the process
+    still dies by ``SIGINT`` (:func:`_quiet_interrupt`), once the run has
+    stopped what it started.  What it raises or a native crash leaves a crash
+    report (:mod:`..crash_report`).
     """
+    # Before the crash reporter puts its log buffer on the root logger: with
+    # a handler there already, basicConfig() would do nothing, and a batch
+    # would log nothing to the console (#2380).  A run through Hydra
+    # replaces this with its own logging, as before.
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
     try:
         with (
             crash_report.reporting(list(sys.argv), ignore=_REFUSALS),
@@ -4690,6 +4780,10 @@ def main() -> None:
     except _Terminated as exc:
         print(f"Interrupted ({exc})", file=sys.stderr)  # noqa: T201
         sys.exit(128 + exc.signum)
+    except KeyboardInterrupt as exc:
+        print("scenario: interrupted", file=sys.stderr)  # noqa: T201
+        _quiet_interrupt(exc)
+        raise
 
 
 def _main() -> None:
@@ -4717,12 +4811,6 @@ def _main() -> None:
         _dispatch(resume_from, resume_into)
 
 
-#: The Hydra keys naming a run's and a sweep's output directory, which a
-#: batch reads as its own (:func:`_extract_batch_output_dir`).
-_RUN_DIR_KEY = "hydra.run.dir"
-_SWEEP_DIR_KEY = "hydra.sweep.dir"
-
-
 def _extract_batch_output_dir(
     argv: list[str], *, multirun: bool
 ) -> tuple[Path | None, list[str]]:
@@ -4738,27 +4826,17 @@ def _extract_batch_output_dir(
     Exits 2 when the value cannot be resolved or is empty.
     """
     wanted = _SWEEP_DIR_KEY if multirun else _RUN_DIR_KEY
-    value: str | None = None
-    kept: list[str] = []
-    for arg in argv:
-        name, _, given = arg.lstrip("+~").partition("=")
-        if name not in (_RUN_DIR_KEY, _SWEEP_DIR_KEY):
-            kept.append(arg)
-            continue
-        if arg.startswith("~"):
-            continue
-        if name == wanted:
-            value = given
-        else:
-            logger.warning(
-                "%s is ignored: a batch%s writes to %s",
-                arg,
-                " run with --multirun" if multirun else " without --multirun",
-                wanted,
-            )
+    value, kept, ignored = _split_batch_output_dir(argv, multirun=multirun)
+    for arg in ignored:
+        logger.warning(
+            "%s is ignored: a batch%s writes to %s",
+            arg,
+            " run with --multirun" if multirun else " without --multirun",
+            wanted,
+        )
     if value is None:
         return None, kept
-    text = value.strip().strip("'\"")
+    text = _batch_dir_text(value)
     if "${" in text:
         from hydra.core.utils import setup_globals  # noqa: PLC0415
 
@@ -4795,11 +4873,7 @@ def _warn_if_sweep_not_expanded(scenario: str | None, overrides: list[str]) -> N
         OverridesParser,
     )
 
-    plain = [
-        arg
-        for arg in overrides
-        if not arg.startswith("-") and not arg.lstrip("+~").startswith("hydra")
-    ]
+    plain = _plain_overrides(overrides)
     try:
         parsed = OverridesParser.create().parse_overrides(plain)
     except Exception:  # noqa: BLE001 -- the run reports it

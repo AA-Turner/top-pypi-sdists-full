@@ -9,8 +9,10 @@ import tempfile
 import unittest
 from collections.abc import Callable, Coroutine, Iterator
 from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from unittest.mock import patch
 
 from aioquic import tls
+from aioquic.buffer import Buffer
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.packet import QuicPacketType
 from aioquic.quic.packet_builder import QuicSentPacket
@@ -112,7 +114,7 @@ def generate_certificate(
     # The certificate's start date is truncated to the second, and OpenSSL checks
     # it against a coarse clock which can lag behind by a few milliseconds, so a
     # certificate starting now may not be valid yet. Start it a second earlier.
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
     builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -146,7 +148,7 @@ def generate_default_certificates() -> None:
     numbers and the same names and extensions.
     """
     # The certificates start a second earlier, see generate_certificate().
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     ca_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     ca_name = x509.Name(
@@ -356,17 +358,30 @@ def load_cert_chain(
     Each pair of files is only parsed once, as cryptography validates RSA keys
     when loading them, which is slow for the 3072-bit default server key.
     """
-    loaded = _parse_cert_chain(certfile, keyfile)
-    configuration.certificate = loaded.certificate
-    configuration.certificate_chain = list(loaded.certificate_chain)
-    configuration.private_key = loaded.private_key
+    certificate, certificate_chain, private_key = _parse_cert_chain(certfile, keyfile)
+    configuration.certificate = certificate
+    configuration.certificate_chain = list(certificate_chain)
+    configuration.private_key = private_key
 
 
-@functools.cache
-def _parse_cert_chain(certfile: str, keyfile: str) -> QuicConfiguration:
-    configuration = QuicConfiguration(is_client=False)
-    configuration.load_cert_chain(certfile, keyfile)
-    return configuration
+@contextlib.contextmanager
+def send_first_key_share_only() -> Iterator[None]:
+    """
+    Make ClientHellos only carry their first key share, so that a server which
+    supports one of the other groups asks for it with a HelloRetryRequest.
+    """
+    real_push_client_hello = tls.push_client_hello
+
+    def push_client_hello(buf: Buffer, hello: tls.ClientHello) -> None:
+        # Change the ClientHello in place, so the client knows what it sent.
+        hello.key_share = hello.key_share[:1]
+        real_push_client_hello(buf, hello)
+
+    with patch("aioquic.tls.push_client_hello", push_client_hello):
+        yield
+
+
+_parse_cert_chain = functools.cache(tls._load_cert_chain)
 
 
 # Generate the default certificates in a temporary directory, which is removed

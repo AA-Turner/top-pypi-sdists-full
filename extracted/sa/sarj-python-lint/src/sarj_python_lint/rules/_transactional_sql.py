@@ -203,7 +203,6 @@ def _recover_queries(context: PythonFileContext) -> Iterator[_RecoveredQuery]:
         sql = _query_text(node)
         if sql is None:
             continue
-        # Examine a recoverable composition once, including its static children.
         if isinstance(node, ast.BinOp | ast.JoinedStr):
             consumed.update(id(child) for child in walk(node))
         if _SELECT.search(sql) is None:
@@ -244,7 +243,6 @@ def _has_analytical_wrapper(context: PythonFileContext) -> bool:
         qualified.update(_annotation_references(declaration.annotation, context))
     if not qualified:
         return False
-    # Distribution ownership also covers namespaces shared by workspace members.
     sources = context.session.nominal_project.sources(
         context.path, context.session.first_party, include_generated=True, project=context.session.project
     )
@@ -313,12 +311,13 @@ def _declares_query(node: ast.ClassDef) -> bool:
 
 def _has_analytical_driver(tree: ast.Module) -> bool:
     for node in walk(tree):
-        if isinstance(node, ast.Import):
-            names = (alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and not node.level:
-            names = (f"{node.module}.{alias.name}" for alias in node.names)
-        else:
-            continue
+        match node:
+            case ast.Import():
+                names = (alias.name for alias in node.names)
+            case ast.ImportFrom() if not node.level:
+                names = (f"{node.module}.{alias.name}" for alias in node.names)
+            case _:
+                continue
         if any(_driver_dialect(name) == "analytical" for name in names):
             return True
     return False
@@ -371,22 +370,25 @@ def _receiver_dialect(node: ast.expr, context: PythonFileContext, *, seen: froze
     if isinstance(node, ast.Await):
         return _receiver_dialect(node.value, context, seen=seen)
     provenance = context.static_resource_provenance
-    if isinstance(node, ast.Name):
-        if not provenance.unescaped(node, node, allow_context=True):
-            return None
-        binding = provenance.runtime_binding(node.id, node)
-        if isinstance(binding, ast.arg) and binding.annotation is not None:
-            return _annotation_dialect(binding.annotation, context)
-        if isinstance(binding, ast.Name) and (value := provenance.assignment_value(binding, node)) is not None:
-            return _receiver_dialect(value, context, seen=seen)
-        constructor = provenance.constructor(node, node)
-        return _receiver_dialect(constructor, context, seen=seen) if constructor is not None else None
-    if isinstance(node, ast.Call):
-        qualified = provenance.runtime_import_name(node.func)
-        if qualified in _NATIVE_CONNECTIONS:
-            return _driver_dialect(qualified)
-        if isinstance(node.func, ast.Attribute) and node.func.attr in _CONNECTION_METHODS:
-            return _receiver_dialect(node.func.value, context, seen=seen)
+    match node:
+        case ast.Name():
+            if not provenance.unescaped(node, node, allow_context=True):
+                return None
+            binding = provenance.runtime_binding(node.id, node)
+            if isinstance(binding, ast.arg) and binding.annotation is not None:
+                return _annotation_dialect(binding.annotation, context)
+            if isinstance(binding, ast.Name) and (value := provenance.assignment_value(binding, node)) is not None:
+                return _receiver_dialect(value, context, seen=seen)
+            constructor = provenance.constructor(node, node)
+            return _receiver_dialect(constructor, context, seen=seen) if constructor is not None else None
+        case ast.Call():
+            qualified = provenance.runtime_import_name(node.func)
+            if qualified in _NATIVE_CONNECTIONS:
+                return _driver_dialect(qualified)
+            if isinstance(node.func, ast.Attribute) and node.func.attr in _CONNECTION_METHODS:
+                return _receiver_dialect(node.func.value, context, seen=seen)
+        case _:
+            pass
     return None
 
 

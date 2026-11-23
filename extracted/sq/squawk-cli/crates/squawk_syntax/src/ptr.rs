@@ -31,7 +31,7 @@
 //! for a long time is ill-advisable, as that keeps the whole tree resident.
 //!
 //! Instead, we provide a [`SyntaxNodePtr`] type, which stores information about
-//! *location* of a particular syntax node in a tree. Its a small type which can
+//! *location* of a particular syntax node in a tree. It's a small type which can
 //! be cheaply stored, and which can be resolved to a real [`SyntaxNode`] when
 //! necessary.
 
@@ -40,12 +40,12 @@ use std::{
     marker::PhantomData,
 };
 
-use rowan::TextRange;
+use squawk_rowan::TextRange;
 
 use crate::{AstNode, SyntaxNode, syntax_node::Sql};
 
 /// A "pointer" to a [`SyntaxNode`], via location in the source code.
-pub type SyntaxNodePtr = rowan::ast::SyntaxNodePtr<Sql>;
+pub type SyntaxNodePtr = squawk_rowan::ast::SyntaxNodePtr<Sql>;
 
 /// Like [`SyntaxNodePtr`], but remembers the type of node.
 pub struct AstPtr<N: AstNode> {

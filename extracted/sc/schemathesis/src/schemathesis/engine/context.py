@@ -52,10 +52,9 @@ class _SliceBudget:
         self._lock = threading.Lock()
 
     def take(self, deadline: float) -> float:
-        """Claim one operation's share; unused time from earlier operations flows to later ones.
+        """Claim one operation's share; time earlier operations left unused flows to later ones.
 
-        Shares are sized as if operations ran one after another. With several workers the phase can
-        therefore finish before the deadline, which wastes budget but never starves an operation.
+        Shares assume sequential operations, so several workers may finish early: budget wasted, no operation starved.
         """
         with self._lock:
             remaining_operations = max(self._remaining_operations, 1)
@@ -66,8 +65,6 @@ class _SliceBudget:
 
 @dataclass
 class EngineContext:
-    """Holds context shared for a test run."""
-
     schema: ApiSchema
     control: ExecutionControl
     outcome_cache: dict[int, tuple[BaseException, TracebackType | None] | None]
@@ -103,6 +100,7 @@ class EngineContext:
         "_constants_extraction",
         "_constants_extraction_lock",
         "coverage_session",
+        "held_back_cases",
         "auth_header_log",
         "reauth",
     )
@@ -116,6 +114,7 @@ class EngineContext:
         max_time: int | None = None,
     ) -> None:
         self.schema = schema
+        schema.raise_app_exceptions = False
         self.start_time = time.monotonic()
         self.control = ExecutionControl(
             stop_event=stop_event,
@@ -149,6 +148,8 @@ class EngineContext:
         self.reauth = ReauthState(retry_on_statuses=schema.reauth_retry_statuses)
         # Coverage generation state lives and dies with the run.
         self.coverage_session = GenerationSession()
+        # Coverage cases a server may not survive, per operation, sent once every other coverage case went out.
+        self.held_back_cases: dict[str, list[Case]] = {}
         self.auth_header_log = AuthHeaderLog()
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
@@ -163,7 +164,6 @@ class EngineContext:
 
     @property
     def has_to_stop(self) -> bool:
-        """Check if execution should stop."""
         return self.control.is_stopped
 
     @property
@@ -183,7 +183,6 @@ class EngineContext:
         return self.control.stop_reason
 
     def record_observations(self, recorder: ScenarioRecorder) -> None:
-        """Add new observations from a scenario."""
         if self.observations is not None:
             self.observations.extract_observations_from(recorder)
 
@@ -306,7 +305,7 @@ class EngineContext:
         self._slice_budget = _SliceBudget(total_operations)
 
     def take_operation_slice(self) -> None:
-        """Claim this worker's share of the remaining time for the operation it just picked up."""
+        """Claim this worker's share of the remaining time for the operation it picked up."""
         deadline = self.control.deadline
         budget = self._slice_budget
         if deadline is None or budget is None:
@@ -343,7 +342,6 @@ class EngineContext:
                 cached["proxies"] = proxies
             self._transport_kwargs_cache[key] = cached
         kwargs = cached.copy()
-        # Apply the health timeout override only when it strictly tightens the configured timeout.
         if operation is not None:
             override = self.health.timeout_override(operation.label)
             if override is not None:
@@ -353,30 +351,26 @@ class EngineContext:
         kwargs["session"] = self.get_session()
         return kwargs
 
-    # Extra data source for augmenting test generation with real data.
-    # Lazily initialized to support per-operation configuration overrides.
+    # Real data that augments generation; lazy to support per-operation configuration overrides.
     extra_data_source: LazyInit[ExtraDataSource | None] = LazyInit(lambda ctx: ctx.schema.create_extra_data_source())
 
-    # Store of parser observations from 4xx responses; returns `None` when disabled by config.
+    # Parser observations from 4xx responses; `None` when disabled by config.
     error_feedback: LazyInit[ErrorFeedbackStore | None] = LazyInit(
         lambda ctx: ErrorFeedbackStore() if ctx.config.phases.fuzzing.error_feedback.is_enabled else None
     )
 
-    # Per-operation runtime supervisor that issues scheduling directives based on observed signals.
     supervisor: LazyInit[Supervisor] = LazyInit(lambda ctx: Supervisor())
 
-    # Runtime cache controller -- replay during probing, persist at end of run.
     cache: LazyInit[Cache] = LazyInit(lambda ctx: Cache(ctx))
 
     # Per-run class-based check instances, shared across worker threads.
     checks: LazyInit[RunChecks] = LazyInit(lambda ctx: RunChecks.from_registry(config=ctx.config.checks_config_for()))
 
-    # Extracted constants from user-defined sources and the loaded app; lazily computed once per run.
+    # Constants from user-defined sources and the loaded app, extracted once per run.
     constants_extraction: LazyInit[ConstantsPool] = LazyInit(lambda ctx: build_constants_pool(ctx.schema))
 
 
 def make_session(config: ProjectConfig, *, operation: APIOperation | None = None) -> requests.Session:
-    """Build a `requests.Session` configured from project config."""
     from schemathesis.transport.requests import ManagedCookiesSession
 
     session = ManagedCookiesSession()

@@ -1,6 +1,7 @@
 """Opt-in installed-native descriptor fixtures; never search a sibling checkout."""
 
 import json
+from itertools import product
 
 import numpy as np
 import pytest
@@ -173,11 +174,60 @@ def test_constructor_ramp_explicit_interpreter():
     np.testing.assert_array_equal(lazy[:], np.arange(19))
 
 
+def test_constructor_ramp_imports_once_and_keeps_default_partitions(monkeypatch):
+    from importlib import import_module
+
+    imports = []
+    original = blosc2.MenudetKernel.from_json
+
+    def reject_source_kernel(*args, **kwargs):
+        pytest.fail("The Menudet constructor path must not use SourceKernel")
+
+    def from_json(*args, **kwargs):
+        imports.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(blosc2.MenudetKernel, "from_json", from_json)
+    monkeypatch.setattr(import_module("blosc2.ndarray"), "SourceKernel", reject_source_kernel)
+    shape = (9, 11, 13)
+    partitions = blosc2.compute_chunks_blocks(shape, dtype=np.float64)
+    result = blosc2.linspace(0, 1, shape=shape, jit=False)
+    assert len(imports) == 1
+    assert imports[0]["jit"] is False
+    assert (result.chunks, result.blocks) == partitions
+    np.testing.assert_array_equal(result[:], np.linspace(0, 1, np.prod(shape)).reshape(shape))
+
+    np.testing.assert_array_equal(blosc2.arange(19, jit=False)[:], np.arange(19))
+    if not blosc2.IS_WASM:
+        np.testing.assert_array_equal(blosc2.eye(7, jit=False)[:], np.eye(7))
+
+
+@pytest.mark.skipif(blosc2.IS_WASM, reason="Native prefilter scheduling is unavailable on WASM")
+def test_diagonal_zero_blocks_are_initialized_and_reported():
+    artifact = blosc2_ext.MenudetArtifactHandle(
+        manifest(
+            "def k():\n    return _i0 == _i1\n",
+            [],
+            {"dtype": "int64", "contract": "elementwise"},
+            requires=["numeric", "nd-context"],
+            ndim=2,
+        ),
+        0,
+    )
+    output = blosc2.empty((8, 8), dtype="int64", chunks=(4, 4), blocks=(2, 2))
+    _, report = artifact.evaluate_prefilter({}, out=output, _diagonal=0)
+    np.testing.assert_array_equal(output[:], np.eye(8, dtype="int64"))
+    physical_bytes = output.schunk.nchunks * output.schunk.chunksize
+    diagonal_block_bytes = (8 // 2) * np.prod(output.blocks) * output.dtype.itemsize
+    assert report["output_zero_fill_bytes"] == physical_bytes - diagonal_block_bytes
+
+
 @pytest.mark.parametrize(
     ("shape", "chunks", "blocks"),
     [
         ((11, 13), (6, 8), (4, 3)),
         ((9, 11, 13), (5, 6, 8), (3, 4, 3)),
+        ((8, 12), (4, 6), (2, 3)),
     ],
 )
 @pytest.mark.parametrize("clevel", [0, 5])
@@ -197,6 +247,72 @@ def test_input_free_prefilter_nd_edges(shape, chunks, blocks, clevel, jit):
     output = blosc2.empty(
         shape, dtype="int64", chunks=chunks, blocks=blocks, cparams={"clevel": clevel, "nthreads": 2}
     )
+    expected = np.arange(np.prod(shape)).reshape(shape)
     for _ in range(2):
-        artifact.evaluate_prefilter({}, out=output)
-        np.testing.assert_array_equal(output[:], np.arange(np.prod(shape)).reshape(shape))
+        _, report = artifact.evaluate_prefilter({}, out=output)
+        np.testing.assert_array_equal(output[:], expected)
+        # Inspect physical storage too: callbacks must not leak dirty
+        # scratch into padded rows/columns that logical indexing would hide.
+        extended = tuple(((c + b - 1) // b) * b for c, b in zip(chunks, blocks, strict=True))
+        interleaved = tuple(v for e, b in zip(extended, blocks, strict=True) for v in (e // b, b))
+        axes = tuple(range(0, 2 * len(shape), 2)) + tuple(range(1, 2 * len(shape), 2))
+        edge_bytes = 0
+        for index, origin in enumerate(
+            product(*(range(0, n, c) for n, c in zip(shape, chunks, strict=True)))
+        ):
+            extent = tuple(min(c, n - o) for c, n, o in zip(chunks, shape, origin, strict=True))
+            padded = np.zeros(extended, dtype="int64")
+            local = tuple(slice(0, e) for e in extent)
+            logical = tuple(slice(o, o + e) for o, e in zip(origin, extent, strict=True))
+            padded[local] = expected[logical]
+            physical = padded.reshape(interleaved).transpose(axes).ravel()
+            raw = np.frombuffer(output.schunk.decompress_chunk(index), dtype="int64")
+            np.testing.assert_array_equal(raw, physical)
+            for block_origin in product(*(range(0, e, b) for e, b in zip(extended, blocks, strict=True))):
+                if any(o + b > e for o, b, e in zip(block_origin, blocks, extent, strict=True)):
+                    edge_bytes += np.prod(blocks) * output.dtype.itemsize
+        assert report["output_zero_fill_bytes"] == edge_bytes
+
+
+@pytest.mark.skipif(blosc2.IS_WASM, reason="Native prefilter scheduling is unavailable on WASM")
+def test_prefilter_flat_tail_and_pruned_blocks_are_initialized():
+    artifact = blosc2_ext.MenudetArtifactHandle(
+        manifest(
+            "def k(x):\n    return x + 1\n",
+            [{"name": "x", "dtype": "int64"}],
+            {"dtype": "int64", "contract": "elementwise"},
+            requires=["numeric"],
+        ),
+        0,
+    )
+    for size in (16, 19):
+        values = np.arange(size, dtype="int64")
+        source = blosc2.asarray(values, chunks=(8,), blocks=(4,))
+        output = blosc2.full((size,), 123, dtype="int64", chunks=(8,), blocks=(4,))
+        # Without a bitmap, complete blocks need no clearing; only the final
+        # physical chunk's unwritten tail needs initialization.
+        _, report = artifact.evaluate_prefilter({"x": source}, out=output)
+        np.testing.assert_array_equal(output[:], values + 1)
+        physical_bytes = output.schunk.nchunks * output.schunk.chunksize
+        assert report["output_zero_fill_bytes"] == physical_bytes - output.nbytes
+        bitmap = np.array([1, 0] * source.schunk.nchunks, dtype="uint8")
+        # Repeat with alternating dirty live and skipped blocks in every chunk,
+        # including the wholly padded final block when size=19.
+        for _ in range(2):
+            _, report = artifact.evaluate_prefilter(
+                {"x": source}, out=output, _candidate_blocks=bitmap, _prune_chunks=False
+            )
+            expected_values = values + 1
+            expected_values[(np.arange(size) // 4) % 2 == 1] = 0
+            np.testing.assert_array_equal(output[:], expected_values)
+            expected_physical = np.zeros(physical_bytes // output.dtype.itemsize, dtype="int64")
+            expected_physical[:size] = expected_values
+            physical = np.concatenate(
+                [
+                    np.frombuffer(output.schunk.decompress_chunk(i), dtype="int64")
+                    for i in range(output.schunk.nchunks)
+                ]
+            )
+            np.testing.assert_array_equal(physical, expected_physical)
+            live_items = np.count_nonzero((np.arange(size) // 4) % 2 == 0)
+            assert report["output_zero_fill_bytes"] == physical_bytes - live_items * output.dtype.itemsize

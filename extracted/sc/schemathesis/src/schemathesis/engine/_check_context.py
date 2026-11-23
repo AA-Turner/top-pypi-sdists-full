@@ -17,9 +17,11 @@ if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
 
 
-def run_after_run_checks(ctx: EngineContext) -> list[Failure]:
-    """Run class-based checks' `after_run` once all testing is done and collect their failures."""
-    return collect_after_run_failures(ctx.config, ctx.checks, ctx.get_transport_kwargs())
+def run_after_run_checks(ctx: EngineContext, *, completed: bool) -> tuple[list[Failure], list[str]]:
+    """Failures from class-based checks' `after_run`, and the names of checks it skipped on a partial run."""
+    if completed:
+        return collect_after_run_failures(ctx.config, ctx.checks, ctx.get_transport_kwargs()), []
+    return [], [name for name, _ in ctx.checks.for_run()]
 
 
 @dataclass(slots=True)
@@ -61,10 +63,7 @@ def collect_check_context_data(*, operation: APIOperation, ctx: EngineContext, p
 
 @dataclass(slots=True)
 class CheckContextCache:
-    """Per-operation check context cache.
-
-    Per-operation config is constant for the lifetime of a run; caching avoids repeated lookups.
-    """
+    """Per-operation check contexts; operation config stays constant for the whole run."""
 
     _cache: dict[str, CheckContextData] = field(default_factory=dict)
 

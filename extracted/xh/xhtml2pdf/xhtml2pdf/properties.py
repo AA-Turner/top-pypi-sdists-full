@@ -47,6 +47,7 @@ from xhtml2pdf.util import (
     getInt,
     getLengthOrAuto,
     getNumber,
+    getOpacity,
     getOverflow,
     getSize,
     getTextOverflow,
@@ -118,7 +119,9 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
     ),
     CSSProperty("font-weight", "text", note="binary: bold from bold/bolder/500-900"),
     CSSProperty("font-style", "text", note="binary: italic from italic/oblique"),
-    CSSProperty("text-decoration", "text", note="lights underline and strike"),
+    CSSProperty(
+        "text-decoration", "text", note="lights underline, strike and overline"
+    ),
     CSSProperty("line-height", "text", note="also recomputed when absent"),
     CSSProperty("letter-spacing", "text", note="kept raw, resolved at draw time"),
     CSSProperty("word-spacing", "text", note="kept raw, resolved at draw time"),
@@ -213,6 +216,15 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
         block_only=True,
         initial="visible",
         note="hidden, clip, scroll and auto cut the lines wider than the block",
+    ),
+    CSSProperty(
+        "opacity",
+        "box",
+        consumer=LOOP,
+        frag="opacity",
+        convert=getOpacity,
+        initial=1.0,
+        note="a box and its content painted as one translucent group",
     ),
 )
 
@@ -370,6 +382,12 @@ CSS_PROPERTIES += (
     ),
     CSSProperty("counter-reset", "generated", consumer=LOOP),
     CSSProperty("counter-increment", "generated", consumer=LOOP),
+    CSSProperty(
+        "string-set",
+        "generated",
+        consumer=LOOP,
+        note="named strings for string() in a page-margin box",
+    ),
 )
 
 #: Flexbox, CSS Flexible Box Layout Module Level 1. All LOOP: the container

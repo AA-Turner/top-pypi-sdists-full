@@ -3,7 +3,9 @@
 
 #include "CoolProp/AbstractState.h"
 #include "CoolProp/detail/msgpack.h"
+#include <atomic>
 #include <memory>
+#include <mutex>
 using std::shared_ptr;
 #include "CoolProp/Exceptions.h"
 #include "CoolProp/CoolProp.h"
@@ -830,8 +832,9 @@ class LogPHTable : public SinglePhaseGriddedTableData
         deserialized.convert(temp);
         temp.unpack();
         if (Nx != temp.Nx || Ny != temp.Ny) {
-            // Cached file was built at a different grid resolution than the current
-            // TABULAR_NX/TABULAR_NY config requests; force a rebuild via check_tables().
+            // Cached file was built at a different grid resolution than requested
+            // (TABULAR_NX/TABULAR_NY config or per-instance factory-string options);
+            // force a rebuild via check_tables().
             throw UnableToLoadError(format("Cached LogPH grid [%dx%d] does not match requested [%dx%d]; will rebuild", temp.Nx, temp.Ny, Nx, Ny));
         } else if (revision > temp.revision) {
             throw ValueError(format("loaded revision [%d] is older than current revision [%d]", temp.revision, revision));
@@ -877,8 +880,9 @@ class LogPTTable : public SinglePhaseGriddedTableData
         deserialized.convert(temp);
         temp.unpack();
         if (Nx != temp.Nx || Ny != temp.Ny) {
-            // Cached file was built at a different grid resolution than the current
-            // TABULAR_NX/TABULAR_NY config requests; force a rebuild via check_tables().
+            // Cached file was built at a different grid resolution than requested
+            // (TABULAR_NX/TABULAR_NY config or per-instance factory-string options);
+            // force a rebuild via check_tables().
             throw UnableToLoadError(format("Cached LogPT grid [%dx%d] does not match requested [%dx%d]; will rebuild", temp.Nx, temp.Ny, Nx, Ny));
         } else if (revision > temp.revision) {
             throw ValueError(format("loaded revision [%d] is older than current revision [%d]", temp.revision, revision));
@@ -981,14 +985,36 @@ class CellCoeffs
 class TabularDataSet
 {
    public:
-    bool tables_loaded;
+    /// True once the tables are complete (loaded from disk, or built, packed
+    /// and written).  Atomic because the library reads it under its own mutex
+    /// while a builder publishes it under build_mutex.
+    std::atomic<bool> tables_loaded;
+    /// Serializes the build-pack-write of this dataset (TabularBackend::check_tables)
+    /// and build_coeffs(), so concurrent first users of the same dataset build it
+    /// exactly once.  Lock order: build_mutex, then TabularDataLibrary::data_mutex;
+    /// nothing holding data_mutex takes build_mutex.
+    std::mutex build_mutex;
     LogPHTable single_phase_logph;
     LogPTTable single_phase_logpT;
     PureFluidSaturationTableData pure_saturation;
     PackablePhaseEnvelopeData phase_envelope;
     std::vector<std::vector<CellCoeffs>> coeffs_ph, coeffs_pT;
+    /// Process-wide count of build_tables() calls, across all datasets.  A test
+    /// hook: lets tests assert that concurrent first use builds a dataset once.
+    static std::atomic<int> build_count;
 
     TabularDataSet() : tables_loaded(false) {}
+    /// Set the grid resolution of both single-phase tables.  Must be called
+    /// before load_tables()/build_tables(); used to apply a per-instance
+    /// resolution from factory-string options in place of the
+    /// TABULAR_NX/TABULAR_NY configuration globals the tables were
+    /// default-constructed from.
+    void set_grid(std::size_t Nx, std::size_t Ny) {
+        single_phase_logph.Nx = Nx;
+        single_phase_logph.Ny = Ny;
+        single_phase_logpT.Nx = Nx;
+        single_phase_logpT.Ny = Ny;
+    }
     /// Write the tables to files on the computer
     void write_tables(const std::string& path_to_tables);
     /// Load the tables from file
@@ -1003,6 +1029,10 @@ class TabularDataLibrary
 {
    private:
     std::map<std::string, TabularDataSet> data;
+    /// Serializes get_set_of_tables(): lookup, insert, and the disk load of a
+    /// freshly inserted entry.  Held only inside get_set_of_tables, which does
+    /// not re-enter the library.
+    std::mutex data_mutex;
 
    public:
     TabularDataLibrary() = default;
@@ -1021,8 +1051,10 @@ class TabularDataLibrary
         }
         return table_directory + AS->backend_name() + "(" + strjoin(components, "&") + ")";
     }
-    /// Return a pointer to the set of tabular datasets and whether tables were already loaded
-    std::pair<TabularDataSet*, bool> get_set_of_tables(shared_ptr<AbstractState>& AS);
+    /// Return a pointer to the set of tabular datasets and whether tables were already loaded.
+    /// Nx/Ny are the requested grid resolution; the in-memory cache is keyed by
+    /// (path, Nx, Ny) so instances at different resolutions coexist in one process.
+    std::pair<TabularDataSet*, bool> get_set_of_tables(shared_ptr<AbstractState>& AS, std::size_t Nx, std::size_t Ny);
 };
 
 /**
@@ -1052,10 +1084,27 @@ class TabularBackend : public AbstractState
     std::vector<std::vector<double>> const* d2zdxdy;
     std::vector<std::vector<double>> const* d2zdy2;
     std::vector<CoolPropDbl> mole_fractions;
+    /// Canonical form of the factory-string options this instance was built
+    /// with ("{}" when none were supplied); returned by build_options_json()
+    std::string options_canonical;
+    /// Per-instance grid resolution from factory-string options; 0 means
+    /// "not requested" and the TABULAR_NX/TABULAR_NY configuration globals apply
+    std::size_t Nx_requested, Ny_requested;
+    /// Largest Nx*Ny a factory-string options blob may request (the schema
+    /// only bounds each axis); 1000x1000 is ~600 MB of tables in memory
+    static constexpr std::size_t max_grid_points = 1000000;
+
+    /// Validate + canonicalise the options blob and extract the per-instance
+    /// grid resolution; called from the constructor only (options are
+    /// immutable per instance).  Defined in TabularBackends.cpp
+    void parse_options(const std::string& options_json);
 
    public:
     shared_ptr<CoolProp::AbstractState> AS;
-    TabularBackend(shared_ptr<CoolProp::AbstractState> AS)
+    TabularBackend(shared_ptr<CoolProp::AbstractState> AS) : TabularBackend(std::move(AS), "") {}
+    /// Constructor accepting a factory-string options JSON blob; validated
+    /// against kTabularOptionsSchemaJson (unknown keys throw at construction)
+    TabularBackend(shared_ptr<CoolProp::AbstractState> AS, const std::string& options_json)
       : imposed_phase_index(iphase_not_imposed),
         tables_loaded(false),
         using_single_phase_table(false),
@@ -1071,8 +1120,34 @@ class TabularBackend : public AbstractState
         d2zdx2(nullptr),
         d2zdxdy(nullptr),
         d2zdy2(nullptr),
+        Nx_requested(0),
+        Ny_requested(0),
         AS(std::move(AS)),
-        dataset(nullptr) {};
+        dataset(nullptr) {
+        parse_options(options_json);
+    };
+
+    /// Grid resolution in effect for this instance: per-instance request if
+    /// options supplied one, otherwise the configuration globals (falling
+    /// back to the documented default of 200 for nonsense values <= 1, the
+    /// same guard the table constructors have always applied)
+    std::size_t effective_Nx() const {
+        if (Nx_requested > 0) {
+            return Nx_requested;
+        }
+        const int cfg = get_config_int(TABULAR_NX);
+        return (cfg > 1) ? static_cast<std::size_t>(cfg) : 200;
+    }
+    std::size_t effective_Ny() const {
+        if (Ny_requested > 0) {
+            return Ny_requested;
+        }
+        const int cfg = get_config_int(TABULAR_NY);
+        return (cfg > 1) ? static_cast<std::size_t>(cfg) : 200;
+    }
+    std::string build_options_json() const override {
+        return options_canonical;
+    }
 
     // None of the tabular methods are available from the high-level interface
     bool available_in_high_level() override {
@@ -1130,16 +1205,34 @@ class TabularBackend : public AbstractState
                 d2zdy2 = &table.d2umolardy2;
                 break;
             case iviscosity:
-                z = &table.visc;
-                break;
             case iconductivity:
-                z = &table.cond;
-                break;
+                // The tables hold no derivatives of the transport properties, so the
+                // Taylor-series evaluators that use these pointers cannot serve them
+                throw ValueError(format("The tabular backends have no derivative tables for %s", get_parameter_information(output, "short").c_str()));
             default:
                 throw ValueError();
         }
     }
     TabularDataSet* dataset;
+    /// The mole fractions as path_to_tables() writes them (10 decimals): two compositions
+    /// with the same key share one set of tables
+    static std::string composition_key(const std::vector<CoolPropDbl>& z) {
+        std::string key;
+        for (CoolPropDbl zi : z) {
+            key += format("%0.10Lf;", zi);
+        }
+        return key;
+    }
+    /// Forget the last state: flush the cached table indices, deselect the table and
+    /// put Q at the impossible value the saturation accessors refuse
+    void invalidate_state() {
+        cached_single_phase_i = std::numeric_limits<std::size_t>::max();
+        cached_single_phase_j = std::numeric_limits<std::size_t>::max();
+        cached_saturation_iL = std::numeric_limits<std::size_t>::max();
+        cached_saturation_iV = std::numeric_limits<std::size_t>::max();
+        selected_table = SELECTED_NO_TABLE;
+        _Q = -1000;
+    }
 
     void recalculate_singlephase_phase() {
         if (p() > p_critical()) {
@@ -1239,10 +1332,37 @@ class TabularBackend : public AbstractState
     }
     void update(CoolProp::input_pairs input_pair, double Value1, double Value2) override;
     void set_mole_fractions(const std::vector<CoolPropDbl>& mole_fractions) override {
+        // The tables belong to one composition (path_to_tables is keyed on it), and
+        // building a new set costs a phase envelope plus every table, kept on disk and
+        // in memory for the life of the process.  So once the tables are loaded the
+        // composition is fixed: setting it again to the same values is harmless, any
+        // other composition needs a new AbstractState (COO-186).  Checked before the
+        // inner backend is touched, so a refused call leaves this one unchanged.
+        if (tables_loaded) {
+            if (composition_key(mole_fractions) != composition_key(this->AS->get_mole_fractions())) {
+                throw ValueError(format("The composition of a %s backend is fixed once its tables are loaded (%s); "
+                                        "create a new AbstractState for another composition",
+                                        backend_name().c_str(), path_to_tables().c_str()));
+            }
+            return;
+        }
         this->AS->set_mole_fractions(mole_fractions);
+        is_mixture = (this->AS->get_mole_fractions().size() > 1);
+        // Check the tables and build if necessary (check_tables also builds the coefficients)
+        check_tables();
     };
     void set_mass_fractions(const std::vector<CoolPropDbl>& mass_fractions) override {
-        throw NotImplementedError("set_mass_fractions not implemented for Tabular backends");
+        // Let the inner backend do the mass→mole conversion, then forward the
+        // resulting mole fractions through set_mole_fractions so that the
+        // tables and coefficients get built, or the latch refuses them.  A
+        // refusal puts the inner backend's mole fractions back as they were.
+        const std::vector<CoolPropDbl> previous = this->AS->get_mole_fractions();
+        this->AS->set_mass_fractions(mass_fractions);
+        const std::vector<CoolPropDbl> converted = this->AS->get_mole_fractions();
+        if (tables_loaded) {
+            this->AS->set_mole_fractions(previous);
+        }
+        this->set_mole_fractions(converted);
     };
     const std::vector<CoolPropDbl>& get_mole_fractions() override {
         return AS->get_mole_fractions();
@@ -1313,38 +1433,60 @@ class TabularBackend : public AbstractState
     CoolPropDbl calc_first_two_phase_deriv_splined(parameters Of, parameters Wrt, parameters Constant, CoolPropDbl x_end) override;
 
     void check_tables() {
+        // For mixtures, set_mole_fractions() must be called before the first
+        // update(). Without fractions the table path cannot be constructed and
+        // path_to_tables() will index into an empty vector and cause segfault.
+        if (this->AS->fluid_names().size() > 1 && this->AS->get_mole_fractions().empty()) {
+            throw ValueError("Mole fractions not yet set for mixture tabular backend; call set_mole_fractions() before update()");
+        }
         if (!tables_loaded) {
             try {
                 /// Try to load the tables if you can.
                 load_tables();
-                // Set the flag saying tables have been successfully loaded
-                tables_loaded = true;
             } catch (CoolProp::UnableToLoadError& e) {
                 if (get_debug_level() > 0) {
                     std::cout << format("Table loading failed with error: %s\n", e.what());
                 }
-                /// Check directory size
-                std::string table_path = path_to_tables();
-                double directory_size_in_GB = CalculateDirSize(table_path) / POW3(1024.0);
-                double allowed_size_in_GB = get_config_double(MAXIMUM_TABLE_DIRECTORY_SIZE_IN_GB);
-                if (get_debug_level() > 0) {
-                    std::cout << "Tabular directory size is " << directory_size_in_GB << " GB\n";
+                // load_tables() set `dataset` before throwing.  Only one thread
+                // may build a given dataset: the others wait here, then see
+                // tables_loaded and skip straight to the load below.
+                std::scoped_lock build_lock(dataset->build_mutex);
+                if (!dataset->tables_loaded) {
+                    /// Check directory size
+                    std::string table_path = path_to_tables();
+                    double directory_size_in_GB = CalculateDirSize(table_path) / POW3(1024.0);
+                    double allowed_size_in_GB = get_config_double(MAXIMUM_TABLE_DIRECTORY_SIZE_IN_GB);
+                    if (get_debug_level() > 0) {
+                        std::cout << "Tabular directory size is " << directory_size_in_GB << " GB\n";
+                    }
+                    if (directory_size_in_GB > 1.5 * allowed_size_in_GB) {
+                        throw DirectorySizeError(
+                          format("Maximum allowed tabular directory size is %g GB, you have exceeded 1.5 times this limit", allowed_size_in_GB));
+                    } else if (directory_size_in_GB > allowed_size_in_GB) {
+                        set_warning_string(
+                          format("Maximum allowed tabular directory size is %g GB, you have exceeded this limit", allowed_size_in_GB));
+                    }
+                    /// If you cannot load the tables, build them and then write them to file
+                    dataset->build_tables(this->AS);
+                    pack_matrices();
+                    write_tables();
+                    // Publish only now that build, pack and write are all done, so a
+                    // thread taking the lock-free fast path never sees a half-built set.
+                    dataset->tables_loaded = true;
                 }
-                if (directory_size_in_GB > 1.5 * allowed_size_in_GB) {
-                    throw DirectorySizeError(
-                      format("Maximum allowed tabular directory size is %g GB, you have exceeded 1.5 times this limit", allowed_size_in_GB));
-                } else if (directory_size_in_GB > allowed_size_in_GB) {
-                    set_warning_string(format("Maximum allowed tabular directory size is %g GB, you have exceeded this limit", allowed_size_in_GB));
-                }
-                /// If you cannot load the tables, build them and then write them to file
-                dataset->build_tables(this->AS);
-                pack_matrices();
-                write_tables();
                 /// Load the tables back into memory as a consistency check
                 load_tables();
-                // Set the flag saying tables have been successfully loaded
-                tables_loaded = true;
             }
+            // update() indexes coeffs_pT/coeffs_ph for every tabular backend.  Build them
+            // whenever tables are (re)loaded, so no path (constructor, set_mole_fractions,
+            // or an update() after an earlier failed load) reaches update() without them.
+            // Only here, not on every call: build_coeffs takes the dataset lock, and it
+            // returns at once when another backend has already built them.
+            dataset->build_coeffs(dataset->single_phase_logph, dataset->coeffs_ph);
+            dataset->build_coeffs(dataset->single_phase_logpT, dataset->coeffs_pT);
+            // Ready only now: if a build throws, the next call loads (from the
+            // in-memory cache) and builds again instead of indexing empty coefficients
+            tables_loaded = true;
         }
     };
 };

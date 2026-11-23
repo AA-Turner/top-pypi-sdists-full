@@ -1126,13 +1126,25 @@ def register_generated_tools(mcp, _get_client):
             "whopads",
             "applovinads",
             "snapchatads",
+            "taboolaads",
+            "klaviyo",
+            "attentive",
+            "impact",
+            "awin",
             "hubspot",
+            "salesforce",
+            "gohighlevel",
             "webflow",
             "googleanalytics",
             "line",
             "wechat",
             "googletagmanager",
             "googlesearchconsole",
+            "stripe",
+            "campaignmanager360",
+            "tradedeskads",
+            "tradedeskdsp",
+            "amazonads",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -5868,7 +5880,7 @@ def register_generated_tools(mcp, _get_client):
 
             Responds `429` when Google's API quota is ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
 
             Args:
                 account_id: Account ID (required)
@@ -6412,15 +6424,16 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove users from audience
 
-        Removes people from a Meta or Reddit customer list audience. Same body as
+        Removes people from a Meta, Reddit or LinkedIn customer list audience. Same body as
         `POST /v1/ads/audiences/{audienceId}/users`: plaintext keys are normalized and SHA-256 hashed
         exactly like an upload and hashed keys are sent as is, so a row removes the person it added.
 
-        Meta and Reddit only, customer_list only. Every other platform returns 422 with code `feature_not_available`,
-        and every other audience type returns 422. Max 10,000 users per request. The platform applies the removal
-        asynchronously, so the audience size does not drop immediately. On Reddit `invalidEntrySamples` is always empty.
+        - Meta, Reddit and LinkedIn customer_list audiences only. Every other platform returns 422 with code `feature_not_available`, and every other audience type returns 422.
+        - Max 10,000 users per request. The platform applies the removal asynchronously, so the audience size does not drop immediately.
+        - LinkedIn removes them from the list Zernio keeps and uploads what is left about a minute later.
+        - On Reddit `invalidEntrySamples` is always empty.
 
-        Platforms: meta, reddit
+        Platforms: meta, reddit, linkedin
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
@@ -6901,6 +6914,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ]
         | None = None,
         account_id: str | None = None,
@@ -6938,7 +6953,7 @@ def register_generated_tools(mcp, _get_client):
 
             1. Filter by platformAdId (the Meta ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
             Args:
                 page: Page number (1-based)
@@ -7414,7 +7429,11 @@ def register_generated_tools(mcp, _get_client):
         - A customer synced for the first time is populated on the next discovery pass rather than waiting for its daily slot.
         - Connecting an account or triggering a manual sync refreshes it immediately.
 
-        Platforms: google
+        ### Amazon
+
+        Amazon Sponsored Products and Sponsored Brands keywords and ad group negatives are listed too (`platform: amazon`), refreshed about every six hours with their trailing 30-day metrics from the targeting reports. `resourceName` is `{adGroupId}~{keywordId}` there. Campaign-level ...
+
+        Platforms: google, amazon
 
         Args:
             page: Page number (1-based)
@@ -7471,7 +7490,11 @@ def register_generated_tools(mcp, _get_client):
         which replaces the set). Set `negative: true` to add ad-group-level negatives
         instead of positive keywords.
 
-        Platforms: google
+        ### Amazon
+
+        On an Amazon Ads connection the keywords go to a Sponsored Products or Sponsored Brands ad group (a Sponsored Display ad group returns 422). Positives bid the ad group default. Negatives match exact or phrase: a negative sent without `matchType` is exact, and a broad negative returns 422.
+
+        Platforms: google, amazon
 
         Args:
             account_id: Account ID (Google Ads) (required)
@@ -7513,7 +7536,11 @@ def register_generated_tools(mcp, _get_client):
 
         Negative keywords have no status or bid on Google and cannot be paused, enabled or given a bid.
 
-        Platforms: google
+        ### Amazon
+
+        Amazon keywords take `status` and `cpcBid`. Amazon negative keywords take `status` only (a `cpcBid` on one returns 422), and a Sponsored Brands negative cannot be paused (422).
+
+        Platforms: google, amazon
 
         Args:
             keyword_id: Zernio keyword ID (`id`), or Google's native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group. (required)
@@ -7543,7 +7570,11 @@ def register_generated_tools(mcp, _get_client):
 
         Removes one keyword criterion (positive or negative) from its ad group (M.140).
 
-        Platforms: google
+        ### Amazon
+
+        On Amazon the keyword is archived, which is Amazon's delete: it stays in reports and can never be enabled again.
+
+        Platforms: google, amazon
 
         Args:
             keyword_id: Zernio keyword ID (`id`), or Google's native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group. (required)"""
@@ -7578,6 +7609,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ]
         | None = None,
         status: Literal[
@@ -7618,7 +7651,7 @@ def register_generated_tools(mcp, _get_client):
 
             Zernio's own status writes re-read the switches they change. A change made in the ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
             Args:
                 include_empty: Meta only. Set true to also list campaigns with ZERO ads, with `adCount: 0` and zeroed metrics.
@@ -7724,6 +7757,10 @@ def register_generated_tools(mcp, _get_client):
         status: Literal["ACTIVE", "PAUSED"] = "PAUSED",
         start_date: str | None = None,
         end_date: str | None = None,
+        countries: list[str] | None = None,
+        regions: list[dict[str, Any]] | None = None,
+        metros: list[dict[str, Any]] | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
         location_targeting_type: Literal["presence", "presence_or_interest"]
         | None = None,
         bid_strategy: Literal[
@@ -7762,7 +7799,7 @@ def register_generated_tools(mcp, _get_client):
             - OpenAI: `goal` sets the campaign objective, and `conversions` needs an active standard conversion event on the account.
             - Reddit: see below. ...
 
-            Platforms: meta, google, linkedin, tiktok, x, pinterest, openai, reddit
+            Platforms: meta, google, linkedin, tiktok, x, pinterest, openai, reddit, amazon, tradedesk, applovin
 
             Args:
                 account_id: Zernio SocialAccount id (posting or ads variant); its platform decides where the campaign is created. (required)
@@ -7779,8 +7816,12 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
                 budget_type
                 status
-                start_date: Reddit only (400 elsewhere). Campaign start (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (`budgetAmount` + `budgetType`, 400 otherwise). Defaults to now.
-                end_date: Reddit only (400 elsewhere). Campaign end (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (400 otherwise), and is required for `budgetType: lifetime`.
+                start_date: Reddit, Amazon and AppLovin only (400 elsewhere). Campaign start (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (`budgetAmount` + `budgetType`, 400 otherwise). AppLovin reads it in UTC and refuses a start before today. Defaults to now.
+                end_date: Reddit, Amazon and AppLovin only (400 elsewhere). Campaign end (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (400 otherwise), and is required for `budgetType: lifetime`. On AppLovin no endDate means continuous delivery.
+                countries: AppLovin only (400 elsewhere), where the campaign carries the targeting: the countries it serves, at least one.
+                regions: AppLovin only (400 elsewhere). US state codes (`CA` or `US-CA`), with `US` in countries. Never together with metros. Each item is an object with keys: key (string, required)
+                metros: AppLovin only (400 elsewhere). AppLovin metro names, with `US` in countries. Never together with regions. Each item is an object with keys: key (string, required)
+                platform_specific_data: Amazon Ads (required there: the ad product and its campaign settings) and AppLovin (the campaign type, app or website, goal, bidding and tracking; its creative set fields do not apply here) only, 400 elsewhere. Object with keys: adProduct (one of: SPONSORED_PRODUCTS; required); targetingType (one of: MANUAL, AUTO) - Required for a new campaign. MANUAL targets keywords and productTargets; AUTO lets Amazon match searches and products (tune them with autoTargeting). Immutable.; biddingStrategy (one of: LEGACY_FOR_SALES, AUTO_FOR_SALES, MANUAL) - Dynamic bidding: LEGACY_FOR_SALES lowers bids when a sale is unlikely, AUTO_FOR_SALES raises and lowers them (up to +100%), MANUAL keeps them fixed.; placementBidding (list of objects with keys placement, percentage) - Bid increase per placement, added on top of the bid (50 on a 1.00 bid gives 1.50 at the top of search).; portfolioId (string)
                 location_targeting_type: Google only (400 elsewhere). Written on the new campaign.
                 bid_strategy: Campaign bid strategy.
 
@@ -7821,6 +7862,10 @@ def register_generated_tools(mcp, _get_client):
                 status=status,
                 start_date=start_date,
                 end_date=end_date,
+                countries=countries,
+                regions=regions,
+                metros=metros,
+                platform_specific_data=platform_specific_data,
                 location_targeting_type=location_targeting_type,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
@@ -7856,6 +7901,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ],
     ) -> str:
         """Pause or resume a campaign
@@ -7863,6 +7910,8 @@ def register_generated_tools(mcp, _get_client):
         Pauses or resumes a campaign, leaving the on/off switches of its ad sets and ads as they are.
 
         It writes the campaign's own on/off switch and nothing else, on every platform: Meta, TikTok, Google, LinkedIn campaign group, Pinterest, X, ChatGPT (OpenAI).
+
+        The Trade Desk is the exception: its campaigns have no switch of their own and deliver through their ad groups. Pausing a Trade Desk campaign switches off every enabled ad group in it, and `status: active` answers 422: turn the ad groups you want back on with PUT /v1/ads/ad-sets/{adSetId}/status.
 
         Its ad sets and ads keep their own switches:
 
@@ -7875,10 +7924,9 @@ def register_generated_tools(mcp, _get_client):
 
         The campaign's switch is read from the platform first.
 
-        - **Already in the requested state:** nothing is written (`updated: 0`, `skipped: 1`, with the reason).
-        - **Otherwise:** the switch is written (`updated: 1`), read back and stored. The delivery status of the ads under it (up to 20) is re-read and stored, so an immediate GET returns what the platform now ...
+        - ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8117,6 +8165,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ],
         account_id: str | None = None,
         bid_strategy: Literal[
@@ -8156,23 +8206,24 @@ def register_generated_tools(mcp, _get_client):
             | `networkSettings` | 400 | Search only | 400 |
             | `trackingUrlTemplate`, `finalUrlSuffix` | 400 | Yes | 400 |
             | `sharedBudgetId` | 400 | Yes | 400 |
-            | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI and Reddit: daily or lifetime; others 501 |
-            | `name` | Yes | 501 | Reddit: Yes; others 501 |
-            | ...
+            | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI and Reddit: daily or lifetime; Amazon: daily, or the lifetime type a Sponsored Brands campaign was ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
             Args:
                 campaign_id: Platform campaign ID (required)
                 platform: Required: platform campaign IDs are not globally unique. (required)
                 account_id: **Meta only.** Zernio SocialAccount id owning the ad account. Needed only for an EMPTY campaign (zero ads); ignored otherwise.
-                bid_strategy: **Meta + Google.**
+                bid_strategy: **Meta, Google and AppLovin.**
 
         - Meta: the campaign default that ad sets inherit unless they override it.
         - Google: the campaign's own bidding strategy. LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling.
         - Google: portfolioBidStrategyId attaches a portfolio strategy instead.
-                bid_amount: **Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both.
-                roas_average_floor: **Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS.
+        - AppLovin: sets the campaign goal value; the goal type itself cannot change. COST_CAP + bidAmount for a CPI, CPE or CPP goal, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor for a ROAS goal.
+        - AppLovin app limits, checked before AppLovin is called: CPI below 200, CPE and CPP below 500, AD_ROAS at least 0.1, CHK_ROAS at least 0.01, BLD_ROAS at least 0.05.
+        - AppLovin: a goal set per country, or the other goal family, is a 422.
+                bid_amount: **Google and AppLovin.** Whole currency units (USD: 12 = $12.00). Google: max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both. AppLovin: the CPI, CPE or CPP goal value, with COST_CAP.
+                roas_average_floor: **Google and AppLovin.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS. AppLovin: the ROAS goal value.
                 portfolio_bid_strategy_id: **Google only.** Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) instead of setting bidStrategy. Exclusive with bidStrategy.
                 allow_shared_budget_update: Google only. Explicitly allow changing a shared campaign budget (flagged as shared by Google, or used by more than one campaign), affecting every campaign that uses it. Does not bypass an unknown sharing state. Also required to move a campaign onto a shared budget with sharedBudgetId.
                 target_impression_share: Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc). Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it.
@@ -8182,7 +8233,7 @@ def register_generated_tools(mcp, _get_client):
                 final_url_suffix: **Google only.** campaign.final_url_suffix; an empty string clears it.
                 shared_budget_id: **Google only.** Move the campaign onto this shared budget (id from GET /v1/ads/shared-budgets), or null to move it back onto a budget of its own sized by `budget`.
                 budget: Meta CBO, Google daily, or OpenAI Ads or Reddit Ads daily or lifetime campaign budget, in whole currency units. Object with keys: amount (number, required) - Budget amount in the ad account's currency; type (one of: daily, lifetime; required)
-                name: **Meta and Reddit.** Rename the campaign.
+                name: **Meta, Reddit and AppLovin.** Rename the campaign.
                 platform_specific_data: **Meta only.** Platform implied by the `platform` body param, same convention as POST /v1/ads/create. Object with keys: spendCap (number) - Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap; 0 is rejected by Meta."""
         client = _get_client()
         try:
@@ -8230,6 +8281,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ],
         account_id: str | None = None,
         ad_account_id: str | None = None,
@@ -8243,19 +8296,18 @@ def register_generated_tools(mcp, _get_client):
         - Meta, Google, TikTok, LinkedIn and X delete it.
         - OpenAI, Reddit and Pinterest have no campaign delete and archive it instead (see below).
 
+        - Amazon archives the campaign: archiving is Amazon's delete, it is permanent, and the campaign stays in reports.
+        - The Trade Desk archives the campaign, which cannot be undone.
+
         Locally, all Ad documents for this campaign are marked `status: cancelled`.
 
         ### Empty campaigns
 
         A campaign with zero ads has no local Ad documents to resolve, so it is invisible to `/v1/ads/tree` and this endpoint would 404. That state comes from the two-step create flow (campaign, then ads via `existingCampaignId`) whenever Meta rejects the ad step.
 
-        To delete such a shell, send `accountId` in the body or the query string. We skip the local lookup entirely and forward the delete to the platform of that connection. `accountId` is ignored when the campaign does have ads.
+        To delete such a shell, send `accountId` in the body or the query string. We skip the local lookup entirely and forward the delete to the platform of that connection. `accountId` is ...
 
-        ### Google, TikTok, LinkedIn, Pinterest, Reddit and OpenAI
-
-        Google, TikTok, LinkedIn, Pinterest and Reddit take the ad account from the synced ...
-
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8311,9 +8363,13 @@ def register_generated_tools(mcp, _get_client):
 
         ### Platform
 
-        The platform is always discovered from the campaign itself. A non-Google campaign returns 501 rather than 404, whether or not `platform` was passed.
+        The platform is always discovered from the campaign itself. A campaign on another platform than Google or Amazon returns 501 rather than 404, whether or not `platform` was passed.
 
-        Platforms: google
+        ### Amazon
+
+        Amazon Sponsored Products campaigns hold campaign-level negative keywords (exact or phrase), read live with no cache (`cachedAt` null). Sponsored Brands and Sponsored Display campaigns have none and return 422.
+
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8364,10 +8420,14 @@ def register_generated_tools(mcp, _get_client):
         - Send the same request again to finish a failed replace.
         - Send an empty array to clear every campaign negative.
 
-        The platform is always discovered from the campaign itself; a non-Google
-        campaign returns 501 rather than 404, whether or not `platform` was sent.
+        The platform is always discovered from the campaign itself; a campaign on another
+        platform than Google or Amazon returns 501 rather than 404, whether or not `platform` was sent.
 
-        Platforms: google
+        ### Amazon
+
+        On an Amazon Sponsored Products campaign the missing negatives are created and the rest archived. A negative without `matchType` is exact; broad returns 422.
+
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8415,10 +8475,14 @@ def register_generated_tools(mcp, _get_client):
         - Keywords already on the campaign are not added twice; keywords not on it are skipped on remove.
         - Changes go to Google in `create`/`remove` mutates of up to 5,000 operations, like the full replace.
 
-        The platform is always discovered from the campaign itself; a non-Google
-        campaign returns 501 rather than 404, whether or not `platform` was sent.
+        The platform is always discovered from the campaign itself; a campaign on another
+        platform than Google or Amazon returns 501 rather than 404, whether or not `platform` was sent.
 
-        Platforms: google
+        ### Amazon
+
+        On an Amazon Sponsored Products campaign `add` creates the missing negatives and `remove` archives the matching ones (text and match type, case-insensitive). A negative without `matchType` is exact; broad returns 422.
+
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8451,11 +8515,11 @@ def register_generated_tools(mcp, _get_client):
 
         Each campaign is updated concurrently, and the response contains a per-campaign result so a single bad row does not fail the whole batch.
 
-        Each campaign is read, written and re-read exactly as PUT /v1/ads/campaigns/{campaignId}/status describes: only the campaign's own switch is written, never its ad sets' or ads'.
+        Each campaign is read, written and re-read exactly as PUT /v1/ads/campaigns/{campaignId}/status describes: only the campaign's own switch is written, never its ad sets' or ads' (The Trade Desk excepted: pausing switches off its ad groups and resuming answers 422).
 
         `updated` / `skipped` count campaigns.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
 
         Args:
             status: (required)
@@ -9222,11 +9286,11 @@ def register_generated_tools(mcp, _get_client):
         `status: cancelled`.
 
         Delete is soft on platforms that have no hard delete: LinkedIn moves the
-        campaign to `PENDING_DELETION`, Pinterest and Reddit archive the ad group, and X
+        campaign to `PENDING_DELETION`, Pinterest, Reddit, Amazon and The Trade Desk archive the ad group (permanent on Amazon and The Trade Desk), and X
         soft-flags the line item. Google removes the ad group. All remain readable
         for reporting.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, amazon, tradedesk
 
         Args:
             ad_set_id: Platform ad set ID (required)"""
@@ -9239,20 +9303,20 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Read a Reddit ad group's targeting and schedule",
+            title="Read an ad group's targeting and schedule",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def ad_campaigns_get_ad_set_targeting(
-        ad_set_id: str, platform: Literal["reddit"] | None = None
+        ad_set_id: str, platform: Literal["reddit", "amazon"] | None = None
     ) -> str:
-        """Read a Reddit ad group's targeting and schedule
+        """Read an ad group's targeting and schedule
 
         Shows a Reddit ad group's live targeting and schedule in the same shape PUT /v1/ads/ad-sets/{adSetId} takes, so you can prefill an editor.
 
-        It is read live from Reddit on every call. Reddit only; every other platform returns 501.
+        It is read live from the platform on every call. Reddit and Amazon only; every other platform returns 501.
 
         ### How fields come back
 
@@ -9261,7 +9325,11 @@ def register_generated_tools(mcp, _get_client):
         - Languages come back as lowercase ISO 639-1 codes.
         - Targeting Zernio cannot edit (devices, platforms, carriers, automated expansion) is left out and kept on every edit.
 
-        Platforms: reddit
+        ### Amazon
+
+        On Amazon it reads the ad group's live targets and negative targets in Amazon's own expression shape: `targeting` is `{ product, targets, negativeTargets }`, each target with `targetId`, `state`, `expressionType`, ...
+
+        Platforms: reddit, amazon
 
         Args:
             ad_set_id: Reddit ad group ID (required)
@@ -9297,6 +9365,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ],
     ) -> str:
         """Pause or resume a single ad set
@@ -9328,7 +9398,7 @@ def register_generated_tools(mcp, _get_client):
 
         - When that live read ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
         Args:
             ad_set_id: Platform ad set ID (required)
@@ -9366,6 +9436,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "tradedesk",
         ]
         | None = None,
         status: Literal[
@@ -9426,7 +9498,7 @@ def register_generated_tools(mcp, _get_client):
 
             The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200. A request scoped to no Meta ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
 
             Args:
                 page: Page number (1-based)
@@ -9535,6 +9607,8 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
+            "applovin",
         ]
         | None = None,
         sort_by: Literal[
@@ -9552,7 +9626,7 @@ def register_generated_tools(mcp, _get_client):
 
         A Meta range older than the imported history answers `202` with `backfillPending: true` and the covered part; repeat the request until it returns 200.
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, applovin
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting and ads pair. An id the API key cannot reach answers 404. (required)
@@ -9601,6 +9675,7 @@ def register_generated_tools(mcp, _get_client):
             "openai",
             "reddit",
             "microsoft",
+            "amazon",
         ]
         | None = None,
         compare: Literal["previous"] | None = None,
@@ -9620,7 +9695,7 @@ def register_generated_tools(mcp, _get_client):
         - Date range defaults to the last 90 days. Capped at 730 days.
         - With adAccountId set to a Google customer id ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found). (required)
@@ -9673,7 +9748,7 @@ def register_generated_tools(mcp, _get_client):
             - the creative's `effective_object_story_id` (`{pageId}_{postId}` shape, Facebook side)
             - the creative's `effective_instagram_media_id` ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
 
             Args:
                 ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. See description for details.
@@ -9755,7 +9830,7 @@ def register_generated_tools(mcp, _get_client):
 
         - KEYWORD ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
 
         Args:
             ad_id: (required)
@@ -9769,7 +9844,7 @@ def register_generated_tools(mcp, _get_client):
             status
             budget: Object with keys: amount (number) - Minimum varies by platform: TikTok=$20, Pinterest=$5, others=$1; type (one of: daily, lifetime) - OpenAI Ads accepts both and sets the campaign's single spend cap, replacing the previous daily or lifetime cap. A daily cap cannot go back to lifetime (422).
             targeting: Targeting update. - Meta + TikTok: demographics/interests. - Google: keyword and device bid adjustment edits only. - LinkedIn: locations, B2B facets, audiences. - Pinterest / X: return 501. **Partial update** on Meta, TikTok and LinkedIn: every targeting setting you do not send is preserved. - Meta: Advantage+ audience, placements, custom audiences, exclusions, interests, languages. - TikTok: languages, interest keywords, devices, behaviours. - LinkedIn: skills, member traits, interface locales, and any facet set in Campaign Manager. A field you send replaces its platform counterpart, and an empty or null value (for example `audienceInclude: []`, `industries: []` or `gender: "all"`) clears only that field. Any location field (countries, regions, cities, zips, ...) replaces the whole included location set; an update with no location keeps the current locations. Object with keys: keywords (list of any) - Google only. The FULL desired set of positive keywords for the entire ad group. Omit to leave positives unchanged; [] removes all positives. Negatives are ...; negativeKeywords (list of any) - Google only. The FULL desired set of negative keywords for the entire ad group, independent of positives. - Omit to leave negatives unchanged; [] removes all ...; devices (list of any) - Google only. The FULL new set of device bid modifiers for the campaign. Entries are a device name alone (targeted, bid modifier reset to 1) or { device, ...; ageMin (integer); ageMax (integer); countries (list of string) - ISO 3166-1 alpha-2 codes. On Google this is the FULL new country set for the campaign (same contract as `locations`); on LinkedIn it replaces the campaign's ...; locations (any) - Google and LinkedIn. The FULL new location set for the campaign. Bare country-code array, or an object with countries/regions/cities/zips/metros key lists ...; languages (list of string) - Google only. The FULL new language set for the campaign, as Google language codes (ISO 639-1, plus variants such as `zh_CN`). An unknown code returns 400.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. Omit to preserve the existing setting on update. 0 = disabled, 1 = enabled.
-            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - On lead ads, the instant form is kept through every edit, and `linkUrl` is ignored: Meta requires a lead ad's links to stay on its instant-form link. An edit that changes only `linkUrl` leaves the ad's creative as it is. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - `leadGenFormId` moves a lead ad to another instant form. `caption` sets the display link of a link ad. - In a dynamic creative ad set (`is_dynamic_creative`), only asset feed creatives run: a full rebuild, or `existingCreativeId` pointing at a creative without an asset feed, returns 422. Text edits update the feed. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option (422 when it has several: send `bodies`).; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Cannot be sent with `headline`. Not the top-level Google `headlines`.; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Cannot be sent with `description`. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.; leadGenFormId (string) - Meta only. Moves a lead ad to another instant form (from GET /v1/ads/lead-forms), keeping the rest of the creative. Returns 422 on an ad that does not open an ...; caption (string) - Meta only. The display link shown on link (image) ads, Meta link_data.caption. Returns 422 on video creatives and on asset feeds without a link.
+            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - On lead ads, the instant form is kept through every edit, and `linkUrl` is ignored: Meta requires a lead ad's links to stay on its instant-form link. An edit that changes only `linkUrl` leaves the ad's creative as it is. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - `leadGenFormId` moves a lead ad to another instant form. `caption` sets the display link of a link ad. - In a dynamic creative ad set (`is_dynamic_creative`), only asset feed creatives run: a full rebuild, or `existingCreativeId` pointing at a creative without an asset feed, returns 422. Text edits update the feed. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option and the story text (422 when it has several: send `bodies`). Sent with ...; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Add `headline` to set the story's fallback title. Not the top-level ...; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Add `description` to set the story's fallback description. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.; leadGenFormId (string) - Meta only. Moves a lead ad to another instant form (from GET /v1/ads/lead-forms), keeping the rest of the creative. Returns 422 on an ad that does not open an ...; caption (string) - Meta only. The display link shown on link (image) ads, Meta link_data.caption. Returns 422 on video creatives and on asset feeds without a link.
             name: Rename the ad. Now propagated to Meta (POST /{ad-id}); non-Meta platforms return 501."""
         client = _get_client()
         try:
@@ -9810,6 +9885,9 @@ def register_generated_tools(mcp, _get_client):
         - OpenAI Ads has no delete API: the ad is archived instead (a terminal state, the closest equivalent).
         - Reddit Ads has no delete either: the ad is archived (`configured_status` ARCHIVED).
 
+        - Amazon Ads archives the ad (state ARCHIVED). Archiving is permanent.
+        - The Trade Desk has no ad entity: the ad is the creative an ad group serves, so deleting it takes that creative off the ad group. The creative itself is kept.
+
         To delete a whole campaign on purpose use `DELETE /v1/ads/campaigns/{campaignId}`.
 
         ### Parents
@@ -9818,11 +9896,9 @@ def register_generated_tools(mcp, _get_client):
 
         ### Meta
 
-        When the ad set and campaign were created by Zernio (by `POST /v1/ads/create` or `POST /v1/ads/boost`) and Meta lists no other ad in the ad set (archived ads count), the emptied ad set is deleted too. The campaign follows once it holds no other ad set.
+        When the ad set and campaign were ...
 
-        ### LinkedIn ...
-
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
 
         Args:
             ad_id: (required)"""
@@ -9872,7 +9948,7 @@ def register_generated_tools(mcp, _get_client):
 
         After the write the switch is read back from ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
 
         Args:
             ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. (required)
@@ -11651,7 +11727,7 @@ def register_generated_tools(mcp, _get_client):
 
             Creates a paid ad with your own creative, building the campaign and ad set it needs or adding it to existing ones.
 
-            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads), Reddit Ads and Microsoft Ads. Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
+            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads), Reddit Ads, Microsoft Ads and Amazon Ads (Sponsored Products, Sponsored Brands and Sponsored Display, see `AmazonAdsPlatformData`). Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
 
             ### Request shapes
 
@@ -11661,9 +11737,9 @@ def register_generated_tools(mcp, _get_client):
             - Meta-only multi-creative shape via the creatives array: one ad set with N ads sharing budget and targeting.
             - Attach shape via adSetId: adds one new ad to an existing ad set, inheriting its budget, targeting, and schedule (Meta, Google Ads, TikTok, and LinkedIn).
 
-            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. `goal` may be omitted too (taken from the Campaign's objective), and the created ad's `targeting` echoes the ...
+            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. `goal` ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft, amazon, applovin
 
             Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
@@ -12117,9 +12193,9 @@ def register_generated_tools(mcp, _get_client):
                 asset_group: Object with keys: name (string) - Defaults to the request name.; finalUrl (string, required) - Required destination URL.; headlines (list of string, required); longHeadline (string, required); descriptions (list of string, required) - At least one description must be 60 characters or fewer.; businessName (string, required); images (object with keys landscape, square, logo, required) - Public HTTP(S) image URLs. GIF, JPEG or PNG, at most 5120 KB per image. Google validates dimensions and aspect ratios.; youtubeVideoId (string) - Optional existing YouTube video id. Google can generate video when omitted. Video uploads and arbitrary video URLs are not supported.
                 merchant_center: Google Performance Max only; any other campaign type returns 400. Links the new campaign to a Merchant Center account. Google rejects the create, and nothing is created, when the ad account is not linked to that Merchant Center. Object with keys: merchantId (string, required) - Numeric Merchant Center id.; feedLabel (string) - Feed label to use. Omitted, every feed of the Merchant Center is used.; listingType (one of: vehicles) - Set to `vehicles` for vehicle listings. Omitted, the campaign is a retail Performance Max campaign. Vehicle ads require Google to allowlist the ad account; ...
                 demand_gen: Object with keys: adGroupName (string) - Defaults to the ad name.; finalUrl (string, required); businessName (string, required); headlines (list of string, required) - Distinct texts. A carousel ad takes exactly one.; longHeadlines (list of string) - Video ads only, and required there.; descriptions (list of string, required) - A carousel ad takes exactly one.; callToAction (string) - Image and carousel ads only. Call to action text such as 'Learn more'; Google picks one when omitted.; images (object with keys landscape, square, portrait, logo, required) - Public image URLs. An image ad needs landscape or square; video and carousel ads take only one logo (carousel images go on each card).; youtubeVideoIds (list of string) - Makes the ad a video responsive ad.; carouselCards (list of objects with keys headline, finalUrl, callToAction, images) - Makes the ad a carousel ad. Each card needs its own image (no two cards may share one); use the same image shape on every card. Card images are uploaded to ...; channels (list of string) - Channel controls on the new ad group. Only the listed channels serve; Google Maps, which this list cannot select, is turned off. Omit to send no channel ...; audience (object with keys userLists, userInterests, customAudiences, ageRanges, genders); audienceId (string) - Attach an existing Google Audience by numeric id instead of audience.
-                keywords: Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
-                negative_keywords: Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
-                campaign_negative_keywords: Google Search only; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords.
+                keywords: Google Search, Microsoft Ads, and Amazon Sponsored Products (MANUAL campaigns) and Sponsored Brands. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
+                negative_keywords: Google Search and Amazon Sponsored Products and Sponsored Brands (EXACT or PHRASE only); other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
+                campaign_negative_keywords: Google Search and Amazon Sponsored Products; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative on Google), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords.
                 additional_headlines: Google Search RSA only. Extra text assets, as strings or objects with text and optional pinnedField. String input remains supported.
 
         - The effective create lists, including primary text and after deduplication, must contain 3-15 headlines and 2-4 descriptions. Excess entries return 400.
@@ -12185,7 +12261,7 @@ def register_generated_tools(mcp, _get_client):
         attaching, and requires `valueRuleSetId`. `false` is REJECTED here with 400:
         a newly created ad set has nothing to detach, so detaching lives on
         `PUT /v1/ads/ad-sets/{adSetId}`.
-                platform_specific_data: Platform-specific options. The platform is derived from `accountId`; options for a different platform return a 400. LinkedIn (campaign bidding and delivery controls) and Meta (the bid trio) have options today. **Meta** - `bidStrategy`, `bidAmount` and `roasAverageFloor` may be sent here instead of at the root (the preferred home going forward). Sending them in BOTH places returns a 400 (`mutually_exclusive_fields`). - Sending any bid field in `adSetId` attach mode is a 400 (the ad set already has its bid). - `dailyMinSpendTarget` / `lifetimeMinSpendTarget` set the new ad set's minimum spend and live here only; also rejected in `adSetId` attach mode. Object with keys: costType (one of: CPM, CPC, CPV) - Campaign cost model (billing event). Defaults to `CPM`. Required when `unitCost` is set so the manual bid applies to an explicit cost model.; unitCost (number) - Manual bid in WHOLE account-currency units (e.g. 2.5 = $2.50). Requires `costType`. Omit for LinkedIn's automated (max delivery) bidding. LinkedIn enforces ...; optimizationTargetType (string) - Campaign `optimizationTargetType` (e.g. `MAX_CLICK`, `TARGET_COST_PER_CLICK`, `MAX_IMPRESSION`). Forwarded verbatim; LinkedIn validates compatibility with the ...; creativeSelection (one of: OPTIMIZED, ROUND_ROBIN) - How LinkedIn rotates creatives within the campaign. Defaults to `OPTIMIZED`.; audienceExpansionEnabled (boolean) - Enable LinkedIn audience expansion. Defaults to false.; offsiteDeliveryEnabled (boolean) - Deliver on the LinkedIn Audience Network. Defaults to false.; connectedTelevisionOnly (boolean) - Restrict delivery to Connected TV inventory.; carousel (object with keys cards) - POST /v1/ads/create only. Carousel ad with 2-10 image cards. Mutually exclusive with the other creative sources.; document (object with keys url, title) - POST /v1/ads/create only. Document ad rendered as an in-feed viewer. PDF, PPT or DOC up to 100MB. Mutually exclusive with the other creative sources.; spotlight (object with keys headline, description, callToAction, landingUrl, logoUrl, organizationName, showMemberProfilePhoto, backgroundImageUrl) - POST /v1/ads/create only. Dynamic Spotlight Ad personalized with the viewer's profile photo. Supported goals: traffic, awareness. logoUrl and organizationName ...; follower (object with keys headline, description, callToAction, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Follower Ad promoting the Company Page. Supported goals: engagement, awareness. headline and description take exactly one of ...; jobs (object with keys headline, buttonLabel, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Jobs Ad promoting your open roles, personalized with the viewer's profile photo. Mutually exclusive with the other creative ...; textAd (object with keys headline, description, landingUrl, imageUrl) - POST /v1/ads/create only. Classic right-rail Text Ad. The copy lives here; ad-level body and headline are not used. Mutually exclusive with the other creative ...; conversation (object with keys subject, sender, body, footer, headline, firstMessageId, messages) - POST /v1/ads/create only. Conversation Ad: a choose-your-path message tree delivered to the member's LinkedIn inbox. - Messages are flat nodes wired by local ...; event (object with keys urn) - POST /v1/ads/create only. Promotes an existing LinkedIn Event; no headline needed. Mutually exclusive with the other creative sources.; thoughtLeader (object with keys postUrn) - POST /v1/ads/create only. Sponsors an existing LinkedIn post (a share or ugcPost authored by your organization's Company Page) as the creative, keeping its ...
+                platform_specific_data: Platform-specific options. The platform is derived from `accountId`; options for a different platform return a 400. LinkedIn (campaign bidding and delivery controls), Meta (the bid trio) Amazon Ads (required: the ad product, products, creative and targeting) and AppLovin (the campaign and creative set) have options today. **Amazon Ads**: see `AmazonAdsPlatformData`. Amazon has no dry run, so `validateOnly` returns a 501. **AppLovin** - A new campaign needs `campaignType` (`APP` or `WEB`), the goal and, for an app, `os`, `packageName` and `tracking`. With `existingCampaignId`, only the creative set fields (`assets`, `languages`, `brandInfo`) apply. - Zernio checks every documented AppLovin rule (goal value limits, ROAS day targets, US-only regions and metros, the asset combination, brand info lengths) before calling AppLovin, because 100 refused calls in five minutes lock the AppLovin account for a day. `validateOnly` runs those checks and calls nothing. **Meta** - `bidStrategy`, `bidAmount` and `roasAverageFloor` may be sent here instead of at the root (the preferred home going forward). Sending them in BOTH places returns a 400 (`mutually_exclusive_fields`). - Sending any bid field in `adSetId` attach mode is a 400 (the ad set already has its bid). - `dailyMinSpendTarget` / `lifetimeMinSpendTarget` set the new ad set's minimum spend and live here only; also rejected in `adSetId` attach mode. Object with keys: costType (one of: CPM, CPC, CPV) - Campaign cost model (billing event). Defaults to `CPM`. Required when `unitCost` is set so the manual bid applies to an explicit cost model.; unitCost (number) - Manual bid in WHOLE account-currency units (e.g. 2.5 = $2.50). Requires `costType`. Omit for LinkedIn's automated (max delivery) bidding. LinkedIn enforces ...; optimizationTargetType (string) - Campaign `optimizationTargetType` (e.g. `MAX_CLICK`, `TARGET_COST_PER_CLICK`, `MAX_IMPRESSION`). Forwarded verbatim; LinkedIn validates compatibility with the ...; creativeSelection (one of: OPTIMIZED, ROUND_ROBIN) - How LinkedIn rotates creatives within the campaign. Defaults to `OPTIMIZED`.; audienceExpansionEnabled (boolean) - Enable LinkedIn audience expansion. Defaults to false.; offsiteDeliveryEnabled (boolean) - Deliver on the LinkedIn Audience Network. Defaults to false.; connectedTelevisionOnly (boolean) - Restrict delivery to Connected TV inventory.; carousel (object with keys cards) - POST /v1/ads/create only. Carousel ad with 2-10 image cards. Mutually exclusive with the other creative sources.; document (object with keys url, title) - POST /v1/ads/create only. Document ad rendered as an in-feed viewer. PDF, PPT or DOC up to 100MB. Mutually exclusive with the other creative sources.; spotlight (object with keys headline, description, callToAction, landingUrl, logoUrl, organizationName, showMemberProfilePhoto, backgroundImageUrl) - POST /v1/ads/create only. Dynamic Spotlight Ad personalized with the viewer's profile photo. Supported goals: traffic, awareness. logoUrl and organizationName ...; follower (object with keys headline, description, callToAction, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Follower Ad promoting the Company Page. Supported goals: engagement, awareness. headline and description take exactly one of ...; jobs (object with keys headline, buttonLabel, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Jobs Ad promoting your open roles, personalized with the viewer's profile photo. Mutually exclusive with the other creative ...; textAd (object with keys headline, description, landingUrl, imageUrl) - POST /v1/ads/create only. Classic right-rail Text Ad. The copy lives here; ad-level body and headline are not used. Mutually exclusive with the other creative ...; conversation (object with keys subject, sender, body, footer, headline, firstMessageId, messages) - POST /v1/ads/create only. Conversation Ad: a choose-your-path message tree delivered to the member's LinkedIn inbox. - Messages are flat nodes wired by local ...; event (object with keys urn) - POST /v1/ads/create only. Promotes an existing LinkedIn Event; no headline needed. Mutually exclusive with the other creative sources.; thoughtLeader (object with keys postUrn) - POST /v1/ads/create only. Sponsors an existing LinkedIn post (a share or ugcPost authored by your organization's Company Page) as the creative, keeping its ...
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -13602,7 +13678,7 @@ def register_generated_tools(mcp, _get_client):
 
             Breakdowns and Google's impression ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
 
             Args:
                 campaign_id: Platform campaign id (platformCampaignId). (required)
@@ -14023,7 +14099,7 @@ def register_generated_tools(mcp, _get_client):
 
             The newer way to read this is `GET ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
 
             Args:
                 ad_id: (required)
@@ -17482,27 +17558,36 @@ def register_generated_tools(mcp, _get_client):
     def automations_list_automations(
         account_id: str | None = None,
         ad_account_id: str | None = None,
+        q: str | None = None,
         kind: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
     ) -> str:
         """List automations
 
-        Lists the automations on the profiles your key can reach, newest first, across every kind: ad rules, event automations, scheduled automations, sequences and comment to DM.
+            Lists the automations on the profiles your key can reach, newest first, across every kind: ad rules, event automations, scheduled automations, sequences, comment to DM and flows. One `cursor` pages them all.
 
-        Sequences and comment to DM need what `/v1/sequences` and `/v1/comment-automations` need: the inbox add-on, and a key with the `messages` group; without them they are left out.
+            Each kind is listed only for callers its own route lets read it; the others are left out, never an error:
 
-        Args:
-            account_id: Only automations on this account: the ads connection of an ad rule, or one of the `accountIds` of an event or scheduled automation.
-            ad_account_id: Only ad rules checking this platform ad account.
-            kind: Only these kinds, comma separated: `ad_rule`, `event`, `scheduled`, `sequence`, `comment`.
-            limit
-            cursor: `nextCursor` from the previous page."""
+            - **Sequences and comment to DM** need the inbox add-on and a key with the `messages` group, as `/v1/sequences` and `/v1/comment-automations` do.
+            - **Flows** need the inbox add-on and a full-access key, as `/v1/workflows` does.
+            - **Ad rules, event and scheduled automations** need only access to their profile, as reading, pausing and deleting them does. Creating, editing, activating or previewing an ad rule needs the ads add-on.
+
+            Args:
+                account_id: Only automations on this account: the ads connection of an ad rule, one of the `accountIds` of an event or scheduled automation, or the account a sequence, comment to DM or flow runs on.
+                ad_account_id: Only ad rules checking this platform ad account.
+                q: Only automations whose name contains this text, ignoring case. `%` and `_` match themselves.
+                kind: Only these kinds, comma separated: `ad_rule`, `event`, `scheduled`, `sequence`, `comment`, `workflow`.
+                limit
+                cursor: `nextCursor` from the previous page, sent back unchanged with the same `q`, `kind`, `accountId` and `adAccountId`.
+
+        Opaque: it holds the creation time and id of the page's last automation, and the next page is every kind's automations strictly older than it, so an automation created meanwhile never shifts or repeats a page."""
         client = _get_client()
         try:
             response = client.automations.list_automations(
                 account_id=account_id,
                 ad_account_id=ad_account_id,
+                q=q,
                 kind=kind,
                 limit=limit,
                 cursor=cursor,
@@ -17522,7 +17607,7 @@ def register_generated_tools(mcp, _get_client):
     def automations_create_automation(body: dict[str, Any]) -> str:
         """Create an automation
 
-        Creates an automation. Its shape picks the kind:
+        Creates an automation. Its trigger picks the kind:
 
         - **Ad rule**: a `schedule` over campaigns, ad sets, ads, Google keywords or Google search terms, with metric `conditions` and ad `steps`. It stays paused unless `status` is `active`; preview it first with `POST /v1/automations/preview`.
         - **Event**: a Zernio event in `trigger.type`, such as `post.failed`, with notify steps. It is on unless `status` is `paused`.
@@ -17706,8 +17791,11 @@ def register_generated_tools(mcp, _get_client):
     def automations_update_automation(
         automation_id: str,
         name: str | None = None,
-        status: Literal["active", "paused"] | None = None,
+        description: str | None = None,
+        status: Literal["draft", "active", "paused"] | None = None,
         trigger: dict[str, Any] | None = None,
+        or_triggers: list[dict[str, Any]] | None = None,
+        graph: dict[str, Any] | None = None,
         subjects: dict[str, Any] | None = None,
         filter: dict[str, Any] | None = None,
         conditions: dict[str, Any] | None = None,
@@ -17726,21 +17814,27 @@ def register_generated_tools(mcp, _get_client):
         Args:
             automation_id: (required)
             name
-            status
-            trigger: Object with keys: type (string, required); every (one of: 15m, 30m, 1h, 3h, 6h, 12h, 1d) - Run every interval. Send this or `times`, not both.; times (list of objects with keys days, at) - Set weekly times. Send this or `every`, not both.; startsAt (string) - Runs from this time on.; endsAt (string) - Stops running after this time. Must be after `startsAt`.; quietHours (object with keys from, to) - A daily window with no checks. It may wrap past midnight, such as `22:00` to `06:00`.
+            description: Sequences and flows.
+            status: `draft` only for a sequence or a flow that has not left draft.
+            trigger: The trigger of the automation's kind.
+            or_triggers: Comment to DM.
+            graph: Comment to DM and flows: the whole graph, as read.
             subjects: Object with keys: each (one of: campaign, adset, ad, keyword, search_term; required) - The objects judged one by one.; adAccounts (list of objects with keys accountId, adAccountId, required) - The ad account to check. One per ad rule, and an edit cannot move it to another.; campaignIds (list of string) - Only these platform campaigns or their ad sets and ads. Leave out to check the whole ad account.; filters (list of objects with keys field, op, value) - All must hold.; groups (list of objects with keys name, filters) - Judges campaigns together (campaign rules only): each group's numbers are summed and its rates computed on the totals, and a matching group acts on each of ...
             filter: Object with keys: field (string, required) - A fact name from the catalog.; op (one of: equals, not_equals, contains, not_contains, starts_with, ends_with, exists, not_exists, matches, greater_than, less_than, greater_or_equal, less_or_equal, before, after, has_tag, not_has_tag, is_true, is_false; required); value (string or number, required)
             conditions: Object with keys: all (list of objects with keys metric, window, op, value, model, compareTo, of, required)
             alert: Object with keys: confirmChecks (integer); hold (object with keys all); critical (object with keys all)
             steps: The steps the automation's kind takes. Each item is an object with keys: id (string); type (string, required)
-            limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, counted over the last 400 days. Needs an `ads.*` step."""
+            limits: The limits of the automation's kind."""
         client = _get_client()
         try:
             response = client.automations.update_automation(
                 automation_id=automation_id,
                 name=name,
+                description=description,
                 status=status,
                 trigger=trigger,
+                or_triggers=or_triggers,
+                graph=graph,
                 subjects=subjects,
                 filter=filter,
                 conditions=conditions,
@@ -22764,6 +22858,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         message: str,
         attachment_url: str | None = None,
+        attachment_type: Literal["image", "gif"] | None = None,
         comment_id: str | None = None,
         mention_author: bool | None = None,
         parent_cid: str | None = None,
@@ -22792,7 +22887,8 @@ def register_generated_tools(mcp, _get_client):
                 post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
                 account_id: (required)
                 message: Reply text. On LinkedIn, mention with @[https://www.linkedin.com/in/vanity] (resolved to LinkedIn's live name, same rules and errors as post content) or @[Name](urn:li:person|organization:ID); a hand-written name must match LinkedIn's exactly or it renders as plain text. (required)
-                attachment_url: (Facebook only) URL of an image to attach, publishing a photo comment alongside the text. The URL must be publicly accessible so Meta can fetch it. Returns 400 for other platforms.
+                attachment_url: (Facebook, Bluesky and LinkedIn) URL of an image to attach to the comment or reply. The URL must be publicly fetchable. Returns 400 for other platforms.
+                attachment_type: (Facebook only) How Facebook publishes `attachmentUrl`: `image` (default) as a photo comment, `gif` as an animated GIF comment. A GIF sent as `image` is stored as a still photo. Requires `attachmentUrl`. Returns 400 on other platforms.
                 comment_id: Reply to specific comment (optional)
                 mention_author: (LinkedIn only) When true, the reply starts with an @mention of the author of `commentId` (a member or a page), tagged with their URN and the name LinkedIn returns for them. Requires `commentId`.
 
@@ -22809,6 +22905,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 message=message,
                 attachment_url=attachment_url,
+                attachment_type=attachment_type,
                 comment_id=comment_id,
                 mention_author=mention_author,
                 parent_cid=parent_cid,
@@ -27429,6 +27526,155 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get Campaign Manager 360 OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_campaign_manager_connect_url(
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> str:
+        """Get Campaign Manager 360 OAuth connect URL
+
+        **Coming soon.** Google is still verifying the `dfatrafficking` permission Zernio requests. Until it approves, connecting may not work for your Google account.
+
+        Starts Google OAuth for Campaign Manager 360 (Floodlight). Each connected CM360 user profile becomes an account with platform `campaignmanager360`; it receives the conversions you forward to its Floodlight activities and does not post.
+
+        Requested scopes: `https://www.googleapis.com/auth/datamanager` (conversions go through Google's Data Manager API) and `https://www.googleapis.com/auth/dfatrafficking` (only to list advertisers and Floodlight activities; Campaign Manager has no read-only trafficking scope).
+
+        ### Flow
+
+        Redirect the user to `authUrl`.
+
+        - **One CM360 user profile:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=campaignmanager360`, `profileId`, `accountId` and `username`.
+        - **Several:** the user first picks one on a Zernio-hosted page, which then redirects the same way. ...
+
+        Platforms: campaignmanager360
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: Zernio account ID of the Campaign Manager 360 account being reconnected. Picking a different CM360 profile then fails instead of adding a second account."""
+        client = _get_client()
+        try:
+            response = client.connect.get_campaign_manager_connect_url(
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Campaign Manager 360 profiles for a pending connect",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_list_campaign_manager_profiles(pending_data_token: str) -> str:
+        """List Campaign Manager 360 profiles for a pending connect
+
+        For headless flows: lists the Campaign Manager 360 user profiles (one per CM360 account) of a pending connect, so you can show your own picker.
+
+        - Listing does not consume the token.
+        - A headless token is honored only together with your API key (or connect token) for the same profile.
+        - It expires after one hour.
+
+        Platforms: campaignmanager360
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.list_campaign_manager_profiles(
+                pending_data_token=pending_data_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect the chosen Campaign Manager 360 profile",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_select_campaign_manager_profile(
+        pending_data_token: str, cm_profile_id: str
+    ) -> str:
+        """Connect the chosen Campaign Manager 360 profile
+
+        For headless flows. Connects the CM360 user profile the user picked as a `campaignmanager360` account and returns where to send the user next.
+
+        Consumes the `pendingDataToken`; a refused or failed attempt leaves it usable for a retry. Send your API key (or connect token) for the same profile with a headless token.
+
+        Platforms: campaignmanager360
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)
+            cm_profile_id: A profileId from the profiles list. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.select_campaign_manager_profile(
+                pending_data_token=pending_data_token, cm_profile_id=cm_profile_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Amazon Ads OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_amazon_ads_connect_url(
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+        region: Literal["NA", "EU", "FE"] = "NA",
+    ) -> str:
+        """Get Amazon Ads OAuth connect URL
+
+        Starts Login with Amazon for Amazon Ads (scope `advertising::campaign_management`). The Amazon login becomes an account with platform `amazonads`.
+
+        Every seller and vendor advertiser profile it reaches, in the NA, EU and FE regions, is an ad account (`GET /v1/ads/accounts`) and a conversions destination (`GET /v1/ads/conversions/destinations`).
+
+        Pass `region` so the user signs in on their own region's Amazon consent page; the connection still reaches the profiles of every region.
+
+        Errors on the redirect: `amazonads_no_profiles` (the login reaches no advertiser), `amazonads_no_refresh_token`.
+
+        Platforms: amazonads
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme.
+            reconnect_account_id: Zernio account ID of the Amazon Ads account being reconnected.
+            region: Amazon region whose consent page the user signs in on: NA (amazon.com), EU (Europe, Middle East, India) or FE (Japan, Australia, Singapore)."""
+        client = _get_client()
+        try:
+            response = client.connect.get_amazon_ads_connect_url(
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
+                region=region,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get HubSpot OAuth connect URL",
             readOnlyHint=True,
             destructiveHint=False,
@@ -27436,7 +27682,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_hub_spot_connect_url(
-        profile_id: str, redirect_url: str | None = None
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get HubSpot OAuth connect URL
 
@@ -27460,11 +27708,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The HubSpot portal connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same portal."""
         client = _get_client()
         try:
             response = client.connect.get_hub_spot_connect_url(
-                profile_id=profile_id, redirect_url=redirect_url
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27479,7 +27730,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_gohighlevel_connect_url(
-        profile_id: str, redirect_url: str | None = None
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get HighLevel OAuth connect URL
 
@@ -27499,11 +27752,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The GoHighLevel location connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same location."""
         client = _get_client()
         try:
             response = client.connect.get_gohighlevel_connect_url(
-                profile_id=profile_id, redirect_url=redirect_url
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27521,6 +27777,7 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         environment: Literal["production", "sandbox"] = "production",
         redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get Salesforce OAuth connect URL
 
@@ -27543,13 +27800,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
             environment: Sign in at login.salesforce.com (`production`, also Developer Edition orgs) or test.salesforce.com (`sandbox`).
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The Salesforce org connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same org."""
         client = _get_client()
         try:
             response = client.connect.get_salesforce_connect_url(
                 profile_id=profile_id,
                 environment=environment,
                 redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27608,7 +27867,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_word_press_auth_url(
-        profile_id: str, redirect_url: str | None = None
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get WordPress.com OAuth connect URL
 
@@ -27632,11 +27893,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The WordPress site connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same site."""
         client = _get_client()
         try:
             response = client.connect.get_word_press_auth_url(
-                profile_id=profile_id, redirect_url=redirect_url
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27651,7 +27915,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_wix_connect_url(
-        profile_id: str, redirect_url: str | None = None
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get Wix site install URL
 
@@ -27671,11 +27937,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The Wix site connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same site."""
         client = _get_client()
         try:
             response = client.connect.get_wix_connect_url(
-                profile_id=profile_id, redirect_url=redirect_url
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27690,7 +27959,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_webflow_connect_url(
-        profile_id: str, redirect_url: str | None = None
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Get Webflow OAuth URL
 
@@ -27712,11 +27983,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: The Webflow site connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same site."""
         client = _get_client()
         try:
             response = client.connect.get_webflow_connect_url(
-                profile_id=profile_id, redirect_url=redirect_url
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27730,7 +28004,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_webflow_with_site_token(profile_id: str, site_token: str) -> str:
+    def connect_webflow_with_site_token(
+        profile_id: str, site_token: str, reconnect_account_id: str | None = None
+    ) -> str:
         """Connect Webflow with a site API token
 
         Connects one Webflow site using a site API token. Zernio checks the token's scopes, reads its site, and stores the token encrypted.
@@ -27746,11 +28022,14 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            site_token: Webflow site API token with Sites read and CMS read and write access. (required)"""
+            site_token: Webflow site API token with Sites read and CMS read and write access. (required)
+            reconnect_account_id: The Webflow site connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same site."""
         client = _get_client()
         try:
             response = client.connect.connect_webflow_with_site_token(
-                profile_id=profile_id, site_token=site_token
+                profile_id=profile_id,
+                site_token=site_token,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -27805,7 +28084,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_word_press_with_application_password(
-        profile_id: str, site_url: str, username: str, application_password: str
+        profile_id: str,
+        site_url: str,
+        username: str,
+        application_password: str,
+        reconnect_account_id: str | None = None,
     ) -> str:
         """Connect self-hosted WordPress with an application password
 
@@ -27822,7 +28105,8 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
             site_url: HTTPS base URL of the WordPress installation, including a subdirectory path when applicable. (required)
             username: WordPress login name. A colon is not allowed. (required)
-            application_password: Application password created for the WordPress user. Spaces in WordPress display formatting are accepted. (required)"""
+            application_password: Application password created for the WordPress user. Spaces in WordPress display formatting are accepted. (required)
+            reconnect_account_id: The WordPress site connection being reconnected. In a workspace with no billing set up, the connect is allowed only when it returns to that same site."""
         client = _get_client()
         try:
             response = client.connect.connect_word_press_with_application_password(
@@ -27830,6 +28114,7 @@ def register_generated_tools(mcp, _get_client):
                 site_url=site_url,
                 username=username,
                 application_password=application_password,
+                reconnect_account_id=reconnect_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -28821,36 +29106,42 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Connect an AppLovin Axon account",
+            title="Connect an AppLovin account",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
     def connect_app_lovin_ads_credentials(
-        api_key: str,
-        event_key: str,
         profile_id: str,
+        api_key: str | None = None,
+        event_key: str | None = None,
+        campaign_api_key: str | None = None,
+        account_id: str | None = None,
+        reconnect_account_id: str | None = None,
         report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
     ) -> str:
-        """Connect an AppLovin Axon account
+        """Connect an AppLovin account
 
-        Connect AppLovin Axon with the Conversion API key and Event Key from the Keys page of Axon Ads Manager.
+        Connect an AppLovin account (Axon ads) with the Conversion API key and Event Key from the Keys page of AppLovin Axon Ads Manager, the Campaign Management API key with its account id, or all of them.
 
-        Zernio checks both keys with Axon before saving them. The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules), and its Event Key works as a site tag on tracking sites.
+        Zernio checks each key set with AppLovin before saving it.
 
-        Add the optional Report Key to sync AppLovin spend. Every few hours Zernio reads spend, impressions and clicks per campaign and creative set for the last 7 days, so AppLovin campaigns show in the ads campaign listings and in campaign results.
+        - With the conversion keys, the account receives the conversion events you forward to it (`POST /v1/events`, forwarding rules), and its Event Key works as a site tag on tracking sites.
+        - With the Campaign Management keys, Zernio reads, creates and manages the account's campaigns and creative sets (`/v1/ads`).
+        - Connecting the Campaign Management keys to a profile that already has the conversion keys adds them to the same connection. A connection made with the Campaign Management keys only cannot take the conversion keys later: connect all keys together instead.
 
-        Zernio checks the Report Key with AppLovin before saving it. Connecting again without a Report Key keeps the one already saved.
-
-        Requires the Ads add-on.
+        Add the optional Report Key to sync AppLovin spend. Every few hours Zernio reads spend, impressions and clicks per campaign and creative set for the last 7 days, so ...
 
         Args:
-            api_key: Conversion API key from the Keys page of Axon Ads Manager. (required)
-            event_key: Event Key from the Keys page of Axon Ads Manager: 8 to 128 letters, digits, dots, dashes or underscores. (required)
+            api_key: Conversion API key from the Keys page of AppLovin Axon Ads Manager. Sent with eventKey.
+            event_key: Event Key from the Keys page of AppLovin Axon Ads Manager: 8 to 128 letters, digits, dots, dashes or underscores. Sent with apiKey.
+            campaign_api_key: Campaign Management API key from the Keys page of ads.axon.ai (visible to account Admins only). Sent with accountId. Lets Zernio read, create and manage campaigns and creative sets.
+            account_id: Numeric AppLovin account id (Account menu, then Go to settings, in ads.axon.ai). Sent with campaignApiKey.
+            reconnect_account_id: The Zernio id of the AppLovin connection being reconnected (a connection on this profile). The keys sent update that connection, which keeps its identity, instead of creating one: send it to add or replace keys on an existing connection.
             report_key: Optional Report Key from the Keys page of your AppLovin account. With it, Zernio syncs AppLovin spend per campaign.
             name: Optional display name for the account.
             profile_id: Your Zernio profile ID (required)
@@ -28861,6 +29152,9 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.connect_app_lovin_ads_credentials(
                 api_key=api_key,
                 event_key=event_key,
+                campaign_api_key=campaign_api_key,
+                account_id=account_id,
+                reconnect_account_id=reconnect_account_id,
                 report_key=report_key,
                 name=name,
                 profile_id=profile_id,
@@ -28907,6 +29201,329 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.connect_snapchat_ads_credentials(
                 access_token=access_token,
                 pixel_id=pixel_id,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Klaviyo account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_klaviyo_credentials(
+        api_key: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect a Klaviyo account
+
+        Connect Klaviyo with a private API key (Settings, API keys) that has the Events (write) and Accounts (read) scopes.
+
+        Zernio reads the key's account once to check it, then sends the events you forward to it (`POST /v1/events`, forwarding rules) to Klaviyo's Events API. Connecting the same account again replaces its key.
+
+        Requires the Ads add-on.
+
+        Args:
+            api_key: Klaviyo private API key, starting with pk_. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_klaviyo_credentials(
+                api_key=api_key,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect an Attentive company",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_attentive_credentials(
+        api_key: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect an Attentive company
+
+        Connect Attentive with the API key of a custom app (Integrations, Custom apps) that can write Custom Events and eCommerce events.
+
+        Zernio reads the key's company from Attentive once to check it, then sends the events you forward to it to Attentive. Connecting the same company again replaces its key.
+
+        Requires the Ads add-on.
+
+        Args:
+            api_key: API key of an Attentive custom app. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_attentive_credentials(
+                api_key=api_key,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect an Impact program",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_impact_credentials(
+        account_sid: str,
+        auth_token: str,
+        program_id: str,
+        event_type_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect an Impact program
+
+        Connect impact.com with an access token (Settings, API) that can read Campaigns and write Conversions, the program the conversions count in and the event type they count as.
+
+        Zernio lists the account's programs once to check the token, then sends the conversions you forward to it to `<programId>:<eventTypeId>`. Another event type of the same account is another forwarding rule with that `destinationId`.
+
+        Requires the Ads add-on.
+
+        Args:
+            account_sid: Account SID, starting with IR. (required)
+            auth_token: Auth Token of the same access token. (required)
+            program_id: Numeric program (campaign) id. (required)
+            event_type_id: Numeric event type id (ActionTrackerId), from Settings, Event Types. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_impact_credentials(
+                account_sid=account_sid,
+                auth_token=auth_token,
+                program_id=program_id,
+                event_type_id=event_type_id,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect an Awin advertiser",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_awin_credentials(
+        api_key: str,
+        advertiser_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect an Awin advertiser
+
+        Connect Awin with your advertiser id and an API key (Settings, User settings, API credentials).
+
+        Zernio checks the key with one test order (`isTest`, not tracked by Awin) before saving it. Events sent with `testCode` reach Awin the same way.
+
+        Requires the Ads add-on.
+
+        Args:
+            api_key: Awin API key. (required)
+            advertiser_id: Numeric Awin advertiser id. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_awin_credentials(
+                api_key=api_key,
+                advertiser_id=advertiser_id,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Trade Desk tracking tag",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_trade_desk_ads_credentials(
+        advertiser_id: str,
+        tracker_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect a Trade Desk tracking tag
+
+        Connect a Trade Desk advertiser and the tracking tag your conversions count against, for the Real-Time Conversions API. The API takes no secret, so nothing secret is stored: get the Advertiser ID from Advertiser Preferences and ask your Trade Desk representative for a Real-Time Conversion tracking tag.
+
+        The Trade Desk does not check either id when it receives events, so a wrong id loses conversions silently: check the tag's conversions in The Trade Desk after the first sends. Connecting the same tag again replaces its advertiser.
+
+        Requires the Ads add-on.
+
+        Platforms: tradedeskads
+
+        Args:
+            advertiser_id: Trade Desk Advertiser ID, a short code such as `abc1234`. (required)
+            tracker_id: Tracking tag id of a Real-Time Conversion tag, a short code such as `xyz7890`. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_trade_desk_ads_credentials(
+                advertiser_id=advertiser_id,
+                tracker_id=tracker_id,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Trade Desk partner for ads management",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_trade_desk_ads_partner(
+        partner_id: str,
+        api_token: str,
+        profile_id: str,
+        ad_account_ids: list[str] | None = None,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect a Trade Desk partner for ads management
+
+        Connects a Trade Desk partner with an API token for ads management. Sending conversions to a tracking tag is a separate connection: `POST /v1/connect/tradedesk-ads/credentials`.
+
+        Connects a Trade Desk partner with an API token. The Trade Desk has no OAuth: your Trade Desk account manager enables API access for your user, who then creates a token in the Partner Portal under Manage API Tokens.
+
+        Zernio lists the partner's advertisers with the token before saving anything. Each advertiser becomes an ad account of the connection (`GET /v1/ads/accounts`), and `adAccountIds` keeps only some of them. The token is stored encrypted and never returned.
+
+        Requires the Ads add-on.
+
+        Platforms: tradedeskdsp
+
+        Args:
+            partner_id: Trade Desk Partner ID, a short code such as `ptn1234`. Stored and echoed lowercased. (required)
+            api_token: API token of a Trade Desk user with API access to the partner. (required)
+            ad_account_ids: Advertiser ids to keep. Left out or empty, a new connection keeps every advertiser and a reconnect keeps its saved selection.
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_trade_desk_ads_partner(
+                partner_id=partner_id,
+                api_token=api_token,
+                ad_account_ids=ad_account_ids,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Taboola account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_taboola_ads_credentials(
+        taboola_account_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect a Taboola account
+
+        Connect a Taboola advertiser account by its numeric Account ID from Taboola Realize. Taboola's S2S postback takes no credential, so nothing secret is stored and nothing is checked with Taboola.
+
+        The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules). Each event needs the Taboola click ID (`clickIds.tblci`).
+
+        Taboola counts an event only when its name equals the Event Name of a conversion rule in Realize. Rename events in the forwarding rule when they differ.
+
+        Requires the Ads add-on.
+
+        Args:
+            taboola_account_id: Numeric Taboola Account ID, shown in Realize under the account name. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_taboola_ads_credentials(
+                taboola_account_id=taboola_account_id,
                 name=name,
                 profile_id=profile_id,
                 state=state,
@@ -32020,7 +32637,7 @@ def register_generated_tools(mcp, _get_client):
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, stripe, hubspot, salesforce, gohighlevel
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, stripe, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: The profile to list. Omit to cover every profile you can access.
@@ -32085,7 +32702,7 @@ def register_generated_tools(mcp, _get_client):
 
         - A signal left out counts as `DENIED`. Zernio has no ...
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, gohighlevel
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, gohighlevel
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
@@ -32534,11 +33151,15 @@ def register_generated_tools(mcp, _get_client):
                 "stripe",
                 "web",
                 "salesforce",
+                "gohighlevel",
                 "postback",
                 "form_leads",
             ]
         ]
         | None = None,
+        event_name_map: dict[str, Any] | None = None,
+        value_override: dict[str, Any] | None = None,
+        value_condition: dict[str, Any] | None = None,
         api_secret: str | None = None,
     ) -> str:
         """Add a forwarding rule
@@ -32547,7 +33168,13 @@ def register_generated_tools(mcp, _get_client):
 
         Pick `destinationId` from `GET /v1/ads/conversions/destinations`. Set `eventNames` to forward only those events, such as only `Purchase`; leave it out to forward every event.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, hubspot, salesforce, gohighlevel
+        - `eventNameMap` renames events for this destination (send your `Lead` as its `Purchase`).
+        - `valueOverride` changes the value it gets (a fixed amount or a percent of the event's value).
+        - `valueCondition` forwards only events above, below or equal to a value.
+
+        Each applies to this rule only: the event is stored, and sent to other rules, as received.
+
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: (required)
@@ -32555,6 +33182,9 @@ def register_generated_tools(mcp, _get_client):
             destination_id: The platform destination: a pixel, a conversion action, a conversion rule, or a GA4 web stream measurement id (`G-…`). (required)
             event_names
             sources: Forward only events from these sources, such as only `web` for a tracked website. Leave it out to forward events from every source.
+            event_name_map
+            value_override: Object with keys: mode (one of: original, fixed, percent; required); amount (number) - Required for `fixed` and `percent` (at most 1000 for `percent`); null for `original`.
+            value_condition: Object with keys: operator (one of: gt, lt, eq; required); amount (number, required)
             api_secret: Google Analytics streams only: the stream's Measurement Protocol API secret (GA4 Admin › Data streams). Optional when the connection has edit access, since Zernio then creates it. Checked against Google's validation server, stored encrypted, never returned. Change it with `PATCH /v1/events/forwarding-rules/{ruleId}`."""
         client = _get_client()
         try:
@@ -32564,6 +33194,9 @@ def register_generated_tools(mcp, _get_client):
                 destination_id=destination_id,
                 event_names=event_names,
                 sources=sources,
+                event_name_map=event_name_map,
+                value_override=value_override,
+                value_condition=value_condition,
                 api_secret=api_secret,
             )
             return _format_response(response)
@@ -32572,24 +33205,39 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Change a forwarding rule's API secret",
+            title="Update a forwarding rule",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
-    def conversions_update_forwarding_rule(rule_id: str, api_secret: str) -> str:
-        """Change a forwarding rule's API secret
+    def conversions_update_forwarding_rule(
+        rule_id: str,
+        api_secret: str | None = None,
+        event_name_map: dict[str, Any] | None = None,
+        value_override: dict[str, Any] | None = None,
+        value_condition: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a forwarding rule
 
-        Replaces the `apiSecret` of a rule whose destination needs one, such as a Google Analytics data stream's Measurement Protocol API secret. Before saving, Zernio sends one hit to Google's validation server; Google does not confirm the secret itself, so check GA4 Realtime after the next events.
+        Changes the fields you send and keeps the others. Send `eventNameMap: null` to stop renaming, `valueOverride: { \"mode\": \"original\" }` to send the event's own value again, and `valueCondition: null` to forward whatever the value.
+
+        `apiSecret` replaces the secret of a rule whose destination needs one, such as a Google Analytics data stream's Measurement Protocol API secret. Before saving, Zernio sends one hit to Google's validation server; Google does not confirm the secret itself, so check GA4 Realtime after the next events.
 
         Args:
             rule_id: The rule `id`. (required)
-            api_secret: (required)"""
+            api_secret
+            event_name_map
+            value_override: Object with keys: mode (one of: original, fixed, percent; required); amount (number) - Required for `fixed` and `percent` (at most 1000 for `percent`); null for `original`.
+            value_condition: Object with keys: operator (one of: gt, lt, eq; required); amount (number, required)"""
         client = _get_client()
         try:
             response = client.conversions.update_forwarding_rule(
-                rule_id=rule_id, api_secret=api_secret
+                rule_id=rule_id,
+                api_secret=api_secret,
+                event_name_map=event_name_map,
+                value_override=value_override,
+                value_condition=value_condition,
             )
             return _format_response(response)
         except Exception as e:
@@ -32707,6 +33355,8 @@ def register_generated_tools(mcp, _get_client):
     def conversions_update_tracking_site(
         site_id: str,
         name: str | None = None,
+        pixels: list[dict[str, Any]] | None = None,
+        consent_mode_bridge: bool | None = None,
         domains: list[str] | None = None,
         consent_mode: Literal["eu_opt_in", "opt_in", "opt_out"] | None = None,
         custom_hostname: str | None = None,
@@ -32723,9 +33373,13 @@ def register_generated_tools(mcp, _get_client):
 
         `googleTagIds` lists the site's own Google tags that the same proxy relays to Google's tag gateway. Load each from its `proxy.googleTags[].src` instead of googletagmanager.com. `null` or an empty list removes them.
 
+        `pixels` lists the ad pixels the tag loads for you. In the EEA, UK and Switzerland none loads until the visitor accepts on the site's consent banner. Elsewhere `consentMode` decides. Remove your own copy of each pixel, or it fires twice. `null` or an empty list removes them. ...
+
         Args:
             site_id: (required)
             name
+            pixels: The ad pixels the tag loads once consent allows, up to 20, one Microsoft UET tag at most. `null` or `[]` removes them. Each item is an object with keys: platform (one of: meta, google, tiktok, linkedin, pinterest, snapchat, reddit, x, microsoft; required); id (string, required) - The id the platform's own snippet loads, such as a Meta pixel id, `AW-123456789` or `G-XXXXXXXXXX` for Google, a TikTok pixel code, a LinkedIn partner id or a ...
+            consent_mode_bridge: Write the site's consent banner into Google Consent Mode v2: a denied default in the EEA, UK and Switzerland where the page sets none, then each update.
             domains: Hosts allowed to send events, such as `brand.com`. Events from any other origin are dropped.
             consent_mode
             custom_hostname: A subdomain of one of the site's domains, never the domain itself. `null` removes it.
@@ -32736,6 +33390,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.conversions.update_tracking_site(
                 site_id=site_id,
                 name=name,
+                pixels=pixels,
+                consent_mode_bridge=consent_mode_bridge,
                 domains=domains,
                 consent_mode=consent_mode,
                 custom_hostname=custom_hostname,
@@ -32789,6 +33445,28 @@ def register_generated_tools(mcp, _get_client):
             response = client.conversions.rotate_tracking_site_key(
                 site_id=site_id, idempotency_key=idempotency_key
             )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Check a tracking site's own-domain path",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_check_tracking_site_proxy(site_id: str) -> str:
+        """Check a tracking site's own-domain path
+
+        Loads `https://<first domain><proxyPath>/z.js` from Zernio's servers and records whether your proxy serves the tag, signed, in `proxy.status`. Once `verified`, cookies come from your own domain and Safari keeps them; a connected Tag Manager container moves to the path. Also runs after `proxyPath` changes.
+
+        Args:
+            site_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.check_tracking_site_proxy(site_id=site_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -45016,7 +45694,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Read the uploaded results of each campaign over a window",
+            title="Read the delivery metrics or the uploaded results of each campaign over a window",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -45028,19 +45706,25 @@ def register_generated_tools(mcp, _get_client):
         limit: int = 50,
         cursor: str | None = None,
         campaign_id: str | None = None,
+        metrics: str | None = None,
+        granularity: Literal["total", "day"] = "total",
     ) -> str:
-        """Read the uploaded results of each campaign over a window
+        """Read the delivery metrics or the uploaded results of each campaign over a window
 
-        Sums, per campaign, each result metric you uploaded (one key per metric, as `GET /v1/ads/campaign-results/metrics` lists them), with `cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale` and `qualified_rate` next to them, over `fromDate` to `toDate` (both required, at most 400 days).
+        Without `metrics`, sums per campaign each result metric you uploaded (one key per metric, as `GET /v1/ads/campaign-results/metrics` lists them), with `cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale` and `qualified_rate` next to them, over `fromDate` to `toDate` (both required, at most 400 days). Filter with `campaignId` (platform campaign ids); pages with `cursor`.
 
-        Filter with `campaignId` (platform campaign ids); pages with `cursor`.
+        With `metrics` (for example `metrics=spend,impressions,clicks,ctr`), sums the delivery metrics of every ad of each campaign in `campaignId` (required, up to 100) from the stored daily rows. Every campaign comes on one page with its `currency`, and `granularity=day` adds one point per day.
+
+        A query reads at most 9,200 campaign days (100 campaigns for 92 days, 23 for 400) and answers 422 `query_too_large` beyond that. Breakdowns stay live in the platform queries, such as `POST /v1/metrics/platform-queries/meta-ads`.
 
         Args:
             limit: Rows per page, 50 by default, 100 at most.
             cursor: pagination.nextCursor of the previous page, sent with the same query.
             from_date: First day, inclusive. (required)
             to_date: Last day, inclusive. The range is at most 400 days. (required)
-            campaign_id: Comma-separated platform campaign ids."""
+            campaign_id: Comma-separated platform campaign ids. Required with metrics, up to 100.
+            metrics: Comma-separated delivery metrics, as GET /v1/metrics/catalog?entity=campaigns lists them (spend, impressions, reach, clicks, ctr, cpc, cpm, conversions, roas, actions, funnel, video counts...).
+            granularity: day adds one point per day to each campaign. Needs metrics."""
         client = _get_client()
         try:
             response = client.metrics.get_campaign_metrics(
@@ -45049,6 +45733,57 @@ def register_generated_tools(mcp, _get_client):
                 from_date=from_date,
                 to_date=to_date,
                 campaign_id=campaign_id,
+                metrics=metrics,
+                granularity=granularity,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read the delivery metrics of ad sets over a window",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_ad_set_metrics(
+        from_date: str,
+        to_date: str,
+        metrics: str,
+        limit: int = 50,
+        cursor: str | None = None,
+        ad_set_id: str | None = None,
+        campaign_id: str | None = None,
+        granularity: Literal["total", "day"] = "total",
+    ) -> str:
+        """Read the delivery metrics of ad sets over a window
+
+        Sums the delivery metrics of every ad of each ad set from the stored daily rows, over `fromDate` to `toDate` (both required, at most 400 days). Send the ad sets by id with `adSetId` (up to 100), or one `campaignId` for its ad sets, paged with `cursor`.
+
+        Each ad set comes with its `campaignId` and the `currency` of its ad account, and `granularity=day` adds one point per day. A query reads at most 9,200 ad set days (100 ad sets for 92 days, 23 for 400) and answers 422 `query_too_large` beyond that.
+
+        Args:
+            limit: With campaignId, ad sets per page, 50 by default, 100 at most.
+            cursor: With campaignId, pagination.nextCursor of the previous page, sent with the same query.
+            from_date: First day, inclusive. (required)
+            to_date: Last day, inclusive. The range is at most 400 days. (required)
+            ad_set_id: Comma-separated platform ad set ids, up to 100. Send adSetId or campaignId.
+            campaign_id: One platform campaign id, for its ad sets. Send adSetId or campaignId.
+            metrics: Comma-separated delivery metrics, as GET /v1/metrics/catalog?entity=ad-sets lists them (spend, impressions, reach, clicks, ctr, cpc, cpm, conversions, roas...). (required)
+            granularity: day adds one point per day to each ad set."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_ad_set_metrics(
+                limit=limit,
+                cursor=cursor,
+                from_date=from_date,
+                to_date=to_date,
+                ad_set_id=ad_set_id,
+                campaign_id=campaign_id,
+                metrics=metrics,
+                granularity=granularity,
             )
             return _format_response(response)
         except Exception as e:
@@ -59132,6 +59867,7 @@ def register_generated_tools(mcp, _get_client):
         | None = None,
         limit: int = 25,
         skip: int = 0,
+        cursor: str | None = None,
     ) -> str:
         """List workflow runs
 
@@ -59141,11 +59877,16 @@ def register_generated_tools(mcp, _get_client):
             workflow_id: (required)
             status
             limit
-            skip"""
+            skip
+            cursor: The previous page's pagination.nextCursor. Pages stay stable while runs start or end; skip applies after it. Page past the first 1000 runs with the cursor: a larger skip may be refused with 400."""
         client = _get_client()
         try:
             response = client.workflows.list_workflow_executions(
-                workflow_id=workflow_id, status=status, limit=limit, skip=skip
+                workflow_id=workflow_id,
+                status=status,
+                limit=limit,
+                skip=skip,
+                cursor=cursor,
             )
             return _format_response(response)
         except Exception as e:

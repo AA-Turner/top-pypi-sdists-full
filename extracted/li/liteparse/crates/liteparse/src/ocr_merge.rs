@@ -417,7 +417,8 @@ pub struct PageComplexityStats {
     /// backgrounds are excluded from `image_coverage`/`largest_image_coverage`
     /// (they're not inline figures), so this flag is the only signal that
     /// distinguishes a scan from a genuinely blank page — both otherwise report
-    /// no text and no counted images.
+    /// no text and no counted images. Includes rasters drawn inside form
+    /// XObjects, which only relabel a textless page as `Scanned`.
     pub full_page_image: bool,
     /// Filled vector-outline area not covered by native text, in pt². `None`
     /// when a cheaper predicate already flagged the page for OCR, so this
@@ -531,7 +532,16 @@ pub(crate) fn calculate_page_complexity(
     let is_full_page = |b: &ImageBounds| {
         b.width > pw * MAX_IMAGE_PAGE_COVERAGE && b.height > ph * MAX_IMAGE_PAGE_COVERAGE
     };
-    let full_page_image = all_images.iter().any(is_full_page);
+    // Only a top-level scan gates OCR (`SparseText`, `InvisibleTextLayer`).
+    // Scans can also sit inside a form XObject; those are reported and
+    // relabel a textless page as `Scanned`, but don't send more pages to OCR,
+    // since born-digital pages often wrap a full-page background in a form.
+    let top_level_scan = all_images.iter().any(is_full_page);
+    let full_page_image = top_level_scan
+        || page_obj
+            .form_image_bounds(MIN_IMAGE_SIZE_PT)
+            .iter()
+            .any(is_full_page);
     let image_bounds: Vec<&ImageBounds> = all_images.iter().filter(|b| !is_full_page(b)).collect();
     let has_images = !image_bounds.is_empty();
 
@@ -586,7 +596,7 @@ pub(crate) fn calculate_page_complexity(
         if page_obj.has_annotation_text() {
             reasons.push(ComplexityReason::AnnotationText);
         }
-    } else if sparse_text && (full_page_image || text_length < SPARSE_TEXT_TRUSTED_LEN) {
+    } else if sparse_text && (top_level_scan || text_length < SPARSE_TEXT_TRUSTED_LEN) {
         // There is real text, but it's too thin to be the whole page. A page that already
         // carries plenty of native text and no raster at all has nothing else for OCR to read
         // but text drawn as vector outlines, which the vector check below measures; OCR'ing it
@@ -599,7 +609,7 @@ pub(crate) fn calculate_page_complexity(
     if is_garbled {
         reasons.push(ComplexityReason::Garbled);
     }
-    if full_page_image
+    if top_level_scan
         && text_length >= MIN_NATIVE_TEXT_LEN
         && (invisible_text_share(page_obj) >= INVISIBLE_LAYER_MIN_SHARE
             || hidden_under_scan_share(page_obj) >= INVISIBLE_LAYER_MIN_SHARE)
@@ -1455,22 +1465,86 @@ pub fn merge_ocr_results(
     ocr_failure_fatal: bool,
     emit_word_boxes: bool,
 ) -> Result<(), LiteParseError> {
-    // Track OCR task outcomes so we can distinguish a systemic failure (e.g.
-    // missing Tesseract language data, which fails identically on every page)
-    // from incidental per-page failures. Without this, every page logs the same
-    // error and `parse()` still returns "success" with no OCR text.
-    //
-    // We additionally track whether any *sparse-text* page failed: a page is
-    // rendered for OCR if it has sparse native text OR merely contains an image
-    // (`needs_ocr = text_length < 20 || text_coverage < 0.15 || has_images`).
-    // A native-text PDF with a logo on every page is rendered for OCR
-    // enrichment but already has all its text. We must only fail loud when OCR
-    // failure destroyed a sparse page's likely primary text source — otherwise
-    // a broken OCR setup would abort perfectly good native-text documents.
-    let total_tasks = outcomes.len();
-    let mut failed_tasks = 0usize;
-    let mut failed_sparse_text_page = false;
-    let mut first_error: Option<String> = None;
+    let mut state = OcrMergeState::default();
+    state.merge(pages, outcomes, emit_word_boxes)?;
+    state.finish(ocr_failure_fatal)
+}
+
+/// Merge OCR results in separate calls, with one final failure check.
+/// Stores counters and the first error in merge order.
+#[derive(Default)]
+pub struct OcrMergeState {
+    total_tasks: usize,
+    failed_tasks: usize,
+    failed_sparse_text_page: bool,
+    first_error: Option<String>,
+}
+
+impl OcrMergeState {
+    /// Merge completed results into their pages. Supply each outcome only once.
+    /// Call [`Self::finish`] after all outcomes to check the failure policy.
+    pub fn merge(
+        &mut self,
+        pages: &mut [Page],
+        outcomes: Vec<PageOcrOutcome>,
+        emit_word_boxes: bool,
+    ) -> Result<(), LiteParseError> {
+        merge_ocr_outcomes(pages, outcomes, emit_word_boxes, self)
+    }
+
+    /// Apply the failure policy to all outcomes received by this state.
+    pub fn finish(self, ocr_failure_fatal: bool) -> Result<(), LiteParseError> {
+        let Self {
+            total_tasks,
+            failed_tasks,
+            failed_sparse_text_page,
+            first_error,
+        } = self;
+        // If every OCR task failed *and* at least one of those failures was on a
+        // sparse-text page (the same length/coverage predicate that sends pages to
+        // OCR as text-poor in `render_pages_for_ocr`), treat it as a systemic
+        // failure. Returning an error surfaces the root cause (e.g. missing language
+        // data) instead of silently emitting an empty or mostly-empty page. We
+        // deliberately do NOT fail when the only failures were on pages that already
+        // had substantial native text and were merely rendered for image-based OCR
+        // enrichment — a broken OCR setup must not abort an otherwise-good
+        // native-text document.
+        if total_tasks > 0 && failed_tasks == total_tasks && failed_sparse_text_page {
+            let detail = first_error.unwrap_or_else(|| "unknown error".to_string());
+            if ocr_failure_fatal {
+                return Err(LiteParseError::Ocr(format!(
+                    "OCR failed for all {} page(s): {}",
+                    total_tasks, detail
+                )));
+            }
+            // Non-fatal mode: the caller prefers partial results over a hard abort,
+            // so keep whatever native text was extracted and continue. Surface the
+            // root cause as a warning so a broken OCR setup is still visible.
+            eprintln!(
+                "[ocr] OCR failed for all {} page(s): {} — continuing with partial (native-text) results (ocr_failure_fatal=false)",
+                total_tasks, detail
+            );
+        }
+
+        // Surface a concise summary for partial failures without flooding stderr.
+        if failed_tasks > 0 {
+            eprintln!(
+                "[ocr] {}/{} page(s) failed OCR; continuing with partial results",
+                failed_tasks, total_tasks
+            );
+        }
+
+        Ok(())
+    }
+}
+
+fn merge_ocr_outcomes(
+    pages: &mut [Page],
+    outcomes: Vec<PageOcrOutcome>,
+    emit_word_boxes: bool,
+    state: &mut OcrMergeState,
+) -> Result<(), LiteParseError> {
+    state.total_tasks += outcomes.len();
 
     let index_by_page_number: HashMap<usize, usize> = pages
         .iter()
@@ -1495,11 +1569,11 @@ pub fn merge_ocr_results(
             )));
         };
         if let Some(msg) = error {
-            failed_tasks += 1;
-            failed_sparse_text_page |= page_has_sparse_native_text(&pages[idx]);
-            if first_error.is_none() {
+            state.failed_tasks += 1;
+            state.failed_sparse_text_page |= page_has_sparse_native_text(&pages[idx]);
+            if state.first_error.is_none() {
                 eprintln!("[ocr] failed for page {}: {}", page_number, msg);
-                first_error = Some(msg);
+                state.first_error = Some(msg);
             }
             continue;
         }
@@ -1760,40 +1834,6 @@ pub fn merge_ocr_results(
         if !has_native_text {
             upright_rotated_scan(page);
         }
-    }
-
-    // If every OCR task failed *and* at least one of those failures was on a
-    // sparse-text page (the same length/coverage predicate that sends pages to
-    // OCR as text-poor in `render_pages_for_ocr`), treat it as a systemic
-    // failure. Returning an error surfaces the root cause (e.g. missing language
-    // data) instead of silently emitting an empty or mostly-empty page. We
-    // deliberately do NOT fail when the only failures were on pages that already
-    // had substantial native text and were merely rendered for image-based OCR
-    // enrichment — a broken OCR setup must not abort an otherwise-good
-    // native-text document.
-    if total_tasks > 0 && failed_tasks == total_tasks && failed_sparse_text_page {
-        let detail = first_error.unwrap_or_else(|| "unknown error".to_string());
-        if ocr_failure_fatal {
-            return Err(LiteParseError::Ocr(format!(
-                "OCR failed for all {} page(s): {}",
-                total_tasks, detail
-            )));
-        }
-        // Non-fatal mode: the caller prefers partial results over a hard abort,
-        // so keep whatever native text was extracted and continue. Surface the
-        // root cause as a warning so a broken OCR setup is still visible.
-        eprintln!(
-            "[ocr] OCR failed for all {} page(s): {} — continuing with partial (native-text) results (ocr_failure_fatal=false)",
-            total_tasks, detail
-        );
-    }
-
-    // Surface a concise summary for partial failures without flooding stderr.
-    if failed_tasks > 0 {
-        eprintln!(
-            "[ocr] {}/{} page(s) failed OCR; continuing with partial results",
-            failed_tasks, total_tasks
-        );
     }
 
     Ok(())
@@ -2138,6 +2178,11 @@ fn garbled_scope(page: &Page) -> GarbledScope {
                 .or_insert((0, 0));
             e.0 += j;
             e.1 += m;
+        }
+        // The checks below judge decoded text; a math item's text is the TeX pass's LaTeX
+        // ("\\mathbb{N}", "z^{n+1}"), which reads as a vowel-less cipher.
+        if it.math {
+            continue;
         }
         let (l, v) = count_letters_and_vowels(&it.text);
         total_letters += l;
@@ -3543,6 +3588,35 @@ mod tests {
         assert!(matches!(garbled_scope(&page), GarbledScope::None));
     }
 
+    /// A math item's text is the TeX pass's LaTeX, not decoded glyphs: its few vowels must not
+    /// flag a healthy page as garbled (which sends it to whole-page OCR, losing the LaTeX).
+    #[test]
+    fn test_garbled_scope_ignores_math_items() {
+        let mut page = make_font_page(
+            &HEALTHY_PARAGRAPH
+                .iter()
+                .map(|t| ("Helvetica", *t))
+                .collect::<Vec<_>>(),
+        );
+        for latex in [
+            r"A_{n}:f(x,y,z)=xy-z^{n+1},n\in \mathbb{N}",
+            r"D_{n}:f(x,y,z)=z^{2}-x(y^{2}+x^{n-2}),n\in \mathbb{N},n\geq 4",
+            r"E_{7}:f(x,y,z)=x^{2}+y^{3}+yz^{3}",
+            r"s.v=\sum _{i=1}^{m}v_{i}",
+            r"X=V(f)\subset \mathbb{C}^{3}",
+            r"\mathrm{Co}_{1}(f)=\langle (n+1,0,1),(0,n+1,1)\rangle",
+        ] {
+            page.text_items.push(TextItem {
+                text: latex.into(),
+                font_name: None,
+                math: true,
+                ..Default::default()
+            });
+        }
+        assert!(matches!(garbled_scope(&page), GarbledScope::None));
+        assert!(!page_is_garbled(&page));
+    }
+
     /// Items with no font name still fall back to the page-wide verdict.
     #[test]
     fn test_garbled_scope_without_font_names() {
@@ -3574,6 +3648,169 @@ mod tests {
             },
             dpi: 72.0,
         }
+    }
+
+    fn merge_outcome(page_number: usize, error: Option<&str>) -> PageOcrOutcome {
+        PageOcrOutcome {
+            page_number,
+            dpi: 144.0,
+            has_native_text: false,
+            image_rects: Vec::new(),
+            replace_native: false,
+            results: if error.is_some() {
+                Vec::new()
+            } else {
+                vec![OcrResult {
+                    text: format!("page {page_number}"),
+                    bbox: [10.0, 120.0, 60.0, 140.0],
+                    confidence: 0.9,
+                    polygon: None,
+                    words: Vec::new(),
+                    rotation: None,
+                }]
+            },
+            error: error.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn test_incremental_merge_matches_batch_and_updates_pages_at_once() {
+        let mut incremental = vec![make_native_text_page(1), make_blank_page(2)];
+        let mut batch = incremental.clone();
+        let outcomes = vec![merge_outcome(2, None), merge_outcome(1, None)];
+        merge_ocr_results(&mut batch, outcomes.clone(), true, true).unwrap();
+
+        let mut state = OcrMergeState::default();
+        state
+            .merge(&mut incremental[1..], vec![outcomes[0].clone()], true)
+            .unwrap();
+        assert_eq!(incremental[0].text_items.len(), 1);
+        assert_eq!(incremental[1].text_items[0].text, "page 2");
+        assert_eq!(incremental[1].text_items[0].y, 60.0);
+        assert_eq!(incremental[1].text_items[0].words.len(), 1);
+        state
+            .merge(&mut incremental[..1], vec![outcomes[1].clone()], true)
+            .unwrap();
+        state.finish(true).unwrap();
+        assert_eq!(
+            serde_json::to_value(incremental).unwrap(),
+            serde_json::to_value(batch).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_incremental_error_cause_matches_batch_merge_order() {
+        for order in [[1, 2], [2, 1]] {
+            for incremental in [true, false] {
+                let mut pages = [make_blank_page(1), make_blank_page(2)];
+                let outcomes: Vec<_> = order
+                    .into_iter()
+                    .map(|page| {
+                        merge_outcome(
+                            page,
+                            Some(if page == 1 {
+                                "first page failure"
+                            } else {
+                                "second page failure"
+                            }),
+                        )
+                    })
+                    .collect();
+                let result = if incremental {
+                    let mut state = OcrMergeState::default();
+                    for outcome in outcomes {
+                        state.merge(&mut pages, vec![outcome], false).unwrap();
+                    }
+                    state.finish(true)
+                } else {
+                    merge_ocr_results(&mut pages, outcomes, true, false)
+                };
+                assert_eq!(
+                    result.unwrap_err().to_string(),
+                    format!(
+                        "OCR failed: OCR failed for all 2 page(s): {} page failure",
+                        if order[0] == 1 { "first" } else { "second" }
+                    )
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_incremental_merge_keeps_document_failure_policy() {
+        for errors in [[true, true], [true, false], [false, true], [false, false]] {
+            for fatal in [true, false] {
+                let mut pages = [make_blank_page(1), make_blank_page(2)];
+                let mut state = OcrMergeState::default();
+                for (index, failed) in errors.into_iter().enumerate() {
+                    state
+                        .merge(
+                            &mut pages[index..=index],
+                            vec![merge_outcome(
+                                index + 1,
+                                failed.then_some("test OCR failure"),
+                            )],
+                            false,
+                        )
+                        .unwrap();
+                }
+                let result = state.finish(fatal);
+                assert_eq!(
+                    result.is_err(),
+                    fatal && errors.iter().all(|failed| *failed)
+                );
+                if let Err(error) = result {
+                    assert!(
+                        error
+                            .to_string()
+                            .contains("OCR failed for all 2 page(s): test OCR failure")
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_incremental_merge_empty_success_is_not_failure() {
+        let mut pages = [make_blank_page(1), make_blank_page(2)];
+        let mut state = OcrMergeState::default();
+        state
+            .merge(
+                &mut pages[..1],
+                vec![merge_outcome(1, Some("failed"))],
+                false,
+            )
+            .unwrap();
+        let mut empty = merge_outcome(2, None);
+        empty.results.clear();
+        state.merge(&mut pages[1..], vec![empty], false).unwrap();
+        state.finish(true).unwrap();
+        OcrMergeState::default().finish(true).unwrap();
+    }
+
+    #[test]
+    fn test_incremental_merge_preserves_native_text_on_failure() {
+        let mut pages = vec![make_native_text_page(1)];
+        let before = serde_json::to_value(&pages).unwrap();
+        let mut state = OcrMergeState::default();
+        state
+            .merge(&mut pages, vec![merge_outcome(1, Some("failed"))], false)
+            .unwrap();
+        state.finish(true).unwrap();
+        assert_eq!(serde_json::to_value(&pages).unwrap(), before);
+    }
+
+    #[test]
+    fn test_incremental_merge_rejects_unknown_page() {
+        let mut state = OcrMergeState::default();
+        let error = state
+            .merge(
+                &mut [make_blank_page(1)],
+                vec![merge_outcome(2, None)],
+                false,
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("no matching page"));
     }
 
     /// The pre-split entry point, kept for these tests: recognition followed

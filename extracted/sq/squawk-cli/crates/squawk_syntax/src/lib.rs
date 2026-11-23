@@ -27,8 +27,10 @@
 pub mod ast;
 pub mod body;
 pub mod column_name;
+pub mod comments;
 pub mod decoded_text;
 mod generated;
+pub mod identifier;
 mod parsing;
 pub mod plpgsql;
 mod ptr;
@@ -48,7 +50,7 @@ pub use squawk_parser::SyntaxKind;
 
 use ast::AstNode;
 pub use ptr::{AstPtr, SyntaxNodePtr};
-use rowan::GreenNode;
+use squawk_rowan::GreenNode;
 use syntax_error::SyntaxError;
 pub use syntax_node::{SyntaxElement, SyntaxNode, SyntaxToken};
 
@@ -192,7 +194,7 @@ macro_rules! match_ast {
 #[test]
 fn api_walkthrough() {
     use ast::SourceFile;
-    use rowan::{Direction, NodeOrToken, SyntaxText, TextRange, WalkEvent};
+    use squawk_rowan::{Direction, NodeOrToken, SyntaxText, TextRange, WalkEvent};
     use std::fmt::Write;
 
     let source_code = "
@@ -209,7 +211,7 @@ fn api_walkthrough() {
     assert!(parse.errors().is_empty());
 
     // The `tree` method returns an owned syntax node of type `SourceFile`.
-    // Owned nodes are cheap: inside, they are `Rc` handles to the underling data.
+    // Owned nodes are cheap: inside, they are `Rc` handles to the underlying data.
     let file: SourceFile = parse.tree();
 
     // `SourceFile` is the root of the syntax tree. We can iterate file's items.
@@ -283,7 +285,7 @@ fn api_walkthrough() {
         None => unreachable!(),
     };
 
-    // The two properties each syntax node has is a `SyntaxKind`:
+    // Each syntax node has two properties: a `SyntaxKind`:
     assert_eq!(func_option_syntax.kind(), SyntaxKind::AS_FUNC_OPTION);
 
     // And text range:
@@ -377,7 +379,7 @@ fn api_walkthrough() {
     // 2. use descendants and `AstNode::cast`.
     // 3. use descendants and `match_ast!`.
     //
-    // Here's how the first one looks like:
+    // Here's what the first one looks like:
     let exprs_cast: Vec<String> = file
         .syntax()
         .descendants()

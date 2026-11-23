@@ -9,20 +9,19 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 """
 
 import inspect
+import os
 import types
 import warnings
 from dataclasses import dataclass, field, is_dataclass
 from enum import Enum
-from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
-
-if TYPE_CHECKING:
-    pass
+from functools import cached_property, wraps
+from typing import Any, Callable, Optional, Union
 
 from deprecate._frames import _caller_stacklevel
 from deprecate._types import DeprecationConfig, TargetMode, _has_deprecation_meta, get_deprecation_config
 from deprecate.deprecation import deprecated
 from deprecate.proxy import _DeprecatedProxy
+from deprecate.proxy.core import _static_type_view
 from deprecate.utils import get_func_arguments_types_defaults
 
 
@@ -30,8 +29,9 @@ class ChainType(Enum):
     """Type of deprecation chain detected by :func:`~deprecate.audit.validate_deprecation_chains`.
 
     Attributes:
-        TARGET: The ``target`` argument is itself a callable decorated with :func:`~deprecate.deprecated`
-            (a forwarding chain). Fix by pointing directly to the final non-deprecated target.
+        TARGET: The ``target`` argument is itself deprecated — a callable decorated with :func:`~deprecate.deprecated`
+            or a deprecated proxy, including a :func:`~deprecate.proxy.deprecated_instance` data object (a forwarding
+            chain). Fix by pointing directly to the final non-deprecated target.
         STACKED: Arg mappings chain and must be composed/collapsed. Two sub-cases:
             (a) Callable ``target`` is itself ``@deprecated(True, args_mapping=...)`` — the
             caller's mapping feeds into the target's self-renaming, so both hops must be
@@ -43,6 +43,30 @@ class ChainType(Enum):
 
     TARGET = "target"
     STACKED = "stacked"
+
+
+class _ApiType(str, Enum):
+    """Closed set of :attr:`DeprecationWrapperInfo.api_type` labels, one per deprecated API shape.
+
+    Internal: classifiers and comparisons use the members, while the public field holds the plain string value.
+
+    """
+
+    CALLABLE = "callable"
+    ARGS = "args"
+    CLASS = "class"
+    DATACLASS = "dataclass"
+    DATACLASS_ATTRIBUTES = "dataclass attributes"
+    DATA = "data"
+    MODULE = "module"
+    CLASS_CONSTRUCTOR = "class constructor"
+    CLASS_CONSTRUCTOR_ARGS = "class constructor args"
+    CLASS_METHOD = "class method"
+    CLASS_METHOD_ARGS = "class method args"
+    CLASSMETHOD = "classmethod"
+    CLASSMETHOD_ARGS = "classmethod args"
+    STATICMETHOD = "staticmethod"
+    STATICMETHOD_ARGS = "staticmethod args"
 
 
 @dataclass(frozen=True)
@@ -70,17 +94,19 @@ class DeprecationWrapperInfo:
             (:attr:`~deprecate.audit.ChainType.TARGET` or :attr:`~deprecate.audit.ChainType.STACKED`).
         misconfigured_target: True when the wrapper has an invalid target configuration:
             ``target=False``, :attr:`~deprecate._types.TargetMode.NOTIFY` with ``args_mapping``, ``args_extra``
-            or ``attrs_mapping``, or :attr:`~deprecate._types.TargetMode.ARGS_REMAP` with empty ``args_mapping``.
+            or ``attrs_mapping``, :attr:`~deprecate._types.TargetMode.ARGS_REMAP` with empty ``args_mapping``, or
+            ``args_mapping``/``args_extra`` on a served object that is not callable
+            (:attr:`~deprecate._types.DeprecationConfig.call_options_inert`).
         empty_deprecated_in: True when ``deprecated_in`` is empty. Missing ``remove_in`` alone is a valid use case
             (many libraries deprecate without a scheduled removal date), so only the absence of ``deprecated_in``
             is treated as a misconfiguration signal. CI pipelines can filter on this field to surface wrappers
             that lack the introductory version metadata without crashing callers.
         api_type: Inferred deprecated API type for report generation.
             Possible values: ``callable``, ``args``, ``class``, ``dataclass``, ``dataclass attributes``,
-            ``data``, ``class constructor``, ``class constructor args``, ``class method``, ``class method args``,
-            ``classmethod``, ``classmethod args``, ``staticmethod``, ``staticmethod args``. A row for an object
-            deprecated only with ``warnings.deprecated``/``typing_extensions.deprecated`` gets the same shape
-            classification; ``pep702_message`` marks it.
+            ``data``, ``module``, ``class constructor``, ``class constructor args``, ``class method``,
+            ``class method args``, ``classmethod``, ``classmethod args``, ``staticmethod``, ``staticmethod args``.
+            A row for an object deprecated only with ``warnings.deprecated``/``typing_extensions.deprecated`` gets the
+            same shape classification; ``pep702_message`` marks it.
         args_mapping_auto_expanded: ``args_mapping`` keys that were automatically copied from ``attrs_mapping``
             by the dataclass dual-surface expansion at decoration time.  Empty list when no auto-expansion
             occurred.  Read from :attr:`~deprecate._types.DeprecationConfig.args_mapping_auto_expanded`.
@@ -101,6 +127,13 @@ class DeprecationWrapperInfo:
             deprecated only with ``warnings.deprecated``/``typing_extensions.deprecated``, the message that decorator
             recorded on ``__deprecated__`` — a string, possibly empty. It is the only metadata such an object carries,
             so ``deprecated_info`` holds no versions or target and ``empty_deprecated_in`` is ``True``.
+        source_file: Absolute path of the file that defines the deprecated object, or ``None`` when it has none: a
+            :func:`~deprecate.proxy.deprecated_instance` data object, a class built at runtime (a functional ``Enum``
+            or a ``type()`` call), or a function compiled from a string. A class built by ``exec`` in a namespace named
+            after a real module may be attributed to that module's file (Python 3.13+). For a deprecated module it is
+            the module's file.
+        source_line: First line of the definition — the line of its first decorator — or ``None`` with no
+            ``source_file`` and for a deprecated module. Neither field takes part in equality or ``repr``.
 
     Example:
         >>> info = DeprecationWrapperInfo(
@@ -134,10 +167,16 @@ class DeprecationWrapperInfo:
     args_mapping_positional_only: list[str] = field(default_factory=list)
     inner_order_property: bool = False
     pep702_message: Optional[str] = field(repr=False, default=None)
+    source_file: Optional[str] = field(default=None, repr=False, compare=False)
+    source_line: Optional[int] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Derive ``empty_deprecated_in`` from ``deprecated_info`` to keep them in sync."""
+        """Derive ``empty_deprecated_in`` from ``deprecated_info`` and keep ``api_type`` a plain string."""
         object.__setattr__(self, "empty_deprecated_in", not self.deprecated_info.deprecated_in)
+        # The classifiers hand over an ``_ApiType`` member; the public field stays a plain ``str`` so ``str()`` and
+        # f-strings render the label, not the member name (a ``str`` mixin enum formats as ``_ApiType.X`` on 3.11+).
+        if isinstance(self.api_type, _ApiType):
+            object.__setattr__(self, "api_type", self.api_type.value)
 
     # Wrapped with pyDeprecate's own decorator (outer order) so the expiry audit of this package lists both
     # aliases and flags them once v1.0 is the current version; `num_warns=-1` keeps a warning on every read.
@@ -195,7 +234,7 @@ class DeprecationWrapperInfo:
 # Backward-compatible constructor shim for DeprecationWrapperInfo
 #
 # ``empty_mapping`` and ``identity_mapping`` were renamed to
-# ``empty_args_mapping`` / ``identity_args_mapping`` in 0.8.  The
+# ``empty_args_mapping`` / ``identity_args_mapping`` in v0.8.  The
 # ``@property`` aliases above cover attribute *reads*; this shim patches
 # ``__init__`` so old keyword arguments emit ``DeprecationWarning`` and are
 # redirected to the new names rather than raising ``TypeError``.
@@ -247,10 +286,14 @@ def _detect_chain_type(
 ) -> Optional[ChainType]:
     """Return the chain type when target or attrs_mapping forms a deprecation chain, else None."""
     chain_type: Optional[ChainType] = None
-    target_config = get_deprecation_config(target) if callable(target) else None
+    # A deprecated ``deprecated_instance`` data object is a chain link too, although it is not callable.
+    target_config = get_deprecation_config(target) if callable(target) or isinstance(target, _DeprecatedProxy) else None
     if target_config is not None:
         wrp_depr_tgt = target_config.target
-        chain_type = ChainType.STACKED if wrp_depr_tgt is TargetMode.ARGS_REMAP else ChainType.TARGET
+        # Stacking composes call-time renames, so it needs a target that is called: a data object whose own config
+        # reads ``ARGS_REMAP`` holds an inert ``args_mapping`` and only forwards access, a plain ``TARGET`` link.
+        is_stacked = wrp_depr_tgt is TargetMode.ARGS_REMAP and callable(target)
+        chain_type = ChainType.STACKED if is_stacked else ChainType.TARGET
     elif _is_args_remap:
         wrapped = getattr(func, "__wrapped__", None)
         # ``target`` is always a ``TargetMode`` (or callable/None) after normalization — the legacy
@@ -271,7 +314,19 @@ def _validate_args_mapping(
     func: Callable,
     args_mapping: Optional[dict[str, Optional[str]]],
 ) -> tuple[list[str], list[str], bool]:
-    """Return (invalid_args, identity_args_mapping, all_identity) for the given mapping."""
+    """Return (invalid_args, identity_args_mapping, all_identity) for the given mapping.
+
+    ``invalid_args`` are mapped names the function's signature does not have (never checked for a proxy), and
+    ``identity_args_mapping`` the entries that map a name to itself.
+
+    Examples:
+        >>> def old(a, b): ...
+        >>> _validate_args_mapping(old, {"a": "a", "x": "b"})
+        (['x'], ['a'], False)
+        >>> _validate_args_mapping(old, None)
+        ([], [], False)
+
+    """
     if not args_mapping:
         return [], [], False
     if isinstance(func, _DeprecatedProxy):
@@ -282,6 +337,85 @@ def _validate_args_mapping(
     identity_args_mapping = [arg for arg, val in args_mapping.items() if arg == val]
     all_identity = len(identity_args_mapping) == len(args_mapping) > 0
     return invalid_args, identity_args_mapping, all_identity
+
+
+def _definition_of(obj: Any) -> Any:  # noqa: ANN401
+    """Return the class or function whose source defines the deprecated *obj*, or ``None`` when there is none.
+
+    Examples:
+        >>> def old(): ...
+        >>> _definition_of(staticmethod(old)) is old, _definition_of(property(old)) is old
+        (True, True)
+        >>> _definition_of(len) is None
+        True
+
+    """
+    if isinstance(obj, _DeprecatedProxy):
+        # a `deprecated_class` proxy is defined by its class, which lies beneath any further proxy stacked over it; a
+        # `deprecated_instance` object, callable or not, is bound by an assignment that nothing records, so the
+        # function it wraps is not where it was deprecated
+        source: Any = obj
+        while isinstance(source, _DeprecatedProxy):
+            source = source.wrapped
+        return source if inspect.isclass(source) else None
+    target: Any = obj
+    if isinstance(target, property):
+        target = target.fget
+    elif isinstance(target, cached_property):
+        target = target.func
+    if isinstance(target, (classmethod, staticmethod)):
+        target = target.__func__
+    if inspect.isclass(target):
+        return target
+    # `__wrapped__` leads out of an outer decorator (``functools.lru_cache``, ``functools.wraps``) to the function it
+    # wraps, but stops at a proxy: reading through a `deprecated_instance` proxy would reach the object behind it
+    unwrapped = inspect.unwrap(target, stop=lambda wrapper: isinstance(wrapper, _DeprecatedProxy))
+    if isinstance(unwrapped, _DeprecatedProxy):
+        return _definition_of(unwrapped)
+    # only Python-level source (a function, method or class) can be located; a builtin or other callable has none
+    if inspect.isfunction(unwrapped) or inspect.ismethod(unwrapped) or inspect.isclass(unwrapped):
+        return unwrapped
+    return None
+
+
+def _source_location(obj: Any) -> tuple[Optional[str], Optional[int]]:  # noqa: ANN401
+    """Return the absolute file and first line that define the deprecated *obj*; never raises.
+
+    A function's line is ``co_firstlineno`` of the undecorated function, which is the line of its first decorator;
+    ``__wrapped__`` leads there, also from behind an outer decorator such as :func:`functools.lru_cache`. A
+    class (also behind a :func:`~deprecate.proxy.deprecated_class` proxy) uses its own ``__firstlineno__`` where Python
+    sets it (3.13+) and :func:`inspect.getsourcelines` before. A :func:`~deprecate.proxy.deprecated_instance` object, a
+    class built at runtime (a functional ``Enum`` or a ``type()`` call), a function compiled from a string
+    (``<string>``) and anything :mod:`inspect` cannot place give ``(None, None)``. A class built by ``exec`` in a
+    namespace named after a real module is placed by that module's file instead (Python 3.13+): its own
+    ``__firstlineno__`` and ``__module__`` are all the lookup reads.
+
+    Examples:
+        >>> path, line = _source_location(_source_location)
+        >>> path.endswith("_wrappers.py"), line > 0
+        (True, True)
+        >>> _source_location(object())
+        (None, None)
+
+    """
+    try:
+        definition = _definition_of(obj)
+        if inspect.isclass(definition):
+            file_name = inspect.getsourcefile(definition)
+            # the class's own attribute only: an inherited one (Python 3.13+ sets it per ``class`` statement) belongs to
+            # a base, so a functional ``Enum`` or a ``type()`` call would be placed at its base's file and line
+            line = vars(definition).get("__firstlineno__") or inspect.getsourcelines(definition)[1]
+        elif definition is not None and hasattr(definition, "__code__"):
+            file_name, line = definition.__code__.co_filename, definition.__code__.co_firstlineno
+        else:
+            return None, None
+    except Exception:
+        # the location is optional metadata: whatever `inspect` or a hostile class raises (an unreadable or edited
+        # source file, a metaclass that refuses an attribute), it must never fail the audit that asked for it
+        return None, None
+    if not file_name or file_name.startswith("<"):
+        return None, None
+    return os.path.abspath(file_name), line
 
 
 def _scan_module_meta(mod: Any) -> DeprecationWrapperInfo:  # noqa: ANN401
@@ -309,6 +443,7 @@ def _scan_module_meta(mod: Any) -> DeprecationWrapperInfo:  # noqa: ANN401
     # and may trigger the module's own __getattr__ before __spec__ is in __dict__.
     _raw_name = mod.__dict__.get("__name__")
     mod_name: str = _raw_name if _raw_name is not None else str(mod)
+    module_file = mod.__dict__.get("__file__")
     # A module has no callable name — its identity lives entirely in ``module``. Leave ``function``
     # empty (never a ``"(module)"`` sentinel): ``_format_report_symbol`` then renders just the module
     # name, and ``_subject_noun`` picks the ``Module`` noun from ``api_type``, so no ``(module)`` label
@@ -325,12 +460,15 @@ def _scan_module_meta(mod: Any) -> DeprecationWrapperInfo:  # noqa: ANN401
         misconfigured_target=False,
         all_identity=False,
         chain_type=None,
-        api_type="module",
+        api_type=_ApiType.MODULE,
         args_mapping_auto_expanded=[],
         args_mapping_positional_only=[],
+        source_file=os.path.abspath(module_file) if isinstance(module_file, str) else None,
     )
 
 
+# Validation only inspects the wrapper, so its type checks must not run a user's ``skip_if`` condition.
+@_static_type_view
 def validate_deprecation_wrapper(func: Union[Callable, types.ModuleType]) -> DeprecationWrapperInfo:
     """Validate a deprecated callable or module wrapper and return structured metadata.
 
@@ -451,6 +589,7 @@ def validate_deprecation_wrapper(func: Union[Callable, types.ModuleType]) -> Dep
     )
 
     function = dep_info.name or getattr(func, "__name__", str(func))
+    source_file, source_line = _source_location(func)
 
     return DeprecationWrapperInfo(
         function=function,
@@ -465,6 +604,8 @@ def validate_deprecation_wrapper(func: Union[Callable, types.ModuleType]) -> Dep
         chain_type=chain_type,
         args_mapping_auto_expanded=list(getattr(dep_info, "args_mapping_auto_expanded", ())),
         args_mapping_positional_only=list(getattr(dep_info, "args_mapping_positional_only", ())),
+        source_file=source_file,
+        source_line=source_line,
     )
 
 
@@ -476,6 +617,12 @@ def _format_report_symbol(info: DeprecationWrapperInfo) -> str:
     an empty ``function`` (or an empty ``module``) so the rendered label is always clean — e.g.
     ``tests.collections.modules.old_math`` for a deprecated module, never ``...old_math.`` or ``...(module)``.
 
+    Examples:
+        >>> _format_report_symbol(DeprecationWrapperInfo(module="pkg", function="Old.method"))
+        'pkg.Old.method'
+        >>> _format_report_symbol(DeprecationWrapperInfo(module="pkg", function=""))
+        'pkg'
+
     """
     if info.module and info.function:
         return f"{info.module}.{info.function}"
@@ -483,7 +630,7 @@ def _format_report_symbol(info: DeprecationWrapperInfo) -> str:
 
 
 #: Subject noun per ``api_type`` for wrappers that are not callables; every other kind reads as *Callable*.
-_SUBJECT_NOUNS = {"module": "Module", "data": "Instance"}
+_SUBJECT_NOUNS: dict[str, str] = {_ApiType.MODULE: "Module", _ApiType.DATA: "Instance"}
 
 
 def _subject_noun(info: DeprecationWrapperInfo) -> str:
@@ -492,6 +639,12 @@ def _subject_noun(info: DeprecationWrapperInfo) -> str:
     Centralises noun selection so error and report text says *Module* for a deprecated module, *Instance* for a
     :func:`~deprecate.proxy.deprecated_instance` proxy (``api_type="data"`` -- the wrapped object is not called), and
     *Callable* for everything else, instead of inlining ``info.function`` (which is empty for modules).
+
+    Examples:
+        >>> _subject_noun(DeprecationWrapperInfo(module="pkg", function="old"))
+        'Callable'
+        >>> _subject_noun(DeprecationWrapperInfo(module="pkg", function="", api_type=_ApiType.MODULE.value))
+        'Module'
 
     """
     return _SUBJECT_NOUNS.get(info.api_type, "Callable")
@@ -506,19 +659,56 @@ def _format_subject(info: DeprecationWrapperInfo) -> str:
     no expiry site inlines ``info.function`` directly, so an empty or sentinel module label can never leak into the
     text.
 
+    Examples:
+        >>> _format_subject(DeprecationWrapperInfo(module="pkg", function="old"))
+        'Callable `pkg.old`'
+
     """
     return f"{_subject_noun(info)} `{_format_report_symbol(info)}`"
 
 
-def _classify_member_api_type(member_name: str, descriptor_kind: Optional[str], has_mapping: bool) -> str:
-    """Classify the API type for a deprecated class member (method, constructor, descriptor)."""
-    if member_name == "__init__":
-        return "class constructor args" if has_mapping else "class constructor"
-    if descriptor_kind == "classmethod":
-        return "classmethod args" if has_mapping else "classmethod"
-    if descriptor_kind == "staticmethod":
-        return "staticmethod args" if has_mapping else "staticmethod"
-    return "class method args" if has_mapping else "class method"
+#: Class-member ``api_type`` labels per member kind, as ``(plain, with args_mapping)``; a constructor is keyed by
+#: ``"__init__"``, any other member by its descriptor kind, and an unlisted kind is a plain method.
+_MEMBER_API_TYPES: dict[Optional[str], tuple[_ApiType, _ApiType]] = {
+    "__init__": (_ApiType.CLASS_CONSTRUCTOR, _ApiType.CLASS_CONSTRUCTOR_ARGS),
+    "classmethod": (_ApiType.CLASSMETHOD, _ApiType.CLASSMETHOD_ARGS),
+    "staticmethod": (_ApiType.STATICMETHOD, _ApiType.STATICMETHOD_ARGS),
+}
+_METHOD_API_TYPES = (_ApiType.CLASS_METHOD, _ApiType.CLASS_METHOD_ARGS)
+
+
+def _classify_member_api_type(member_name: str, descriptor_kind: Optional[str], has_mapping: bool) -> _ApiType:
+    """Classify the API type for a deprecated class member (method, constructor, descriptor).
+
+    Examples:
+        >>> _classify_member_api_type("__init__", None, False).value
+        'class constructor'
+        >>> _classify_member_api_type("create", "classmethod", True).value
+        'classmethod args'
+        >>> _classify_member_api_type("run", None, False).value
+        'class method'
+
+    """
+    member_kind = "__init__" if member_name == "__init__" else descriptor_kind
+    plain, mapped = _MEMBER_API_TYPES.get(member_kind, _METHOD_API_TYPES)
+    return mapped if has_mapping else plain
+
+
+def _classify_class_api_type(cls: type, has_mapping: bool) -> _ApiType:
+    """Classify a deprecated class: a dataclass (its attributes when remapped) or any other class.
+
+    Examples:
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Point:
+        ...     x: int
+        >>> _classify_class_api_type(Point, False).value, _classify_class_api_type(dict, False).value
+        ('dataclass', 'class')
+
+    """
+    if is_dataclass(cls):
+        return _ApiType.DATACLASS_ATTRIBUTES if has_mapping else _ApiType.DATACLASS
+    return _ApiType.CLASS
 
 
 def _classify_wrapper_api_type(
@@ -527,7 +717,7 @@ def _classify_wrapper_api_type(
     *,
     member_name: Optional[str] = None,
     descriptor_kind: Optional[str] = None,
-) -> str:
+) -> _ApiType:
     """Classify wrapper kind for markdown report rows."""
     has_mapping = bool(info.deprecated_info.args_mapping)
 
@@ -535,23 +725,15 @@ def _classify_wrapper_api_type(
         return _classify_member_api_type(member_name, descriptor_kind, has_mapping)
 
     if inspect.ismodule(wrapped_obj):
-        return "module"
+        return _ApiType.MODULE
 
     if isinstance(wrapped_obj, _DeprecatedProxy):
         while isinstance(wrapped_obj, _DeprecatedProxy):
             wrapped_obj = wrapped_obj.wrapped
-        if inspect.isclass(wrapped_obj):
-            if is_dataclass(wrapped_obj):
-                return "dataclass attributes" if has_mapping else "dataclass"
-            return "class"
-        return "data"
+        # a proxy around a class reads as that class; around anything else it is a deprecated data instance
+        return _classify_class_api_type(wrapped_obj, has_mapping) if inspect.isclass(wrapped_obj) else _ApiType.DATA
 
     if inspect.isclass(wrapped_obj):
-        if is_dataclass(wrapped_obj):
-            return "dataclass attributes" if has_mapping else "dataclass"
-        return "class"
+        return _classify_class_api_type(wrapped_obj, has_mapping)
 
-    if has_mapping:
-        return "args"
-
-    return "callable"
+    return _ApiType.ARGS if has_mapping else _ApiType.CALLABLE

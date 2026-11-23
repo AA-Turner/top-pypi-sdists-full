@@ -1,17 +1,14 @@
 use crate::{Linter, Rule, Violation};
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_syntax::ast::{self, AstNode};
 
-pub(crate) fn ban_set_default(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    for stmt in parse.tree().stmts() {
+pub(crate) fn ban_set_default(ctx: &mut Linter, file: &ast::SourceFile) {
+    for stmt in file.stmts() {
         if let ast::Stmt::AlterDomain(domain) = &stmt
             && let Some(ast::AlterDomainAction::SetDefault(node)) = domain.action()
         {
             ctx.report(Violation::for_node(
                 Rule::BanSetDefault,
-                "setting a column default may silently change values written by existing clients"
+                "setting a domain default may silently change values written by existing clients"
                     .into(),
                 node.syntax(),
             ));
@@ -61,5 +58,16 @@ mod test {
             "ALTER TABLE t ALTER COLUMN c DROP DEFAULT;",
             Rule::BanSetDefault,
         );
+    }
+
+    #[test]
+    fn domain_err() {
+        let sql = "alter domain d set default 1;";
+        assert_snapshot!(lint_errors(sql, Rule::BanSetDefault), @"
+        warning[ban-set-default]: setting a domain default may silently change values written by existing clients
+          ╭▸ 
+        1 │ alter domain d set default 1;
+          ╰╴               ━━━━━━━━━━━━━
+        ");
     }
 }

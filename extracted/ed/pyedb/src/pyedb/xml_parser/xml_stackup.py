@@ -35,15 +35,37 @@ SurfaceOption = Literal["all", "top", "bottom", "side"]
 class XmlMaterialProperty(BaseModel):
     """Represents a material property value in the XML stackup.
 
+    A property is either a constant (``<Double>``) or an equation (``<Equation>``). Equations can
+    depend on the frequency with the ``Freq`` variable, expressed in Hz.
+
     Parameters
     ----------
     value : float, optional
         Numerical value of the material property. The default is ``None``.
+    equation : str, optional
+        Equation defining the material property, for instance a frequency dependent permittivity.
+        The default is ``None``.
     """
 
     value: float | None = Field(None, alias="Double")
+    equation: str | None = Field(None, alias="Equation")
 
     model_config = dict(populate_by_name=True)
+
+    @classmethod
+    def from_value(cls, value: "float | str") -> "XmlMaterialProperty":
+        """Create a property from a number, a numeric string or an equation string."""
+        if isinstance(value, str):
+            try:
+                return cls(value=float(value))
+            except ValueError:
+                return cls(equation=value.strip())
+        return cls(value=value)
+
+    @property
+    def content(self) -> "float | str | None":
+        """Constant value when defined, otherwise the equation."""
+        return self.value if self.value is not None else self.equation
 
 
 class XmlMaterial(BaseModel):
@@ -197,10 +219,11 @@ class XmlMaterials(BaseModel):
         ----------
         name : str
             Name of the material.
-        **kwargs : float
+        **kwargs : float or str
             Material properties as keyword arguments. Supported properties include
             ``permittivity``, ``permeability``, ``conductivity``,
-            ``dielectric_loss_tangent``, and ``magnetic_loss_tangent``.
+            ``dielectric_loss_tangent``, and ``magnetic_loss_tangent``. A string that is not a number
+            is stored as an equation, which can use the ``Freq`` variable (in Hz).
 
         Returns
         -------
@@ -213,10 +236,11 @@ class XmlMaterials(BaseModel):
         >>> materials = XmlMaterials()
         >>> copper = materials.add_material("copper", conductivity=5.8e7)
         >>> fr4 = materials.add_material("fr4", permittivity=4.5, dielectric_loss_tangent=0.02)
+        >>> dielectric = materials.add_material("ds", permittivity="4+0.1*ln((1e22+Freq*Freq)/(1e9+Freq*Freq))")
         """
         mat = XmlMaterial(
             **{"name": name},
-            **{p_name: XmlMaterialProperty(**{"value": p_value}) for p_name, p_value in kwargs.items()},
+            **{p_name: XmlMaterialProperty.from_value(p_value) for p_name, p_value in kwargs.items()},
         )
         self.material.append(mat)
         return mat
@@ -265,6 +289,84 @@ class XmlLayers(BaseModel):
         return layer
 
 
+class XmlELayer(BaseModel):
+    """Represents a dielectric or conductor layer in an EDB ELayers section."""
+
+    color: str | None = Field(None, alias="@Color")
+    material: str | None = Field(None, alias="@Material")
+    name: str = Field(alias="@Name")
+    thickness: str | float | None = Field(None, alias="@Thickness")
+    elevation: float | None = Field(None, alias="@Elevation")
+    target_layer: str | None = Field(None, alias="@TargetLayer")
+    type: str | None = Field(None, alias="@Type")
+
+    model_config = dict(populate_by_name=True)
+
+
+class XmlViaLayer(BaseModel):
+    """Represents a via layer in an EDB ELayers section."""
+
+    color: str | None = Field(None, alias="@Color")
+    material: str | None = Field(None, alias="@Material")
+    name: str = Field(alias="@Name")
+    target_layer: str | None = Field(None, alias="@TargetLayer")
+    start_layer: str | None = Field(None, alias="@StartLayer")
+    stop_layer: str | None = Field(None, alias="@StopLayer")
+
+    model_config = dict(populate_by_name=True)
+
+
+class XmlELayerGroup(BaseModel):
+    """Container for dielectric or conductor ELayers entries."""
+
+    layer: list[XmlELayer] = Field(default_factory=list, alias="Layer")
+
+    model_config = dict(populate_by_name=True)
+
+
+class XmlViaLayerGroup(BaseModel):
+    """Container for via ELayers entries."""
+
+    layer: list[XmlViaLayer] = Field(default_factory=list, alias="Layer")
+
+    model_config = dict(populate_by_name=True)
+
+
+class XmlELayers(BaseModel):
+    """Container for the extended layer stackup sections in EDB XML files."""
+
+    length_unit: str | None = Field(None, alias="@LengthUnit")
+    dielectrics: XmlELayerGroup | None = Field(None, alias="Dielectrics")
+    layers: XmlELayerGroup | None = Field(None, alias="Layers")
+    vias: XmlViaLayerGroup | None = Field(None, alias="Vias")
+
+    model_config = dict(populate_by_name=True)
+
+    def add_layer(self, **kwargs) -> XmlELayer:
+        """Add a conductor or other layer to the extended layers section."""
+        if self.layers is None:
+            self.layers = XmlELayerGroup()
+        layer = XmlELayer(**kwargs)
+        self.layers.layer.append(layer)
+        return layer
+
+    def add_via_layer(self, **kwargs) -> XmlViaLayer:
+        """Add a via layer to the extended vias section."""
+        if self.vias is None:
+            self.vias = XmlViaLayerGroup()
+        layer = XmlViaLayer(**kwargs)
+        self.vias.layer.append(layer)
+        return layer
+
+    def add_dielectric_layer(self, **kwargs) -> XmlELayer:
+        """Add a dielectric layer to the extended dielectrics section."""
+        if self.dielectrics is None:
+            self.dielectrics = XmlELayerGroup()
+        layer = XmlELayer(**kwargs)
+        self.dielectrics.layer.append(layer)
+        return layer
+
+
 class XmlStackup(BaseModel):
     """Main stackup configuration for EDB XML files.
 
@@ -290,6 +392,7 @@ class XmlStackup(BaseModel):
 
     materials: XmlMaterials | None = Field(None, alias="Materials")
     layers: XmlLayers | None = Field(None, alias="Layers")
+    e_layers: XmlELayers | None = Field(None, alias="ELayers")
     schema_version: str | None = Field(None, alias="schemaVersion")
 
     model_config = dict(populate_by_name=True)
@@ -331,6 +434,22 @@ class XmlStackup(BaseModel):
         self.layers = XmlLayers(length_unit=length_unit)
 
         return self.layers
+
+    def add_e_layers(self, length_unit="mm") -> XmlELayers:
+        """Add an extended layers container to the stackup.
+
+        Parameters
+        ----------
+        length_unit : str, optional
+            Unit for layer dimensions. The default is ``"mm"``.
+
+        Returns
+        -------
+        XmlELayers
+            The newly created extended layers object.
+        """
+        self.e_layers = XmlELayers(length_unit=length_unit)
+        return self.e_layers
 
     def import_from_cfg_stackup(self, cfg_stackup: "CfgStackup") -> None:
         """Import stackup configuration from a CFG stackup object.
@@ -384,6 +503,9 @@ class XmlStackup(BaseModel):
             data as lists of dictionaries. Layer thicknesses are normalized to include
             units, and layer types are converted to lowercase format.
 
+            For extended layer stacks, dielectric and conductor layers are combined
+            under 'layers'; via definitions remain available on 'e_layers'.
+
         Examples
         --------
         >>> from pyedb.xml_parser.xml_stackup import XmlStackup
@@ -397,51 +519,78 @@ class XmlStackup(BaseModel):
         [{'name': 'copper', 'conductivity': 58000000.0}]
         """
         layer_data = []
-        unit = self.layers.length_unit
-        for lay in self.layers.layer:
-            layer_dict = lay.model_dump(exclude_none=True)
+        if self.layers is not None:
+            layer_groups = [(self.layers, None)]
+            unit = self.layers.length_unit
+        elif self.e_layers is not None:
+            layer_groups = [
+                (self.e_layers.dielectrics, "dielectric"),
+                (self.e_layers.layers, None),
+            ]
+            unit = self.e_layers.length_unit
+        else:
+            layer_groups = []
+            unit = None
 
-            # Hex color to tuple
-            color_str = layer_dict.get("color")
-            if color_str:
-                layer_dict["color"] = tuple(int(color_str[i : i + 2], 16) for i in (1, 3, 5))
+        for layer_group, default_type in layer_groups:
+            if layer_group is None:
+                continue
+            for lay in layer_group.layer or []:
+                layer_dict = lay.model_dump(exclude_none=True)
+                if default_type is not None:
+                    layer_dict.setdefault("type", default_type)
 
-            if not str(lay.thickness)[-1].isalpha():
-                layer_dict["thickness"] = f"{layer_dict['thickness']}{unit}"
-            # Correct type
-            layer_dict["type"] = "signal" if layer_dict["type"].lower() == "conductor" else layer_dict["type"].lower()
-            # Convert roughness
-            huray_top = layer_dict.pop("huray_surface_roughness", None)
-            huray_bottom = layer_dict.pop("huray_bottom_surface_roughness", None)
-            huray_side = layer_dict.pop("huray_side_surface_roughness", None)
-            groiss_top = layer_dict.pop("groiss_surface_roughness", None)
-            groiss_bottom = layer_dict.pop("groiss_bottom_surface_roughness", None)
-            groiss_side = layer_dict.pop("groiss_side_surface_roughness", None)
+                # Hex color to tuple
+                color_str = layer_dict.get("color")
+                if color_str:
+                    layer_dict["color"] = tuple(int(color_str[i : i + 2], 16) for i in (1, 3, 5))
 
-            if huray_top or huray_bottom or huray_side or groiss_top or groiss_bottom or groiss_side:
-                roughness = {"enabled": True}
-                if huray_top:
-                    roughness["top"] = huray_top
-                if huray_bottom:
-                    roughness["bottom"] = huray_bottom
-                if huray_side:
-                    roughness["side"] = huray_side
-                if groiss_top:
-                    roughness["top"] = groiss_top
-                if groiss_bottom:
-                    roughness["bottom"] = groiss_bottom
-                if groiss_side:
-                    roughness["side"] = groiss_side
-                layer_dict["roughness"] = roughness
+                if lay.thickness is not None and not str(lay.thickness)[-1].isalpha():
+                    layer_dict["thickness"] = f"{lay.thickness}{unit or ''}"
+                # Correct type
+                if layer_dict.get("type"):
+                    layer_dict["type"] = (
+                        "signal" if layer_dict["type"].lower() == "conductor" else layer_dict["type"].lower()
+                    )
+                # Convert roughness
+                huray_top = layer_dict.pop("huray_surface_roughness", None)
+                huray_bottom = layer_dict.pop("huray_bottom_surface_roughness", None)
+                huray_side = layer_dict.pop("huray_side_surface_roughness", None)
+                groiss_top = layer_dict.pop("groiss_surface_roughness", None)
+                groiss_bottom = layer_dict.pop("groiss_bottom_surface_roughness", None)
+                groiss_side = layer_dict.pop("groiss_side_surface_roughness", None)
 
-            layer_data.append(layer_dict)
+                if huray_top or huray_bottom or huray_side or groiss_top or groiss_bottom or groiss_side:
+                    roughness = {"enabled": True}
+                    if huray_top:
+                        roughness["top"] = huray_top
+                    if huray_bottom:
+                        roughness["bottom"] = huray_bottom
+                    if huray_side:
+                        roughness["side"] = huray_side
+                    if groiss_top:
+                        roughness["top"] = groiss_top
+                    if groiss_bottom:
+                        roughness["bottom"] = groiss_bottom
+                    if groiss_side:
+                        roughness["side"] = groiss_side
+                    layer_dict["roughness"] = roughness
+
+                if self.e_layers is not None:
+                    layer_dict = {
+                        key: value
+                        for key, value in layer_dict.items()
+                        if key in {"name", "type", "material", "fill_material", "thickness", "color", "roughness"}
+                    }
+
+                layer_data.append(layer_dict)
 
         material_data = []
-        for mat in self.materials.material:
+        for mat in self.materials.material if self.materials is not None else []:
             _mat = {}
             for key, value in mat.model_dump(exclude_none=True).items():
                 if isinstance(getattr(mat, key), XmlMaterialProperty):
-                    value = getattr(mat, key).value
+                    value = getattr(mat, key).content
                 _mat[key] = value
             material_data.append(_mat)
 

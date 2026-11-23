@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import cv2
@@ -14,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from albucore._types import TensorLayout
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64
 
 __all__ = [
     "TensorLayout",
@@ -23,11 +22,10 @@ __all__ = [
     "tensor_to_numpy_storage",
 ]
 
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
 _MIN_FLIP_PIXELS = 4096
+_HWC_DIMENSIONS = 3
 _OPENCV_INT_MAX = 2**31 - 1
 _OPENCV_COPY_DTYPES = frozenset(
     np.dtype(dtype) for dtype in (np.uint8, np.uint16, np.int16, np.int32, np.float16, np.float32)
@@ -236,9 +234,12 @@ def _split_channel_last(array: np.ndarray, shape: tuple[int, ...], *, batched: b
     reverse_rows = source.strides[-3] < 0
     reverse_cols = source.strides[-2] < 0
     source = source[..., :: -1 if reverse_rows else 1, :: -1 if reverse_cols else 1, :]
-    destinations = np.moveaxis(planes, 1 if batched else 0, -3)
-    for index in np.ndindex(source.shape[:-3]):
-        _write_channel_planes(source[index], list(destinations[index]), mapping)
+    if source.ndim == _HWC_DIMENSIONS:
+        _write_channel_planes(source, list(planes), mapping)
+    else:
+        destinations = np.moveaxis(planes, 1 if batched else 0, -3)
+        for index in np.ndindex(source.shape[:-3]):
+            _write_channel_planes(source[index], list(destinations[index]), mapping)
     if reverse_rows:
         for plane in planes.reshape(-1, *planes.shape[-2:]):
             cv2.flip(plane, -1 if reverse_cols else 0, dst=plane)
@@ -364,11 +365,7 @@ def dispatch_tensor_image(
             item_result = numpy_router(image_item, *item_args, **item_kwargs)
             batch_results.append(item_result)
         if len(batch_results) == 0:
-            result = numpy_router(image_view, *args, **kwargs)
-            if not isinstance(result, np.ndarray):
-                msg = "An image Tensor router must return an ndarray."
-                raise TypeError(msg)
-            return numpy_to_tensor_layout(result, layout)
+            return numpy_to_tensor_layout(numpy_router(image_view, *args, **kwargs), layout)
         if all(
             result is source
             or (
@@ -381,17 +378,11 @@ def dispatch_tensor_image(
             for result, source in zip(batch_results, batch_sources, strict=True)
         ):
             return image
-        if not all(isinstance(result, np.ndarray) for result in batch_results):
-            msg = "An image Tensor router must return ndarrays."
-            raise TypeError(msg)
         result = np.stack(batch_results)
     else:
         result = numpy_router(image_view, *args, **kwargs)
     if result is image_view:
         return image
-    if not isinstance(result, np.ndarray):
-        msg = "An image Tensor router must return an ndarray."
-        raise TypeError(msg)
     return numpy_to_tensor_layout(result, cast("TensorLayout", layout))
 
 

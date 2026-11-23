@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peewee-migrate
-Version: 2.3.0
+Version: 2.5.0
 Summary: Support for migrations in Peewee ORM
 Keywords: peewee,migrations,orm
 Author: Kirill Klenov
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Dist: peewee>=4.4
@@ -22,190 +23,272 @@ Requires-Dist: click
 Requires-Python: >=3.11, <4
 Project-URL: Homepage, https://github.com/klen/peewee_migrate
 Project-URL: Repository, https://github.com/klen/peewee_migrate
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
-Peewee Migrate
-##############
+# Peewee Migrate
 
-.. _description:
+A simple migration engine for [Peewee](http://docs.peewee-orm.com/en/latest) ORM.
 
-Peewee Migrate -- A simple migration engine for Peewee_ ORM
+[![Tests](https://github.com/klen/peewee_migrate/workflows/tests/badge.svg)](https://github.com/klen/peewee_migrate/actions/workflows/tests.yml)
+[![Release](https://github.com/klen/peewee_migrate/workflows/release/badge.svg)](https://github.com/klen/peewee_migrate/actions/workflows/release.yml)
+[![PyPI version](https://img.shields.io/pypi/v/peewee-migrate)](https://pypi.org/project/peewee-migrate/)
+[![Python versions](https://img.shields.io/pypi/pyversions/peewee-migrate)](https://pypi.org/project/peewee-migrate/)
 
-.. _badges:
+## Requirements
 
-.. image:: https://github.com/klen/peewee_migrate/workflows/tests/badge.svg
-    :target: https://github.com/klen/peewee_migrate/actions/workflows/tests.yml
-    :alt: Tests Status
+Peewee 4.4 or newer, Python 3.11 or newer.
 
-.. image:: https://github.com/klen/peewee_migrate/workflows/release/badge.svg
-    :target: https://github.com/klen/peewee_migrate/actions/workflows/release.yml
-    :alt: Build Status
+### Dependency note
 
-.. image:: https://img.shields.io/pypi/v/peewee-migrate
-    :target: https://pypi.org/project/peewee-migrate/
-    :alt: PYPI Version
+- For `Peewee<3.0` use `Peewee-Migrate==0.14.0`
+- For `Python 3.0-3.6` use `Peewee-Migrate==1.1.6`
+- For `Python 3.7` use `Peewee-Migrate==1.6.6`
+- For `Python 3.8, 3.9` use `Peewee-Migrate>=1.13.0`
+- For `Python 3.11+` use `Peewee-Migrate>=1.14+`
 
-.. image:: https://img.shields.io/pypi/pyversions/peewee-migrate
-    :target: https://pypi.org/project/peewee-migrate/
-    :alt: Python Versions
+## Installation
 
-.. _contents:
+```console
+pip install peewee-migrate
+```
 
-.. contents::
+## Command line
 
-.. _requirements:
+A migration is a plain Python file with a `migrate()` function. The router keeps
+track of applied migrations in a database table and runs each file in its own
+transaction. The command line is the usual way to drive it.
 
-Requirements
-=============
+Installation puts `pw_migrate` on the path, with `pw-migrate` as an alias.
+`python -m peewee_migrate` runs the same commands.
 
-- peewee >= 4.4
+```console
+$ pw_migrate --help
+Usage: pw_migrate [OPTIONS] COMMAND [ARGS]...
 
-Dependency Note
----------------
+  Migrate database with Peewee ORM.
 
-- For ``Peewee<3.0`` please use ``Peewee-Migrate==0.14.0``
-- For ``Python 3.0-3.6`` please use ``Peewee-Migrate==1.1.6``
-- For ``Python 3.7`` please use ``Peewee-Migrate==1.6.6``
-- For ``Python 3.8, 3.9`` please use ``Peewee-Migrate>=1.13.0``
-- For ``Python 3.11+`` please use ``Peewee-Migrate>=1.14+``
+Options:
+  --help  Show this message and exit.
 
-.. _installation:
+Commands:
+  create    Create a migration.
+  list      List migrations.
+  merge     Merge migrations into one.
+  migrate   Migrate database.
+  rollback  Rollback migrations.
+```
 
-Installation
-=============
+Every command takes the same connection options:
 
-**Peewee Migrate** should be installed using pip: ::
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--database URL` | none | Database to migrate, e.g. `postgresql://user:pass@host/db`, `sqlite:///app.db`, `mysql://user:pass@host/db`. Required unless `conf.py` provides `DATABASE`. |
+| `--directory PATH` | `migrations` | Where migration files live and are looked up. |
+| `--migratetable NAME` | `migratehistory` | Table that records applied migrations. |
+| `-v` | warnings only | Increase log verbosity: `-v` info, `-vv` debug, `-vvv` everything. |
 
-    pip install peewee-migrate
+A `conf.py` inside the migrations directory can set `DATABASE`, `SCHEMA`,
+`MIGRATE_TABLE`, `IGNORE` and `LOGGING_LEVEL`; those values win over the flags.
+See [The migrations directory](#the-migrations-directory).
 
-.. _usage:
+Run `pw_migrate COMMAND --help` for the exact options of one command.
 
-Usage
-=====
+### Creating a migration
 
-Do you want Flask_ integration? Look at Flask-PW_.
+```console
+$ pw_migrate create --database=sqlite:///app.db add_user
+$ ls migrations
+001_add_user.py
+```
 
-From shell
-----------
+The new file has an empty `migrate()` and `rollback()` for you to fill in. Add
+`--auto` to generate the operations from your models instead:
 
-Getting help: ::
+```console
+$ pw_migrate create --database=sqlite:///app.db --auto add_user
+$ pw_migrate create --database=sqlite:///app.db --auto --auto-source=myapp.models add_user
+$ pw_migrate create --database=sqlite:///app.db --auto --ignore=cache_entry add_user
+```
 
-    $ pw_migrate --help
+`--auto` replays the migrations applied so far, diffs that schema against the
+models it can import, and writes the resulting operations. With no
+`--auto-source`, the current directory is scanned recursively for packages;
+`--auto-source` points at one module path. Tables listed in `IGNORE` are skipped,
+and `--ignore` adds a name to that list; repeat it for several models. When there
+is nothing to change, no file is written and the command says `No changes found.`
 
-    Usage: pw_migrate [OPTIONS] COMMAND [ARGS]...
+### Applying migrations
 
-    Options:
-        --help  Show this message and exit.
+```console
+$ pw_migrate migrate --database=postgresql://user:pass@localhost/app
+Migrating app
+- [x] 001_add_user
+- [x] 002_add_email
+OK
+```
 
-    Commands:
-        create   Create migration.
-        migrate  Run migrations.
-        rollback Rollback migration.
+`--name NAME` stops after that migration, which has to be pending:
 
-Create migration: ::
+```console
+$ pw_migrate migrate --database=postgresql://user:pass@localhost/app --name=001_add_user
+```
 
-    $ pw_migrate create --help
+`--fake` writes the history rows without executing the migration SQL. Use it for
+a schema that already exists, so the files are not applied twice.
 
-    Usage: pw_migrate create [OPTIONS] NAME
+### Rolling back
 
-        Create migration.
+```console
+$ pw_migrate rollback --database=postgresql://user:pass@localhost/app
+$ pw_migrate rollback --database=postgresql://user:pass@localhost/app --count=3
+```
 
-    Options:
-        --auto                  FLAG  Scan sources and create db migrations automatically. Supports autodiscovery.
-        --auto-source           TEXT  Set to python module path for changes autoscan (e.g. 'package.models'). Current directory will be recursively scanned by default.
-        --database              TEXT  Database connection
-        --directory             TEXT  Directory where migrations are stored
-        -v, --verbose
-        --help                        Show this message and exit.
+The first undoes the last migration, the second the last three.
 
-Run migrations: ::
+Only `rollback()` from the migration file is executed, so a file without one is
+undone by dropping its history row alone. Asking for more migrations than are
+applied is an error, not a partial rollback.
 
-    $ pw_migrate migrate --help
+### Listing migrations
 
-    Usage: pw_migrate migrate [OPTIONS]
+```console
+$ pw_migrate list --database=postgresql://user:pass@localhost/app
+List of migrations:
 
-        Run migrations.
+- [x] 001_add_user
+- [ ] 002_add_email
 
-    Options:
-        --name TEXT       Select migration
-        --database TEXT   Database connection
-        --directory TEXT  Directory where migrations are stored
-        -v, --verbose
-        --help            Show this message and exit.
+Done: 1, Pending: 1
+```
 
-Rollback migrations: ::
+`[x]` is recorded in the history table, `[ ]` is still waiting on disk.
 
-    $ pw_migrate rollback --help
+### Merging migrations
 
-    Usage: pw_migrate rollback [OPTIONS]
+```console
+$ pw_migrate merge --database=postgresql://user:pass@localhost/app
+```
 
-        Rollback a migration with given steps --count of last migrations as integer number
+Squashes the whole history into one `001_initial.py` built from the current
+schema and drops the old files. The history table has to match the files, so run
+`migrate` first.
 
-    Options:
-        --count INTEGER   Number of last migrations to be rolled back.Ignored in
-                            case of non-empty name
+Do you want Flask integration? Look at [Flask-PW](https://github.com/klen/flask-pw).
 
-        --database TEXT   Database connection
-        --directory TEXT  Directory where migrations are stored
-        -v, --verbose
-        --help            Show this message and exit.
+## From Python
 
+```python
+from peewee import SqliteDatabase
 
-From python
------------
+from peewee_migrate import Router
 
-.. code-block:: python
+router = Router(SqliteDatabase("test.db"))
 
-    from peewee_migrate import Router
-    from peewee import SqliteDatabase
+router.create("add_user")  # empty 001_add_user.py
+router.create(auto="myapp.models")  # generated from your model classes
+router.run()  # apply everything pending
+router.run("002_add_user")  # apply up to the given migration
+router.rollback()  # undo the last one
+router.merge()  # squash into 001_initial.py
 
-    router = Router(SqliteDatabase('test.db'))
+router.todo  # names found on disk
+router.done  # names recorded in the database
+router.diff  # names still pending
+```
 
-    # Create migration
-    router.create('migration_name')
+`Router` also takes `migrate_dir`, `migrate_table`, `ignore` (table names to skip
+when diffing models) and `schema`. `ModuleRouter` does the same for migrations
+kept in a Python module instead of a directory. Anything the CLI does is these
+calls, so scripts and tests can drive the same flow without a shell.
 
-    # Run migration/migrations
-    router.run('migration_name')
+## The migrations directory
 
-    # Run all unapplied migrations
-    router.run()
+The directory defaults to `migrations` in the current working directory and is
+created on first use. Point the CLI at another one with `--directory`, or pass
+`migrate_dir` to the router.
 
-Migration files
----------------
+Each file is named `NNN_name.py`. Only the number matters: files are applied in
+numeric order, and the numbers do not have to be contiguous, so you can leave a
+gap and slot a migration between two existing ones later.
 
-By default, migration files are looked up in ``os.getcwd()/migrations`` directory, but custom directory can be given.
+A `conf.py` in that directory configures the router:
 
-Migration files are sorted and applied in ascending order per their filename.
+```python
+DATABASE = "postgresql://user:pass@localhost/app"
+SCHEMA = "public"
+MIGRATE_TABLE = "migratehistory"
+IGNORE = ["cache_entry"]
+LOGGING_LEVEL = "INFO"
+```
 
-Each migration file must specify ``migrate()`` function and may specify ``rollback()`` function
+Values from `conf.py` win over the command line flags. Errors raised inside it
+are not swallowed.
 
-.. code-block:: python
+## How it works
 
-    def migrate(migrator, database, fake=False, **kwargs):
-        pass
+Applied migrations are recorded in the `migratehistory` table (rename it with
+`--migratetable`). The name is unique there. Each migration runs inside a
+transaction and its history row is written in the same transaction, so a
+migration that fails leaves neither schema changes nor a history row behind. On
+MySQL the DDL part is not covered, see Limitations.
 
-    def rollback(migrator, database, fake=False, **kwargs):
-        pass
+Several processes may start migrating at once. On Postgres the router takes a
+`pg_advisory_lock`, on MySQL a `GET_LOCK`, both keyed by the history table, and
+the second process waits up to 60 seconds for the first one to finish before it
+gives up with an error.
 
-.. _bugtracker:
+## Migration files
 
-Bug tracker
-===========
+Each file must define `migrate()` and may define `rollback()`:
 
-If you have any suggestions, bug reports or
-annoyances please report them to the issue tracker
-at https://github.com/klen/peewee_migrate/issues
+```python
+def migrate(migrator, database, fake=False, **kwargs):
+    """Write your migrations here."""
+    ...
 
-.. _contributing:
 
-Contributing
-============
+def rollback(migrator, database, fake=False, **kwargs):
+    """Write your rollback migrations here."""
+    ...
+```
 
-Development of starter happens at github: https://github.com/klen/peewee_migrate
+The `migrator` argument carries the operations: `create_model`, `remove_model`,
+`add_fields`, `change_fields`, `remove_fields`, `rename_field`, `rename_table`,
+`add_index`, `drop_index`, `add_not_null`, `drop_not_null`, `add_default`,
+`add_constraint`, `drop_constraints`, plus `sql()` for raw SQL and `run()` for
+arbitrary Python. A generated file lists them in its docstring.
 
-.. _links:
+`migrator.orm["table_name"]` returns the model as it exists at that point in the
+history, which is what data migrations usually need.
 
-.. _klen: https://klen.github.io/
-.. _Flask: http://flask.pocoo.org/
-.. _Flask-PW: https://github.com/klen/flask-pw
-.. _Peewee: http://docs.peewee-orm.com/en/latest
+A migration without `rollback()` counts as an empty rollback: the command
+removes its history row and leaves the schema alone. If you want a real
+undoing, write the inverse operations.
+
+A model created with `migrator.create_model()` can only be changed in a later
+migration. Create it in one file and alter it in the next one; the same file
+would try to add a column that the new table already has.
+
+## Limitations
+
+- Sqlite has no advisory lock, so concurrent processes are not serialised
+  there. The unique history name turns a double apply into an error instead of a
+  silent duplicate. The constraint is part of newly created history tables; an
+  existing `migratehistory` table keeps its old definition.
+- MySQL commits DDL implicitly, so a migration that fails halfway can leave
+  partial schema changes behind.
+- Applied migrations are not checksummed. Editing a file that already ran
+  changes nothing in the database and is not reported.
+- On Sqlite, changing a column rebuilds the table, which is slow on large
+  tables.
+- One router serves one database. Two databases in one process means two
+  routers, which is supported; sharing a single router between them is not.
+
+## Bug tracker
+
+If you have any suggestions, bug reports or annoyances, please report them at
+https://github.com/klen/peewee_migrate/issues.
+
+## Contributing
+
+Development happens at GitHub: https://github.com/klen/peewee_migrate

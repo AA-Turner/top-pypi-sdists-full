@@ -83,15 +83,15 @@ class Ofdm:
             Transform length, 2 to OFDM_N_FFT_MAX.
         subcarrier_map : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
             `n_fft` entries, index `k + n_fft/2`, each OFDM_DATA or OFDM_NULL.
-        useful : int
+        useful : int, default 0
             Body samples read cyclically from the transform; 0 reads as n_fft.
-        cyclic_prefix : int
+        cyclic_prefix : int, default 0
             Default prefix, samples; at most `useful`.
-        window : int
+        window : int, default 0
             Window transition, samples; at most the symbol length.
-        scale : float
+        scale : float, default 1.0
             Multiplies the transform output.
-        n_phase : int
+        n_phase : int, default 1
             Period of the fixed pattern, at least 1.
 
         Returns
@@ -275,17 +275,16 @@ class Ofdm:
         self,
         class_index: int,
         count: int,
-        cyclic_prefix: int = 4294967295,
+        cyclic_prefix: int = ...,
         polarity_offset: int = 0,
         first_phase: int = 0,
     ) -> int:
         """Append a run of `count` OFDM symbols of one class. `cyclic_prefix`
-        overrides the class's prefix for this run (omit it, or give 4294967295
-        = 2**32 - 1, `OFDM_CP_DEFAULT` in C, to keep the class's; a named
-        default is just-buildit/just-makeit#2679); `polarity_offset` is the
-        class's polarity element used by the run's first symbol; `first_phase`
-        is the pattern phase of the run's first symbol. Returns the run's
-        index.
+        overrides the class's prefix for this run (omit it, or give
+        `OFDM_CP_DEFAULT` = 4294967295 = 2**32 - 1, to keep the class's);
+        `polarity_offset` is the class's polarity element used by the run's
+        first symbol; `first_phase` is the pattern phase of the run's first
+        symbol. Returns the run's index.
 
         Parameters
         ----------
@@ -293,12 +292,12 @@ class Ofdm:
             An existing class.
         count : int
             OFDM symbols, at least 1.
-        cyclic_prefix : int
+        cyclic_prefix : int, default OFDM_CP_DEFAULT
             Override of the class's prefix, or OFDM_CP_DEFAULT; at most the
             class's `useful`.
-        polarity_offset : int
+        polarity_offset : int, default 0
             Polarity element of the run's first symbol.
-        first_phase : int
+        first_phase : int, default 0
             Pattern phase of the run's first symbol.
 
         Returns

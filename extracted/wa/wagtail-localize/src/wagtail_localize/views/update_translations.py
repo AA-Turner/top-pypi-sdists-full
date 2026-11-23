@@ -12,15 +12,26 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic import TemplateView
 from django.views.generic.detail import SingleObjectMixin
+from wagtail import VERSION as WAGTAIL_VERSION
 from wagtail.admin.views.pages.utils import get_valid_next_url_from_request
-from wagtail.models import Page
 from wagtail.snippets.models import get_snippet_models
 from wagtail.utils.version import get_main_version
 
 from wagtail_localize.machine_translators import get_machine_translator
 from wagtail_localize.models import TranslationSource
-from wagtail_localize.views.edit_translation import apply_machine_translation
+from wagtail_localize.views.edit_translation import (
+    apply_machine_translation,
+    user_can_edit_instance,
+)
 from wagtail_localize.views.submit_translations import TranslationComponentManager
+
+
+if WAGTAIL_VERSION >= (8, 0):
+    import swapper
+
+    Page = swapper.load_model("wagtailcore", "Page")
+else:
+    from wagtail.models import Page
 
 
 class UpdateTranslationsForm(forms.Form):
@@ -191,6 +202,10 @@ class UpdateTranslationsView(SingleObjectMixin, TemplateView):
             raise PermissionDenied
 
         self.object = self.get_object()
+
+        if not user_can_edit_instance(request.user, self.object.get_source_instance()):
+            raise PermissionDenied
+
         self.components = TranslationComponentManager.from_request(
             self.request, source_object_instance=self.object
         )

@@ -77,6 +77,18 @@ Interpolator inherit AS implemented by TTSE BICUBIC
 class AbstractState
 {
    protected:
+    /// Drop every cached property value, keeping the bulk state (T, p, rhomolar, Q) and the
+    /// cached critical/reducing states.  For a solver that has just moved the state to a new
+    /// density: the cached values belong to the density last evaluated, not the one now set,
+    /// and clearing them is cheaper than re-evaluating to refill them.
+    ///
+    /// Protected, not public: a backend may cache something it cannot recompute (REFPROP's
+    /// saturated liquid/vapour densities arrive from a DLL flash and their accessors throw
+    /// when unset), so this is for a backend or a flash routine that knows what it invalidated.
+    void clear_cached_properties() {
+        cache.clear();
+    }
+
     /// Some administrative variables
     long _fluid_type;
     phases _phase;               ///< The key for the phase from CoolProp::phases enum
@@ -249,17 +261,58 @@ class AbstractState
     virtual CoolPropDbl calc_fugacity_coefficient(std::size_t i) {
         throw NotImplementedError("calc_fugacity_coefficient is not implemented for this backend");
     };
-    /// Using this backend, calculate the fugacity in Pa
+    /// Number of components used by the default per-component vector getters below.
+    /// Throws if the composition has not been set, so the vector forms fail loudly
+    /// (matching the scalar getters) rather than silently returning an empty vector.
+    std::size_t calc_n_components_for_vector() {
+        const std::size_t N = this->get_mole_fractions().size();
+        if (N == 0) {
+            throw ValueError("Mole fractions must be set before requesting per-component vector properties");
+        }
+        return N;
+    };
+    /// Using this backend, calculate the vector of fugacity coefficients (dimensionless)
+    /// for every component.  The default loops the scalar calc_fugacity_coefficient(i),
+    /// so it inherits that getter's semantics (e.g. a whole-vector throw if any
+    /// component is undefined, as in the two-phase region).  Backends with a faster
+    /// bespoke path (PCSAFT) override this.
     virtual std::vector<CoolPropDbl> calc_fugacity_coefficients() {
-        throw NotImplementedError("calc_fugacity_coefficients is not implemented for this backend");
+        const std::size_t N = calc_n_components_for_vector();
+        std::vector<CoolPropDbl> out(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            out[i] = calc_fugacity_coefficient(i);
+        }
+        return out;
     };
     /// Using this backend, calculate the fugacity in Pa
     virtual CoolPropDbl calc_fugacity(std::size_t i) {
         throw NotImplementedError("calc_fugacity is not implemented for this backend");
     };
+    /// Using this backend, calculate the vector of fugacities in Pa for every
+    /// component.  The default loops the scalar calc_fugacity(i) and inherits its
+    /// semantics (Q-weighted sat-state values in the two-phase region).
+    virtual std::vector<CoolPropDbl> calc_fugacities() {
+        const std::size_t N = calc_n_components_for_vector();
+        std::vector<CoolPropDbl> out(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            out[i] = calc_fugacity(i);
+        }
+        return out;
+    };
     /// Using this backend, calculate the chemical potential in J/mol
     virtual CoolPropDbl calc_chemical_potential(std::size_t i) {
         throw NotImplementedError("calc_chemical_potential is not implemented for this backend");
+    };
+    /// Using this backend, calculate the vector of chemical potentials in J/mol for
+    /// every component.  The default loops the scalar calc_chemical_potential(i) and
+    /// inherits its semantics (Q-weighted sat-state values in the two-phase region).
+    virtual std::vector<CoolPropDbl> calc_chemical_potentials() {
+        const std::size_t N = calc_n_components_for_vector();
+        std::vector<CoolPropDbl> out(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            out[i] = calc_chemical_potential(i);
+        }
+        return out;
     };
     /// Using this backend, calculate the phase identification parameter (PIP)
     virtual CoolPropDbl calc_PIP() {
@@ -281,6 +334,40 @@ class AbstractState
     /// Default base impl handles pure/pseudopure (both = molar_mass()).
     /// Mixture backends must override.
     virtual PhaseMolarMasses calc_phase_molar_masses();
+
+    /// A Qmass input pair's molar sibling, and which slot (1=value1, 2=value2)
+    /// carries the Qmass value.
+    struct QmassPairMapping
+    {
+        CoolProp::input_pairs molar;
+        int qmass_slot;
+    };
+
+    /// Map a Qmass input pair to its molar sibling and Qmass slot.
+    static QmassPairMapping qmass_pair_mapping(CoolProp::input_pairs pair);
+
+    /// Throw if the Qmass component of a Qmass input pair is not in [0,1] (NaN
+    /// included).  update_Qmass_pair applies this itself; a backend that rewrites
+    /// the pair to its molar sibling instead of iterating must call it directly,
+    /// or the range goes unchecked -- REFPROP's DQFL2 will extrapolate a quality
+    /// above 1 rather than refuse it.
+    static void check_Qmass_pair_range(CoolProp::input_pairs pair, double v1, double v2);
+
+    /// Throw if the vapor quality carried by an input pair is outside [0,1] (NaN
+    /// included).  Qmass pairs go to check_Qmass_pair_range; for every other pair
+    /// the Q slot is found with split_input_pair, so no hand-kept list of pairs is
+    /// needed.  A known pair without a quality passes untouched (so a pair the
+    /// backend does not support still reaches its own "not supported" error).  A
+    /// pair split_input_pair does not know -- INPUT_PAIR_INVALID, an out-of-range
+    /// value, or a pair added to the enum but not registered -- throws ValueError
+    /// ("Unknown input pair [N]; ..."): the check fails closed, never skipped.
+    /// Backends call this as the first statement of update() so a bad quality is
+    /// refused before any cached state is cleared or overwritten.
+    static void check_input_quality(CoolProp::input_pairs pair, double v1, double v2);
+
+    /// Throw OutOfRangeError unless 0 <= Q <= 1 (NaN included).  The single home of
+    /// the "Input vapor quality [Q] must be between 0 and 1, got <Q>" message.
+    static void check_input_quality_value(double Q);
 
     /// Default iterative Qmass-pair solver (secant on Qmolar). Backends may
     /// override to use a native fast path (e.g. REFPROP TQFLSHdll kq=2).
@@ -429,6 +516,10 @@ class AbstractState
     /// Using this backend, calculate the ozone depletion potential (ODP)
     virtual CoolPropDbl calc_ODP() {
         throw NotImplementedError("calc_ODP is not implemented for this backend");
+    };
+    /// Using this backend, get the standard molar enthalpy of formation of the ideal gas at 298.15 K
+    virtual CoolPropDbl calc_Hmolar_formation() {
+        throw NotImplementedError("calc_Hmolar_formation is not implemented for this backend");
     };
     /// Using this backend, calculate the flame hazard
     virtual CoolPropDbl calc_flame_hazard() {
@@ -1288,8 +1379,12 @@ class AbstractState
     std::vector<double> fugacity_coefficients();
     /// Return the fugacity of the i-th component of the mixture
     double fugacity(std::size_t i);
+    /// Return a vector of the fugacities (in Pa) for all components in the mixture
+    std::vector<double> fugacities();
     /// Return the chemical potential of the i-th component of the mixture
     double chemical_potential(std::size_t i);
+    /// Return a vector of the chemical potentials (in J/mol) for all components in the mixture
+    std::vector<double> chemical_potentials();
     /** \brief Return the fundamental derivative of gas dynamics \f$ \Gamma \f$
      *
      * see also Colonna et al, FPE, 2010

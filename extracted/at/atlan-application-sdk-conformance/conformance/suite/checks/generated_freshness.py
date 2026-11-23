@@ -156,7 +156,7 @@ _UI_CONFIG_RE = re.compile(r"(?m)^\s*uiConfig\b(?!\s*=\s*null\b)")
 
 
 def _top_level_skeleton(text: str) -> str:
-    """*text* with comments and every ``{ … }`` body blanked out.
+    r"""*text* with comments and every ``{ … }`` body blanked out.
 
     Pkl allows a top-level property at any indentation, so column position
     cannot tell ``type = "system"`` at module level from one nested in an
@@ -944,15 +944,6 @@ def scan_all(paths: list[Path], root: Path) -> list[Finding]:
     findings.extend(_scan_placeholders(root, present))
     findings.extend(_scan_e2e_scaffolding(root, present))
     return findings
-
-
-def scan_path(path: Path, root: Path) -> list[Finding]:
-    """Single-path shim so the registration satisfies ``CheckRegistration``.
-
-    K003/K004/K005 are inherently repo-level; scanning a lone file routes through
-    :func:`scan_all` with that one path.
-    """
-    return scan_all([path], root)
 
 
 def discover(root: Path) -> list[Path]:

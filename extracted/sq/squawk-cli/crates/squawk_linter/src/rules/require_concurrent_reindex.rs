@@ -1,11 +1,21 @@
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_diagnostics::{Edit, Fix};
+use squawk_syntax::ast::{self, AstNode};
 
-use crate::{Edit, Fix, Linter, Rule, Violation};
+use crate::{Linter, Rule, Violation, transactions::TransactionState};
 
 fn concurrently_fix(reindex: &ast::Reindex) -> Option<Fix> {
+    if let Some(options) = reindex.reindex_option_list()
+        && let Some(literal) = options.reindex_options().find_map(|option| match option {
+            ast::ReindexOption::ReindexOptionConcurrently(option) => option.literal(),
+            ast::ReindexOption::ReindexOptionTablespace(_)
+            | ast::ReindexOption::ReindexOptionVerbose(_) => None,
+        })
+    {
+        return Some(Fix::new(
+            "Enable `concurrently`",
+            vec![Edit::replace(literal.syntax().text_range(), "true")],
+        ));
+    }
     let kw_token = match reindex.reindex_target()? {
         ast::ReindexTarget::ReindexTargetDatabase(it) => it.database_token(),
         ast::ReindexTarget::ReindexTargetIndex(it) => it.index_token(),
@@ -18,19 +28,10 @@ fn concurrently_fix(reindex: &ast::Reindex) -> Option<Fix> {
     Some(Fix::new("Add `concurrently`", vec![edit]))
 }
 
-fn has_concurrently(reindex: &ast::Reindex) -> bool {
-    reindex
-        .reindex_target()
-        .is_some_and(|target| target.concurrently_token().is_some())
-        || reindex.reindex_option_list().is_some_and(|option_list| {
-            option_list
-                .reindex_options()
-                .any(|option| matches!(option, ast::ReindexOption::ReindexOptionConcurrently(_)))
-        })
-}
-
-pub(crate) fn require_concurrent_reindex(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    for stmt in parse.tree().stmts() {
+pub(crate) fn require_concurrent_reindex(ctx: &mut Linter, file: &ast::SourceFile) {
+    let mut transaction = TransactionState::new(ctx.settings.assume_in_transaction);
+    for stmt in file.stmts() {
+        transaction.update(&stmt);
         if let ast::Stmt::Reindex(reindex) = stmt {
             // REINDEX SYSTEM does not support CONCURRENTLY
             if matches!(
@@ -39,18 +40,23 @@ pub(crate) fn require_concurrent_reindex(ctx: &mut Linter, parse: &Parse<SourceF
             ) {
                 continue;
             }
-            if !has_concurrently(&reindex) {
-                let fix = concurrently_fix(&reindex);
-                ctx.report(
-                    Violation::for_node(
-                        Rule::RequireConcurrentReindex,
-                        "reindexing a table or index without `concurrently` blocks reads and writes"
-                            .into(),
-                        reindex.syntax(),
-                    )
-                    .help("use `concurrently` to avoid blocking reads and writes")
-                    .fix(fix),
+            if !reindex.is_concurrently() {
+                let violation = Violation::for_node(
+                    Rule::RequireConcurrentReindex,
+                    "reindexing a table or index without `concurrently` blocks reads and writes"
+                        .into(),
+                    reindex.syntax(),
                 );
+                let violation = if transaction.inside_transaction() {
+                    violation.help(
+                        "use `concurrently` outside of a transaction to avoid blocking reads and writes",
+                    )
+                } else {
+                    violation
+                        .help("use `concurrently` to avoid blocking reads and writes")
+                        .fix(concurrently_fix(&reindex))
+                };
+                ctx.report(violation);
             }
         }
     }
@@ -168,5 +174,15 @@ mod test {
     fn fix_reindex_index() {
         let sql = "REINDEX INDEX foo;";
         assert_snapshot!(fix(sql), @"REINDEX INDEX concurrently foo;");
+    }
+
+    #[test]
+    fn in_transaction_err() {
+        let sql = r#"
+begin;
+reindex index i;
+commit;
+        "#;
+        assert_snapshot!(lint_errors(sql, Rule::RequireConcurrentReindex));
     }
 }

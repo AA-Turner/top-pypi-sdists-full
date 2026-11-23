@@ -7,7 +7,6 @@ catch schema mismatches at analysis time rather than silently returning ``None``
 
 import copy
 import threading
-import types
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -78,13 +77,15 @@ class DeprecationConfig:
         name: Display the name of the deprecated source (function or class name).
         target: Normalised target — ``None`` (default), :attr:`~deprecate._types.TargetMode.NOTIFY`,
             :attr:`~deprecate._types.TargetMode.ARGS_REMAP`, :attr:`~deprecate._types.TargetMode.ATTRS_REMAP`,
-            a callable, or a :class:`types.ModuleType` (stored by :func:`~deprecate.module.deprecated_module`
-            when a redirect module is provided). Legacy sentinels (``True``/``False``) are normalised at
-            decoration time and never stored verbatim.
+            a callable, a :class:`types.ModuleType` (stored by :func:`~deprecate.module.deprecated_module`
+            when a redirect module is provided), or any replacement object passed as
+            ``deprecated_instance(target=...)`` (a settings dict, a config instance). Legacy sentinels
+            (``True``/``False``) are normalised at decoration time and never stored verbatim.
         args_extra: Optional kwargs injected into forwarded calls; stored for audit visibility.
         misconfigured: ``True`` when the configuration contradicts itself at decoration time: the invalid raw
-            target sentinel ``False``, or :attr:`~deprecate._types.TargetMode.NOTIFY` with an ``args_mapping``,
-            ``args_extra`` or ``attrs_mapping`` it ignores.  Audit tools surface this via
+            target sentinel ``False``, :attr:`~deprecate._types.TargetMode.NOTIFY` with an ``args_mapping``,
+            ``args_extra`` or ``attrs_mapping`` it ignores, or call-time options on an object that is never called
+            (see :attr:`call_options_inert`).  Audit tools surface this via
             :attr:`~deprecate.audit.DeprecationWrapperInfo.misconfigured_target`.
         docstring_style: Docstring notice output style when ``update_docstring=True``.
         message_template: Optional custom warning-message template (``%``-style placeholders) that overrides the
@@ -167,6 +168,13 @@ class DeprecationConfig:
         target_accepts_var_keyword: ``True`` when the forwarding target declares ``**kwargs``.  Pre-computed
             decoration-time replacement for the per-call ``inspect.getfullargspec`` probe.  Internal cache —
             excluded from ``repr`` and equality.  Internal; removed from ``DeprecationConfig`` in v1.0.
+        call_options_inert: ``True`` when a proxy sets ``args_mapping`` or ``args_extra`` although the object it
+            serves (the replacement when one is set) is not callable, so the call-time options can never apply.
+            Always set together with :attr:`misconfigured`, but kept apart from it so audit tools can tell an inert
+            ``args_mapping`` from one that still renames arguments next to an unrelated misconfiguration (an empty
+            ``attrs_mapping``, the legacy ``target=False``).  Populated at decoration time by the proxy factories;
+            ``False`` everywhere else.  Declared last so adding it left the positional order of earlier fields as
+            released.
 
     Note:
         ``@dataclass(frozen=True)`` blocks attribute *rebinding* on the config object itself, but the
@@ -178,7 +186,8 @@ class DeprecationConfig:
     deprecated_in: str = ""
     remove_in: str = ""
     name: str = ""
-    target: Optional[Union[Callable[..., Any], "TargetMode", types.ModuleType]] = None
+    # ``Any``: besides a callable, a ``TargetMode`` or a module, ``deprecated_instance`` stores any replacement object.
+    target: Any = None
     args_mapping: Optional[dict[str, Optional[str]]] = None
     args_extra: Optional[dict[str, Any]] = None
     misconfigured: bool = False
@@ -196,6 +205,8 @@ class DeprecationConfig:
     target_all_param_names: Optional[frozenset[str]] = field(default=None, repr=False, compare=False)
     target_accepts_var_positional: bool = field(default=False, repr=False, compare=False)
     target_accepts_var_keyword: bool = field(default=False, repr=False, compare=False)
+    # Appended last so the positional order of every earlier field stays as released.
+    call_options_inert: bool = False
 
     @property
     def template_mgs(self) -> Optional[str]:
@@ -460,8 +471,10 @@ class _CallFacts:
         source_positional_only: Names of the source's POSITIONAL_ONLY parameters.
         source_positional_only_order: Every source parameter name in declaration order when the source has
             POSITIONAL_ONLY parameters, otherwise empty.
-        target_all_param_names: Every parameter name of a callable target; ``None`` derives the names from the
-            target on each forwarded call.
+        source_keyword_overflow: The source's POSITIONAL_ONLY names when it also declares ``**kwargs``, otherwise
+            empty.  A caller keyword with one of these names binds to ``**kwargs``, never to the positional slot, so
+            a rewritten call hands it on as a keyword.
+        target_all_param_names: Every parameter name of a callable target; empty for a mode or unreadable target.
         target_accepts_var_positional: ``True`` when the target declares ``*args``.
         target_accepts_var_keyword: ``True`` when the target declares ``**kwargs``.
         target_positional_only: Names of the target's POSITIONAL_ONLY parameters.
@@ -470,7 +483,7 @@ class _CallFacts:
         target_positional_names: The target's leading positional parameter names, up to its ``*args`` or its first
             keyword-only parameter, which a surplus ``*args`` tail is forwarded after; ``None`` when the target
             signature could not be read at decoration (the forwarded call then raises
-            :attr:`target_signature_error`), or when the facts were built by hand (the call reads the target).
+            :attr:`target_signature_error`).
         source_defaults: Each source parameter that has a default, mapped to that default, in declaration order.  Left
             out of equality and the hash, so the record stays hashable whatever the default values are.
         target_signature_error: The ``TypeError`` or ``ValueError`` that reading a callable target's signature raised
@@ -487,7 +500,8 @@ class _CallFacts:
     source_var_positional_prefix: int = 0
     source_positional_only: frozenset[str] = frozenset()
     source_positional_only_order: tuple[str, ...] = ()
-    target_all_param_names: Optional[frozenset[str]] = None
+    source_keyword_overflow: frozenset[str] = frozenset()
+    target_all_param_names: frozenset[str] = frozenset()
     target_accepts_var_positional: bool = False
     target_accepts_var_keyword: bool = False
     target_positional_only: frozenset[str] = frozenset()
@@ -553,7 +567,7 @@ class _ProxyConfig:
         return replace(self, obj=copy.deepcopy(self.obj, memo), state=copy.deepcopy(self.state, memo))
 
     def __getstate__(self) -> dict[str, Any]:
-        """Return the pickle state in the 0.14 layout, so a proxy pickled by this release also loads on 0.14.
+        """Return the pickle state in the v0.14 layout, so a proxy pickled by this release also loads on v0.14.
 
         The budget is written as flat ``warned`` / ``warned_args`` counters; neither ``state`` nor ``facts`` is
         written, because 0.14 restores the config by updating its ``__dict__`` and cannot import either private class.
@@ -605,9 +619,6 @@ class _CallPlan:
         resolved_kwargs: Final kwargs after positional-to-keyword conversion, defaults injection, ``args_mapping``
             remap, and ``args_extra`` merge when the wrapper rewrites the call.  On a :attr:`verbatim` plan nothing is
             converted, so this holds the caller's keyword arguments unchanged.
-        reason_argument: Subset of ``args_mapping`` whose old-arg names appeared in the caller's kwargs.  Non-empty
-            value means the argument-rename warning fired (or was suppressed by ``num_warns`` quota).  Empty when the
-            warning reason was callable-deprecation or when no rename was triggered.
         target_func: Resolved target callable when forwarding is required, or ``None`` when the source body should be
             invoked instead.  ``None`` for :attr:`TargetMode.NOTIFY` and :attr:`TargetMode.ARGS_REMAP`; a validated
             callable when the user passed a forwarding target.
@@ -615,12 +626,16 @@ class _CallPlan:
             injection, so the wrapper invokes ``source(*args, **original_kwargs)`` exactly as the caller made the
             call.  A ``functools.singledispatch`` source or one with a patched ``__signature__`` then keeps working.
             Decided by :func:`deprecate._dispatch._is_verbatim_call`; the warning and the budget are unaffected.
+        keyword_overflow: Caller keywords named like a POSITIONAL_ONLY source parameter of a source that declares
+            ``**kwargs`` (:attr:`_CallFacts.source_keyword_overflow`).  Held out of :attr:`resolved_kwargs` so the
+            positional split never moves them into that slot, and handed to the final call as keywords.  Empty on a
+            :attr:`verbatim` plan, which passes every keyword through as made.
 
     """
 
     short_circuit: bool
     original_kwargs: dict[str, Any]
     resolved_kwargs: dict[str, Any]
-    reason_argument: dict[str, Optional[str]] = field(default_factory=dict)
     target_func: Optional[Callable[..., Any]] = None
     verbatim: bool = False
+    keyword_overflow: dict[str, Any] = field(default_factory=dict)

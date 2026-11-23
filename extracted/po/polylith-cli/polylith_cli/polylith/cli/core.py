@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Union
+from typing import List, Set, Union
 from polylith_cli.polylith import commands, configuration, info, repo
 from polylith_cli.polylith.cli import build, create, env, options, test
 from typer import Exit, Option, Typer
@@ -26,12 +26,15 @@ def enriched_with_lock_file_data(root: Path, project_data: dict, is_verbose: boo
 def enriched_with_lock_files_data(root: Path, projects_data: List[dict], is_verbose: bool) -> List[dict]:
     return [enriched_with_lock_file_data(root, p, is_verbose) for p in projects_data]
 
+def _to_group(group: str) -> Set[str]:
+    return set(str.split(group, ',')) if group else set()
+
 @app.command('info')
-def info_command(short: Annotated[bool, options.short_workspace]=False, save: Annotated[bool, options.save]=False, group: Annotated[str, options.group]=''):
+def info_command(short: Annotated[bool, options.short_workspace]=False, save: Annotated[bool, options.save]=False, group: Annotated[str, options.group]='', team: Annotated[str, options.team]=''):
     """Info about the Polylith workspace."""
     root = repo.get_workspace_root(Path.cwd())
     output = configuration.get_output_dir(root, 'info') if save else None
-    cli_options = {'short': short, 'save': save, 'output': output, 'groups': set(str.split(group, ',')) if group else set()}
+    cli_options = {'short': short, 'save': save, 'output': output, 'groups': _to_group(group), 'teams': _to_group(team)}
     commands.info.run(root, cli_options)
 
 @app.command('check')
@@ -50,9 +53,9 @@ def check_command(strict: Annotated[bool, options.strict]=False, verbose: Annota
         raise Exit(code=1)
 
 @app.command('diff')
-def diff_command(since: Annotated[str, Option(help='Changed since a specific tag.')]='', short: Annotated[bool, options.short]=False, bricks: Annotated[bool, Option(help='Print changed bricks.')]=False, deps: Annotated[bool, Option(help='Print bricks that depend on changes. Use with --bricks.')]=False):
+def diff_command(since: Annotated[str, Option(help='Changed since a specific tag.')]='', short: Annotated[bool, options.short]=False, bricks: Annotated[bool, Option(help='Print changed bricks.')]=False, deps: Annotated[bool, Option(help='Print bricks that depend on changes. Use with --bricks.')]=False, teams: Annotated[bool, options.team]=False):
     """Shows changed bricks compared to the latest git tag."""
-    options = {'short': short, 'bricks': bricks, 'deps': deps}
+    options = {'short': short, 'bricks': bricks, 'deps': deps, 'teams': teams}
     commands.diff.run(since, options)
 
 @app.command('libs')

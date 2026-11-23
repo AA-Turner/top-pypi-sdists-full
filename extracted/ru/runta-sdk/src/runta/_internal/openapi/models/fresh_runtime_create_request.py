@@ -55,8 +55,8 @@ class FreshRuntimeCreateRequest:
             installations.
         llm_tool_io_capture_enabled (bool | Unset): Opt in to official LLM HTTP API tool input/output capture. Default:
             False.
-        llm_session_content_capture_enabled (bool | Unset): Explicitly opt in to user, assistant, and tool conversation
-            content capture. Disabled by default; independent from tool-only capture. Default: False.
+        llm_session_content_capture_enabled (bool | Unset): Explicitly enable capture of user, assistant, and tool
+            conversation content. Disabled by default. Independent from tool-only capture. Default: False.
         tls_passthrough_hosts (list[str] | Unset): HTTPS host patterns that use opaque TLS tunnels to the original
             destination, taking precedence over secret injection, LLM capture, token saving, and model routing.
         tcp_allowlist (list[str] | Unset): Exact FQDN:port destinations that may receive raw TCP from the runtime. Empty

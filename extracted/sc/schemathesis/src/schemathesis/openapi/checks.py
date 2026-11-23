@@ -91,6 +91,7 @@ class JsonSchemaError(Failure):
 
     __slots__ = (
         "schema_path",
+        "location",
         "instance_path",
         "instance",
         "_absolute_keyword_location",
@@ -113,11 +114,14 @@ class JsonSchemaError(Failure):
         config: OutputConfig | None = None,
         name_to_uri: dict[str, str] | None = None,
         context: str | None = None,
+        location: tuple[str | int, ...] = (),
         title: str | None = None,
         case_id: str | None = None,
     ) -> None:
         self.operation = operation
         self.schema_path = exc.schema_path
+        # Where the validated schema sits, when not at the body schema root: under a header or a `contentSchema`.
+        self.location = location
         self.instance_path = exc.instance_path
         self.instance = exc.instance
         self._absolute_keyword_location = exc.absolute_keyword_location
@@ -156,7 +160,7 @@ class JsonSchemaError(Failure):
 
     @property
     def _unique_key(self) -> str:
-        return "/".join(map(str, self.schema_path))
+        return "/".join(map(str, (*self.location, *self.schema_path)))
 
     @classmethod
     def from_exception(
@@ -169,6 +173,7 @@ class JsonSchemaError(Failure):
         config: OutputConfig | None = None,
         name_to_uri: dict[str, str] | None = None,
         context: str | None = None,
+        location: tuple[str | int, ...] = (),
     ) -> JsonSchemaError:
         return cls(
             title=title,
@@ -178,6 +183,7 @@ class JsonSchemaError(Failure):
             config=config,
             name_to_uri=name_to_uri,
             context=context,
+            location=location,
         )
 
     def _render_message(self) -> str:
@@ -196,8 +202,7 @@ class JsonSchemaError(Failure):
         else:
             schema = self._root_schema
 
-        # Read-only and write-only properties are rewritten to a schema nothing satisfies, and the raw
-        # validator message spells that rewrite rather than naming what it rejects.
+        # Read/write-only properties become an unsatisfiable schema whose raw message hides the rejected property.
         if schema == {"not": {}} and self.schema_path and self.schema_path[-1] == "not":
             name = self.instance_path[-1] if self.instance_path else None
             validation_message = (
@@ -230,7 +235,7 @@ class JsonSchemaError(Failure):
                     **{k: v for k, v in schema.items() if k != failing_keyword},
                 }
 
-        # Restore original $ref paths for display if mapping is available
+        # Restore original `$ref` paths for display
         if self._name_to_uri:
             schema = unbundle(schema, self._name_to_uri)
 

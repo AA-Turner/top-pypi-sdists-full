@@ -3,8 +3,6 @@ from trilogy.core.models.build import (
     BuildConcept,
     BuildGrain,
     BuildWhereClause,
-    get_grouped_aggregate_wrapper,
-    nonstandard_grouping_lineage,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.processing.aggregate_rollup import sourced_function_arguments
@@ -52,22 +50,6 @@ def _abstract_output_grain(
     return BuildGrain.from_concepts(outputs, environment).abstract
 
 
-def _renders_nonstandard_grouping(
-    outputs: list[BuildConcept], upstream: set[str]
-) -> bool:
-    """A node that renders `GROUP BY ROLLUP/CUBE/GROUPING SETS` takes its
-    GROUP BY from the aggregate wrapper's `by` list verbatim, so any other
-    column surfaced on it is a bare, ungrouped projection. The key still
-    reaches join inference from the other side; this side keeps only its
-    grouping keys."""
-    return any(
-        (wrapper := get_grouped_aggregate_wrapper(c)) is not None
-        and wrapper.grouping.nulls_grouping_keys
-        and c.address not in upstream
-        for c in outputs
-    )
-
-
 def _splits_aggregate_groups(
     outputs: list[BuildConcept], member: str, environment: BuildEnvironment
 ) -> bool:
@@ -109,9 +91,6 @@ def outputs_with_scoped_join_mates(
     group_mates = environment.distinct_scoped_join_group_mates()
     if not group_mates or _abstract_output_grain(outputs, environment):
         return outputs
-    upstream = {c.address for parent in parents for c in parent.output_concepts}
-    if _renders_nonstandard_grouping(outputs, upstream):
-        return outputs
     present = {c.address for c in outputs}
     visible = {
         c.address
@@ -138,15 +117,9 @@ def gen_aggregate(
     conditions: BuildWhereClause | None = None,
     preexisting_conditions: BuildWhereClause | None = None,
 ) -> StrategyNode | None:
-    """GROUP BY at the outputs' shared grain over already-built parents.
-
-    Forces a real GROUP source_type when any output has non-standard
-    grouping (ROLLUP/CUBE/GROUPING_SETS); the GroupNode's grain-match
-    shortcut would otherwise drop the GROUP BY entirely, losing the
-    subtotal rows the rollup adds."""
-    has_non_standard_grouping = any(
-        nonstandard_grouping_lineage(c) is not None for c in outputs
-    )
+    """GROUP BY at the outputs' shared grain over already-built parents. A
+    group computing a member of the select's grouping pass is never skipped
+    as a grain match (`GroupNode.grouping_pass`)."""
     outputs = outputs_with_scoped_join_mates(outputs, parents, environment)
     available_by_address = {
         concept.address: concept
@@ -185,7 +158,6 @@ def gen_aggregate(
         preexisting_conditions=(
             preexisting_conditions.conditional if preexisting_conditions else None
         ),
-        force_group=True if has_non_standard_grouping else None,
         rollup_concepts=[c for c in outputs if c.address in partials],
     )
     node.partial_sources = partials

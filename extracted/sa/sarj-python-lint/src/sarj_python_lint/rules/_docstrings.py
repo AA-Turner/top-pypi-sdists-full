@@ -24,7 +24,6 @@ _RUNTIME_DOC_DECORATORS = (
 )
 _OVERLOAD_MODULES = frozenset({"typing", "typing_extensions"})
 
-# Docstring filler that says nothing about *which* thing is being described.
 _BASE_STOPWORDS = frozenset(
     {
         "a",
@@ -94,7 +93,6 @@ _BASE_STOPWORDS = frozenset(
     }
 )
 
-# Qualifiers that NARROW NOTHING.
 FILLER_QUALIFIERS = frozenset(
     {
         "actual",
@@ -137,7 +135,6 @@ WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9']*")
 
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-# Content the signature cannot carry, so the docstring is earning its place.
 VALUE_MARKER_RE = re.compile(
     r"https?://|\bRFC\s?\d|:raises|\bRaises:|>>>|\bExamples?:|^\s*\.\. |"
     r"\b(?:ms|msec|milliseconds?|seconds?|secs?|minutes?|hours?|days?|bytes?|kb|mb|gb|hz|khz|"
@@ -145,7 +142,6 @@ VALUE_MARKER_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
-# Decorators that consume docstrings at runtime, where deleting prose would change behavior.
 PROMPT_DECORATOR_MARKERS = frozenset(
     {
         "agent",
@@ -174,8 +170,6 @@ PROMPT_DECORATOR_MARKERS = frozenset(
     }
 )
 
-# Class docstrings consumed as schema descriptions rather than reader-only prose. Final dotted names are intentional:
-# imports can alias packages, while the runtime base/decorator still has one of these stable framework surfaces.
 SCHEMA_BASE_NAMES = frozenset(
     {
         "BaseModel",
@@ -194,13 +188,10 @@ SCHEMA_BASE_NAMES = frozenset(
 
 SCHEMA_DECORATOR_MARKERS = frozenset({"graphene", "msgspec", "pydantic", "strawberry"})
 
-# Python/framework constructs that visibly publish or copy the decorated function's docstring. Generic decorators are
-# not exempt merely because they exist.
 FRAMEWORK_DOCSTRING_DECORATOR_MARKERS = PROMPT_DECORATOR_MARKERS | frozenset(
     {"cached_property", "fixture", "property", "wraps"}
 )
 
-# Google-style section headers, each alone on its line.
 _SECTION_RE = re.compile(
     r"^[ \t]*(?P<name>Args|Arguments|Parameters|Params|Keyword Args|Keyword Arguments|"
     r"Returns|Return|Yields|Yield|Raises|Attributes|Example|Examples|Note|Notes|"
@@ -208,7 +199,6 @@ _SECTION_RE = re.compile(
     re.MULTILINE,
 )
 
-# Parse one Google-style Args entry with an optional parenthesized type.
 _ARG_ENTRY_RE = re.compile(r"^[ \t]+(?P<name>\*{0,2}[A-Za-z_]\w*)[ \t]*(?:\((?P<type>[^)]*)\))?[ \t]*:(?P<desc>.*)$")
 
 ARG_SECTIONS = ("Args", "Arguments", "Parameters", "Params", "Keyword Args", "Keyword Arguments")
@@ -388,27 +378,31 @@ def _terminal_name(node: ast.expr) -> str | None:
 
 
 def _record_docstring_use(node: ast.AST, consumed: set[str], aliases: dict[str, set[str]]) -> None:
-    if isinstance(node, ast.Attribute) and node.attr == "__doc__":
-        if name := _terminal_name(node.value):
-            consumed.add(name)
-    elif isinstance(node, ast.Call) and _is_docstring_reader(node):
-        if name := _terminal_name(node.args[0]):
-            consumed.add(name)
-    elif isinstance(node, ast.Subscript):
-        if name := _subscripted_docstring_owner(node):
-            consumed.add(name)
-    else:
-        _record_docstring_alias(node, aliases)
+    match node:
+        case ast.Attribute() if node.attr == "__doc__":
+            if name := _terminal_name(node.value):
+                consumed.add(name)
+        case ast.Call() if _is_docstring_reader(node):
+            if name := _terminal_name(node.args[0]):
+                consumed.add(name)
+        case ast.Subscript():
+            if name := _subscripted_docstring_owner(node):
+                consumed.add(name)
+        case _:
+            _record_docstring_alias(node, aliases)
 
 
 def _subscripted_docstring_owner(node: ast.Subscript) -> str | None:
     if not isinstance(node.slice, ast.Constant) or node.slice.value != "__doc__":
         return None
     value = node.value
-    if isinstance(value, ast.Attribute) and value.attr == "__dict__":
-        return _terminal_name(value.value)
-    if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "vars" and value.args:
-        return _terminal_name(value.args[0])
+    match value:
+        case ast.Attribute() if value.attr == "__dict__":
+            return _terminal_name(value.value)
+        case ast.Call() if isinstance(value.func, ast.Name) and value.func.id == "vars" and value.args:
+            return _terminal_name(value.args[0])
+        case _:
+            pass
     return None
 
 
@@ -416,10 +410,13 @@ def _is_docstring_reader(node: ast.Call) -> bool:
     if not node.args:
         return False
     function = node.func
-    if isinstance(function, ast.Name) and function.id == "help":
-        return True
-    if isinstance(function, ast.Attribute) and function.attr in {"getdoc", "render_doc"}:
-        return True
+    match function:
+        case ast.Name() if function.id == "help":
+            return True
+        case ast.Attribute() if function.attr in {"getdoc", "render_doc"}:
+            return True
+        case _:
+            pass
     return (
         isinstance(function, ast.Name)
         and function.id == "getattr"
@@ -430,16 +427,15 @@ def _is_docstring_reader(node: ast.Call) -> bool:
 
 
 def _record_docstring_alias(node: ast.AST, aliases: dict[str, set[str]]) -> None:
-    if isinstance(node, ast.Assign) and isinstance(node.value, (ast.Name, ast.Attribute)):
-        original = _terminal_name(node.value)
-        for target in node.targets:
-            if isinstance(target, ast.Name) and original is not None:
-                aliases.setdefault(target.id, set()).add(original)
-    elif (
-        isinstance(node, ast.AnnAssign)
-        and isinstance(node.target, ast.Name)
-        and isinstance(node.value, (ast.Name, ast.Attribute))
-    ):
-        original = _terminal_name(node.value)
-        if original is not None:
-            aliases.setdefault(node.target.id, set()).add(original)
+    match node:
+        case ast.Assign() if isinstance(node.value, (ast.Name, ast.Attribute)):
+            original = _terminal_name(node.value)
+            for target in node.targets:
+                if isinstance(target, ast.Name) and original is not None:
+                    aliases.setdefault(target.id, set()).add(original)
+        case ast.AnnAssign() if isinstance(node.target, ast.Name) and isinstance(node.value, (ast.Name, ast.Attribute)):
+            original = _terminal_name(node.value)
+            if original is not None:
+                aliases.setdefault(node.target.id, set()).add(original)
+        case _:
+            pass

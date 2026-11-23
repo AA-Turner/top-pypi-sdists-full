@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 from albucore.lut import apply_uint8_lut
-from albucore.utils import NUM_RGB_CHANNELS, get_opencv_max_channels
+from albucore.utils import _LINUX_X86_64, NUM_RGB_CHANNELS, get_opencv_max_channels
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -18,6 +18,8 @@ __all__ = ["equalize_uint8"]
 
 _OPENCV_MAX_CHANNELS = get_opencv_max_channels()
 _MAX_EXACT_HISTOGRAM_PIXELS = 2**24
+_MASKED_CV_MIN_PIXELS = 76_800
+_LINUX_MASKED_CV_PER_CHANNEL_MIN_PIXELS = 307_200
 
 
 def _histogram(img: NDArray[np.uint8], mask: NDArray[np.uint8] | None = None) -> NDArray[np.int64]:
@@ -86,6 +88,22 @@ def _equalize_pillow_rgb(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return result
 
 
+def _equalize_cv_masked_rgb(img: NDArray[np.uint8], mask: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    if mask.ndim == 3:
+        mask = mask[..., 0] if mask.shape[-1] == 1 else mask
+    identity = np.arange(256, dtype=np.uint8)
+    luts = np.empty((256, 1, NUM_RGB_CHANNELS), dtype=np.uint8)
+    for channel in range(NUM_RGB_CHANNELS):
+        channel_mask = mask[..., channel] if mask.ndim == 3 else mask
+        histogram = np.asarray(
+            cv2.calcHist([img], [channel], channel_mask, [256], (0, 256)),
+            dtype=np.int64,
+        ).ravel()
+        lut = _opencv_lut(histogram)
+        luts[:, 0, channel] = identity if lut is None else lut
+    return apply_uint8_lut(img, luts)
+
+
 def equalize_uint8(
     img: NDArray[np.uint8],
     *,
@@ -121,6 +139,19 @@ def equalize_uint8(
         return _equalize_cv_unmasked(img)
 
     channels = img.shape[-1]
+    minimum_mask_pixels = _MASKED_CV_MIN_PIXELS
+    if _LINUX_X86_64 and mask is not None and mask.ndim == 3 and mask.shape[-1] == channels:
+        minimum_mask_pixels = _LINUX_MASKED_CV_PER_CHANNEL_MIN_PIXELS
+    if (
+        mode == "cv"
+        and mask is not None
+        and channels == NUM_RGB_CHANNELS
+        and minimum_mask_pixels <= img.shape[0] * img.shape[1] <= _MAX_EXACT_HISTOGRAM_PIXELS
+        and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
+        and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
+        and all(stride >= 0 for stride in img.strides)
+    ):
+        return _equalize_cv_masked_rgb(img, mask)
     if (
         mode == "pil"
         and mask is None

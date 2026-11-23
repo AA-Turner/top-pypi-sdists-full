@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyJHora
-Version: 5.0.5
+Version: 5.0.6
 Summary: Complete Vedic Astrology Python package and SarvaJyotish Web Service.
 Author-email: Sundar Sundaresan <carnaticmusicguru2015@comcast.net>
 License-Expression: AGPL-3.0-or-later
@@ -12,12 +12,25 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Other Audience
 Classifier: Topic :: Scientific/Engineering :: Astronomy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: geocoder==1.38.1
+Requires-Dist: geopy==2.4.1
+Requires-Dist: img2pdf==0.5.1
+Requires-Dist: numpy==2.1.1
+Requires-Dist: PyQt6==6.7.1
+Requires-Dist: pyqtgraph==0.13.7
+Requires-Dist: pytz==2024.1
+Requires-Dist: requests>=2.32.3
+Requires-Dist: setuptools>=69.5.1
+Requires-Dist: pyswisseph==2.10.3.2
+Requires-Dist: timezonefinder==6.5.2
+Requires-Dist: reverse_geocode==1.6.6
+Requires-Dist: python-dateutil>=2.9.0.post0
 Dynamic: license-file
 
-JHora 5.0.5
+JHora 5.0.6
 =================
 Python package containing almost all the features described in the book
 `Vedic Astrology - An Integrated Approach - by PVR Narasimha Rao`
@@ -25,7 +38,9 @@ and
 the free astrology software `Jagannatha Hora V8.0 software` by the same author.
 This python library was inspired by his book and software. Almost all the results have been verified against the examples and exercises provided in the book. Also the features that are outside of his book but in his JHora software were collected from various internet sources and have been verified closest to results obtained using JHora software. 
 
-Also added to this package is [Vedic Astrology Web Service](https://vedicastrology.onrender.com). This service was previously available at [Sarva Jyotish Web Service](https://sarvajyotish.onrender.com), which will remain available for a transition period before being retired.
+Also added to this package is [Vedic Astrology Web Service](https://vedicastrology.onrender.com).
+
+**!!! IMPORTANT: [Sarva Jyotish Web Service](https://sarvajyotish.onrender.com) has been removed. !!!**
 
 [See screenshots:]
 <br>

@@ -739,6 +739,14 @@ def test_capitalized_all_lower_input_v1_parity() -> None:
     assert [t.span for t in out.tokens] == [t.span for t in _lowercase_mac().tokens]
 
 
+def test_case_repair_reads_a_word_typed_with_an_edge_joiner() -> None:
+    # #1335: the mask and the particle lookups fold the joiner away, and
+    # the repaired text keeps it
+    assert parse("john smith phd\u200c").capitalized().suffix == "PhD\u200c"
+    assert parse("juan de\u200c la vega").capitalized().family == (
+        "de\u200c la Vega")
+
+
 def test_capitalized_all_upper_input() -> None:
     pn = _pn("JOHN SMITH", [
         Token("JOHN", Span(0, 4), Role.GIVEN),
@@ -1117,7 +1125,7 @@ def test_a_ter_or_der_opening_the_family_name_takes_a_capital() -> None:
             # a der behind an unlisted word, a German epithet
             ("GERARD TER BORCH", "Gerard Ter Borch"),
             ("JA DER LIANG", "Ja Der Liang"),
-            ("KAREN AUS DER FÜNTEN", "Karen Aus Der Fünten"),
+            ("HANS UNTER DER LINDE", "Hans Unter Der Linde"),
             ("ALEXANDRE DUMAS DER ÄLTERE", "Alexandre Dumas Der Ältere"),
             ("JOHANN DER JÜNGERE", "Johann Der Jüngere"),
             # a particle right before the family counts whatever its
@@ -2303,6 +2311,50 @@ def test_a_caps_credential_after_a_comma_keeps_its_capitals_in_every_setting(
                                ("John Smith, PhD XYZ", "John Smith, PhD XYZ")):
             name = parser.parse(text)
             assert str(name.capitalized(force=True)) == rendered, (setting, text)
+
+
+def test_the_cyrillic_doctorate_repairs_in_lower_case() -> None:
+    # #1128: д-р carries a lowercase mask, so repair writes it as it is
+    # written, as the title and as the credential; master wrote 'Д-Р'.
+    # д.м. carries none, rules/R4 writing a letter alone beside a full
+    # stop as an initial.
+    for text, rendered in (
+            ("Д-Р ІВАН ПЕТРЕНКО", "д-р Іван Петренко"),
+            ("ІВАН ПЕТРЕНКО Д-Р", "Іван Петренко д-р")):
+        assert str(parse(text).capitalized()) == rendered, text
+    for text, rendered in (
+            ("д-р Іван Петренко", "д-р Іван Петренко"),
+            ("Іван Петренко Д-Р", "Іван Петренко д-р")):
+        assert str(parse(text).capitalized(force=True)) == rendered, text
+    assert str(parse("Іван Петренко Д-Р").capitalized()) == (
+        "Іван Петренко Д-Р")
+
+
+def test_a_mixed_case_credential_is_kept_as_written_when_forced() -> None:
+    # rules/R4 (#1517): a word the caps shape read after a comma in mixed
+    # case ('MRes', 'AuD') keeps its writing, forced or not: no mask
+    # lists it, and the acronym clause's capitals would write 'MRES'.
+    # Its all-caps twin still repairs to capitals, and the company of a
+    # run of initials (rules/C16) carries the shape's marks too.
+    for text, rendered in (
+            ("Jane Smith, MRes", "Jane Smith, MRes"),
+            ("Jane Smith, AuD", "Jane Smith, AuD"),
+            ("Jane Smith, MRes PhD", "Jane Smith, MRes PhD"),
+            ("Jane Smith, MRE\u0301s", "Jane Smith, MRE\u0301s"),
+            ("Smith, M.B. ChB", "Smith, M.B. ChB"),
+            ("Smith, J.P. AUD", "Smith, J.P. AUD"),
+            ("Ashley Knight, M.S. BME", "Ashley Knight, M.S. BME"),
+            # behind a generation where a title stands before the
+            # surname, C12 reads it and the count marks nothing (#1517's
+            # fix review)
+            ("Dr. Smith Jr., AuD", "Dr. Smith Jr., AuD"),
+            ("Dr. Smith III, MScPT", "Dr. Smith III, MScPT"),
+            ("Dr. Smith Jr., AD", "Dr. Smith Jr., AD")):
+        assert str(parse(text).capitalized(force=True)) == rendered, text
+        assert str(parse(text).capitalized()) == rendered, text
+    # a word written as a name is, read as the given name, still repairs
+    assert str(parse("Jane Smith, PhDc").capitalized(force=True)) == (
+        "Phdc Jane Smith")
 
 
 def test_a_marked_particle_lowercases_only_where_the_particle_arm_would(

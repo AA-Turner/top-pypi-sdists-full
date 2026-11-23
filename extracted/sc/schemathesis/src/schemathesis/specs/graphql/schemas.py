@@ -73,6 +73,7 @@ if TYPE_CHECKING:
     from random import Random
 
     from hypothesis.strategies import SearchStrategy
+    from hypothesis_graphql import Mode
 
     from schemathesis.auths import AuthContext, AuthStorage
     from schemathesis.checks import CheckContext
@@ -87,11 +88,10 @@ if TYPE_CHECKING:
     from schemathesis.resources import ResourcePool
 
 
-# Reused on every per-draw call; allocating once avoids ~600ns of `LazyStrategy` construction.
+# Shared by every draw, so `LazyStrategy` construction happens once.
 _NONE_STRATEGY: st.SearchStrategy = st.none()
 
-# Query fields every Apollo Federation subgraph must expose. They belong to the federation gateway
-# protocol rather than to the API under test, so they stay out of the tested surface unless asked for.
+# Query fields every federation subgraph exposes for the gateway; tested only when requested.
 FEDERATION_FIELDS = frozenset({"_entities", "_service"})
 
 
@@ -124,6 +124,8 @@ class GraphQLSchema(BaseSchema):
         self.analysis = GraphQLAnalysis(self)
         # Coverage cases shared by operations, for callers that pass no run-scoped session.
         self.coverage_shared_targets_seen: set[Hashable] = set()
+        # Query strategies with the custom scalars they were built from, rebuilt when the scalar registry changes.
+        self._query_strategies: dict[Hashable, tuple[dict[str, SearchStrategy], SearchStrategy]] = {}
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
@@ -189,8 +191,7 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def apply_stateful_inference(self, observations: Observations | None) -> StatefulInference:
-        # All GraphQL transitions are derived from schema structure (no `links` keyword equivalent),
-        # so inference accounts for the entire population.
+        # GraphQL has no `links`; every transition is inferred from schema structure
         count = self.analysis.transition_count
         return StatefulInference(inferred=count, total=count, selected=count)
 
@@ -235,7 +236,8 @@ class GraphQLSchema(BaseSchema):
     @override
     def prepare_request_body(self, case: Case) -> Body:
         body = case.body
-        if isinstance(body, (NotSet, bytes)):
+        # A dict is a whole GraphQL request, e.g. a query with its variables.
+        if isinstance(body, (NotSet, bytes, dict)):
             return body
         return {"query": body}
 
@@ -416,10 +418,9 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome:
-        """Decide what the API did with a positive case, from the body rather than the status code.
+        """Decide what the API did with a positive case from the body: GraphQL answers the same status either way.
 
-        A GraphQL server answers the same status whether it served the query or refused it, and an
-        `errors` entry means the operation was not carried out in full.
+        An `errors` entry means the operation was not carried out in full.
         """
         if is_uninformative_status(response.status_code):
             return CallOutcome.UNINFORMATIVE
@@ -521,10 +522,7 @@ def _response_failure(case: Case, response: Response) -> Failure | None:
 
 @dataclass
 class FieldMap(Mapping):
-    """Container for accessing API operations.
-
-    Provides a more specific error message if API operation is not found.
-    """
+    """Operations by field name, with a specific error message for a missing one."""
 
     _schema: GraphQLSchema
     _root_type: RootType
@@ -570,49 +568,26 @@ def graphql_cases(
     mutate_ast: Callable[[graphql.OperationDefinitionNode, Random], graphql.OperationDefinitionNode] | None = None,
 ) -> Any:
     from hypothesis_graphql import Mode as GqlMode
-    from hypothesis_graphql import strategies as gql_st
 
     started_at = Instant()
-    definition = cast(GraphQLOperationDefinition, operation.definition)
-    strategy_factory = {
-        RootType.QUERY: gql_st.queries,
-        RootType.MUTATION: gql_st.mutations,
-    }[definition.root_type]
     hook_context = HookContext(operation=operation)
-    custom_scalars = scalar_strategies()
     generation = operation.schema.config.generation_for(operation=operation, phase=phase.value)
     gql_mode = GqlMode.NEGATIVE if generation_mode == GenerationMode.NEGATIVE else GqlMode.POSITIVE
     effective_mode = generation_mode
-    strategy = strategy_factory(
-        operation.schema.client_schema,
-        fields=[definition.field_name],
-        custom_scalars=custom_scalars,
-        print_ast=_noop,
-        allow_x00=generation.allow_x00,
-        allow_null=generation.graphql_allow_null,
-        codec=generation.codec,
-        mode=gql_mode,
+    # Hooks are resolved on every call, so their wrappers are not reused
+    strategy = apply_to_all_dispatchers(
+        operation, hook_context, hooks, _query_strategy(operation, generation, gql_mode), "body"
     )
-    strategy = apply_to_all_dispatchers(operation, hook_context, hooks, strategy, "body")
     try:
         ast_node = _draw_ast(draw, strategy)
     except InvalidArgument:
         # Negative mode is not possible for this operation (no required arguments or scalar types to violate)
         if generation.modes == [GenerationMode.NEGATIVE]:
             raise SkipTest("Impossible to generate negative test cases for this GraphQL operation") from None
-        # Fall back to positive mode when both modes are enabled
         effective_mode = GenerationMode.POSITIVE
-        fallback_strategy = strategy_factory(
-            operation.schema.client_schema,
-            fields=[definition.field_name],
-            custom_scalars=custom_scalars,
-            print_ast=_noop,
-            allow_x00=generation.allow_x00,
-            allow_null=generation.graphql_allow_null,
-            codec=generation.codec,
-            mode=GqlMode.POSITIVE,
+        fallback_strategy = apply_to_all_dispatchers(
+            operation, hook_context, hooks, _query_strategy(operation, generation, GqlMode.POSITIVE), "body"
         )
-        fallback_strategy = apply_to_all_dispatchers(operation, hook_context, hooks, fallback_strategy, "body")
         ast_node = _draw_ast(draw, fallback_strategy)
 
     operation_node = next(
@@ -623,8 +598,7 @@ def graphql_cases(
     dictionary_draws: tuple[DictionaryDraw, ...] = ()
     if operation_node is not None:
         original_operation_node = operation_node
-        # A captured identifier would overwrite the argument the negative strategy deliberately
-        # corrupted, turning the query valid and making the server's acceptance look like a bug.
+        # In negative mode, a captured id would undo the corrupted argument and make acceptance look like a bug
         if isinstance(feedback.extra_data_source, GraphQLResourcePool) and effective_mode.is_positive:
             random_source = draw(st.randoms())
             if random_source.random() < SUBSTITUTION_PROBABILITY:
@@ -635,8 +609,7 @@ def graphql_cases(
                     random=random_source,
                     schema_index=operation.schema.analysis.schema_index,
                 )
-        # A dictionary entry is explicit user intent, so it overwrites whatever the resource pool
-        # put in the same argument - and a harvested constant does not overwrite it in turn.
+        # Dictionary entries are explicit intent: they overwrite pool values, and constants never overwrite them
         if effective_mode.is_positive:
             dictionary_bindings = resolve_bindings(operation, generation)
             if not dictionary_bindings.is_empty:
@@ -743,13 +716,47 @@ def _generate_parameter(
     context: HookContext,
     hooks: HookDispatcher | None,
 ) -> Any:
-    # Schemathesis does not generate anything but `body` for GraphQL, hence use `None`
+    # GraphQL cases carry only a body
     container = location.container_name
     if explicit is None or isinstance(explicit, NotSet):
         strategy = apply_to_all_dispatchers(operation, context, hooks, _NONE_STRATEGY, container)
     else:
         strategy = apply_to_all_dispatchers(operation, context, hooks, st.just(explicit), container)
     return draw(strategy)
+
+
+def _query_strategy(
+    operation: APIOperation, generation: GenerationConfig, mode: Mode
+) -> SearchStrategy[graphql.DocumentNode]:
+    from hypothesis_graphql import strategies
+
+    definition = cast(GraphQLOperationDefinition, operation.definition)
+    schema = cast(GraphQLSchema, operation.schema)
+    custom_scalars = scalar_strategies()
+    key = (
+        definition.root_type,
+        definition.field_name,
+        generation.allow_x00,
+        generation.graphql_allow_null,
+        generation.codec,
+        mode,
+    )
+    cached = schema._query_strategies.get(key)
+    if cached is not None and cached[0] == custom_scalars:
+        return cached[1]
+    factory = strategies.queries if definition.root_type == RootType.QUERY else strategies.mutations
+    strategy = factory(
+        schema.client_schema,
+        fields=[definition.field_name],
+        custom_scalars=custom_scalars,
+        print_ast=_noop,
+        allow_x00=generation.allow_x00,
+        allow_null=generation.graphql_allow_null,
+        codec=generation.codec,
+        mode=mode,
+    )
+    schema._query_strategies[key] = (custom_scalars, strategy)
+    return strategy
 
 
 def _draw_ast(draw: Callable, strategy: SearchStrategy[graphql.DocumentNode]) -> graphql.DocumentNode:
@@ -768,7 +775,6 @@ def _noop(node: graphql.DocumentNode) -> graphql.DocumentNode:
 
 
 if TYPE_CHECKING:
-    # Verify structural conformance to the spec-agnostic protocol; mypy fails here
-    # if a method is renamed or its signature drifts from `ApiSchema`.
+    # mypy fails here when the schema drifts from the `ApiSchema` protocol
     def _verify_api_schema_protocol(schema: GraphQLSchema) -> ApiSchema:
         return schema

@@ -75,6 +75,7 @@ from .outcome import (
     result_from_install_context,
     stop_before_integration,
 )
+from .pipeline_entry import preview_install as _preview_install
 from .source_helpers import (
     lockfile_refresh_command,
     proxy_only_lock_entries,
@@ -141,6 +142,7 @@ def _run_integration_phase(ctx: InstallContext) -> DeploymentMaterializationSess
     if session is not None:
         session.locked_sources = locked
         session.verify_only = InstallService.frozen_disposition(ctx).replay
+        ctx.old_local_deployed = session.adopt_root_receipts(ctx.old_local_deployed, ctx.targets)
         retire_receipts_of_missing_projects()
     try:
         with (
@@ -156,44 +158,6 @@ def _run_integration_phase(ctx: InstallContext) -> DeploymentMaterializationSess
         if locked is not None:
             locked.close()
     return session
-
-
-def _preview_install(ctx: InstallContext, *, run_gates: bool) -> InstallResult:
-    """Stop ``--dry-run`` after the decisions an install makes before writing.
-
-    The preview reuses this pipeline's resolution, policy gate and commit
-    gate, so it reaches the install's own verdicts; the transaction rolls
-    back the resolution staging.
-    """
-    from .commit_gate import check_before_deploy
-    from .phases import policy_gate as _policy_gate_phase
-    from .pipeline_entry import PipelinePreview
-
-    ctx.preview_errors.extend(message for _, message in ctx.transitive_failures)
-    if run_gates:
-        ctx.direct_mcp_deps = ctx.apm_package.get_all_mcp_dependencies()
-        _run_phase("policy_gate", _policy_gate_phase, ctx)
-        check_before_deploy(ctx)
-    graph = ctx.dependency_graph
-    return InstallResult(
-        disposition=InstallDisposition.DRY_RUN,
-        target_decision=ctx.target_decision,
-        preview=PipelinePreview(
-            dependencies=tuple(ctx.deps_to_install),
-            resolved_dependencies=(
-                tuple(graph.flattened_dependencies.get_installation_list())
-                if graph is not None
-                else tuple(ctx.deps_to_install)
-            ),
-            mcp_dependencies=ctx.preview_mcp_dependencies,
-            errors=tuple(ctx.preview_errors),
-            declaration_errors=tuple(ctx.preview_declaration_errors),
-            resolved_marketplace_plugins=frozenset(
-                (row.get("discovered_via"), row.get("marketplace_plugin_name"))
-                for row in (ctx.marketplace_provenance or {}).values()
-            ),
-        ),
-    )
 
 
 def _preflight_auth_check(ctx, auth_resolver, verbose: bool) -> None:
@@ -435,6 +399,7 @@ def run_install_pipeline(  # noqa: C901, PLR0913, PLR0915, RUF100
     install_mcp: bool = True,
     mcp_runtime: str | None = None,
     dry_run: bool = False,
+    reconcile_services=None,
 ):
     """Install APM package dependencies.
 
@@ -616,6 +581,7 @@ def run_install_pipeline(  # noqa: C901, PLR0913, PLR0915, RUF100
         trust_bin=trust_bin,
         transaction=transaction,
         lsp_preflight=lsp_preflight,
+        reconcile_services=reconcile_services,
     )
     transaction.track_created_target_roots(ctx.created_target_roots)
 
@@ -728,7 +694,7 @@ def run_install_pipeline(  # noqa: C901, PLR0913, PLR0915, RUF100
         # deployment boundary admits a verified plugin (#2703); lockfile_only skips it.
         # --------------------------------------------------------------
         if not lockfile_only:
-            from .phases import claude_plugins, codex_plugins, copilot_plugins
+            from .phases import claude_plugins, codex_plugins, copilot_plugins, services
             from .phases import targets as _targets_phase
 
             _run_phase("targets", _targets_phase, ctx)
@@ -878,7 +844,7 @@ def run_install_pipeline(  # noqa: C901, PLR0913, PLR0915, RUF100
             return stop_before_integration(ctx, diagnostics)
 
         ctx.tui.start_phase("integrate", total=len(ctx.deps_to_install) or 1)
-        transaction.snapshot_deploy_targets(ctx)
+        transaction.journal_deploy_writes(ctx)
         materialization_session = _run_integration_phase(ctx)
 
         # A direct dependency failing integration fails the install; transitive ones continue.
@@ -947,18 +913,17 @@ def run_install_pipeline(  # noqa: C901, PLR0913, PLR0915, RUF100
         transaction.release_deploy_targets()
 
         # ------------------------------------------------------------------
-        # Phase: Native GitHub Copilot Agent Plugin registration (#2703).
-        # Runs LAST -- after the lockfile is canonical, after the require-hashes
-        # integrity gate, and after the content-audit gate -- so the APM-owned
-        # marketplace catalog, ownership ledger, and enabled-plugin settings
-        # entries are written only for an install those gates actually allowed
-        # to complete. Writing earlier would leave Copilot loading a plugin a
-        # later gate refused.
+        # Phase: native plugin registration (#2703, #3921), LAST: after the
+        # lockfile is canonical and the integrity and content-audit gates allowed
+        # the install. MCP/LSP reconciliation runs before every native
+        # registration, which a rolled-back reconciliation skips (#4594); native
+        # registration's lockfile flush is then the install's single commit (#4329).
         # ------------------------------------------------------------------
         if not lockfile_only:
-            _run_phase("copilot_plugins", copilot_plugins, ctx)
-            _run_phase("codex_plugins", codex_plugins, ctx)
-            _run_phase("claude_plugins", claude_plugins, ctx)
+            _run_phase("services", services, ctx)
+            if services.native_registration_allowed(ctx):
+                _run_phase("codex_plugins", codex_plugins, ctx)
+                _run_phase("claude_plugins", claude_plugins, ctx)
 
         # Emit verbose integration stats + bare-success fallback + return result
         from .phases import finalize as _finalize_phase

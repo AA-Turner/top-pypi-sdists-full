@@ -269,9 +269,15 @@ def mailbox_from_recorded_calls(ctx: SandboxStartCtx) -> dict[str, Any]:
                         "ids": [m.get("id") for m in output.get("messages") or []],
                     }
                 )
+                for ref in output.get("messages") or []:
+                    _keep_listed(box, ref, given)
             if name == GET_METHOD and output.get("id"):
+                known = box["messages"].get(output["id"])
                 box["messages"][output["id"]] = _richer(
-                    box["messages"].get(output["id"]), output
+                    None
+                    if known is not None and known.get("bitfabListedOnly")
+                    else known,
+                    output,
                 )
             if name == PROFILE_METHOD:
                 box["emailAddress"] = output.get("emailAddress") or box["emailAddress"]
@@ -304,6 +310,41 @@ def mailbox_from_recorded_calls(ctx: SandboxStartCtx) -> dict[str, Any]:
         for box in by_credential.values()
     ]
     return as_mailboxes(ctx, {"mailboxes": boxes or [{}]})
+
+
+def _listed_labels(given: dict[str, Any]) -> list[str]:
+    asked = given.get("labelIds") or []
+    labels = [asked] if isinstance(asked, str) else [str(label) for label in asked]
+    words = {t.lower() for t in _TOKEN.findall(str(given.get("q") or ""))}
+    for word, label in (
+        ("in:inbox", "INBOX"),
+        ("is:unread", "UNREAD"),
+        ("in:sent", "SENT"),
+    ):
+        if word in words and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _keep_listed(box: dict[str, Any], ref: Any, given: dict[str, Any]) -> None:
+    if not isinstance(ref, dict) or not ref.get("id"):
+        return
+    message_id = str(ref["id"])
+    listed = box["messages"].get(message_id)
+    if listed is not None and not listed.get("bitfabListedOnly"):
+        return
+    labels = _listed_labels(given)
+    if listed is not None:
+        labels = list(dict.fromkeys([*listed["labelIds"], *labels]))
+    box["messages"][message_id] = {
+        "id": message_id,
+        "threadId": str(ref.get("threadId") or message_id),
+        "labelIds": labels,
+        "snippet": "",
+        "internalDate": "0",
+        "payload": {"mimeType": "text/plain", "headers": [], "body": {"size": 0}},
+        "bitfabListedOnly": True,
+    }
 
 
 def _keep_user_label(into: dict[str, dict[str, Any]], label: Any) -> None:
@@ -868,7 +909,11 @@ def _search(
         recorded = [
             visible[i]
             for i in same
-            if i in visible and all(_matches(state, visible[i], q) for q in dates)
+            if i in visible
+            and (
+                visible[i].get("bitfabListedOnly")
+                or all(_matches(state, visible[i], q) for q in dates)
+            )
         ]
         newest_first = sorted(
             created, key=lambda m: int(m.get("internalDate") or 0), reverse=True
@@ -957,7 +1002,12 @@ def _get(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     if message is None:
         return _not_found(f"message {params.get('id')}")
     fmt = str(params.get("format") or "full").lower()
-    if fmt in {"full", "raw"} and message.get("bitfabBodyFromSnippet"):
+    if message.get("bitfabListedOnly"):
+        _note(
+            state,
+            f"message {message['id']} was only listed in the original run, never opened, so only its id, thread, and labels are known",
+        )
+    elif fmt in {"full", "raw"} and message.get("bitfabBodyFromSnippet"):
         _note(
             state,
             f"message {message['id']} was never opened in the original run, so its body is its snippet",

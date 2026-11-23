@@ -1,9 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from requests import HTTPError, Response
+from requests import ConnectTimeout, HTTPError, Response
 
-from postmarker.core import USER_AGENT, PostmarkClient
+from postmarker.core import DEFAULT_TIMEOUT, USER_AGENT, PostmarkClient
+from postmarker.exceptions import TransportError
 from postmarker.models.messages import MessageManager, OutboundMessageManager
 from postmarker.models.triggers import TriggersManager
 
@@ -20,7 +21,7 @@ def test_server_client(postmark, server_token, postmark_request):
         },
         params={},
         json=None,
-        timeout=None,
+        timeout=30,
     )
 
 
@@ -37,7 +38,7 @@ def test_account_client(postmark_request):
         },
         params={},
         json=None,
-        timeout=None,
+        timeout=30,
     )
 
 
@@ -98,12 +99,47 @@ def test_managers_names_overriding(klass):
     )
 
 
-def test_malformed_request(postmark, postmark_request):
-    postmark_request.return_value = Response()
-    postmark_request.return_value.status_code = 500
-    postmark_request.return_value._content = b"Server Error"
-    with pytest.raises(HTTPError, match="Server Error"):
+def test_default_timeout(postmark, postmark_request):
+    postmark.call("GET", "endpoint")
+    assert postmark_request.call_args.kwargs["timeout"] == DEFAULT_TIMEOUT == 30
+
+
+def make_response(status_code, content):
+    response = Response()
+    response.status_code = status_code
+    response._content = content
+    return response
+
+
+@pytest.mark.parametrize(
+    "status_code, content",
+    [
+        (500, b"Server Error"),
+        (502, b'{"error": "Bad Gateway"}'),
+        (200, b"<html>OK</html>"),
+    ],
+    ids=["http-error-without-json", "json-without-error-code", "success-without-json"],
+)
+def test_transport_error_for_unusable_response(postmark, postmark_request, status_code, content):
+    postmark_request.return_value = make_response(status_code, content)
+    with pytest.raises(TransportError) as exc:
         postmark.call("GET", "endpoint")
+    assert exc.value.status_code == status_code
+
+
+def test_transport_error_keeps_http_error_as_cause(postmark, postmark_request):
+    postmark_request.return_value = make_response(500, b"Server Error")
+    with pytest.raises(TransportError, match="Server Error") as exc:
+        postmark.call("GET", "endpoint")
+    assert isinstance(exc.value.__cause__, HTTPError)
+
+
+def test_transport_error_for_network_failure(postmark, postmark_request):
+    postmark_request.side_effect = ConnectTimeout("timed out")
+    with pytest.raises(TransportError, match="timed out") as exc:
+        postmark.call("GET", "endpoint")
+    assert exc.value.status_code is None
+    assert isinstance(exc.value.__cause__, ConnectTimeout)
 
 
 def test_model_manager_import_path():

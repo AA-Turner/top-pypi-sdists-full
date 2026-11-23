@@ -142,12 +142,6 @@ impl Dir {
         file.flush()
     }
 
-    /// Remove a file with the given name from this directory.
-    pub fn remove<P: AsRef<Path>>(&self, name: P) {
-        let path = self.dir.join(name);
-        nice_err(&path, fs::remove_file(&path));
-    }
-
     /// Create a new directory with the given path (and any directories above
     /// it) inside this directory.
     pub fn create_dir<P: AsRef<Path>>(&self, path: P) {
@@ -177,7 +171,11 @@ impl Dir {
 
     /// Returns the path to the ripgrep executable.
     pub fn bin(&self) -> process::Command {
-        let rg = self.root.join(format!("../rg{}", env::consts::EXE_SUFFIX));
+        let rg = std::env::var_os("CARGO_BIN_EXE_rg")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                self.root.join(format!("../rg{}", env::consts::EXE_SUFFIX))
+            });
         match cross_runner() {
             None => process::Command::new(rg),
             Some(runner) => {
@@ -275,6 +273,7 @@ impl TestCommand {
     }
 
     /// Set an environment variable for this command.
+    #[allow(dead_code)] // unused on Windows
     pub fn env(
         &mut self,
         key: impl AsRef<OsStr>,

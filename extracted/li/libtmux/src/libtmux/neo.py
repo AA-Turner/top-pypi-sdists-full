@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from libtmux import exc
 from libtmux._compat import LooseVersion
 from libtmux.common import get_version, raise_if_stderr, tmux_cmd
-from libtmux.formats import FORMAT_SEPARATOR
+from libtmux.formats import FORMAT_SEPARATOR, Format
 
 if t.TYPE_CHECKING:
     ListCmd = t.Literal["list-sessions", "list-windows", "list-panes", "list-clients"]
@@ -1099,7 +1099,7 @@ def fetch_objs(
     server: Server,
     list_cmd: ListCmd,
     list_extra_args: ListExtraArgs = None,
-    filter: str | None = None,  # noqa: A002
+    filter: str | Format | None = None,  # noqa: A002
 ) -> OutputsRaw:
     """Fetch a listing of raw data from a tmux command.
 
@@ -1116,7 +1116,7 @@ def fetch_objs(
     list_extra_args : ListExtraArgs, optional
         Extra arguments appended to the tmux command (e.g. ``("-a",)``
         for all windows/panes, or ``["-t", session_id]`` to filter).
-    filter : str, optional
+    filter : str or Format, optional
         Filter expression evaluated by tmux (``-f`` flag). tmux omits rows
         whose expanded expression is false before libtmux parses the result.
 
@@ -1157,15 +1157,8 @@ def fetch_objs(
     tmux_version = str(get_version(tmux_bin=server.tmux_bin))
     _fields, format_string = get_output_format(list_cmd, tmux_version)
 
-    cmd_args: list[str | int] = []
-
-    if server.socket_name:
-        cmd_args.insert(0, f"-L{server.socket_name}")
-    if server.socket_path:
-        cmd_args.insert(0, f"-S{server.socket_path}")
-
-    tmux_cmds = [
-        *cmd_args,
+    tmux_cmds: list[str | int] = [
+        *server._socket_args(),
         list_cmd,
     ]
 
@@ -1173,7 +1166,7 @@ def fetch_objs(
         tmux_cmds.extend(list(list_extra_args))
 
     if filter is not None:
-        tmux_cmds.extend(["-f", filter])
+        tmux_cmds.extend(["-f", str(filter)])
 
     tmux_cmds.append(f"-F{format_string}")
 

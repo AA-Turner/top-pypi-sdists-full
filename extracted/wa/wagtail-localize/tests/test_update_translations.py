@@ -9,7 +9,7 @@ from django.forms.widgets import CheckboxInput
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from wagtail import VERSION as WAGTAIL_VERSION
-from wagtail.models import Locale, Page, PageViewRestriction
+from wagtail.models import Locale, PageViewRestriction
 from wagtail.test.utils import WagtailTestUtils
 
 from tests.testapp.models import NonTranslatableSnippet, TestSnippet
@@ -20,7 +20,19 @@ from wagtail_localize.models import (
     TranslationSource,
 )
 
-from .utils import assert_permission_denied, make_test_page
+from .utils import (
+    assert_permission_denied,
+    make_test_page,
+    make_user_translate_but_not_edit,
+)
+
+
+if WAGTAIL_VERSION >= (8, 0):
+    import swapper
+
+    Page = swapper.load_model("wagtailcore", "Page")
+else:
+    from wagtail.models import Page
 
 
 def strip_user_perms():
@@ -86,7 +98,7 @@ class TestPageUpdateTranslationsListingButton(TestCase, WagtailTestUtils):
             reverse("wagtailadmin_explore", args=[self.en_homepage.id])
         )
 
-        suffix = ' class=""' if WAGTAIL_VERSION >= (7, 1) else ""
+        suffix = ' class=""'
         self.assertContains(
             response,
             (
@@ -157,7 +169,7 @@ class TestSnippetUpdateTranslationsListingButton(TestCase, WagtailTestUtils):
         )
 
         next = "%2Fadmin%2Fsnippets%2Fwagtail_localize_test%2Ftestsnippet%2F"
-        suffix = 'class=""' if WAGTAIL_VERSION >= (7, 1) else ""
+        suffix = 'class=""'
         self.assertContains(
             response,
             (
@@ -303,6 +315,72 @@ class TestUpdateTranslations(TestCase, WagtailTestUtils):
         )
 
         assert_permission_denied(self, response)
+
+    def test_get_page_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        response = self.client.get(
+            reverse(
+                "wagtail_localize:update_translations",
+                args=[self.page_source.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+
+    def test_get_snippet_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        response = self.client.get(
+            reverse(
+                "wagtail_localize:update_translations",
+                args=[self.snippet_source.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+
+    def test_post_page_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        sources_before = list(TranslationSource.objects.order_by("pk").values())
+        translations_before = list(Translation.objects.order_by("pk").values())
+
+        response = self.client.post(
+            reverse(
+                "wagtail_localize:update_translations",
+                args=[self.page_source.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+        self.assertEqual(
+            list(TranslationSource.objects.order_by("pk").values()), sources_before
+        )
+        self.assertEqual(
+            list(Translation.objects.order_by("pk").values()), translations_before
+        )
+
+    def test_post_snippet_without_edit_permission(self):
+        make_user_translate_but_not_edit()
+
+        sources_before = list(TranslationSource.objects.order_by("pk").values())
+        translations_before = list(Translation.objects.order_by("pk").values())
+
+        response = self.client.post(
+            reverse(
+                "wagtail_localize:update_translations",
+                args=[self.snippet_source.id],
+            )
+        )
+
+        assert_permission_denied(self, response)
+        self.assertEqual(
+            list(TranslationSource.objects.order_by("pk").values()), sources_before
+        )
+        self.assertEqual(
+            list(Translation.objects.order_by("pk").values()), translations_before
+        )
 
     def test_get_with_disabled_translation(self):
         self.page_translation.enabled = False

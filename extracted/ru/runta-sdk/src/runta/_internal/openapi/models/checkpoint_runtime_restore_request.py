@@ -26,17 +26,13 @@ T = TypeVar("T", bound="CheckpointRuntimeRestoreRequest")
 
 @_attrs_define
 class CheckpointRuntimeRestoreRequest:
-    """Restore a runtime from a checkpoint. Runtime Image identity and disk size stay fixed to the checkpoint. A live
-    checkpoint restores guest memory and running processes, so CPU and memory stay fixed. A cold checkpoint stores only
-    the disk and boots fresh, so resources may rechoose CPU and memory; omit resources to keep the values recorded on
-    the checkpoint.
+    """Restore a runtime from a checkpoint. Keep the recorded Runtime Image identity, disk size, and CPU and memory
+    requests and limits for all checkpoint kinds.
 
         Attributes:
             checkpoint_id (str): Checkpoint UUID to restore from.
-            resources (ColdRestoreResources | Unset): CPU and memory for a cold checkpoint restore. Omit the object to keep
-                the CPU and memory recorded on the checkpoint. A cold checkpoint stores only the disk and boots fresh, so these
-                values may be smaller or larger. A live checkpoint restores guest memory and running processes, so CPU and
-                memory stay fixed and this object is rejected.
+            resources (ColdRestoreResources | Unset): Legacy resource override type. Checkpoint restore rejects this object
+                and keeps the recorded CPU and memory requests and limits.
             egress_policy (AllowlistEgressPolicy | DenylistEgressPolicy | Unset): Per-runtime egress gateway policy.
             idle_policy (DisabledIdlePolicy | SuspendAndWakeupIdlePolicy | SuspendOnlyIdlePolicy | Unset): Runtime idle
                 suspension and automatic wakeup policy.
@@ -52,8 +48,8 @@ class CheckpointRuntimeRestoreRequest:
                 pass an empty array to inherit the checkpoint snapshot. The first repository becomes the default workspace.
             llm_tool_io_capture_enabled (bool | Unset): Opt in to official LLM HTTP API tool input/output capture. Default:
                 False.
-            llm_session_content_capture_enabled (bool | Unset): Explicitly opt in to user, assistant, and tool conversation
-                content capture. Disabled by default; independent from tool-only capture. Default: False.
+            llm_session_content_capture_enabled (bool | Unset): Explicitly enable capture of user, assistant, and tool
+                conversation content. Disabled by default. Independent from tool-only capture. Default: False.
             tls_passthrough_hosts (list[str] | Unset): Complete HTTPS passthrough host override. Matching TLS connections
                 bypass secret injection, LLM capture, token saving, and model routing and connect to the original destination.
                 Omit or pass an empty array to inherit the checkpoint snapshot.

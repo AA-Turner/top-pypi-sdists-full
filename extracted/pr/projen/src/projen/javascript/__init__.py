@@ -15150,6 +15150,7 @@ class PnpmWorkspaceYaml(
         self,
         project: "_projen_04054675.Project",
         *,
+        access: typing.Optional["PnpmWorkspaceYamlSchemaAccess"] = None,
         add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -15262,7 +15263,7 @@ class PnpmWorkspaceYaml(
         node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
-        no_proxy: typing.Optional[builtins.str] = None,
+        no_proxy: typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"] = None,
         npm_path: typing.Optional[builtins.str] = None,
         npmrc_auth_file: typing.Optional[builtins.str] = None,
         only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -15296,6 +15297,7 @@ class PnpmWorkspaceYaml(
         publish_branch: typing.Optional[builtins.str] = None,
         publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
+        reference_time: typing.Optional[datetime.datetime] = None,
         registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -15350,10 +15352,12 @@ class PnpmWorkspaceYaml(
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
         virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
+        warn_unused_overrides: typing.Optional[builtins.bool] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
         :param project: -
+        :param access: (experimental) Sets the default for pnpm publish --access. When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
         :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
@@ -15449,7 +15453,7 @@ class PnpmWorkspaceYaml(
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
         :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
-        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
+        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones. The age is counted back from referenceTime when that setting is set.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
         :param minimum_release_age_exclude_prune: (experimental) When set to true, pnpm add, pnpm update, and pnpm remove prune the entries of minimumReleaseAgeExclude in pnpm-workspace.yaml that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (@myorg/*) are always kept.
         :param minimum_release_age_ignore_missing_time: (experimental) When ``true``, pnpm skips the ``minimumReleaseAge`` check for a package whose registry metadata does not include the time field (some private registries and mirrors omit it). Set to ``false`` to fail resolution in that case instead of installing the package.
@@ -15461,12 +15465,12 @@ class PnpmWorkspaceYaml(
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
         :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. Scalar values remain supported. The object form selects a linker with type and groups linker-specific options with it: isolated accepts hoist, hoisted accepts hoistingLimits, and loaded accepts excluded. Configuration sources replace the selected linker; options from a higher-priority object override the same options from lower-priority sources. PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
         :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
         :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
-        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
+        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean. A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
         :param npmrc_auth_file: (experimental) The path to a file containing registry authentication tokens. By default, pnpm reads auth tokens from ~/.npmrc as a fallback for registry authentication. Use this setting to point to a different file instead.
         :param only_built_dependencies: (experimental) A list of package names that are allowed to be executed during installation.
@@ -15497,9 +15501,10 @@ class PnpmWorkspaceYaml(
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
-        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes. Since pnpm v12.23.0, an empty value allows both master and main.
         :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
+        :param reference_time: (experimental) The reference time, as an RFC 3339 timestamp, used to evaluate time-dependent settings. minimumReleaseAge and trustPolicyIgnoreAfter count back from this time during resolution and lockfile verification. When unset, pnpm uses the current time. Set it in pnpm-workspace.yaml or with PNPM_CONFIG_REFERENCE_TIME; the global config.yaml does not apply it. A value that is not a timestamp, or is more than 10 minutes in the future, fails the command. Added in pnpm v12.23.0.
         :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
@@ -15531,14 +15536,14 @@ class PnpmWorkspaceYaml(
         :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
-        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting. Since pnpm v12.23.0, pnpm publish also reads it from pnpm-workspace.yaml, the global config.yaml, or PNPM_CONFIG_TAG when --tag is not passed.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
         :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
-        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
+        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age. The age is counted back from referenceTime when that setting is set.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
         :param update_config: 
@@ -15554,6 +15559,7 @@ class PnpmWorkspaceYaml(
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
         :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
+        :param warn_unused_overrides: (experimental) When true, an install that resolves the whole dependency graph warns about every entry in overrides that matched no dependency. Only overrides declared in pnpm-workspace.yaml are checked; entries added by a config dependency or an updateConfig hook are not. Added in pnpm v12.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -15562,6 +15568,7 @@ class PnpmWorkspaceYaml(
             type_hints = cached_type_hints(_typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef1f21e53)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PnpmWorkspaceYamlOptions(
+            access=access,
             add_missing_peer_types=add_missing_peer_types,
             allow_builds=allow_builds,
             allowed_deprecated_versions=allowed_deprecated_versions,
@@ -15708,6 +15715,7 @@ class PnpmWorkspaceYaml(
             publish_branch=publish_branch,
             publish_wait_timeout=publish_wait_timeout,
             recursive_install=recursive_install,
+            reference_time=reference_time,
             registries=registries,
             registry=registry,
             registry_supports_time_field=registry_supports_time_field,
@@ -15762,6 +15770,7 @@ class PnpmWorkspaceYaml(
             virtual_store_dir_max_length=virtual_store_dir_max_length,
             virtual_store_only=virtual_store_only,
             virtual_store_type=virtual_store_type,
+            warn_unused_overrides=warn_unused_overrides,
             workspace_concurrency=workspace_concurrency,
         )
 
@@ -15798,6 +15807,7 @@ class PnpmWorkspaceYaml(
     jsii_type="projen.javascript.PnpmWorkspaceYamlSchema",
     jsii_struct_bases=[],
     name_mapping={
+        "access": "access",
         "add_missing_peer_types": "addMissingPeerTypes",
         "allow_builds": "allowBuilds",
         "allowed_deprecated_versions": "allowedDeprecatedVersions",
@@ -15944,6 +15954,7 @@ class PnpmWorkspaceYaml(
         "publish_branch": "publishBranch",
         "publish_wait_timeout": "publishWaitTimeout",
         "recursive_install": "recursiveInstall",
+        "reference_time": "referenceTime",
         "registries": "registries",
         "registry": "registry",
         "registry_supports_time_field": "registrySupportsTimeField",
@@ -15998,6 +16009,7 @@ class PnpmWorkspaceYaml(
         "virtual_store_dir_max_length": "virtualStoreDirMaxLength",
         "virtual_store_only": "virtualStoreOnly",
         "virtual_store_type": "virtualStoreType",
+        "warn_unused_overrides": "warnUnusedOverrides",
         "workspace_concurrency": "workspaceConcurrency",
     },
 )
@@ -16005,6 +16017,7 @@ class PnpmWorkspaceYamlSchema:
     def __init__(
         self,
         *,
+        access: typing.Optional["PnpmWorkspaceYamlSchemaAccess"] = None,
         add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -16117,7 +16130,7 @@ class PnpmWorkspaceYamlSchema:
         node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
-        no_proxy: typing.Optional[builtins.str] = None,
+        no_proxy: typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"] = None,
         npm_path: typing.Optional[builtins.str] = None,
         npmrc_auth_file: typing.Optional[builtins.str] = None,
         only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -16151,6 +16164,7 @@ class PnpmWorkspaceYamlSchema:
         publish_branch: typing.Optional[builtins.str] = None,
         publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
+        reference_time: typing.Optional[datetime.datetime] = None,
         registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -16205,10 +16219,12 @@ class PnpmWorkspaceYamlSchema:
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
         virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
+        warn_unused_overrides: typing.Optional[builtins.bool] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) JSON schema for pnpm-workspace.yaml files.
 
+        :param access: (experimental) Sets the default for pnpm publish --access. When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
         :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
@@ -16304,7 +16320,7 @@ class PnpmWorkspaceYamlSchema:
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
         :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
-        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
+        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones. The age is counted back from referenceTime when that setting is set.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
         :param minimum_release_age_exclude_prune: (experimental) When set to true, pnpm add, pnpm update, and pnpm remove prune the entries of minimumReleaseAgeExclude in pnpm-workspace.yaml that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (@myorg/*) are always kept.
         :param minimum_release_age_ignore_missing_time: (experimental) When ``true``, pnpm skips the ``minimumReleaseAge`` check for a package whose registry metadata does not include the time field (some private registries and mirrors omit it). Set to ``false`` to fail resolution in that case instead of installing the package.
@@ -16316,12 +16332,12 @@ class PnpmWorkspaceYamlSchema:
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
         :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. Scalar values remain supported. The object form selects a linker with type and groups linker-specific options with it: isolated accepts hoist, hoisted accepts hoistingLimits, and loaded accepts excluded. Configuration sources replace the selected linker; options from a higher-priority object override the same options from lower-priority sources. PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
         :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
         :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
-        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
+        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean. A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
         :param npmrc_auth_file: (experimental) The path to a file containing registry authentication tokens. By default, pnpm reads auth tokens from ~/.npmrc as a fallback for registry authentication. Use this setting to point to a different file instead.
         :param only_built_dependencies: (experimental) A list of package names that are allowed to be executed during installation.
@@ -16352,9 +16368,10 @@ class PnpmWorkspaceYamlSchema:
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
-        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes. Since pnpm v12.23.0, an empty value allows both master and main.
         :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
+        :param reference_time: (experimental) The reference time, as an RFC 3339 timestamp, used to evaluate time-dependent settings. minimumReleaseAge and trustPolicyIgnoreAfter count back from this time during resolution and lockfile verification. When unset, pnpm uses the current time. Set it in pnpm-workspace.yaml or with PNPM_CONFIG_REFERENCE_TIME; the global config.yaml does not apply it. A value that is not a timestamp, or is more than 10 minutes in the future, fails the command. Added in pnpm v12.23.0.
         :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
@@ -16386,14 +16403,14 @@ class PnpmWorkspaceYamlSchema:
         :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
-        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting. Since pnpm v12.23.0, pnpm publish also reads it from pnpm-workspace.yaml, the global config.yaml, or PNPM_CONFIG_TAG when --tag is not passed.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
         :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
-        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
+        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age. The age is counted back from referenceTime when that setting is set.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
         :param update_config: 
@@ -16409,6 +16426,7 @@ class PnpmWorkspaceYamlSchema:
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
         :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
+        :param warn_unused_overrides: (experimental) When true, an install that resolves the whole dependency graph warns about every entry in overrides that matched no dependency. Only overrides declared in pnpm-workspace.yaml are checked; entries added by a config dependency or an updateConfig hook are not. Added in pnpm v12.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -16442,6 +16460,7 @@ class PnpmWorkspaceYamlSchema:
             versioning = PnpmWorkspaceYamlSchemaVersioning(**versioning)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0fb33264)
+            check_type(argname="argument access", value=access, expected_type=type_hints["access"])
             check_type(argname="argument add_missing_peer_types", value=add_missing_peer_types, expected_type=type_hints["add_missing_peer_types"])
             check_type(argname="argument allow_builds", value=allow_builds, expected_type=type_hints["allow_builds"])
             check_type(argname="argument allowed_deprecated_versions", value=allowed_deprecated_versions, expected_type=type_hints["allowed_deprecated_versions"])
@@ -16588,6 +16607,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument publish_branch", value=publish_branch, expected_type=type_hints["publish_branch"])
             check_type(argname="argument publish_wait_timeout", value=publish_wait_timeout, expected_type=type_hints["publish_wait_timeout"])
             check_type(argname="argument recursive_install", value=recursive_install, expected_type=type_hints["recursive_install"])
+            check_type(argname="argument reference_time", value=reference_time, expected_type=type_hints["reference_time"])
             check_type(argname="argument registries", value=registries, expected_type=type_hints["registries"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument registry_supports_time_field", value=registry_supports_time_field, expected_type=type_hints["registry_supports_time_field"])
@@ -16642,8 +16662,11 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument virtual_store_dir_max_length", value=virtual_store_dir_max_length, expected_type=type_hints["virtual_store_dir_max_length"])
             check_type(argname="argument virtual_store_only", value=virtual_store_only, expected_type=type_hints["virtual_store_only"])
             check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
+            check_type(argname="argument warn_unused_overrides", value=warn_unused_overrides, expected_type=type_hints["warn_unused_overrides"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access is not None:
+            self._values["access"] = access
         if add_missing_peer_types is not None:
             self._values["add_missing_peer_types"] = add_missing_peer_types
         if allow_builds is not None:
@@ -16936,6 +16959,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["publish_wait_timeout"] = publish_wait_timeout
         if recursive_install is not None:
             self._values["recursive_install"] = recursive_install
+        if reference_time is not None:
+            self._values["reference_time"] = reference_time
         if registries is not None:
             self._values["registries"] = registries
         if registry is not None:
@@ -17044,8 +17069,22 @@ class PnpmWorkspaceYamlSchema:
             self._values["virtual_store_only"] = virtual_store_only
         if virtual_store_type is not None:
             self._values["virtual_store_type"] = virtual_store_type
+        if warn_unused_overrides is not None:
+            self._values["warn_unused_overrides"] = warn_unused_overrides
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
+
+    @builtins.property
+    def access(self) -> typing.Optional["PnpmWorkspaceYamlSchemaAccess"]:
+        '''(experimental) Sets the default for pnpm publish --access.
+
+        When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#access
+        '''
+        result = self._values.get("access")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaAccess"], result)
 
     @builtins.property
     def add_missing_peer_types(self) -> typing.Optional[builtins.bool]:
@@ -18077,7 +18116,7 @@ class PnpmWorkspaceYamlSchema:
     def minimum_release_age(self) -> typing.Optional[jsii.Number]:
         '''(experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it.
 
-        This applies to all dependencies, including transitive ones.
+        This applies to all dependencies, including transitive ones. The age is counted back from referenceTime when that setting is set.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#minimumReleaseAge
@@ -18209,7 +18248,7 @@ class PnpmWorkspaceYamlSchema:
     def node_linker(self) -> typing.Any:
         '''(experimental) Defines what linker should be used for installing Node packages.
 
-        loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
+        Scalar values remain supported. The object form selects a linker with type and groups linker-specific options with it: isolated accepts hoist, hoisted accepts hoistingLimits, and loaded accepts excluded. Configuration sources replace the selected linker; options from a higher-priority object override the same options from lower-priority sources. PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeLinker
@@ -18262,14 +18301,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def no_proxy(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A comma-separated string of domain extensions that a proxy should not be used for.
+    def no_proxy(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"]:
+        '''(experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean.
+
+        A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#noProxy
         '''
         result = self._values.get("no_proxy")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"], result)
 
     @builtins.property
     def npm_path(self) -> typing.Optional[builtins.str]:
@@ -18604,6 +18645,8 @@ class PnpmWorkspaceYamlSchema:
     def publish_branch(self) -> typing.Optional[builtins.str]:
         '''(experimental) The primary branch of the repository which is used for publishing the latest changes.
 
+        Since pnpm v12.23.0, an empty value allows both master and main.
+
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#publishBranch
         '''
@@ -18631,6 +18674,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("recursive_install")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def reference_time(self) -> typing.Optional[datetime.datetime]:
+        '''(experimental) The reference time, as an RFC 3339 timestamp, used to evaluate time-dependent settings.
+
+        minimumReleaseAge and trustPolicyIgnoreAfter count back from this time during resolution and lockfile verification. When unset, pnpm uses the current time. Set it in pnpm-workspace.yaml or with PNPM_CONFIG_REFERENCE_TIME; the global config.yaml does not apply it. A value that is not a timestamp, or is more than 10 minutes in the future, fails the command. Added in pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#referenceTime
+        '''
+        result = self._values.get("reference_time")
+        return typing.cast(typing.Optional[datetime.datetime], result)
 
     @builtins.property
     def registries(self) -> typing.Any:
@@ -18977,6 +19032,8 @@ class PnpmWorkspaceYamlSchema:
     def tag(self) -> typing.Optional[builtins.str]:
         '''(experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
 
+        Since pnpm v12.23.0, pnpm publish also reads it from pnpm-workspace.yaml, the global config.yaml, or PNPM_CONFIG_TAG when --tag is not passed.
+
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#tag
         '''
@@ -19057,7 +19114,7 @@ class PnpmWorkspaceYamlSchema:
     def trust_policy_ignore_after(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago.
 
-        This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
+        This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age. The age is counted back from referenceTime when that setting is set.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#trustPolicyIgnoreAfter
@@ -19226,6 +19283,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"], result)
 
     @builtins.property
+    def warn_unused_overrides(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, an install that resolves the whole dependency graph warns about every entry in overrides that matched no dependency.
+
+        Only overrides declared in pnpm-workspace.yaml are checked; entries added by a config dependency or an updateConfig hook are not. Added in pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#warnUnusedOverrides
+        '''
+        result = self._values.get("warn_unused_overrides")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def workspace_concurrency(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Set the maximum number of tasks to run simultaneously.
 
@@ -19247,6 +19316,28 @@ class PnpmWorkspaceYamlSchema:
         return "PnpmWorkspaceYamlSchema(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaAccess")
+class PnpmWorkspaceYamlSchemaAccess(enum.Enum):
+    '''(experimental) Sets the default for pnpm publish --access.
+
+    When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaAccess
+    '''
+
+    PUBLIC = "PUBLIC"
+    '''(experimental) public.
+
+    :stability: experimental
+    '''
+    RESTRICTED = "RESTRICTED"
+    '''(experimental) restricted.
+
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
@@ -19845,6 +19936,53 @@ class PnpmWorkspaceYamlSchemaMacosBackup:
         return "PnpmWorkspaceYamlSchemaMacosBackup(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class PnpmWorkspaceYamlSchemaNoProxy(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaNoProxy",
+):
+    '''(experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean.
+
+    A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaNoProxy
+    '''
+
+    @jsii.member(jsii_name="fromBoolean")
+    @builtins.classmethod
+    def from_boolean(cls, value: builtins.bool) -> "PnpmWorkspaceYamlSchemaNoProxy":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ecb6584ae3a3228ceed10f4283e0c339f66edf234f04cfdb9fd0a917a8979604)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("PnpmWorkspaceYamlSchemaNoProxy", jsii.sinvoke(cls, "fromBoolean", [value]))
+
+    @jsii.member(jsii_name="fromString")
+    @builtins.classmethod
+    def from_string(cls, value: builtins.str) -> "PnpmWorkspaceYamlSchemaNoProxy":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__552c9a3da5057f2b2871597bedb2eaa5ce0b51d0ec069254a56ac1e7cb4b3f52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("PnpmWorkspaceYamlSchemaNoProxy", jsii.sinvoke(cls, "fromString", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> typing.Union[builtins.str, builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Union[builtins.str, builtins.bool], jsii.get(self, "value"))
 
 
 @jsii.data_type(
@@ -20803,6 +20941,7 @@ class PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun(
         "epics": "epics",
         "fixed": "fixed",
         "ignore": "ignore",
+        "include_private_packages": "includePrivatePackages",
         "lanes": "lanes",
         "max_bump": "maxBump",
     },
@@ -20815,6 +20954,7 @@ class PnpmWorkspaceYamlSchemaVersioning:
         epics: typing.Optional[typing.Sequence[typing.Union["PnpmWorkspaceYamlSchemaVersioningEpics", typing.Dict[builtins.str, typing.Any]]]] = None,
         fixed: typing.Optional[typing.Sequence[typing.Sequence[builtins.str]]] = None,
         ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+        include_private_packages: typing.Optional[builtins.bool] = None,
         lanes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         max_bump: typing.Optional["PnpmWorkspaceYamlSchemaVersioningMaxBump"] = None,
     ) -> None:
@@ -20824,6 +20964,7 @@ class PnpmWorkspaceYamlSchemaVersioning:
         :param epics: (experimental) Ties member projects to a lead project and constrains their major versions to the lead's major-version band.
         :param fixed: (experimental) Groups of workspace projects that always release together at one shared version. The shared version is the highest current version in the group, bumped by the largest bump any member needs.
         :param ignore: (experimental) Workspace projects permanently excluded from versioning and dependent propagation.
+        :param include_private_packages: (experimental) When false, pnpm change leaves private packages out of the packages it offers, and naming one on the command line fails. A private package can still be bumped as a dependent. Added in pnpm v12.23.0.
         :param lanes: (experimental) Maps a workspace project to a release lane. Unlisted projects are on the reserved ``main`` lane and release stable versions.
         :param max_bump: (experimental) Caps the bump that a release from the current checkout may apply, after dependent propagation and fixed-group resolution.
 
@@ -20838,6 +20979,7 @@ class PnpmWorkspaceYamlSchemaVersioning:
             check_type(argname="argument epics", value=epics, expected_type=type_hints["epics"])
             check_type(argname="argument fixed", value=fixed, expected_type=type_hints["fixed"])
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
+            check_type(argname="argument include_private_packages", value=include_private_packages, expected_type=type_hints["include_private_packages"])
             check_type(argname="argument lanes", value=lanes, expected_type=type_hints["lanes"])
             check_type(argname="argument max_bump", value=max_bump, expected_type=type_hints["max_bump"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -20849,6 +20991,8 @@ class PnpmWorkspaceYamlSchemaVersioning:
             self._values["fixed"] = fixed
         if ignore is not None:
             self._values["ignore"] = ignore
+        if include_private_packages is not None:
+            self._values["include_private_packages"] = include_private_packages
         if lanes is not None:
             self._values["lanes"] = lanes
         if max_bump is not None:
@@ -20899,6 +21043,18 @@ class PnpmWorkspaceYamlSchemaVersioning:
         '''
         result = self._values.get("ignore")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def include_private_packages(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When false, pnpm change leaves private packages out of the packages it offers, and naming one on the command line fails.
+
+        A private package can still be bumped as a dependent. Added in pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaVersioning#includePrivatePackages
+        '''
+        result = self._values.get("include_private_packages")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def lanes(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -28752,6 +28908,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
     jsii_type="projen.javascript.PnpmWorkspaceYamlOptions",
     jsii_struct_bases=[PnpmWorkspaceYamlSchema],
     name_mapping={
+        "access": "access",
         "add_missing_peer_types": "addMissingPeerTypes",
         "allow_builds": "allowBuilds",
         "allowed_deprecated_versions": "allowedDeprecatedVersions",
@@ -28898,6 +29055,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "publish_branch": "publishBranch",
         "publish_wait_timeout": "publishWaitTimeout",
         "recursive_install": "recursiveInstall",
+        "reference_time": "referenceTime",
         "registries": "registries",
         "registry": "registry",
         "registry_supports_time_field": "registrySupportsTimeField",
@@ -28952,6 +29110,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "virtual_store_dir_max_length": "virtualStoreDirMaxLength",
         "virtual_store_only": "virtualStoreOnly",
         "virtual_store_type": "virtualStoreType",
+        "warn_unused_overrides": "warnUnusedOverrides",
         "workspace_concurrency": "workspaceConcurrency",
     },
 )
@@ -28959,6 +29118,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def __init__(
         self,
         *,
+        access: typing.Optional["PnpmWorkspaceYamlSchemaAccess"] = None,
         add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -29071,7 +29231,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
-        no_proxy: typing.Optional[builtins.str] = None,
+        no_proxy: typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"] = None,
         npm_path: typing.Optional[builtins.str] = None,
         npmrc_auth_file: typing.Optional[builtins.str] = None,
         only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -29105,6 +29265,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         publish_branch: typing.Optional[builtins.str] = None,
         publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
+        reference_time: typing.Optional[datetime.datetime] = None,
         registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -29159,10 +29320,12 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
         virtual_store_only: typing.Optional[builtins.bool] = None,
         virtual_store_type: typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"] = None,
+        warn_unused_overrides: typing.Optional[builtins.bool] = None,
         workspace_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) Options for ``PnpmWorkspaceYaml``.
 
+        :param access: (experimental) Sets the default for pnpm publish --access. When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
         :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
@@ -29258,7 +29421,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
         :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
-        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
+        :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones. The age is counted back from referenceTime when that setting is set.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
         :param minimum_release_age_exclude_prune: (experimental) When set to true, pnpm add, pnpm update, and pnpm remove prune the entries of minimumReleaseAgeExclude in pnpm-workspace.yaml that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (@myorg/*) are always kept.
         :param minimum_release_age_ignore_missing_time: (experimental) When ``true``, pnpm skips the ``minimumReleaseAge`` check for a package whose registry metadata does not include the time field (some private registries and mirrors omit it). Set to ``false`` to fail resolution in that case instead of installing the package.
@@ -29270,12 +29433,12 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
         :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. Scalar values remain supported. The object form selects a linker with type and groups linker-specific options with it: isolated accepts hoist, hoisted accepts hoistingLimits, and loaded accepts excluded. Configuration sources replace the selected linker; options from a higher-priority object override the same options from lower-priority sources. PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
         :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
         :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
-        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
+        :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean. A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
         :param npmrc_auth_file: (experimental) The path to a file containing registry authentication tokens. By default, pnpm reads auth tokens from ~/.npmrc as a fallback for registry authentication. Use this setting to point to a different file instead.
         :param only_built_dependencies: (experimental) A list of package names that are allowed to be executed during installation.
@@ -29306,9 +29469,10 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
-        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes. Since pnpm v12.23.0, an empty value allows both master and main.
         :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
+        :param reference_time: (experimental) The reference time, as an RFC 3339 timestamp, used to evaluate time-dependent settings. minimumReleaseAge and trustPolicyIgnoreAfter count back from this time during resolution and lockfile verification. When unset, pnpm uses the current time. Set it in pnpm-workspace.yaml or with PNPM_CONFIG_REFERENCE_TIME; the global config.yaml does not apply it. A value that is not a timestamp, or is more than 10 minutes in the future, fails the command. Added in pnpm v12.23.0.
         :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
@@ -29340,14 +29504,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
-        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting. Since pnpm v12.23.0, pnpm publish also reads it from pnpm-workspace.yaml, the global config.yaml, or PNPM_CONFIG_TAG when --tag is not passed.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
         :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
-        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
+        :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age. The age is counted back from referenceTime when that setting is set.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
         :param update_config: 
@@ -29363,6 +29527,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
         :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
+        :param warn_unused_overrides: (experimental) When true, an install that resolves the whole dependency graph warns about every entry in overrides that matched no dependency. Only overrides declared in pnpm-workspace.yaml are checked; entries added by a config dependency or an updateConfig hook are not. Added in pnpm v12.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :see: https://pnpm.io/pnpm-workspace_yaml
@@ -29396,6 +29561,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             versioning = PnpmWorkspaceYamlSchemaVersioning(**versioning)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb1e98ee7)
+            check_type(argname="argument access", value=access, expected_type=type_hints["access"])
             check_type(argname="argument add_missing_peer_types", value=add_missing_peer_types, expected_type=type_hints["add_missing_peer_types"])
             check_type(argname="argument allow_builds", value=allow_builds, expected_type=type_hints["allow_builds"])
             check_type(argname="argument allowed_deprecated_versions", value=allowed_deprecated_versions, expected_type=type_hints["allowed_deprecated_versions"])
@@ -29542,6 +29708,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument publish_branch", value=publish_branch, expected_type=type_hints["publish_branch"])
             check_type(argname="argument publish_wait_timeout", value=publish_wait_timeout, expected_type=type_hints["publish_wait_timeout"])
             check_type(argname="argument recursive_install", value=recursive_install, expected_type=type_hints["recursive_install"])
+            check_type(argname="argument reference_time", value=reference_time, expected_type=type_hints["reference_time"])
             check_type(argname="argument registries", value=registries, expected_type=type_hints["registries"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument registry_supports_time_field", value=registry_supports_time_field, expected_type=type_hints["registry_supports_time_field"])
@@ -29596,8 +29763,11 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument virtual_store_dir_max_length", value=virtual_store_dir_max_length, expected_type=type_hints["virtual_store_dir_max_length"])
             check_type(argname="argument virtual_store_only", value=virtual_store_only, expected_type=type_hints["virtual_store_only"])
             check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
+            check_type(argname="argument warn_unused_overrides", value=warn_unused_overrides, expected_type=type_hints["warn_unused_overrides"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access is not None:
+            self._values["access"] = access
         if add_missing_peer_types is not None:
             self._values["add_missing_peer_types"] = add_missing_peer_types
         if allow_builds is not None:
@@ -29890,6 +30060,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["publish_wait_timeout"] = publish_wait_timeout
         if recursive_install is not None:
             self._values["recursive_install"] = recursive_install
+        if reference_time is not None:
+            self._values["reference_time"] = reference_time
         if registries is not None:
             self._values["registries"] = registries
         if registry is not None:
@@ -29998,8 +30170,22 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["virtual_store_only"] = virtual_store_only
         if virtual_store_type is not None:
             self._values["virtual_store_type"] = virtual_store_type
+        if warn_unused_overrides is not None:
+            self._values["warn_unused_overrides"] = warn_unused_overrides
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
+
+    @builtins.property
+    def access(self) -> typing.Optional["PnpmWorkspaceYamlSchemaAccess"]:
+        '''(experimental) Sets the default for pnpm publish --access.
+
+        When set, it takes precedence over publishConfig.access. Configure it in pnpm-workspace.yaml or the global config.yaml, or with PNPM_CONFIG_ACCESS. Read from configuration since pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#access
+        '''
+        result = self._values.get("access")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaAccess"], result)
 
     @builtins.property
     def add_missing_peer_types(self) -> typing.Optional[builtins.bool]:
@@ -31031,7 +31217,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def minimum_release_age(self) -> typing.Optional[jsii.Number]:
         '''(experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it.
 
-        This applies to all dependencies, including transitive ones.
+        This applies to all dependencies, including transitive ones. The age is counted back from referenceTime when that setting is set.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#minimumReleaseAge
@@ -31163,7 +31349,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def node_linker(self) -> typing.Any:
         '''(experimental) Defines what linker should be used for installing Node packages.
 
-        loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
+        Scalar values remain supported. The object form selects a linker with type and groups linker-specific options with it: isolated accepts hoist, hoisted accepts hoistingLimits, and loaded accepts excluded. Configuration sources replace the selected linker; options from a higher-priority object override the same options from lower-priority sources. PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeLinker
@@ -31216,14 +31402,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def no_proxy(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A comma-separated string of domain extensions that a proxy should not be used for.
+    def no_proxy(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"]:
+        '''(experimental) A comma-separated string of domain extensions that a proxy should not be used for, or a boolean.
+
+        A null value leaves the setting unset. Since pnpm v12.23.0, any other type fails validation.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#noProxy
         '''
         result = self._values.get("no_proxy")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNoProxy"], result)
 
     @builtins.property
     def npm_path(self) -> typing.Optional[builtins.str]:
@@ -31558,6 +31746,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def publish_branch(self) -> typing.Optional[builtins.str]:
         '''(experimental) The primary branch of the repository which is used for publishing the latest changes.
 
+        Since pnpm v12.23.0, an empty value allows both master and main.
+
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#publishBranch
         '''
@@ -31585,6 +31775,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("recursive_install")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def reference_time(self) -> typing.Optional[datetime.datetime]:
+        '''(experimental) The reference time, as an RFC 3339 timestamp, used to evaluate time-dependent settings.
+
+        minimumReleaseAge and trustPolicyIgnoreAfter count back from this time during resolution and lockfile verification. When unset, pnpm uses the current time. Set it in pnpm-workspace.yaml or with PNPM_CONFIG_REFERENCE_TIME; the global config.yaml does not apply it. A value that is not a timestamp, or is more than 10 minutes in the future, fails the command. Added in pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#referenceTime
+        '''
+        result = self._values.get("reference_time")
+        return typing.cast(typing.Optional[datetime.datetime], result)
 
     @builtins.property
     def registries(self) -> typing.Any:
@@ -31931,6 +32133,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def tag(self) -> typing.Optional[builtins.str]:
         '''(experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
 
+        Since pnpm v12.23.0, pnpm publish also reads it from pnpm-workspace.yaml, the global config.yaml, or PNPM_CONFIG_TAG when --tag is not passed.
+
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#tag
         '''
@@ -32011,7 +32215,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def trust_policy_ignore_after(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago.
 
-        This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
+        This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age. The age is counted back from referenceTime when that setting is set.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#trustPolicyIgnoreAfter
@@ -32180,6 +32384,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"], result)
 
     @builtins.property
+    def warn_unused_overrides(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, an install that resolves the whole dependency graph warns about every entry in overrides that matched no dependency.
+
+        Only overrides declared in pnpm-workspace.yaml are checked; entries added by a config dependency or an updateConfig hook are not. Added in pnpm v12.23.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#warnUnusedOverrides
+        '''
+        result = self._values.get("warn_unused_overrides")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def workspace_concurrency(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Set the maximum number of tasks to run simultaneously.
 
@@ -32267,6 +32483,7 @@ __all__ = [
     "PnpmWorkspaceYaml",
     "PnpmWorkspaceYamlOptions",
     "PnpmWorkspaceYamlSchema",
+    "PnpmWorkspaceYamlSchemaAccess",
     "PnpmWorkspaceYamlSchemaAudit",
     "PnpmWorkspaceYamlSchemaAuditConfig",
     "PnpmWorkspaceYamlSchemaAuditLevel",
@@ -32280,6 +32497,7 @@ __all__ = [
     "PnpmWorkspaceYamlSchemaLinkWorkspacePackages",
     "PnpmWorkspaceYamlSchemaLoglevel",
     "PnpmWorkspaceYamlSchemaMacosBackup",
+    "PnpmWorkspaceYamlSchemaNoProxy",
     "PnpmWorkspaceYamlSchemaNodePackageMap",
     "PnpmWorkspaceYamlSchemaNodePackageMapMode",
     "PnpmWorkspaceYamlSchemaNodePackageMapType",
@@ -33778,6 +33996,7 @@ def _typecheckingstub__f0658f702068b1f034b45100a2c48201c2d2665809f5f2ea84ec80efc
 def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef1f21e53(
     project: _projen_04054675.Project,
     *,
+    access: typing.Optional[PnpmWorkspaceYamlSchemaAccess] = None,
     add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -33890,7 +34109,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
-    no_proxy: typing.Optional[builtins.str] = None,
+    no_proxy: typing.Optional[PnpmWorkspaceYamlSchemaNoProxy] = None,
     npm_path: typing.Optional[builtins.str] = None,
     npmrc_auth_file: typing.Optional[builtins.str] = None,
     only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -33924,6 +34143,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     publish_branch: typing.Optional[builtins.str] = None,
     publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
+    reference_time: typing.Optional[datetime.datetime] = None,
     registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -33978,6 +34198,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
     virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
+    warn_unused_overrides: typing.Optional[builtins.bool] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -33991,6 +34212,7 @@ def _typecheckingstub__8407c59fe681b320e93b0a6a7dd88da52c40697c54b67c90b8261b85d
 
 def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0fb33264(
     *,
+    access: typing.Optional[PnpmWorkspaceYamlSchemaAccess] = None,
     add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -34103,7 +34325,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
-    no_proxy: typing.Optional[builtins.str] = None,
+    no_proxy: typing.Optional[PnpmWorkspaceYamlSchemaNoProxy] = None,
     npm_path: typing.Optional[builtins.str] = None,
     npmrc_auth_file: typing.Optional[builtins.str] = None,
     only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -34137,6 +34359,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     publish_branch: typing.Optional[builtins.str] = None,
     publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
+    reference_time: typing.Optional[datetime.datetime] = None,
     registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -34191,6 +34414,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
     virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
+    warn_unused_overrides: typing.Optional[builtins.bool] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -34253,6 +34477,18 @@ def _typecheckingstub__db44a0e2a2a83a7da53891c37b311049a089238b2caef0b72c5b1565c
     *,
     exclude_modules_dir: typing.Optional[builtins.bool] = None,
     exclude_store_dir: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecb6584ae3a3228ceed10f4283e0c339f66edf234f04cfdb9fd0a917a8979604(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__552c9a3da5057f2b2871597bedb2eaa5ce0b51d0ec069254a56ac1e7cb4b3f52(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34350,6 +34586,7 @@ def _typecheckingstub__149f6027f3a228276cd846dc3770266da96ad423c18d297ec44c40f4b
     epics: typing.Optional[typing.Sequence[typing.Union[PnpmWorkspaceYamlSchemaVersioningEpics, typing.Dict[builtins.str, typing.Any]]]] = None,
     fixed: typing.Optional[typing.Sequence[typing.Sequence[builtins.str]]] = None,
     ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+    include_private_packages: typing.Optional[builtins.bool] = None,
     lanes: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     max_bump: typing.Optional[PnpmWorkspaceYamlSchemaVersioningMaxBump] = None,
 ) -> None:
@@ -35069,6 +35306,7 @@ def _typecheckingstub__ebbe0c9e1f42bce4a170364283456b0aea82335e75c430ec9b8391794
 
 def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb1e98ee7(
     *,
+    access: typing.Optional[PnpmWorkspaceYamlSchemaAccess] = None,
     add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -35181,7 +35419,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
-    no_proxy: typing.Optional[builtins.str] = None,
+    no_proxy: typing.Optional[PnpmWorkspaceYamlSchemaNoProxy] = None,
     npm_path: typing.Optional[builtins.str] = None,
     npmrc_auth_file: typing.Optional[builtins.str] = None,
     only_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -35215,6 +35453,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     publish_branch: typing.Optional[builtins.str] = None,
     publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
+    reference_time: typing.Optional[datetime.datetime] = None,
     registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
@@ -35269,6 +35508,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     virtual_store_dir_max_length: typing.Optional[jsii.Number] = None,
     virtual_store_only: typing.Optional[builtins.bool] = None,
     virtual_store_type: typing.Optional[PnpmWorkspaceYamlSchemaVirtualStoreType] = None,
+    warn_unused_overrides: typing.Optional[builtins.bool] = None,
     workspace_concurrency: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

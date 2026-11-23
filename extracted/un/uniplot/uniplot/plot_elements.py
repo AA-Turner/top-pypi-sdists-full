@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 from typing import Any, Final
 
 import numpy as np
@@ -22,6 +23,7 @@ def legend(
     force_ascii_characters: list[str] | None = None,
     character_set: CharacterSet = CharacterSet.BLOCK,
     legend_placement: LegendPlacement = LegendPlacement.AUTO,
+    border_width: int = 2,
 ) -> str:
     """
     Assemble a legend that shows the color of the different curves.
@@ -66,18 +68,25 @@ def legend(
 
     if legend_placement == LegendPlacement.AUTO:
         return _center_each_line_if_possible(
-            full_label_string, width + 2, line_length_hard_cap
+            full_label_string, width + border_width, line_length_hard_cap
         )
-    return _center_block_if_possible(full_label_string, width + 2, line_length_hard_cap)
+    return _center_block_if_possible(
+        full_label_string, width + border_width, line_length_hard_cap
+    )
 
 
-def plot_title(title: str, width: int, line_length_hard_cap: int | None) -> str:
+def plot_title(
+    title: str,
+    width: int,
+    line_length_hard_cap: int | None,
+    border_width: int = 2,
+) -> str:
     """
     Returns the centered title string.
 
     Note that this assumes that `title` is not `None`.
     """
-    return _center_block_if_possible(title, width + 2, line_length_hard_cap)
+    return _center_block_if_possible(title, width + border_width, line_length_hard_cap)
 
 
 def erase_previous_lines(nr_lines: int) -> None:
@@ -123,7 +132,16 @@ def prepare_histogram(
         # `datetime64[s]` so the downstream plot re-detects the x-axis as a time
         # series and renders date labels instead of raw numbers.
         if multi_series.y_is_time_series:
-            xs_barchart = xs_barchart.astype("datetime64[s]")
+            if multi_series.y_timezone is not None:
+                xs_barchart = np.array(
+                    [
+                        datetime.fromtimestamp(t, multi_series.y_timezone)
+                        for t in xs_barchart
+                    ],
+                    dtype=object,
+                )
+            else:
+                xs_barchart = xs_barchart.astype("datetime64[s]")
         xs_histo_series.append(xs_barchart)
         ys_histo_series.append(ys_barchart)
 

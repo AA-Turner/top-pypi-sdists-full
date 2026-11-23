@@ -12,6 +12,10 @@ fn is_literal_x(value: &str) -> bool {
     value == "x"
 }
 
+fn is_even_number(number: &serde_json::Number) -> bool {
+    number.as_i64().is_some_and(|value| value % 2 == 0)
+}
+
 struct EvenKeyword;
 
 impl<'i> jsonschema::Keyword<'i> for EvenKeyword {
@@ -421,6 +425,48 @@ fn test_resource_in_its_own_draft_matches_runtime(instance: serde_json::Value) {
     assert_validate_parity(
         ResourceInItsOwnDraftValidator::is_valid(&instance),
         ResourceInItsOwnDraftValidator::validate(&instance),
+        &runtime,
+        &instance,
+    );
+}
+
+// A `$ref` to the bundled meta-schema of another draft than the root's
+#[jsonschema::validator(
+    schema = r##"{"$ref":"https://json-schema.org/draft/2020-12/schema"}"##,
+    draft = referencing::Draft::Draft7
+)]
+struct Draft7RefToDraft202012MetaSchemaValidator;
+
+#[jsonschema::validator(schema = r##"{"$ref":"http://json-schema.org/draft-07/schema#"}"##)]
+struct Draft202012RefToDraft7MetaSchemaValidator;
+
+#[jsonschema::validator(
+    schema = r##"{"$ref":"https://json-schema.org/draft/2019-09/meta/validation"}"##,
+    draft = referencing::Draft::Draft4
+)]
+struct Draft4RefToDraft201909VocabularyMetaSchemaValidator;
+
+#[test_case(Draft7RefToDraft202012MetaSchemaValidator::is_valid, Draft7RefToDraft202012MetaSchemaValidator::validate, referencing::Draft::Draft7, "https://json-schema.org/draft/2020-12/schema", serde_json::json!({"type": "string"}) ; "draft 7 to 2020-12 accepts")]
+#[test_case(Draft7RefToDraft202012MetaSchemaValidator::is_valid, Draft7RefToDraft202012MetaSchemaValidator::validate, referencing::Draft::Draft7, "https://json-schema.org/draft/2020-12/schema", serde_json::json!({"type": 12}) ; "draft 7 to 2020-12 rejects")]
+#[test_case(Draft202012RefToDraft7MetaSchemaValidator::is_valid, Draft202012RefToDraft7MetaSchemaValidator::validate, referencing::Draft::Draft202012, "http://json-schema.org/draft-07/schema#", serde_json::json!({"type": "string"}) ; "2020-12 to draft 7 accepts")]
+#[test_case(Draft202012RefToDraft7MetaSchemaValidator::is_valid, Draft202012RefToDraft7MetaSchemaValidator::validate, referencing::Draft::Draft202012, "http://json-schema.org/draft-07/schema#", serde_json::json!({"type": 12}) ; "2020-12 to draft 7 rejects")]
+#[test_case(Draft4RefToDraft201909VocabularyMetaSchemaValidator::is_valid, Draft4RefToDraft201909VocabularyMetaSchemaValidator::validate, referencing::Draft::Draft4, "https://json-schema.org/draft/2019-09/meta/validation", serde_json::json!({"type": "string"}) ; "draft 4 to 2019-09 vocabulary accepts")]
+#[test_case(Draft4RefToDraft201909VocabularyMetaSchemaValidator::is_valid, Draft4RefToDraft201909VocabularyMetaSchemaValidator::validate, referencing::Draft::Draft4, "https://json-schema.org/draft/2019-09/meta/validation", serde_json::json!({"type": 12}) ; "draft 4 to 2019-09 vocabulary rejects")]
+fn test_ref_to_meta_schema_of_another_draft_matches_runtime(
+    is_valid: IsValidFn,
+    validate: ValidateFn,
+    draft: referencing::Draft,
+    target: &str,
+    instance: serde_json::Value,
+) {
+    let runtime = jsonschema::options()
+        .with_draft(draft)
+        .offline()
+        .build(&serde_json::json!({"$ref": target}))
+        .expect("valid schema");
+    assert_validate_parity(
+        is_valid(&instance),
+        validate(&instance),
         &runtime,
         &instance,
     );
@@ -1971,6 +2017,49 @@ fn test_huge_count_pattern_properties_parity(instance: serde_json::Value) {
         &schema,
         HugeCountPatternPropertiesValidator::is_valid(&instance),
         HugeCountPatternPropertiesValidator::validate(&instance),
+        &instance,
+    );
+}
+
+#[jsonschema::validator(schema = r#"{"pattern":"^(?<n>\\d)\\k<n>$"}"#)]
+struct NamedBackreferencePatternValidator;
+
+#[jsonschema::validator(schema = r#"{"pattern":"^(a)?\\1b$"}"#)]
+struct UnmatchedGroupBackreferencePatternValidator;
+
+#[jsonschema::validator(
+    schema = r#"{"patternProperties":{"^(?<n>.)\\k<n>$":false},"propertyNames":{"pattern":"^(?<n>.)\\k<n>"}}"#
+)]
+struct NamedBackreferenceKeysValidator;
+
+#[test_case(serde_json::json!("33") ; "repeated digit")]
+#[test_case(serde_json::json!("34") ; "different digits")]
+#[test_case(serde_json::json!("٣٣") ; "repeated non-ascii digit")]
+#[test_case(serde_json::json!("b") ; "unmatched group")]
+#[test_case(serde_json::json!("ab") ; "matched group without a repeat")]
+fn test_backreference_pattern_parity(instance: serde_json::Value) {
+    assert_validate_parity_for(
+        &serde_json::json!({"pattern":"^(?<n>\\d)\\k<n>$"}),
+        NamedBackreferencePatternValidator::is_valid(&instance),
+        NamedBackreferencePatternValidator::validate(&instance),
+        &instance,
+    );
+    assert_validate_parity_for(
+        &serde_json::json!({"pattern":"^(a)?\\1b$"}),
+        UnmatchedGroupBackreferencePatternValidator::is_valid(&instance),
+        UnmatchedGroupBackreferencePatternValidator::validate(&instance),
+        &instance,
+    );
+}
+
+#[test_case(serde_json::json!({"aa": 1}) ; "key the pattern map forbids")]
+#[test_case(serde_json::json!({"aab": 1}) ; "allowed key")]
+#[test_case(serde_json::json!({"ab": 1}) ; "key without a repeat")]
+fn test_backreference_keys_parity(instance: serde_json::Value) {
+    assert_validate_parity_for(
+        &serde_json::json!({"patternProperties":{"^(?<n>.)\\k<n>$":false},"propertyNames":{"pattern":"^(?<n>.)\\k<n>"}}),
+        NamedBackreferenceKeysValidator::is_valid(&instance),
+        NamedBackreferenceKeysValidator::validate(&instance),
         &instance,
     );
 }
@@ -4829,6 +4918,21 @@ fn test_custom_format_validation_override_in_draft201909(
     );
 }
 
+#[test_case(serde_json::json!(4), true ; "even number")]
+#[test_case(serde_json::json!(5), false ; "odd number")]
+#[test_case(serde_json::json!([2, 3]), false ; "odd item")]
+#[test_case(serde_json::json!("5"), true ; "string")]
+fn test_number_format(instance: serde_json::Value, expected: bool) {
+    assert_eq!(EvaluateNumberFormat::is_valid(&instance), expected);
+    assert_eq!(EvaluateNumberFormat::validate(&instance).is_ok(), expected);
+    assert_eq!(
+        EvaluateNumberFormat::iter_errors(&instance)
+            .next()
+            .is_none(),
+        expected
+    );
+}
+
 #[test_case(serde_json::json!("x"), true ; "custom_overrides_builtin_accepts_x")]
 #[test_case(serde_json::json!("foo@example.com"), false ; "custom_overrides_builtin_rejects_email")]
 fn test_custom_format_overrides_builtin(instance: serde_json::Value, expected: bool) {
@@ -6453,6 +6557,34 @@ fn test_type_beside_const_or_enum_reports_its_error(
         );
         assert_iter_errors_parity(iter_errors(&instance), &runtime, &instance);
     }
+}
+
+#[jsonschema::validator(schema = r#"{"enum": []}"#)]
+struct EmptyEnum;
+
+// `enum: []` rejects every value; no other `enum` produces its message.
+#[test]
+fn test_empty_enum_message() {
+    let runtime =
+        jsonschema::validator_for(&serde_json::json!({"enum": []})).expect("valid schema");
+    let instance = serde_json::json!(1);
+    let generated_evaluation = EmptyEnum::evaluate(&instance);
+    let runtime_evaluation = runtime.evaluate(&instance);
+    let messages: Vec<String> = EmptyEnum::validate(&instance)
+        .err()
+        .into_iter()
+        .chain(runtime.validate(&instance).err())
+        .chain(EmptyEnum::iter_errors(&instance))
+        .chain(runtime.iter_errors(&instance))
+        .map(|error| error.to_string())
+        .chain(
+            generated_evaluation
+                .iter_errors()
+                .chain(runtime_evaluation.iter_errors())
+                .map(|entry| entry.error.to_string()),
+        )
+        .collect();
+    assert_eq!(messages, vec![r#"Empty "enum" does not allow 1"#; 6]);
 }
 
 #[jsonschema::validator(
@@ -9049,6 +9181,10 @@ struct EvaluateCustomKeywordErrors;
 struct EvaluateCustomKeywordKnownName;
 #[jsonschema::validator(schema = r#"{"type":"string","format":"currency"}"#, draft = Draft7, formats = { "currency" => crate::is_currency_format })]
 struct EvaluateCustomFormat;
+#[jsonschema::validator(schema = r#"{"format":"even","items":{"format":"even"}}"#, draft = Draft7, formats = { "even" => number(crate::is_even_number) })]
+struct EvaluateNumberFormat;
+#[jsonschema::validator(schema = r#"{"type":"integer","format":"even"}"#, draft = Draft7, formats = { "even" => number(crate::is_even_number) })]
+struct EvaluateIntegerNumberFormat;
 #[jsonschema::validator(schema = r#"{"type":"string","format":"currency"}"#, draft = Draft201909, validate_formats = true, formats = { "currency" => crate::is_currency_format })]
 struct EvaluateCustomFormatAsserted;
 #[jsonschema::validator(schema = r#"{"type":"string","format":"email"}"#, draft = Draft7, validate_formats = true, formats = { "email" => crate::is_literal_x })]
@@ -9441,6 +9577,8 @@ fn test_evaluate_with_resources_matches_runtime(
 #[test_case(EvaluateCustomKeywordErrors::evaluate, serde_json::json!({"properties": {"a": {"multi": true}}, "multi": true}), |options| options.with_keyword("multi", multi_error_factory) ; "custom_keyword_errors")]
 #[test_case(EvaluateCustomKeywordKnownName::evaluate, serde_json::json!({"description": "strings-bad", "title": "t"}), |options| options.with_keyword("description", string_gate_factory) ; "custom_keyword_known_name")]
 #[test_case(EvaluateCustomFormat::evaluate, serde_json::json!({"type": "string", "format": "currency"}), |options| options.with_draft(Draft::Draft7).with_format("currency", is_currency_format) ; "custom_format")]
+#[test_case(EvaluateNumberFormat::evaluate, serde_json::json!({"format": "even", "items": {"format": "even"}}), |options| options.with_draft(Draft::Draft7).with_number_format("even", is_even_number) ; "number_format")]
+#[test_case(EvaluateIntegerNumberFormat::evaluate, serde_json::json!({"type": "integer", "format": "even"}), |options| options.with_draft(Draft::Draft7).with_number_format("even", is_even_number) ; "integer_number_format")]
 #[test_case(EvaluateCustomFormatAsserted::evaluate, serde_json::json!({"type": "string", "format": "currency"}), |options| options.with_draft(Draft::Draft201909).with_format("currency", is_currency_format).should_validate_formats(true) ; "custom_format_asserted")]
 #[test_case(EvaluateCustomFormatOverride::evaluate, serde_json::json!({"type": "string", "format": "email"}), |options| options.with_draft(Draft::Draft7).with_format("email", is_literal_x).should_validate_formats(true) ; "custom_format_override")]
 #[test_case(EvaluateIgnoredUnknownFormat::evaluate, serde_json::json!({"type": "string", "format": "made-up"}), |options| options.with_draft(Draft::Draft7).should_validate_formats(true).should_ignore_unknown_formats(true) ; "ignored_unknown_format")]

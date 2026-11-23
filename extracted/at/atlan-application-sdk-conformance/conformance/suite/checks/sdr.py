@@ -84,8 +84,8 @@ AppStateAsCrossTaskChannel, ManualQualifiedNameFString — PR #2417).
 All are APP-scoped: the SDK itself never declares ``self_deployed_runtime``
 and is always skipped.
 
-``scan_path`` is a no-op — SDR checks are cross-artifact and require the full
-path list plus the repo root.  The runner must call ``scan_all``.
+The module defines only ``scan_all`` — SDR checks are cross-artifact and
+require the full path list plus the repo root.
 """
 
 from __future__ import annotations
@@ -102,6 +102,7 @@ from conformance.suite.checks._ast_common import (
     attribute_root,
     base_names,
     discover,
+    is_sdr_app,
     make_cli_main,
     scoped_calls,
 )
@@ -122,25 +123,8 @@ RULE_P039 = "P039"
 RULE_P042 = "P042"
 RULE_P051 = "P051"
 
-_SDR_FLAG_RE = re.compile(
-    r"^self_deployed_runtime:\s*(true|false)\b",
-    re.MULTILINE | re.IGNORECASE,
-)
 
-__all__ = ["SERIES", "discover", "main", "scan_all", "scan_path"]
-
-
-def _is_sdr_app(root: Path) -> bool:
-    """Return True when atlan.yaml declares self_deployed_runtime: true."""
-    atlan_yaml = root / "atlan.yaml"
-    if not atlan_yaml.is_file():
-        return False
-    try:
-        text = atlan_yaml.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return False
-    m = _SDR_FLAG_RE.search(text)
-    return m is not None and m.group(1).lower() == "true"
+__all__ = ["SERIES", "discover", "main", "scan_all"]
 
 
 def _discover_manifests(root: Path) -> list[Path]:
@@ -1391,11 +1375,6 @@ def _check_p051(root: Path) -> list[Finding]:
     ]
 
 
-def scan_path(path: Path, root: Path) -> list[Finding]:  # noqa: ARG001
-    """No-op: the SDR checks require cross-artifact analysis; use scan_all."""
-    return []
-
-
 def scan_all(paths: list[Path], root: Path) -> list[Finding]:
     """Check the SDR-readiness rules (P029, P030, P037–P039, P042).
 
@@ -1411,7 +1390,7 @@ def scan_all(paths: list[Path], root: Path) -> list[Finding]:
         Repo root — used to locate ``atlan.yaml`` and ``app/generated/`` (P039
         also inspects the generated ``_input.py`` contract models).
     """
-    if not _is_sdr_app(root):
+    if not is_sdr_app(root):
         return []
 
     manifests = _discover_manifests(root)

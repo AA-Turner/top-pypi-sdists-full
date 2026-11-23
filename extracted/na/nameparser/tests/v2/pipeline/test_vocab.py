@@ -71,7 +71,6 @@ def test_is_initial_script_repertoire() -> None:
     # have letters, so these are real initials ("А. С. Пушкин").
     assert is_initial("А.")    # Cyrillic
     assert is_initial("Α.")    # Greek
-    assert is_initial("م.")    # Arabic
     assert is_initial("ה.")    # Hebrew
     assert is_initial("र.")    # Devanagari
     assert is_initial("Ա.")    # Armenian
@@ -83,6 +82,10 @@ def test_is_initial_script_repertoire() -> None:
     assert not is_initial("さ.")
     assert not is_initial("ラ.")
     assert not is_initial("ﾗ.")       # halfwidth katakana is katakana (#594)
+    # Arabic script writes a letter and a period for a title (د., م.)
+    # and none for a name (#1149, decisions/script-properties)
+    assert not is_initial("م.")
+    assert not is_initial("ﺩ.")       # its presentation form too
     # unchanged: a digit is ONE edge of \w's reach and '_' is another,
     # and the shape half still owns both -- only the repertoire narrowed
     assert is_initial("2.")
@@ -573,9 +576,42 @@ def test_caps_shape_candidate_reads_joined_capitals(
     # capitals in letter chunks joined by a hyphen or a slash
     lex = Lexicon.default()
     pol = Policy()
-    assert caps_shape_candidate(text, lex, pol, one_case=False) is expected
+    assert caps_shape_candidate(text, lex, pol, one_case=False,
+                                mixed_case=True) is expected
     # gated as the unjoined word is: a name in one case says nothing
-    assert caps_shape_candidate(text, lex, pol, one_case=True) is False
+    assert caps_shape_candidate(text, lex, pol, one_case=True,
+                                mixed_case=True) is False
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("MRes", True),         # opens with two capitals
+    ("DClinPsy", True),
+    ("AuD", True),          # ends in a capital
+    ("DNSc", True),
+    ("MRE\u0301s", True),   # decomposed, read composed (#652)
+    ("LeBron", False),      # a capital only inside: a name's writing
+    ("McKenzie", False),
+    ("DeShawn", False),
+    ("PhDc", False),        # neither
+    ("Pharm-D", False),     # a hyphen in mixed case: 'Jay-R' is a name
+    ("Jay-R", False),
+    ("Smith", False),       # written the way a name is
+    ("smith", False),
+    ("Ms", False),          # listed
+    ("PhD", False),
+])
+def test_caps_shape_candidate_reads_mixed_case_only_where_asked(
+        text: str, expected: bool) -> None:
+    # #1517: the mixed-case arm, which only the part after a comma asks
+    # for; the trailing position under EVERYWHERE never does
+    lex = Lexicon.default()
+    pol = Policy()
+    assert caps_shape_candidate(text, lex, pol, one_case=False,
+                                mixed_case=True) is expected
+    assert caps_shape_candidate(text, lex, pol, one_case=False,
+                                mixed_case=False) is False
+    assert caps_shape_candidate(text, lex, pol, one_case=True,
+                                mixed_case=True) is False
 
 
 def test_caps_shape_candidate_refuses_a_listed_joined_word() -> None:
@@ -583,9 +619,9 @@ def test_caps_shape_candidate_refuses_a_listed_joined_word() -> None:
     # word
     lex = Lexicon.default() | Lexicon(surnames={"dupont-moretti"})
     assert not caps_shape_candidate("DUPONT-MORETTI", lex, Policy(),
-                                    one_case=False)
+                                    one_case=False, mixed_case=False)
     assert caps_shape_candidate("DUPONT-MORETTI", Lexicon.default(),
-                                Policy(), one_case=False)
+                                Policy(), one_case=False, mixed_case=False)
 
 
 def test_ambiguous_class_candidate_admits_a_by_shape_member() -> None:
@@ -683,7 +719,7 @@ def test_the_caps_exclusion_covers_every_vocabulary_field() -> None:
     # name.
     on = Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)
     base = Lexicon.default()
-    assert caps_shape_candidate("ZZQX", base, on, False)
+    assert caps_shape_candidate("ZZQX", base, on, False, mixed_case=False)
     assert set(_INTO_FIELD) == set(_VOCAB_FIELDS) - {"conjunctions_ambiguous"}
     for field, into in _INTO_FIELD.items():
         lex = into(base, "zzqx")
@@ -696,9 +732,11 @@ def test_the_caps_exclusion_covers_every_vocabulary_field() -> None:
         # shape; and #959's fourth, the given names only O6 reads
         if field in ("titles_ambiguous", "title_phrases",
                      "given_name_abbreviations", "given_names"):
-            assert caps_shape_candidate("ZZQX", lex, on, False), field
+            assert caps_shape_candidate("ZZQX", lex, on, False,
+                                        mixed_case=False), field
         else:
-            assert not caps_shape_candidate("ZZQX", lex, on, False), field
+            assert not caps_shape_candidate("ZZQX", lex, on, False,
+                                            mixed_case=False), field
 
 
 def test_is_title_shaped_is_h2_s_shape_alone() -> None:
@@ -1421,6 +1459,7 @@ def test_trailing_title_shape(text: str, admitted: bool) -> None:
 _GLUED_LEX = (Lexicon()
               .add("dr", "lt", "gov", "dra", kind="title")
               .add("ดร", "รศ", "ศ", kind="academic")
+              .add("أ", "د", "أ.د", kind="academic")
               .add("พ.ต.อ", "พ.ต", "พ.อ.หญิง", kind="military",
                    attached="before")
               .add("st", kind="saint")
@@ -1484,6 +1523,12 @@ def _pieces_of(text: str) -> list[str]:
     # a run of single letters running past a rank is T7's run before
     # the name, not the rank and an initial
     ("พ.ต.ส.สมชาย", ["พ.ต.ส.", "สมชาย"]),
+    # NFD: the letter class the chunk and the name read counts a
+    # combining mark, Latin's as before and Arabic's since #1149
+    ("E\u0301.Dupont", ["E\u0301.", "Dupont"]),
+    ("Dr.E\u0301mile", ["Dr.", "E\u0301mile"]),
+    ("\u0627\u0654.\u0627\u0654\u062d\u0645\u062f", ["\u0627\u0654.", "\u0627\u0654\u062d\u0645\u062f"]),
+    ("\u0627\u0654.\u062f.أحمد", ["\u0627\u0654.\u062f.", "أحمد"]),
 ])
 def test_a_glued_word_divides_where_a_chunk_read_alone_meets_a_name(
         text: str, pieces: list[str]) -> None:

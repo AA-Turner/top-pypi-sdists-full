@@ -19,29 +19,17 @@ MySQL 4.1.1 / NEW PASSWORD
 
     Description taken from http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html
 """
-#=============================================================================
-# imports
-#=============================================================================
-# core
+
 from hashlib import sha1
-import re
-import logging; log = logging.getLogger(__name__)
-from warnings import warn
-# site
-# pkg
-from passlib.utils import to_native_str
-from passlib.utils.compat import bascii_to_str, unicode, u, \
-                                 byte_elem_value, str_to_uascii
+
 import passlib.utils.handlers as uh
-# local
+
 __all__ = [
-    'mysql323',
-    'mysq41',
+    "mysql323",
+    "mysql41",
 ]
 
-#=============================================================================
-# backend
-#=============================================================================
+
 class mysql323(uh.StaticHandler):
     """This class implements the MySQL 3.2.3 password hash, and follows the :ref:`password-hash-api`.
 
@@ -49,28 +37,23 @@ class mysql323(uh.StaticHandler):
 
     The :meth:`~passlib.ifc.PasswordHash.hash` and :meth:`~passlib.ifc.PasswordHash.genconfig` methods accept no optional keywords.
     """
-    #===================================================================
-    # class attrs
-    #===================================================================
+
     name = "mysql323"
     checksum_size = 16
     checksum_chars = uh.HEX_CHARS
 
-    #===================================================================
-    # methods
-    #===================================================================
     @classmethod
     def _norm_hash(cls, hash):
         return hash.lower()
 
     def _calc_checksum(self, secret):
         # FIXME: no idea if mysql has a policy about handling unicode passwords
-        if isinstance(secret, unicode):
+        if isinstance(secret, str):
             secret = secret.encode("utf-8")
 
-        MASK_32 = 0xffffffff
-        MASK_31 = 0x7fffffff
-        WHITE = b' \t'
+        MASK_32 = 0xFFFFFFFF
+        MASK_31 = 0x7FFFFFFF
+        WHITE = b" \t"
 
         nr1 = 0x50305735
         nr2 = 0x12345671
@@ -78,19 +61,13 @@ class mysql323(uh.StaticHandler):
         for c in secret:
             if c in WHITE:
                 continue
-            tmp = byte_elem_value(c)
-            nr1 ^= ((((nr1 & 63)+add)*tmp) + (nr1 << 8)) & MASK_32
-            nr2 = (nr2+((nr2 << 8) ^ nr1)) & MASK_32
-            add = (add+tmp) & MASK_32
-        return u("%08x%08x") % (nr1 & MASK_31, nr2 & MASK_31)
+            tmp = c
+            nr1 ^= ((((nr1 & 63) + add) * tmp) + (nr1 << 8)) & MASK_32
+            nr2 = (nr2 + ((nr2 << 8) ^ nr1)) & MASK_32
+            add = (add + tmp) & MASK_32
+        return f"{nr1 & MASK_31:08x}{nr2 & MASK_31:08x}"
 
-    #===================================================================
-    # eoc
-    #===================================================================
 
-#=============================================================================
-# handler
-#=============================================================================
 class mysql41(uh.StaticHandler):
     """This class implements the MySQL 4.1 password hash, and follows the :ref:`password-hash-api`.
 
@@ -98,31 +75,18 @@ class mysql41(uh.StaticHandler):
 
     The :meth:`~passlib.ifc.PasswordHash.hash` and :meth:`~passlib.ifc.PasswordHash.genconfig` methods accept no optional keywords.
     """
-    #===================================================================
-    # class attrs
-    #===================================================================
+
     name = "mysql41"
-    _hash_prefix = u("*")
+    _hash_prefix = "*"
     checksum_chars = uh.HEX_CHARS
     checksum_size = 40
 
-    #===================================================================
-    # methods
-    #===================================================================
     @classmethod
     def _norm_hash(cls, hash):
         return hash.upper()
 
     def _calc_checksum(self, secret):
         # FIXME: no idea if mysql has a policy about handling unicode passwords
-        if isinstance(secret, unicode):
+        if isinstance(secret, str):
             secret = secret.encode("utf-8")
-        return str_to_uascii(sha1(sha1(secret).digest()).hexdigest()).upper()
-
-    #===================================================================
-    # eoc
-    #===================================================================
-
-#=============================================================================
-# eof
-#=============================================================================
+        return sha1(sha1(secret).digest()).hexdigest().upper()

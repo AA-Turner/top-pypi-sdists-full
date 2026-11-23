@@ -1,7 +1,10 @@
+from datetime import tzinfo
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
+
+from uniplot.datetimes import DatetimeSeries, axis_timezone, normalize_datetime_series
 
 
 class MultiSeries:
@@ -21,43 +24,17 @@ class MultiSeries:
         # First check if the input is multi-dim
         self.is_multi_dimensional: bool = _is_multi_dimensional(ys)
 
-        self.x_is_time_series: bool = False
-        self.y_is_time_series: bool = False
-
-        # Initialize y series
-        if self.is_multi_dimensional:
-            self.y_is_time_series = all(_is_time_series(y) for y in ys)
-            if self.y_is_time_series:
-                self.ys = [_cast_as_numpy_time_series(ys_row) for ys_row in ys]
-            else:
-                self.ys = [_cast_as_numpy_floats(ys_row) for ys_row in ys]
-        else:
-            self.y_is_time_series = _is_time_series(ys)
-
-            if self.y_is_time_series:
-                self.ys = [_cast_as_numpy_time_series(ys)]
-            else:
-                self.ys = [_cast_as_numpy_floats(ys)]
-
-        # Initialize x series
+        y_rows = list(ys) if self.is_multi_dimensional else [ys]
+        self.ys, self.y_is_time_series, self.y_timezone = _normalize_axis(y_rows, "y")
+        self.x_timezone: tzinfo | None = None
+        self.x_is_time_series = False
         if xs is None:
-            # Initialize as a serial index
-            self.xs = [np.arange(1, len(y) + 1, step=1, dtype=int) for y in self.ys]
+            self.xs = [np.arange(1, len(y) + 1, dtype=int) for y in self.ys]
         else:
-            if self.is_multi_dimensional:
-                self.x_is_time_series = all(_is_time_series(x) for x in xs)
-
-                if self.x_is_time_series:
-                    self.xs = [_cast_as_numpy_time_series(xs_row) for xs_row in xs]
-                else:
-                    self.xs = [_cast_as_numpy_floats(xs_row) for xs_row in xs]
-            else:
-                self.x_is_time_series = _is_time_series(xs)
-
-                if self.x_is_time_series:
-                    self.xs = [_cast_as_numpy_time_series(xs)]
-                else:
-                    self.xs = [_cast_as_numpy_floats(xs)]
+            x_rows = list(xs) if self.is_multi_dimensional else [xs]
+            self.xs, self.x_is_time_series, self.x_timezone = _normalize_axis(
+                x_rows, "x"
+            )
 
         # In the end, the dimensions of xs and ys need to match
         assert len(self.xs) == len(self.ys)
@@ -134,22 +111,24 @@ def _is_multi_dimensional(series: Any) -> bool:
         return True
 
 
-def _is_time_series(series: Any) -> bool:
-    """
-    Check if the object is datetime-like. This might be a pandas DateTime, a
-    list of datetimes, or a list of date(s).
-    """
-    np_array = np.array(series)
-    if np.issubdtype(np_array.dtype, np.number):
-        return False
-    try:
-        # Here we can omit the `[s]` to not cause unnecessary conversion work,
-        # as the convertion to "datetime64[s]" is guaranteed to work later on,
-        # if "datetime64" works.
-        np_array.astype("datetime64")
-        return True
-    except (ValueError, TypeError):
-        return False
+def _normalize_axis(rows: list, axis: str) -> tuple[list[NDArray], bool, tzinfo | None]:
+    dates = [normalize_datetime_series(row) for row in rows]
+    # Empty and all-missing numeric rows must not erase another row's timezone.
+    has_dates = any(row is not None for row in dates)
+    if has_dates:
+        for i, row in enumerate(dates):
+            if row is None:
+                values = _cast_as_numpy_floats(rows[i])
+                if np.isnan(values).all():
+                    dates[i] = DatetimeSeries(values, [])
+        if all(row is not None for row in dates):
+            valid_rows = [row for row in dates if row is not None]
+            return (
+                [row.values for row in valid_rows],
+                True,
+                axis_timezone(valid_rows, axis),
+            )
+    return [_cast_as_numpy_floats(row) for row in rows], False, None
 
 
 def _cast_as_numpy_floats(array: Any) -> NDArray:
@@ -168,36 +147,28 @@ def _cast_as_numpy_floats(array: Any) -> NDArray:
     return numpy_array.astype(float)
 
 
-def _cast_as_numpy_time_series(series: Any) -> NDArray:
-    """
-    Converts to a numpy floating-point array, of unix epoch timestamps, with
-    nano-second precision.
-
-    We assume that at this point we have already checked that the conversion is
-    possible.
-    """
-    # NOTE It is really important that throughout the library we use the
-    # "datetime64[s]" NumPy format consistently. Using only `np.datetime`
-    # or a different type like "datetime64[m]" means that the conversion to
-    # floating point will depend on the input format, which will lead to
-    # unexpected behavior.
-    return np.array(series).astype("datetime64[s]").astype(float)
-
-
 def _safe_max(array: NDArray) -> float:
-    return array[~np.isnan(array)].max()
+    values = array[~np.isnan(array)]
+    return values.max() if len(values) else -np.inf
 
 
 def _safe_maxs(series: list) -> float:
-    return max([_safe_max(row) for row in series if len(row) > 0])
+    result = max([_safe_max(row) for row in series if len(row) > 0])
+    if result == -np.inf:
+        raise ValueError("No valid data available to determine plot bounds.")
+    return result
 
 
 def _safe_mins(series: list) -> float:
-    return min([_safe_min(row) for row in series if len(row) > 0])
+    result = min([_safe_min(row) for row in series if len(row) > 0])
+    if result == np.inf:
+        raise ValueError("No valid data available to determine plot bounds.")
+    return result
 
 
 def _safe_min(array: NDArray) -> float:
-    return array[~np.isnan(array)].min()
+    values = array[~np.isnan(array)]
+    return values.min() if len(values) else np.inf
 
 
 def _safe_log10(x: NDArray) -> NDArray:

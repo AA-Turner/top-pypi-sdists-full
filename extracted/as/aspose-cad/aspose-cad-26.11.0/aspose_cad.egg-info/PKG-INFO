@@ -1,0 +1,112 @@
+Metadata-Version: 2.1
+Name: aspose-cad
+Version: 26.11.0
+Summary: Aspose.CAD for Python is a CAD and BIM drawings Processing library that allows developers to modify, convert and publish various drawing and image formats without need to have any other CAD software.
+Home-page: https://products.aspose.com/cad/python
+Author: Aspose
+License: https://company.aspose.com/legal/eula
+Description: # CAD/BIM Drawings conversion and publish API for Python
+        
+        ![Version 26.11.0](https://img.shields.io/pypi/v/aspose-cad.svg?label=PyPI) ![PyPI](https://img.shields.io/pypi/dm/aspose-cad.svg?label=PyPI%20downloads) ![GitHub](https://img.shields.io/github/license/aspose-cad/Aspose.CAD-for-Python)
+        
+        [Aspose.CAD for Python](https://products.aspose.com/cad/python-net/) is a standalone class library with Aspose.CAD for .NET under the hood to enhance applications to process, modify, render and publish CAD and BIM drawings without requiring AutoCAD or any other rendering workflow. The CAD Class Library allows high quality [conversion of DWG, DXF, DRACO(DRC), DGN, DWF, DWFx, IFC, IGS(IGES), STL, DWT, FBX, PLT, CF2, OBJ, 3DS,DXB, U3D, COLLADA(DAE), STP, STEP(STP), GLB, GLTF and CGM](https://docs.aspose.com/cad/python-net/supported-file-formats/) files, layouts, and layers to PDF & raster image formats.
+        
+        ## CAD File Processing Features
+        
+        - Supports the latest versions of DWG, DWF, DWFX, DWT, DGN, DRACO(DRC), STL, OBJ, STP, STEP(STP), GLB, GLTF, CF2, IGS(IGES), IFC, DXB, PLT & DXF formats.
+        - Convert [CAD to PDF](https://docs.aspose.com/cad/python-net/dxf-drawings/).
+        - Convert CAD to images.
+        - Track files processing progress.
+        - Manipulate drawing entities and blocks.
+        - Select and convert specific layouts of CAD drawings.
+        - Select and convert specific layers of CAD drawings.
+        - [Adjust CAD drawing size before rendering](https://docs.aspose.com/cad/python-net/adjusting-cad-drawing-size/).
+        
+        ## New Features & Enhancements ![Version 26.11.0](https://img.shields.io/badge/pypi-v26.11.0-blue)
+        
+        - Ability to export to the `OBJ` file format.
+        - Support for HoloLens 2.
+        - Support for the AutoCAD Plotter Configuration (`PC3`) files.
+        
+        Please visit [Aspose.CAD for Python 26.11.0 - Release Notes](https://releases.aspose.com/cad/python-net/release-notes/) for the detailed notes.
+        
+        ## Read CAD and BIM Formats
+        
+        **AutoCAD:** DWG, DWT, DXF, PC3
+        **MicroStation:** DGN
+        **Other:** STL, DXB, DWF, DWFx, CF2, IFC, PLT, HPGL, U3D, 3DS, IGS(IGES), COLLADA(DAE), STP, STEP(STP)
+        
+        ## Save and publsih drawings As
+        
+        **Fixed Layout:** PDF
+        **Vector Images** CGM, SVG, WMF, EMF, HTML5
+        **Raster Images:** PNG, BMP, DIB, TIFF, TIF, JPEG, GIF, JPG, JPE, JIF, JFIF, PSD, WEBP, DCM, DICOM, JP2, J2K, JPF, JPM, JPG2, J2C, JPC, JPX, MJ2, DJVU
+        
+        ## Read & Write
+        
+        **CAD:** DXF, DWF, DWFx, FBX, STP, STEP(STP)
+        
+        **The Advanced Visualizer:** OBJ, DRACO(DRC), GLB, GLTF 
+        (Write features is partially supported.)
+        
+        **Raster Images:** BMP, GIF, JPEG, PNG, TIFF, PSD
+        
+        **Vector Images** CGM, SVG
+        
+        ## Platform Independence
+        
+        Aspose.CAD for Python supports Python version 3.x. It supports any 32-bit or 64-bit operating system, this includes but is not limited to, Microsoft Windows desktop (XP, Vista, 7, 8, 10), Microsoft Windows Server (2003, 2008, 2012), Microsoft Azure, Linux (Ubuntu, OpenSUSE, CentOS, and others), and Mac OS X.
+        
+        ## Getting Started
+        Simply run ```pip install aspose-cad``` from the Console to fetch the package.
+        If you already have Aspose.CAD for Python and want to upgrade the version, please run ```pip install --upgrade aspose-cad``` to get the latest version.
+        
+        You can run the following snippets in your environment to see how Aspose.CAD works, or check out the [GitHub Repository](https://github.com/aspose-cad/Aspose.CAD-for-Python) or [Aspose.CAD for Python Documentation](https://docs.aspose.com/cad/python-net/) for other common use cases.
+        
+        ## Export DXF to PDF using C# Code
+        
+        ```python
+        from aspose.cad import *
+        from aspose.cad.imageoptions import *
+        
+        cadImage = Image.load("drawing.dxf")
+        
+        rasterizationOptions = CadRasterizationOptions()
+        rasterizationOptions.page_height = 1600.0
+        rasterizationOptions.page_width = 1600.0
+        
+        pdfOptions = PdfOptions()
+        pdfOptions.vector_rasterization_options = rasterizationOptions
+        
+        cadImage.save("output.pdf", pdfOptions)
+        ```
+        
+        [Home](https://www.aspose.com/) | [Product Page](https://products.aspose.com/cad/python-net/) | [Docs](https://docs.aspose.com/cad/python-net/) | [Demos](https://products.aspose.app/cad/family) | [API Reference](https://apireference.aspose.com/cad/python-net/) | [Examples](https://github.com/aspose-cad/Aspose.CAD-for-Python) | [Blog](https://blog.aspose.com/category/cad/)| [Search](https://search.aspose.com/) | [Free Support](https://forum.aspose.com/c/cad) | [Temporary License](https://purchase.aspose.com/temporary-license)
+        
+Keywords: dwg,dwg to pdf,convert,publish,export,create,write,metadata,edit,modify,cad,bim,dxf,dgn,dwf,dwfx,ifc,stl,dxb,cf2,hpgl,plt,ply,ifc,iges,pcl,pdf-3d,dwt,dxb,3ds,u3d,stp,collada,obj,stp,jpg,png,j2k,psd,svg,pdf,wmf,dicom,webp,html5,gif
+Platform: linux_x86_64
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: License :: Other/Proprietary License
+Classifier: License :: Free To Use But Restricted
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Office/Business
+Requires-Python: >=3.5,<3.14
+Description-Content-Type: text/markdown

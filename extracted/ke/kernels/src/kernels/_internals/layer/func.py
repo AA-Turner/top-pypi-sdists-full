@@ -1,0 +1,423 @@
+import logging
+from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Protocol, Type
+
+from huggingface_hub import constants
+
+from kernels._rust import KernelDependency, KernelLocks
+
+from ..hf_hub import _get_hf_api
+from ..load import (
+    _get_locked_hub_resolver,
+    get_kernel,
+    get_kernel_with_resolver,
+    get_local_kernel,
+)
+from ..locking import (
+    _get_locked_kernel_revision,
+    get_caller_locked_kernel_revision,
+    get_locked_kernel_revision,
+)
+from ..validate import (
+    AllKernelValidator,
+    AllMetadataValidator,
+    ArchValidator,
+    MetadataValidator,
+    default_kernel_validators,
+    default_metadata_validators,
+)
+from .layer import (
+    _create_func_module,
+    use_kernel_forward_from_hub,
+)
+from .repos import RepositoryProtocol
+
+if TYPE_CHECKING:
+    from torch import nn
+
+logger = logging.getLogger(__name__)
+
+
+class FuncRepositoryProtocol(RepositoryProtocol, Protocol):
+    @property
+    def func_name(self) -> str: ...
+
+
+class FuncRepository:
+    """
+    Repository and name of a function for kernel mapping.
+
+    > [!WARNING]
+    > `FuncRepository` is deprecated and will be removed in kernels 0.17.
+    > Use [`~kernels.LayerRepository`] instead.
+
+    Args:
+        repo_id (`str`):
+            The Hub repository containing the layer.
+        func_name (`str`):
+            The name of the function within the kernel repository.
+        revision (`str`, *optional*):
+            The specific revision (branch, tag, or commit) to download. Cannot be used together with `version`.
+        version (`int`, *optional*):
+            The kernel version to download. Cannot be used together with `revision`.
+            Either `version` or `revision` must be specified.
+        check_arch (`bool`, *optional*, defaults to `True`):
+            Whether to check that the kernel build supports the architecture
+            of the current device. Set to `False` for kernels whose declared
+            architectures are incomplete (e.g. when they have a Triton fallback).
+
+    Example:
+        ```python
+        from kernels import FuncRepository
+
+        # Reference a specific layer by revision
+        layer_repo = FuncRepository(
+            repo_id="kernels-community/activation",
+            func_name="silu_and_mul",
+            revision="main",
+        )
+
+        # Reference a layer by version
+        layer_repo_versioned = FuncRepository(
+            repo_id="kernels-community/relu",
+            func_name="relu",
+            version=1
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        repo_id: str,
+        *,
+        func_name: str,
+        revision: str | None = None,
+        version: int | None = None,
+        trust_remote_code: bool | list[str] = False,
+        check_arch: bool = True,
+    ):
+        logger.warning(
+            "FuncRepository is deprecated and will be removed in kernels 0.17. Use LayerRepository instead.",
+            stacklevel=2,
+        )
+
+        if revision is not None and version is not None:
+            raise ValueError("Either a revision or a version must be specified, not both.")
+        if revision is None and version is None:
+            raise ValueError("Either a revision or a version must be specified.")
+
+        self._repo_id = repo_id
+        self.func_name = func_name
+        self._check_arch = check_arch
+        self._trust_remote_code = (
+            trust_remote_code.copy() if isinstance(trust_remote_code, list) else trust_remote_code
+        )
+
+        # We are going to resolve these lazily, since we do not want
+        # to do a network request for every registered FuncRepository.
+        self._revision = revision
+        self._version = version
+
+    def load(self) -> Type["nn.Module"]:
+        kernel = get_kernel(
+            self._repo_id,
+            revision=self._revision,
+            version=self._version,
+            trust_remote_code=self._trust_remote_code,
+            check_arch=self._check_arch,
+        )
+        return _get_kernel_func(self, kernel)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, FuncRepository)
+            and self.func_name == other.func_name
+            and self._repo_id == other._repo_id
+            and self._revision == other._revision
+            and self._version == other._version
+            and self._trust_remote_code == other._trust_remote_code
+            and self._check_arch == other._check_arch
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                self.func_name,
+                self._repo_id,
+                self._revision,
+                self._version,
+                self._check_arch,
+                tuple(self._trust_remote_code)
+                if isinstance(self._trust_remote_code, list)
+                else self._trust_remote_code,
+            )
+        )
+
+    def _revision_str(self) -> str:
+        return self._revision if self._revision is not None else f"version {self._version}"
+
+    def __str__(self) -> str:
+        return f"`{self._repo_id}` (revision: {self._revision_str()}), function `{self.func_name}`"
+
+
+class LocalFuncRepository:
+    """
+    Repository and function name from a local directory for kernel mapping.
+
+    > [!WARNING]
+    > `LocalFuncRepository` is deprecated and will be removed in kernels 0.17.
+    > Use [`~kernels.LocalLayerRepository`] instead.
+
+    Args:
+        repo_path (`Path`):
+            The local repository containing the layer.
+        func_name (`str`):
+            The name of the function within the kernel repository.
+        check_arch (`bool`, *optional*, defaults to `True`):
+            Whether to check that the kernel build supports the architecture
+            of the current device. Set to `False` for kernels whose declared
+            architectures are incomplete (e.g. when they have a Triton fallback).
+
+    Example:
+        ```python
+        from pathlib import Path
+
+        from kernels import LocalFuncRepository
+
+        # Reference a specific layer by revision
+        layer_repo = LocalFuncRepository(
+            repo_path=Path("/home/daniel/kernels/activation"),
+            func_name="silu_and_mul",
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        repo_path: Path,
+        *,
+        func_name: str,
+        check_arch: bool = True,
+    ):
+        logger.warning(
+            "LocalFuncRepository is deprecated and will be removed in kernels 0.17. Use LocalLayerRepository instead.",
+            stacklevel=2,
+        )
+
+        self._repo_path = repo_path
+        self.func_name = func_name
+        self._check_arch = check_arch
+
+    def load(self) -> Type["nn.Module"]:
+        kernel = get_local_kernel(self._repo_path, check_arch=self._check_arch)
+        return _get_kernel_func(self, kernel)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, LocalFuncRepository)
+            and self.func_name == other.func_name
+            and self._repo_path == other._repo_path
+            and self._check_arch == other._check_arch
+        )
+
+    def __hash__(self):
+        return hash((self.func_name, self._repo_path, self._check_arch))
+
+    def __str__(self) -> str:
+        return f"`{self._repo_path}` (layer `{self.func_name}`"
+
+
+def use_kernel_func_from_hub(func_name: str):
+    """
+    Decorator that makes a function extensible using the specified function name.
+
+    This is a decorator factory that returns a decorator which prepares a function to use kernels from the
+    Hugging Face Hub.
+
+    The function will be exposed as an instance of `torch.nn.Module` in which
+    the function is called in `forward`. For the function to be properly
+    kernelized, it **must** be a member of another `torch.nn.Module` that is
+    part of the model (see the example).
+
+    > [!WARNING]
+    > `use_kernel_func_from_hub` is deprecated and will be removed in kernels 0.17.
+    > Use [`~kernels.use_kernel_forward_from_hub`] instead.
+
+    Args:
+        func_name (`str`):
+            The name of the function name to use for kernel lookup in registered mappings.
+
+    Returns:
+        `Callable`: A decorator function that can be applied to layer classes.
+
+    Example:
+        ```python
+        import torch
+        import torch.nn as nn
+
+        from kernels import use_kernel_func_from_hub
+        from kernels import Mode, kernelize
+
+        @use_kernel_func_from_hub("my_custom_func")
+        def my_custom_func(x: torch.Tensor):
+            # Original implementation
+            return x
+
+        class MyModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fn = my_custom_func
+
+            def forward(self, x):
+                return self.fn(x)
+
+        model = MyModel()
+
+        # The layer can now be kernelized:
+        # model = kernelize(model, mode=Mode.TRAINING | Mode.TORCH_COMPILE, device="cuda")
+        ```
+    """
+    logger.warning(
+        "use_kernel_func_from_hub is deprecated and will be removed in kernels 0.17. Use [`use_kernel_forward_from_hub`] instead.",
+        stacklevel=2,
+    )
+
+    return use_kernel_forward_from_hub(func_name)
+
+
+class LockedFuncRepository:
+    """
+    Repository and name of a function.
+
+    In contrast to `FuncRepository`, this class uses repositories that
+    are locked inside a project.
+
+    > [!WARNING]
+    > `LockedFuncRepository` is deprecated and will be removed in kernels 0.17.
+    > Use [`~kernels.LockedLayerRepository`] instead.
+
+    Args:
+        repo_id (`str`): The Hub repository containing the function.
+        lockfile (`Path`, *optional*): Path to the lockfile. If not provided,
+            the lockfile will be inferred from the caller's context.
+        func_name (`str`): The name of the function within the kernel repository.
+        trust_remote_code (`bool`, *optional*, defaults to `False`):
+            Whether to allow loading kernels from untrusted organisations.
+        check_arch (`bool`, *optional*, defaults to `True`):
+            Whether to check that the kernel build supports the architecture
+            of the current device. Set to `False` for kernels whose declared
+            architectures are incomplete (e.g. when they have a Triton fallback).
+    """
+
+    def __init__(
+        self,
+        repo_id: str,
+        *,
+        lockfile: Path | None = None,
+        func_name: str,
+        trust_remote_code: bool | list[str] = False,
+        check_arch: bool = True,
+    ):
+        """
+        Construct a function repository.
+
+        """
+        logger.warning(
+            "LockedFuncRepository is deprecated and will be removed in kernels 0.17. Use LockedLayerRepository instead.",
+            stacklevel=2,
+        )
+
+        self._repo_id = repo_id
+        self._lockfile = lockfile
+        self._check_arch = check_arch
+        self.func_name = func_name
+        self._trust_remote_code = (
+            trust_remote_code.copy() if isinstance(trust_remote_code, list) else trust_remote_code
+        )
+        kernel_locks, kernel_dep = self._get_lock()
+        self.kernel_locks = kernel_locks
+        self.kernel_dep = kernel_dep
+
+    def _get_lock(self) -> tuple[KernelLocks, KernelDependency]:
+        if self._lockfile is None:
+            return get_caller_locked_kernel_revision(self._repo_id)
+        else:
+            return get_locked_kernel_revision(self._repo_id, self._lockfile)
+
+    def load(self) -> Type["nn.Module"]:
+        resolver = _get_locked_hub_resolver(
+            kernel_locks=self.kernel_locks,
+            trust_remote_code=self._trust_remote_code,
+            local_files_only=constants.HF_HUB_OFFLINE,
+        )
+        validators: list[MetadataValidator] = default_metadata_validators()
+        if self._check_arch:
+            validators.append(ArchValidator())
+
+        kernel = get_kernel_with_resolver(
+            api=_get_hf_api(),
+            backend=None,
+            kernel=self.kernel_dep,
+            resolver=resolver,
+            kernel_validator=AllKernelValidator(validators=default_kernel_validators()),
+            metadata_validator=AllMetadataValidator(validators=validators),
+        )
+        return _get_kernel_func(self, kernel)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, LockedFuncRepository)
+            and self.func_name == other.func_name
+            and self._repo_id == other._repo_id
+            and self.kernel_dep == other.kernel_dep
+            and self.kernel_locks == other.kernel_locks
+            and self._trust_remote_code == other._trust_remote_code
+            and self._check_arch == other._check_arch
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                self.func_name,
+                self._repo_id,
+                self.kernel_dep,
+                self.kernel_locks,
+                self._check_arch,
+                tuple(self._trust_remote_code)
+                if isinstance(self._trust_remote_code, list)
+                else self._trust_remote_code,
+            )
+        )
+
+    def __str__(self) -> str:
+        commit = self.kernel_locks[self.kernel_dep].commit
+        return f"`{self._repo_id}` (revision: {commit}), function `{self.func_name}`"
+
+    def __getstate__(self):
+        # `kernel_locks` is a Rust object that does not support pickling. So,
+        # serialize it through JSON. `kernel_dep` is derived from it.
+        return {
+            "repo_id": self._repo_id,
+            "lockfile": self._lockfile,
+            "func_name": self.func_name,
+            "trust_remote_code": self._trust_remote_code,
+            "check_arch": self._check_arch,
+            "kernel_locks": self.kernel_locks.to_json(),
+        }
+
+    def __setstate__(self, state: dict):
+        self._repo_id = state["repo_id"]
+        self._lockfile = state["lockfile"]
+        self.func_name = state["func_name"]
+        self._trust_remote_code = state["trust_remote_code"]
+        self._check_arch = state["check_arch"]
+        self.kernel_locks, self.kernel_dep = _get_locked_kernel_revision(state["repo_id"], state["kernel_locks"])
+
+
+def _get_kernel_func(repo: FuncRepositoryProtocol, kernel: ModuleType) -> Type["nn.Module"]:
+    func = getattr(kernel, repo.func_name, None)
+    if func is None:
+        raise ValueError(f"Function `{repo.func_name}` not found in `{repo}`")
+
+    return _create_func_module(func)

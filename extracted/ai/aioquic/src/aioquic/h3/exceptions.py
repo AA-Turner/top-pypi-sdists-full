@@ -4,6 +4,27 @@ class H3Error(Exception):
     """
 
 
+class DatagramCapacityError(H3Error, ValueError):
+    """
+    A payload was passed which exceeds the capacity of a datagram, as returned by
+    :meth:`~aioquic.h3.connection.H3Connection.get_datagram_capacity`.
+    """
+
+
+class InvalidConnectionStateError(H3Error):
+    """
+    An action was attempted which the connection does not allow in its current
+    state.
+    """
+
+
+class InvalidErrorCodeError(H3Error):
+    """
+    An error code was passed which is outside the range QUIC allows, from 0 to
+    2^62 - 1.
+    """
+
+
 class InvalidStreamIdError(H3Error):
     """
     A stream ID was passed which is outside the range QUIC allows, from 0 to
@@ -14,7 +35,7 @@ class InvalidStreamIdError(H3Error):
 class InvalidStreamStateError(H3Error):
     """
     An action was attempted on a stream in an invalid state, such as sending
-    data before headers, or after the stream was ended.
+    data before headers, or on a stream which is not open.
     """
 
 

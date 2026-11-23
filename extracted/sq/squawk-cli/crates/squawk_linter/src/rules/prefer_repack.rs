@@ -1,15 +1,27 @@
-use squawk_syntax::{
-    Parse, SourceFile,
-    ast::{self, AstNode},
-};
+use squawk_diagnostics::{Edit, Fix};
+use squawk_rowan::TextRange;
+use squawk_syntax::ast::{self, AstNode};
 
-use crate::{Edit, Fix, Linter, Rule, Version, Violation};
+use crate::transactions::TransactionState;
+use crate::{Linter, Rule, Version, Violation};
 
 fn vacuum_full_fix(vacuum: &ast::Vacuum) -> Option<Fix> {
-    let tables = vacuum.table_and_columns_list()?;
-    let tables = tables.syntax();
-    let replacement = format!("repack (concurrently) {tables}");
-    let edit = Edit::replace(vacuum.syntax().text_range(), replacement);
+    let mut tables = vacuum.table_and_columns_list()?.table_and_columnss();
+    let table = tables.next()?;
+    if tables.next().is_some() || table.column_ref_list().is_some() {
+        return None;
+    }
+    let relation = table.table_relation_name()?;
+    if relation.only_token().is_some() || relation.star_token().is_some() {
+        return None;
+    }
+    let path = relation.table_name_ref()?.path_ref()?;
+    let replacement = format!("repack (concurrently) {}", path.syntax());
+    let range = vacuum.syntax().text_range();
+    let end = vacuum
+        .semicolon_token()
+        .map_or(range.end(), |semicolon| semicolon.text_range().start());
+    let edit = Edit::replace(TextRange::new(range.start(), end), replacement);
     Some(Fix::new("Replace with `repack (concurrently)`", vec![edit]))
 }
 
@@ -22,7 +34,8 @@ fn cluster_fix(cluster: &ast::Cluster) -> Option<Fix> {
             table.syntax(),
             index.syntax()
         )
-    } else if let Some(table) = cluster.table_name_ref().and_then(|table| table.path_ref()) {
+    } else {
+        let table = cluster.table_name_ref()?.path_ref()?;
         if let Some(index_name) = cluster
             .cluster_using_index()
             .and_then(|using| using.index_ref())
@@ -35,43 +48,52 @@ fn cluster_fix(cluster: &ast::Cluster) -> Option<Fix> {
         } else {
             format!("repack (concurrently) {}", table.syntax())
         }
-    } else {
-        "repack (concurrently)".to_string()
     };
-    let edit = Edit::replace(cluster.syntax().text_range(), replacement);
+    let range = cluster.syntax().text_range();
+    let end = cluster
+        .semicolon_token()
+        .map_or(range.end(), |semicolon| semicolon.text_range().start());
+    let edit = Edit::replace(TextRange::new(range.start(), end), replacement);
     Some(Fix::new("Replace with `repack (concurrently)`", vec![edit]))
 }
 
-pub(crate) fn prefer_repack(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    if ctx.settings.pg_version < Version::new(19, None, None) {
+pub(crate) fn prefer_repack(ctx: &mut Linter, file: &ast::SourceFile) {
+    if ctx.settings.pg_version < Version::major(19) {
         return;
     }
-    for stmt in parse.tree().stmts() {
+    let help = "use `repack` to rewrite the table without blocking reads and writes";
+    let transaction_help = "use `repack (concurrently)` outside of a transaction to rewrite the table without blocking reads and writes";
+    let mut transaction = TransactionState::new(ctx.settings.assume_in_transaction);
+    for stmt in file.stmts() {
+        transaction.update(&stmt);
+        let in_transaction = transaction.inside_transaction();
         match stmt {
             ast::Stmt::Cluster(cluster) => {
-                let fix = cluster_fix(&cluster);
-                ctx.report(
-                    Violation::for_node(
-                        Rule::PreferRepack,
-                        "`cluster` requires an `access exclusive` lock which blocks reads and writes to the table".into(),
-                        cluster.syntax(),
-                    )
-                    .help("use `repack` to rewrite the table without blocking reads and writes")
-                    .fix(fix),
+                let violation = Violation::for_node(
+                    Rule::PreferRepack,
+                    "`cluster` requires an `access exclusive` lock which blocks reads and writes to the table".into(),
+                    cluster.syntax(),
                 );
+                let violation = if in_transaction {
+                    violation.help(transaction_help)
+                } else {
+                    violation.help(help).fix(cluster_fix(&cluster))
+                };
+                ctx.report(violation);
             }
             ast::Stmt::Vacuum(vacuum) => {
                 if vacuum.is_full() {
-                    let fix = vacuum_full_fix(&vacuum);
-                    ctx.report(
-                        Violation::for_node(
-                            Rule::PreferRepack,
-                            "`vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table".into(),
-                            vacuum.syntax(),
-                        )
-                        .help("use `repack` to rewrite the table without blocking reads and writes")
-                        .fix(fix),
+                    let violation = Violation::for_node(
+                        Rule::PreferRepack,
+                        "`vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table".into(),
+                        vacuum.syntax(),
                     );
+                    let violation = if in_transaction {
+                        violation.help(transaction_help)
+                    } else {
+                        violation.help(help).fix(vacuum_full_fix(&vacuum))
+                    };
+                    ctx.report(violation);
                 }
             }
             _ => (),
@@ -107,7 +129,7 @@ mod test {
           ├ help: use `repack` to rewrite the table without blocking reads and writes
           ╭╴
         1 - CLUSTER foo;
-        1 + repack (concurrently) foo
+        1 + repack (concurrently) foo;
           ╰╴
         ");
     }
@@ -121,11 +143,7 @@ mod test {
         1 │ CLUSTER;
           │ ━━━━━━━━
           │
-          ├ help: use `repack` to rewrite the table without blocking reads and writes
-          ╭╴
-        1 - CLUSTER;
-        1 + repack (concurrently)
-          ╰╴
+          ╰ help: use `repack` to rewrite the table without blocking reads and writes
         ");
     }
 
@@ -141,7 +159,7 @@ mod test {
           ├ help: use `repack` to rewrite the table without blocking reads and writes
           ╭╴
         1 - VACUUM FULL foo;
-        1 + repack (concurrently) foo
+        1 + repack (concurrently) foo;
           ╰╴
         ");
     }
@@ -158,7 +176,7 @@ mod test {
           ├ help: use `repack` to rewrite the table without blocking reads and writes
           ╭╴
         1 - VACUUM (FULL) foo;
-        1 + repack (concurrently) foo
+        1 + repack (concurrently) foo;
           ╰╴
         ");
     }
@@ -206,36 +224,94 @@ mod test {
 
     #[test]
     fn fix_vacuum_full() {
-        assert_snapshot!(fix("VACUUM FULL foo;"), @"repack (concurrently) foo");
+        assert_snapshot!(fix("VACUUM FULL foo;"), @"repack (concurrently) foo;");
     }
 
     #[test]
     fn fix_vacuum_full_option_list() {
-        assert_snapshot!(fix("VACUUM (FULL) foo;"), @"repack (concurrently) foo");
+        assert_snapshot!(fix("VACUUM (FULL) foo;"), @"repack (concurrently) foo;");
     }
 
     #[test]
-    fn fix_vacuum_full_multiple_tables() {
-        assert_snapshot!(fix("VACUUM FULL foo, bar;"), @"repack (concurrently) foo, bar");
+    fn fix_keeps_following_stmt() {
+        assert_snapshot!(fix("cluster foo; -- c\nselect 1;"), @"
+        repack (concurrently) foo; -- c
+        select 1;
+        ");
+    }
+
+    #[test]
+    fn without_valid_fix_err() {
+        let sql = "
+vacuum full a, b;
+vacuum (full) c (x);
+vacuum full only d;
+cluster;
+";
+        assert_snapshot!(lint_errors_with(sql, pg19(), Rule::PreferRepack), @"
+        warning[prefer-repack]: `vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        2 │ vacuum full a, b;
+          │ ━━━━━━━━━━━━━━━━━
+          │
+          ╰ help: use `repack` to rewrite the table without blocking reads and writes
+        warning[prefer-repack]: `vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        3 │ vacuum (full) c (x);
+          │ ━━━━━━━━━━━━━━━━━━━━
+          │
+          ╰ help: use `repack` to rewrite the table without blocking reads and writes
+        warning[prefer-repack]: `vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        4 │ vacuum full only d;
+          │ ━━━━━━━━━━━━━━━━━━━
+          │
+          ╰ help: use `repack` to rewrite the table without blocking reads and writes
+        warning[prefer-repack]: `cluster` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        5 │ cluster;
+          │ ━━━━━━━━
+          │
+          ╰ help: use `repack` to rewrite the table without blocking reads and writes
+        ");
+    }
+
+    #[test]
+    fn in_transaction_err() {
+        let sql = "
+begin;
+cluster foo;
+vacuum full foo;
+commit;
+";
+        assert_snapshot!(lint_errors_with(sql, pg19(), Rule::PreferRepack), @"
+        warning[prefer-repack]: `cluster` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        3 │ cluster foo;
+          │ ━━━━━━━━━━━━
+          │
+          ╰ help: use `repack (concurrently)` outside of a transaction to rewrite the table without blocking reads and writes
+        warning[prefer-repack]: `vacuum full` requires an `access exclusive` lock which blocks reads and writes to the table
+          ╭▸ 
+        4 │ vacuum full foo;
+          │ ━━━━━━━━━━━━━━━━
+          │
+          ╰ help: use `repack (concurrently)` outside of a transaction to rewrite the table without blocking reads and writes
+        ");
     }
 
     #[test]
     fn fix_cluster_no_index() {
-        assert_snapshot!(fix("CLUSTER foo;"), @"repack (concurrently) foo");
+        assert_snapshot!(fix("CLUSTER foo;"), @"repack (concurrently) foo;");
     }
 
     #[test]
     fn fix_cluster_with_index() {
-        assert_snapshot!(fix("CLUSTER foo USING foo_pkey;"), @"repack (concurrently) foo using index foo_pkey");
+        assert_snapshot!(fix("CLUSTER foo USING foo_pkey;"), @"repack (concurrently) foo using index foo_pkey;");
     }
 
     #[test]
     fn fix_cluster_legacy_on_syntax() {
-        assert_snapshot!(fix("CLUSTER verbose foo_pkey ON foo;"), @"repack (concurrently) foo using index foo_pkey");
-    }
-
-    #[test]
-    fn fix_cluster_no_path() {
-        assert_snapshot!(fix("CLUSTER;"), @"repack (concurrently)");
+        assert_snapshot!(fix("CLUSTER verbose foo_pkey ON foo;"), @"repack (concurrently) foo using index foo_pkey;");
     }
 }

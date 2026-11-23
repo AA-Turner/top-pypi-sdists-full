@@ -66,6 +66,17 @@ pub struct Spec {
     pub session_update_mode: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "16")]
     pub remote_config_metadata: ::core::option::Option<RemoteConfigValueMetadata>,
+    /// Per-dynamic-config loading policy; corresponds to DCS JSON loadMode.
+    /// DCS JSON uses "eager"/"lazy"; converters map those names to LoadMode.
+    /// Absent, unspecified, or unrecognized values are evaluated as eager.
+    /// Applies to the whole dynamic config, independently of whether its default
+    /// or rule values have remote_config_metadata. Ignore for other entity types.
+    #[prost(enumeration = "LoadMode", optional, tag = "17")]
+    pub load_mode: ::core::option::Option<i32>,
+    /// Revision of the rules this gate or dynamic config spec serves (DCS JSON: servedVersion).
+    /// Present only when it differs from version. Use version when this field is absent.
+    #[prost(uint32, optional, tag = "18")]
+    pub served_version: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Rule {
@@ -285,6 +296,37 @@ impl SpecsEnvelopeKind {
             "SPECS_ENVELOPE_KIND_DELETIONS" => Some(Self::Deletions),
             "SPECS_ENVELOPE_KIND_CHECKSUMS" => Some(Self::Checksums),
             "SPECS_ENVELOPE_KIND_COPY_PREV" => Some(Self::CopyPrev),
+            _ => None,
+        }
+    }
+}
+/// Only LOAD_MODE_LAZY requests lazy loading. Consumers must treat unspecified
+/// and unrecognized values as eager. Applies only to dynamic-config entities.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LoadMode {
+    Unspecified = 0,
+    Eager = 1,
+    Lazy = 2,
+}
+impl LoadMode {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOAD_MODE_UNSPECIFIED",
+            Self::Eager => "LOAD_MODE_EAGER",
+            Self::Lazy => "LOAD_MODE_LAZY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOAD_MODE_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOAD_MODE_EAGER" => Some(Self::Eager),
+            "LOAD_MODE_LAZY" => Some(Self::Lazy),
             _ => None,
         }
     }

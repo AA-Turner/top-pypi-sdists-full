@@ -8,22 +8,21 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 """
 
 import enum
-import importlib
 import types
-import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from functools import partial
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 if TYPE_CHECKING:
     from packaging.version import Version
 
-from deprecate._frames import _caller_stacklevel
 from deprecate._types import DeprecationConfig, TargetMode
-from deprecate.audit._findings import _Check, _Finding, _make_finding, _Rule
-from deprecate.audit._lifecycle import _parse_version
+from deprecate.audit._findings import _MESSAGE_REQUIRED_SLUG, _MIN_GRACE_SLUG, _Check, _Finding, _make_finding, _Rule
+from deprecate.audit._lifecycle import _parse_version, _warn_version_skip
 from deprecate.audit._scan import find_deprecation_wrappers
-from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject
+from deprecate.audit._static import StaticScanResult, _static_result_rows
+from deprecate.audit._wrappers import DeprecationWrapperInfo, _ApiType, _format_subject
 from deprecate.module import _build_module_warn_msg
 
 
@@ -41,12 +40,13 @@ class PolicyRule(str, enum.Enum):
             -> ``2.0`` satisfies ``"0.3"``), a mixed bump never passes (``1.2`` -> ``2.3`` is neither a major nor
             a minor step), and a ``remove_in`` at or before ``deprecated_in`` always fails. Versions spanning a
             PEP 440 epoch, or that do not parse, are skipped with a :class:`UserWarning`.
-        MESSAGE_REQUIRED: the wrapper must name what to migrate *to* -- a ``target``, a non-empty
+        MESSAGE_REQUIRED: the wrapper must name what to migrate *to* -- a callable or module ``target``, a non-empty
             ``args_mapping``/``attrs_mapping``, or a non-empty custom ``message_template``; ``message_required=False``
-            disables. An explicit :attr:`~deprecate.TargetMode.NOTIFY` counts only the template; a deprecated module
-            counts its replacement module, its ``attrs_mapping``, or a template other than the built-in notice
-            :func:`~deprecate.module.deprecated_module` renders when given none. The one rule that runs without
-            ``packaging``.
+            disables. An explicit :attr:`~deprecate.TargetMode.NOTIFY` counts only the template; a data replacement
+            passed as ``deprecated_instance(target=...)`` counts only with an ``attrs_mapping`` or the template; a
+            deprecated module counts its replacement module, its ``attrs_mapping``, or a template other than the
+            built-in notice :func:`~deprecate.module.deprecated_module` renders when given none. The one rule that
+            runs without ``packaging``.
 
     Examples:
         >>> PolicyRule.MIN_GRACE.value
@@ -54,8 +54,8 @@ class PolicyRule(str, enum.Enum):
 
     """
 
-    MIN_GRACE = "min-grace"
-    MESSAGE_REQUIRED = "message-required"
+    MIN_GRACE = _MIN_GRACE_SLUG
+    MESSAGE_REQUIRED = _MESSAGE_REQUIRED_SLUG
 
 
 class VersionBump(str, enum.Enum):
@@ -90,7 +90,13 @@ _GRACE_WINDOW_SPELLINGS = "`1.0` (one major), `0.1` (one minor), `0.0.1` (one pa
 
 
 def _grace_window_error(min_grace: object, detail: str) -> ValueError:
-    """Build the uniform ``ValueError`` for a ``min_grace`` value the parser does not accept."""
+    """Build the uniform ``ValueError`` for a ``min_grace`` value the parser does not accept.
+
+    Examples:
+        >>> str(_grace_window_error("1", "too short")).startswith("Invalid `min_grace` specification `1`; too short")
+        True
+
+    """
     return ValueError(
         f"Invalid `min_grace` specification `{min_grace}`; {detail} — expected {_GRACE_WINDOW_SPELLINGS}."
     )
@@ -125,6 +131,7 @@ class GraceWindow:
 
     def __post_init__(self) -> None:
         """Reject a count or unit no accepted spelling could have produced."""
+        # ``True``/``False`` are ints in Python but never a meaningful step count; also reject floats and negatives
         if isinstance(self.count, bool) or not isinstance(self.count, int) or self.count < 0:
             raise _grace_window_error(self, "the count must be a non-negative integer")
         if not isinstance(self.unit, VersionBump):
@@ -170,6 +177,7 @@ class GraceWindow:
             return min_grace
         if isinstance(min_grace, Mapping):
             return cls._parse_table(min_grace)
+        # an int (or bool) such as ``1`` does not say whether it counts majors, minors or patches
         if isinstance(min_grace, bool) or not isinstance(min_grace, (str, float)):
             raise _grace_window_error(min_grace, "a bare number does not say which release level it counts")
         spec = str(min_grace).strip()
@@ -185,7 +193,13 @@ class GraceWindow:
 
     @classmethod
     def _parse_table(cls, min_grace: Mapping[str, int]) -> "GraceWindow":
-        """Parse the table form ``{"minor": 3}`` — exactly one unit key; the count is validated on construction."""
+        """Parse the table form ``{"minor": 3}`` — exactly one unit key; the count is validated on construction.
+
+        Examples:
+            >>> GraceWindow._parse_table({"minor": 2})
+            GraceWindow(count=2, unit=<VersionBump.MINOR: 'minor'>)
+
+        """
         if len(min_grace) != 1:
             raise _grace_window_error(dict(min_grace), "a table must name exactly one unit")
         ((unit_name, count),) = min_grace.items()
@@ -227,6 +241,11 @@ class _PolicySpec:
     message_required: bool
 
 
+#: Callback for a wrapper the grace-window rule skipped because one of its version fields is not PEP 440: called with
+#: the wrapper and the field name (``deprecated_in`` or ``remove_in``), or ``epoch`` for a forward epoch change.
+_OnUnparsableVersion = Callable[[DeprecationWrapperInfo, str], None]
+
+
 def _format_release_boundaries(unit: VersionBump) -> str:
     """Name the release levels a removal may land on for a window counted in ``unit`` -- ``unit`` and coarser.
 
@@ -259,7 +278,20 @@ def _build_policy_spec(min_grace: Optional[GraceWindowSpec], message_required: b
     return _PolicySpec(grace=grace, message_required=message_required)
 
 
-def _parse_policy_version(raw: Optional[str], info: DeprecationWrapperInfo, field_name: str) -> Optional["Version"]:
+def _warn_policy_skip(
+    message: str, info: DeprecationWrapperInfo, reason: str, callback: Optional[_OnUnparsableVersion]
+) -> None:
+    """Record a skipped check and emit its warning without allowing warning filters to abort a recorded scan."""
+    _warn_version_skip(message, partial(callback, info, reason) if callback is not None else None)
+
+
+def _parse_policy_version(
+    raw: Optional[str],
+    info: DeprecationWrapperInfo,
+    field_name: str,
+    *,
+    on_unparsable: Optional[_OnUnparsableVersion] = None,
+) -> Optional["Version"]:
     """Parse one of a wrapper's version fields, warning instead of raising on a typo.
 
     A single unparsable version string must not abort a batch policy scan (mirroring the expiry gate's
@@ -269,6 +301,9 @@ def _parse_policy_version(raw: Optional[str], info: DeprecationWrapperInfo, fiel
         raw: Raw version string from the wrapper metadata; ``None`` or empty means the field is unset.
         info: Wrapper whose version is being parsed, used for the warning text.
         field_name: Metadata field name (``deprecated_in`` or ``remove_in``) named in the warning.
+        on_unparsable: Called with *info* and *field_name* when the version is set but not PEP 440, before the warning,
+            so a caller can record the skip on a channel the audited package cannot silence (the CLI records a gap).
+            An unset field is a deliberate choice, not a skip, and never reaches it.
 
     Returns:
         The parsed version, or ``None`` when the field is unset or unparsable.
@@ -279,10 +314,12 @@ def _parse_policy_version(raw: Optional[str], info: DeprecationWrapperInfo, fiel
     try:
         return _parse_version(raw)
     except ValueError:
-        warnings.warn(
+        _warn_policy_skip(
             f"{_format_subject(info)} has an unparsable `{field_name}` version `{raw}`; "
             "the policy rules depending on it are skipped until the version string is fixed.",
-            stacklevel=_caller_stacklevel(),
+            info,
+            field_name,
+            on_unparsable,
         )
         return None
 
@@ -334,6 +371,7 @@ def _satisfies_grace_window(deprecated_ver: "Version", remove_ver: "Version", wi
     old = deprecated_ver.release + (0,) * (width - len(deprecated_ver.release))
     new = remove_ver.release + (0,) * (width - len(remove_ver.release))
     bumped = next((i for i, (o, n) in enumerate(zip(old, new)) if o != n), None)
+    # not a clean bump: nothing changed, the number went down, or a finer component stayed non-zero (``1.3.1``)
     if bumped is None or new[bumped] < old[bumped] or any(new[bumped + 1 :]):
         return False  # Same release, a step backwards, or a mixed bump — not a clean release boundary.
     unit_position = _GRACE_WINDOW_UNITS.index(window.unit)
@@ -343,7 +381,12 @@ def _satisfies_grace_window(deprecated_ver: "Version", remove_ver: "Version", wi
 
 
 def _grace_window_violation(
-    info: DeprecationWrapperInfo, deprecated_ver: "Version", remove_ver: "Version", window: GraceWindow
+    info: DeprecationWrapperInfo,
+    deprecated_ver: "Version",
+    remove_ver: "Version",
+    window: GraceWindow,
+    *,
+    on_unparsable: Optional[_OnUnparsableVersion] = None,
 ) -> Optional[str]:
     """Return the ``min-grace`` violation message for one wrapper, or ``None`` when it passes or is skipped.
 
@@ -365,6 +408,7 @@ def _grace_window_violation(
         deprecated_ver: Parsed version the wrapper was deprecated in.
         remove_ver: Parsed version the wrapper is scheduled for removal in.
         window: Minimum number of bumps the policy requires and the version component they are counted in.
+        on_unparsable: Callback for an unmeasurable forward epoch change.
 
     Returns:
         The violation message, or ``None`` when the window is satisfied or the check was skipped.
@@ -379,11 +423,13 @@ def _grace_window_violation(
     if remove_ver <= deprecated_ver:
         return violation
     if deprecated_ver.epoch != remove_ver.epoch:
-        warnings.warn(
+        _warn_policy_skip(
             f"{_format_subject(info)} spans a PEP 440 epoch change between `deprecated_in`"
             f" `{config.deprecated_in}` and `remove_in` `{config.remove_in}`; version distance is not"
             " comparable across epochs, so the `min-grace` check is skipped for it.",
-            stacklevel=_caller_stacklevel(),
+            info,
+            "epoch",
+            on_unparsable,
         )
         return None
     return None if _satisfies_grace_window(deprecated_ver, remove_ver, window) else violation
@@ -394,6 +440,11 @@ def _has_migration_guidance(info: DeprecationWrapperInfo) -> bool:
 
     Guidance is any of: a forwarding target (callable or replacement module), an ``args_mapping`` or
     ``attrs_mapping`` naming the replacement names, or a custom ``message_template`` spelling the migration out.
+    A replacement that is plain data (a :func:`~deprecate.proxy.deprecated_instance` ``target`` that is not
+    callable) is served under the old name, but the built-in warning cannot name it and the object is never called,
+    so next to it only an ``attrs_mapping`` or a custom ``message_template`` counts. The same holds for an
+    ``args_mapping`` on a served object that is never called, which the proxy records as
+    :attr:`~deprecate._types.DeprecationConfig.call_options_inert`.
 
     The template has to be non-empty to count. ``message_template=""`` is not a message: every emitter renders
     ``config.message_template or TEMPLATE_WARNING_*`` (see :mod:`~deprecate.messaging`), so an empty string is
@@ -424,15 +475,25 @@ def _has_migration_guidance(info: DeprecationWrapperInfo) -> bool:
 
     """
     config = info.deprecated_info
-    if info.api_type == "module":
+    if info.api_type == _ApiType.MODULE:
         return _module_has_migration_guidance(config)
     target = config.target
     has_mapping = bool(config.args_mapping or config.attrs_mapping)
     has_message = bool(config.message_template)
     if target is TargetMode.NOTIFY:
         return has_message
-    if target in (TargetMode.ARGS_REMAP, TargetMode.ATTRS_REMAP):
+    if config.call_options_inert:
+        # Flagged at creation: an ``args_mapping`` on a data object that is never called never renames anything, so
+        # only an attribute mapping or a hand-written message counts. Any other misconfiguration (an empty
+        # ``attrs_mapping``, the legacy ``target=False``) leaves a live ``args_mapping`` counting as guidance.
+        return bool(config.attrs_mapping) or has_message
+    # Identity, not ``in``: a replacement object may define an ``__eq__`` that raises (an array, a data frame).
+    if target is TargetMode.ARGS_REMAP or target is TargetMode.ATTRS_REMAP:
         return has_mapping
+    if target is not None and not callable(target):
+        # A ``deprecated_instance`` replacement that is plain data: the warning cannot name it, and the object is never
+        # called, so only an attribute mapping or a hand-written message tells callers where to go.
+        return bool(config.attrs_mapping) or has_message
     if target is not None:
         return True
     return has_mapping or has_message
@@ -466,13 +527,18 @@ def _module_has_migration_guidance(config: DeprecationConfig) -> bool:
     return bool(config.message_template) and config.message_template != built_in
 
 
-#: ``message-required`` remedy per ``api_type`` — each names only the arguments that wrapper's factory accepts.
-#: :func:`~deprecate.proxy.deprecated_instance` takes a ``message_template`` and nothing else that names a
-#: replacement; :func:`~deprecate.module.deprecated_module` takes a ``target`` module, an ``attrs_mapping`` and a
+#: ``message-required`` remedy per ``api_type`` — each names only the arguments that guide callers for that wrapper.
+#: A :func:`~deprecate.proxy.deprecated_instance` object is ``data`` whether or not it can be called: an
+#: ``args_mapping`` applies only when the object is callable, and the warning names a replacement ``target`` only when
+#: that is callable, so both are offered for the callable case only;
+#: :func:`~deprecate.module.deprecated_module` takes a ``target`` module, an ``attrs_mapping`` and a
 #: ``message_template``; every other wrapper comes from a factory that also accepts an ``args_mapping``.
-_MESSAGE_REQUIRED_REMEDIES = {
-    "data": "configure a custom `message_template`",
-    "module": "configure a `target`, an `attrs_mapping`, or a custom `message_template`",
+_MESSAGE_REQUIRED_REMEDIES: dict[str, str] = {
+    _ApiType.DATA: (
+        "configure a custom `message_template`, an `attrs_mapping`, or, for a callable object, an `args_mapping`"
+        " or a callable `target`"
+    ),
+    _ApiType.MODULE: "configure a `target`, an `attrs_mapping`, or a custom `message_template`",
 }
 _MESSAGE_REQUIRED_DEFAULT_REMEDY = (
     "configure a `target`, an `args_mapping`/`attrs_mapping`, or a custom `message_template`"
@@ -483,8 +549,9 @@ def _message_required_remedy(api_type: str) -> str:
     """Name the arguments a wrapper of ``api_type`` can be given so that its warning names a replacement.
 
     Examples:
-        >>> _message_required_remedy("data")
-        'configure a custom `message_template`'
+        >>> print(_message_required_remedy("data"))  # doctest: +NORMALIZE_WHITESPACE
+        configure a custom `message_template`, an `attrs_mapping`, or,
+        for a callable object, an `args_mapping` or a callable `target`
         >>> _message_required_remedy("callable")
         'configure a `target`, an `args_mapping`/`attrs_mapping`, or a custom `message_template`'
 
@@ -492,12 +559,16 @@ def _message_required_remedy(api_type: str) -> str:
     return _MESSAGE_REQUIRED_REMEDIES.get(api_type, _MESSAGE_REQUIRED_DEFAULT_REMEDY)
 
 
-def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySpec) -> list[_Finding]:
+def _policy_violations_for_wrapper(
+    info: DeprecationWrapperInfo, spec: _PolicySpec, *, on_unparsable: Optional[_OnUnparsableVersion] = None
+) -> list[_Finding]:
     """Collect every policy violation of a single wrapper.
 
     Args:
         info: Wrapper to check.
         spec: Parsed policy configuration.
+        on_unparsable: Called for each skipped version field or forward epoch change, as in
+            :func:`_parse_policy_version`.
 
     Returns:
         One finding per violated rule; each message is prefixed with its :class:`~deprecate.audit.PolicyRule` slug.
@@ -511,10 +582,12 @@ def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySp
     # asked to run. Keeping the parse lazy is what lets a ``message_required``-only policy work with no
     # version machinery at all, while the grace-window rule still surfaces the install hint.
     if spec.grace is not None:
-        deprecated_ver = _parse_policy_version(config.deprecated_in, info, "deprecated_in")
-        remove_ver = _parse_policy_version(config.remove_in, info, "remove_in")
+        deprecated_ver = _parse_policy_version(config.deprecated_in, info, "deprecated_in", on_unparsable=on_unparsable)
+        remove_ver = _parse_policy_version(config.remove_in, info, "remove_in", on_unparsable=on_unparsable)
         if deprecated_ver is not None and remove_ver is not None:
-            grace_violation = _grace_window_violation(info, deprecated_ver, remove_ver, spec.grace)
+            grace_violation = _grace_window_violation(
+                info, deprecated_ver, remove_ver, spec.grace, on_unparsable=on_unparsable
+            )
             if grace_violation is not None:
                 violations.append(_make_finding(info, _Rule.MIN_GRACE, _Check.POLICY, grace_violation))
 
@@ -531,8 +604,8 @@ def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySp
 def _check_policy_for_callables(results: list[DeprecationWrapperInfo], spec: _PolicySpec) -> list[str]:
     """Apply the policy rules to pre-scanned wrapper results.
 
-    Shared implementation used by :func:`validate_deprecation_policy` and the CLI's single-scan path, keeping
-    the violation-message format in one place.
+    Message-list adapter used by :func:`~deprecate.audit.validate_deprecation_policy`; the CLI consumes
+    :func:`~deprecate.audit._policy._policy_findings` directly.
 
     Version parsing is lazy: a version string is only turned into a :class:`~packaging.version.Version` when
     the grace-window rule reads it. A policy that runs ``message_required`` alone therefore needs no
@@ -553,18 +626,33 @@ def _check_policy_for_callables(results: list[DeprecationWrapperInfo], spec: _Po
     return [finding.message for finding in _policy_findings(results, spec)]
 
 
-def _policy_findings(results: list[DeprecationWrapperInfo], spec: _PolicySpec) -> list[_Finding]:
+def _policy_findings(
+    results: list[DeprecationWrapperInfo],
+    spec: _PolicySpec,
+    *,
+    on_unparsable: Optional[_OnUnparsableVersion] = None,
+) -> list[_Finding]:
     """Return one finding per policy rule each wrapper breaks, in wrapper order; the CLI gates on these.
+
+    Args:
+        results: Pre-scanned wrapper info list.
+        spec: Parsed policy configuration.
+        on_unparsable: Called before warning with each wrapper and skipped version field, or ``epoch`` for a
+            forward epoch change; the CLI records each call as a gap.
 
     Raises:
         ImportError: As :func:`_check_policy_for_callables`.
 
     """
-    return [finding for info in results for finding in _policy_violations_for_wrapper(info, spec)]
+    return [
+        finding
+        for info in results
+        for finding in _policy_violations_for_wrapper(info, spec, on_unparsable=on_unparsable)
+    ]
 
 
 def validate_deprecation_policy(
-    module: Union[Any, str],  # noqa: ANN401
+    module: Union[Any, str, StaticScanResult],  # noqa: ANN401
     recursive: bool = True,
     include_members: bool = True,
     *,
@@ -587,6 +675,8 @@ def validate_deprecation_policy(
 
     Args:
         module: A Python module or package to scan — an imported module object or a string module path.
+            Also accepts a :class:`~deprecate.audit.StaticScanResult` without imports or another scan; each rule checks
+            only rows whose required settings resolved. Inspect its ``gaps`` for incomplete coverage.
         recursive: If True (default), recursively scan submodules.
         include_members: If True (default), also scan deprecated class members, matching the discovery default
             of :func:`~deprecate.audit.find_deprecation_wrappers`.
@@ -612,7 +702,8 @@ def validate_deprecation_policy(
         ImportError: If ``min_grace`` is enabled, a wrapper carries both version fields, and the ``packaging``
             library is not installed (``pip install pyDeprecate[audit]``). A policy reduced to
             ``message_required`` alone parses no version and runs without it.
-        ValueError: If ``min_grace`` is not a valid specification.
+        ValueError: If ``min_grace`` is not a valid specification, or a static result is given with ``recursive=False``
+            or ``include_members=False`` because its scan options are already fixed.
 
     Examples:
         >>> from deprecate import validate_deprecation_policy
@@ -637,8 +728,12 @@ def validate_deprecation_policy(
 
     """
     spec = _build_policy_spec(min_grace, message_required)
-    if isinstance(module, str):
-        module = importlib.import_module(module)
+    if isinstance(module, StaticScanResult):
+        # Import source-specific rules only here; they depend on this module's policy implementation.
+        from deprecate._static.checks import _static_policy_findings
+
+        rows = _static_result_rows(module, recursive=recursive, include_members=include_members, exclude=exclude)
+        return [finding.message for finding in _static_policy_findings(rows, spec)]
     return _check_policy_for_callables(
         find_deprecation_wrappers(module, recursive=recursive, include_members=include_members, exclude=exclude), spec
     )

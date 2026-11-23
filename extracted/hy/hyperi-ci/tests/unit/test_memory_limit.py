@@ -20,6 +20,7 @@ from hyperi_ci.memory import (
     cgroup_v2_peak,
     cgroup_v2_swap_peak,
     memory_limit,
+    swap_used,
     total_ram,
 )
 
@@ -61,6 +62,40 @@ class TestCgroupV2:
         found = cgroup_v2_limit(root, _proc_cgroup(tmp_path, "/kubepods/pod1/ctr"))
         assert found is not None
         assert found.limit_bytes == 12 * GIB
+
+    @pytest.mark.parametrize(
+        ("leaf_max", "leaf_high", "parent_high", "expected", "binding"),
+        [
+            ("max", f"{12 * GIB}", None, 12 * GIB, "svc/memory.high"),
+            (f"{16 * GIB}", f"{12 * GIB}", None, 12 * GIB, "svc/memory.high"),
+            (f"{8 * GIB}", f"{12 * GIB}", None, 8 * GIB, "svc/memory.max"),
+            ("max", "max", f"{10 * GIB}", 10 * GIB, "memory.high"),
+            ("max", "0", None, None, None),
+            ("max", "lots", None, None, None),
+        ],
+    )
+    def test_memory_high_binds_as_a_limit(
+        self,
+        tmp_path: Path,
+        leaf_max: str,
+        leaf_high: str,
+        parent_high: str | None,
+        expected: int | None,
+        binding: str | None,
+    ) -> None:
+        root = tmp_path / "cg"
+        _write(root / "svc" / "memory.max", f"{leaf_max}\n")
+        _write(root / "svc" / "memory.high", f"{leaf_high}\n")
+        if parent_high is not None:
+            _write(root / "memory.high", f"{parent_high}\n")
+        found = cgroup_v2_limit(root, _proc_cgroup(tmp_path, "/svc"))
+        if expected is None:
+            assert found is None
+            return
+        assert found is not None
+        assert binding is not None
+        assert found.limit_bytes == expected
+        assert found.source == f"cgroup v2 {root / binding}"
 
     def test_max_everywhere_is_unlimited(self, tmp_path: Path) -> None:
         root = tmp_path / "cg"
@@ -105,6 +140,19 @@ class TestTotalRam:
         assert found is not None
         assert found.source == "sysconf SC_PHYS_PAGES"
         assert found.limit_bytes > 0
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("SwapTotal: 4096 kB\nSwapFree: 1024 kB\n", 3 * 1024 * 1024),
+        ("SwapTotal: 0 kB\nSwapFree: 0 kB\n", 0),
+        ("SwapTotal: 4096 kB\n", None),
+        ("", None),
+    ],
+)
+def test_swap_used(tmp_path: Path, text: str, expected: int | None) -> None:
+    assert swap_used(_write(tmp_path / "meminfo", text)) == expected
 
 
 class TestMemoryLimit:

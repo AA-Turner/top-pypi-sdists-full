@@ -25,7 +25,7 @@ class ShopifyProductInput(TypedDict, total=False):
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     product: Required[str]
-    """Product handle, the slug after /products/ in the product URL, e.g. mens-strider; the full product page URL also works."""
+    """Product handle, the slug after /products/ in the product URL, e.g. anytime-ankle-sock-natural-grey-heather; the full product page URL also works."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     store: Required[str]
@@ -50,7 +50,7 @@ class ShopifyProductsInput(TypedDict, total=False):
     onlyOnSale: NotRequired[bool]
     """Only products with at least one discounted variant. Default: false."""
     page: NotRequired[int]
-    """1-based page of the store's product list. Each page is billed as one request. Minimum: 1. Default: 1."""
+    """1-based page of the store's product list. Each page is billed as one request. Shopify serves only a store's first 25,000 products, so page times limit can reach at most 25,000. Minimum: 1. Default: 1."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     productType: NotRequired[str]
@@ -527,7 +527,7 @@ class ShopifyNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.shopify.product(product="mens-strider", store="allbirds.com")
+            res = client.shopify.product(product="anytime-ankle-sock-natural-grey-heather", store="allbirds.com")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "shopify.product", dict(input), options
@@ -628,7 +628,7 @@ class AsyncShopifyNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.shopify.product(product="mens-strider", store="allbirds.com")
+            res = client.shopify.product(product="anytime-ankle-sock-natural-grey-heather", store="allbirds.com")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "shopify.product", dict(input), options

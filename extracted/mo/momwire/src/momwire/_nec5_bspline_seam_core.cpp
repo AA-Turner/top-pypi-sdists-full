@@ -34,7 +34,7 @@ BSplinePrepared &bspline_part(Prepared &p) {
 const SeamBasis &BSplineSeamEngine::basis() const {
     static const SeamBasis row = [] {
         SeamBasis b;
-        b.name = "bspline";
+        b.name = "bs2";
         b.cut_spelling = true;            // `_CUT_SPELLING = (BSplineSolver,)`
         b.crossing_node_spelling = true;  // node gaps and junction ports
         return b;
@@ -235,6 +235,20 @@ SeamEngine::Built BSplineSeamEngine::build(Prepared &p) const {
         b.kind = Built::refused;
         b.error_kind = "ValueError";
         b.message = e.what();
+        return b;
+    } catch (const bspline::FrontDuplicateWire &e) {
+        // `_prepare` refuses a ValueError carrying `duplicate` in the deck's
+        // GW tags (momwire#2107). The NEC-4.2 slot's bs2 route builds through
+        // this engine with no NEC-5 mesh, and keeps the ValueError.
+        if (p.mesh.pieces.size() <= std::max(e.copy, e.twin)) {
+            b.kind = Built::raised;
+            b.error_kind = "ValueError";
+            b.message = e.what();
+            return b;
+        }
+        b.kind = Built::refused;
+        b.error_kind = "ValueError";
+        b.message = duplicate_wire_refusal(p.mesh, e.copy, e.twin, e.why);
         return b;
     } catch (const bspline::FrontValueError &e) {
         // Python's ValueError, which escapes to the INTERNAL ERROR frame

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ripgrep-bin
-Version: 15.2.0
+Version: 16.0.0
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Terminals
 Classifier: Topic :: Text Processing
@@ -8,7 +8,6 @@ Classifier: Topic :: Text Processing :: Filters
 License-File: LICENSE-MIT
 Summary: ripgrep is a line-oriented search tool that recursively searches the current directory for a regex pattern while respecting gitignore rules.
 Keywords: regex,grep,egrep,search,pattern
-Home-Page: https://github.com/BurntSushi/ripgrep
 Author-email: dowon <ks2515@naver.com>
 License: Unlicense OR MIT
 Requires-Python: >=3.7

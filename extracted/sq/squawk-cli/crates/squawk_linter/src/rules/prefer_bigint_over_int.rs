@@ -1,47 +1,65 @@
-use rustc_hash::FxHashSet;
-
+use squawk_diagnostics::{Edit, Fix};
+use squawk_syntax::ast;
 use squawk_syntax::ast::AstNode;
-use squawk_syntax::{Parse, SourceFile, ast};
 
-use crate::{Edit, Fix, Linter, Rule, Violation};
+use crate::{Linter, Rule, Violation};
 
 use crate::visitors::check_not_allowed_types;
 use crate::visitors::is_not_valid_int_type;
 
-use std::sync::OnceLock;
-
-fn int_types() -> &'static FxHashSet<&'static str> {
-    static INT_TYPES: OnceLock<FxHashSet<&'static str>> = OnceLock::new();
-    INT_TYPES.get_or_init(|| FxHashSet::from_iter(["int", "integer", "int4", "serial", "serial4"]))
+fn is_int_name(name: &str) -> bool {
+    matches!(name, "int" | "integer" | "int4" | "serial" | "serial4")
 }
 
-fn int_to_bigint_replacement(int_type: &str) -> &'static str {
+fn int_to_bigint_replacement(int_type: &str) -> BigintType {
     match int_type {
-        "int" | "integer" => "bigint",
-        "int4" => "int8",
-        "serial" => "bigserial",
-        "serial4" => "serial8",
-        _ => "bigint",
+        "int" | "integer" => BigintType::Bigint,
+        "int4" => BigintType::Int8,
+        "serial" => BigintType::Bigserial,
+        "serial4" => BigintType::Serial8,
+        _ => BigintType::Bigint,
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum BigintType {
+    Bigint,
+    Int8,
+    Bigserial,
+    Serial8,
+}
+
+impl BigintType {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            BigintType::Bigint => "bigint",
+            BigintType::Int8 => "int8",
+            BigintType::Bigserial => "bigserial",
+            BigintType::Serial8 => "serial8",
+        }
+    }
+
+    pub(crate) fn fix_title(self) -> &'static str {
+        match self {
+            BigintType::Bigint => "Replace with a 64-bit integer type: `bigint`",
+            BigintType::Int8 => "Replace with a 64-bit integer type: `int8`",
+            BigintType::Bigserial => "Replace with a 64-bit integer type: `bigserial`",
+            BigintType::Serial8 => "Replace with a 64-bit integer type: `serial8`",
+        }
     }
 }
 
 fn create_bigint_fix(ty: &ast::Type) -> Option<Fix> {
-    if let ast::Type::ArrayType(array_type) = ty {
-        return create_bigint_fix(&array_type.ty()?);
-    }
-    let name = ty.path_ref()?.segment()?;
+    let name = ty.element_type()?.path_ref()?.segment()?;
     let int_type = name.text();
     let i64 = int_to_bigint_replacement(&int_type);
-    let edit = Edit::replace(name.syntax().text_range(), i64);
-    Some(Fix::new(
-        format!("Replace with a 64-bit integer type: `{i64}`"),
-        vec![edit],
-    ))
+    let edit = Edit::replace(name.syntax().text_range(), i64.name());
+    Some(Fix::new(i64.fix_title(), vec![edit]))
 }
 
 fn check_ty_for_big_int(ctx: &mut Linter, ty: Option<ast::Type>) {
     if let Some(ty) = ty
-        && is_not_valid_int_type(&ty, int_types())
+        && is_not_valid_int_type(&ty, is_int_name)
     {
         let fix = create_bigint_fix(&ty);
 
@@ -58,9 +76,8 @@ fn check_ty_for_big_int(ctx: &mut Linter, ty: Option<ast::Type>) {
 }
 
 // TODO: we should have this be a config option instead of having a bunch of prefer_$int rules
-pub(crate) fn prefer_bigint_over_int(ctx: &mut Linter, parse: &Parse<SourceFile>) {
-    let file = parse.tree();
-    check_not_allowed_types(ctx, &file, check_ty_for_big_int);
+pub(crate) fn prefer_bigint_over_int(ctx: &mut Linter, file: &ast::SourceFile) {
+    check_not_allowed_types(ctx, file, check_ty_for_big_int);
 }
 
 #[cfg(test)]

@@ -6,9 +6,13 @@ A way of at most 2 km is walked, however the user travels otherwise.
 Google's Routes API, with an API key of a Google Cloud project that has it enabled. The way
 starts at home, at work on a weekday's working hours when a work address is set, or at the
 event before when that was somewhere too and ended not long before.
+
+The user can set when to leave in the event's description, as "Odchod z domu o 15:00" or
+"Leave home at 15:00": then the way starts then, from there.
 """
 
 import hashlib
+import html
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -48,6 +52,13 @@ NOT_A_PLACE = re.compile(
 # A flight: by its title ("Flight to Košice", "W6 7003") or an airport for its location.
 FLIGHT_TITLE = re.compile(r"^\s*(flight|let)\b|\b[A-Z][A-Z0-9]\s?\d{3,4}\b", re.IGNORECASE)
 AIRPORT = re.compile(r"airport|letisko|flughafen|lotnisko|\bletiště\b", re.IGNORECASE)
+# When to leave, set in the event's description: "Odchod z domu o 15:00", "Odchod o 7.30",
+# "Leave home at 15:00", "Leave from work at 8:15".
+LEAVE_NOTE = re.compile(
+    r"\b(?:odchod|leave)\s+(?:(?:z|from)\s+)?(?P<origin>domu|pr[aá]ce|home|work)?\s*"
+    r"(?:o|at)\s+(?P<hour>[01]?\d|2[0-3])[:.](?P<minute>[0-5]\d)\b",
+    re.IGNORECASE,
+)
 
 # After Google refuses a way (a wrong or restricted key, a spent quota), no way is asked for
 # this long: the dashboard asks on every page it loads, and each refusal is a request too.
@@ -148,6 +159,20 @@ def travel_label(minutes: int) -> str:
     return f"{hours} h {rest} min" if hours and rest else f"{hours} h" if hours else f"{rest} min"
 
 
+def noted_leave(event: dict[str, Any]) -> tuple[datetime, str | None] | None:
+    """When the event's description says to leave, on its day, and from where when it says
+    so ("home" or "work")."""
+    # Google Calendar keeps a description as HTML: "o&nbsp;15:00".
+    found = LEAVE_NOTE.search(html.unescape(event.get("description") or ""))
+    if not found:
+        return None
+    origin = (found["origin"] or "").lower()
+    at = event["start"].replace(hour=int(found["hour"]), minute=int(found["minute"]), second=0)
+    if at >= event["start"]:
+        return None
+    return at, "home" if origin in ("domu", "home") else "work" if origin else None
+
+
 def start_of_way(
     event: dict[str, Any], before: tuple[datetime, str] | None, credentials: dict[str, Any]
 ) -> tuple[str, str]:
@@ -183,22 +208,29 @@ async def plan(
         if len(trips) >= MAX_TRIPS:
             break
         margin = FLIGHT_MARGIN if is_flight(event) else MARGIN
+        noted = noted_leave(event)
+        if noted and noted[1] and credentials.get(noted[1]):
+            origin, origin_label = credentials[noted[1]], noted[1]
         # The traffic of when the user leaves, guessed; never in the past, which the API refuses.
-        departure = max(now + timedelta(minutes=1), event["start"] - margin - GUESS)
+        guess = noted[0] if noted else event["start"] - margin - GUESS
+        departure = max(now + timedelta(minutes=1), guess)
         way = await route(origin, location, departure)
         if way is None:
             continue
         minutes, mode = way
+        start = noted[0] if noted else event["start"] - margin - timedelta(minutes=minutes)
         trips.append(
             {
                 "event": event,
-                "start": event["start"] - margin - timedelta(minutes=minutes),
-                "end": event["start"] - margin,
+                "start": start,
+                "end": start + timedelta(minutes=minutes),
                 "minutes": minutes,
                 "length": travel_label(minutes),
                 "origin": origin_label,
                 "by": MODES[mode][1],
                 "flight": margin == FLIGHT_MARGIN,
+                # Set by the user in the event, not worked out.
+                "noted": bool(noted),
             }
         )
     return trips

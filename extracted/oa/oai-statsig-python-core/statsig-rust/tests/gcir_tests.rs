@@ -805,6 +805,94 @@ async fn test_snapshot_session_references_override_rule_condition_fields() {
 }
 
 #[tokio::test]
+async fn dynamic_config_reports_the_selected_pipeline_spec_version() {
+    let mut specs: Value = serde_json::from_str(&eval_proj_dcs_with_pipeline_override()).unwrap();
+    let name = "test_custom_config";
+    let candidate = "test_custom_config::pipeline_trigger";
+    specs["dynamic_configs"][name]["version"] = json!(999);
+    specs["dynamic_configs"][name]["servedVersion"] = json!(998);
+    specs["dynamic_configs"][candidate]["servedVersion"] = json!(999);
+
+    for (case, pass_percentage, expected) in [
+        ("stable", 0, Some(998)),
+        ("canary", 100, None),
+        ("older-payload", 0, None),
+    ] {
+        if case == "older-payload" {
+            specs["dynamic_configs"][name]
+                .as_object_mut()
+                .unwrap()
+                .remove("servedVersion");
+        }
+        specs["override_rules"]["statsig::everyone"]["passPercentage"] = json!(pass_percentage);
+        let mut options = StatsigOptions::new();
+        options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
+            specs.to_string(),
+        )));
+        options.event_logging_adapter = Some(Arc::new(MockEventLoggingAdapter::new()));
+        let sdk_key = format!("secret-served-version-{case}");
+        let statsig = Statsig::new(&sdk_key, Some(Arc::new(options)));
+        statsig.initialize().await.unwrap();
+
+        let config = statsig.get_dynamic_config(&USER, name);
+        assert_eq!(config.details.version, Some(999));
+        assert_eq!(config.details.served_version, expected);
+    }
+}
+
+#[tokio::test]
+async fn feature_gate_reports_its_served_version_across_nested_canary_evaluations() {
+    let mut specs: Value = serde_json::from_str(&eval_proj_dcs_with_pipeline_override()).unwrap();
+    let gate_name = "served_gate";
+    let candidate_name = "served_gate::pipeline_trigger";
+    let gate = |value| {
+        json!({
+            "type": "feature_gate", "entity": "feature_gate", "salt": "served-version",
+            "idType": "userID", "enabled": true, "defaultValue": value, "rules": [],
+            "version": 42
+        })
+    };
+    specs["feature_gates"][gate_name] = gate(false);
+    specs["feature_gates"][gate_name]["servedVersion"] = json!(41);
+    specs["feature_gates"][candidate_name] = gate(true);
+    specs["overrides"][gate_name] = json!([{
+        "new_config_name": candidate_name,
+        "rules": [{"rule_name": "statsig::everyone", "start_time": 0}]
+    }]);
+    specs["condition_map"]["depends_on_served_gate"] =
+        json!({"type": "pass_gate", "targetValue": gate_name, "idType": "userID"});
+    specs["feature_gates"]["parent_gate"] = gate(false);
+    specs["feature_gates"]["parent_gate"]["servedVersion"] = json!(11);
+    specs["feature_gates"]["parent_gate"]["rules"] = json!([{
+        "name": "depends-on-canary", "id": "depends-on-canary", "passPercentage": 100,
+        "conditions": ["depends_on_served_gate"], "returnValue": true, "idType": "userID"
+    }]);
+
+    for (pass_percentage, expected_value, expected_served_version) in
+        [(0, false, Some(41)), (100, true, None)]
+    {
+        specs["override_rules"]["statsig::everyone"]["passPercentage"] = json!(pass_percentage);
+        let mut options = StatsigOptions::new();
+        options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
+            specs.to_string(),
+        )));
+        options.event_logging_adapter = Some(Arc::new(MockEventLoggingAdapter::new()));
+        let sdk_key = format!("secret-gate-served-version-{pass_percentage}");
+        let statsig = Statsig::new(&sdk_key, Some(Arc::new(options)));
+        statsig.initialize().await.unwrap();
+
+        let selected = statsig.get_feature_gate(&USER, gate_name);
+        assert_eq!(selected.value, expected_value);
+        assert_eq!(selected.details.version, Some(42));
+        assert_eq!(selected.details.served_version, expected_served_version);
+
+        let parent = statsig.get_feature_gate(&USER, "parent_gate");
+        assert_eq!(parent.value, expected_value);
+        assert_eq!(parent.details.served_version, Some(11));
+    }
+}
+
+#[tokio::test]
 async fn test_pipeline_override_specs_are_not_returned_in_initialize() {
     let json_obj =
         setup_with_specs_data(eval_proj_dcs_with_pipeline_override(), HashAlgorithm::None).await;

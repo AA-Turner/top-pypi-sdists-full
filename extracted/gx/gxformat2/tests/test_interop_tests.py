@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from gxformat2.cytoscape import cytoscape_elements as _cytoscape_impl
+from gxformat2.diff import diff_workflows
 from gxformat2.draft import detect_draft, extract_draft_subset, next_draft_step, validate_draft
 from gxformat2.examples import EXAMPLES_DIR, load
 from gxformat2.layout import apply_layout as _apply_layout_impl
@@ -44,6 +45,17 @@ from gxformat2.validators import (
 )
 
 
+def _lint_result(ctx):
+    return {
+        "errors": ctx.error_messages,
+        "warnings": ctx.warn_messages,
+        "infos": ctx.info_messages,
+        "error_count": len(ctx.error_messages),
+        "warn_count": len(ctx.warn_messages),
+        "info_count": len(ctx.info_messages),
+    }
+
+
 def _lint_format2(wf_dict):
     ctx = LintContext()
     try:
@@ -55,12 +67,7 @@ def _lint_format2(wf_dict):
     else:
         # Model build failed — still run raw_dict structural checks
         _lint_format2_impl(ctx, ExpandedFormat2(), raw_dict=wf_dict)
-    return {
-        "errors": ctx.error_messages,
-        "warnings": ctx.warn_messages,
-        "error_count": len(ctx.error_messages),
-        "warn_count": len(ctx.warn_messages),
-    }
+    return _lint_result(ctx)
 
 
 def _empty_nnw():
@@ -78,34 +85,19 @@ def _lint_native(wf_dict):
     else:
         # Model build failed — still run raw_dict structural checks
         _lint_ga_impl(ctx, _empty_nnw(), raw_dict=wf_dict)
-    return {
-        "errors": ctx.error_messages,
-        "warnings": ctx.warn_messages,
-        "error_count": len(ctx.error_messages),
-        "warn_count": len(ctx.warn_messages),
-    }
+    return _lint_result(ctx)
 
 
 def _lint_best_practices_format2(wf_dict):
     ctx = LintContext()
     _lint_bp_format2_impl(ctx, wf_dict)
-    return {
-        "errors": ctx.error_messages,
-        "warnings": ctx.warn_messages,
-        "error_count": len(ctx.error_messages),
-        "warn_count": len(ctx.warn_messages),
-    }
+    return _lint_result(ctx)
 
 
 def _lint_best_practices_native(wf_dict):
     ctx = LintContext()
     _lint_bp_ga_impl(ctx, wf_dict)
-    return {
-        "errors": ctx.error_messages,
-        "warnings": ctx.warn_messages,
-        "error_count": len(ctx.error_messages),
-        "warn_count": len(ctx.warn_messages),
-    }
+    return _lint_result(ctx)
 
 
 def _workflow_to_mermaid(wf_dict):
@@ -192,6 +184,7 @@ OPERATIONS: dict[str, Callable[..., Any]] = {
     "validate_draft": validate_draft,
     "next_draft_step": next_draft_step,
     "extract_draft_subset": extract_draft_subset,
+    "diff_workflows": diff_workflows,
 }
 
 suite = DeclarativeTestSuite(

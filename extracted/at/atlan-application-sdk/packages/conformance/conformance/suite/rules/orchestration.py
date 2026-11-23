@@ -31,7 +31,6 @@ from conformance.suite.schema.catalog import (
 )
 from conformance.suite.schema.disposition import (
     EnforcementTier,
-    RuleMechanism,
     RuleScope,
 )
 
@@ -48,7 +47,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="DirectTemporalImport",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="orchestration-seam",
         autofixable=False,
         orthogonal_gate="tests",
@@ -77,7 +75,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "Land as ``WARN``: a justified inline ``# conformance: ignore[P004]\n"
             "<reason>`` records any unavoidable exception and stays visible in SARIF.\n"
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/packages/conformance/conformance/docs/rules/prescriptions.md#p004",
         remediation_reference=RemediationReference(
             kind=RemediationKind.SKILL,
             target="migrate-orchestration",
@@ -96,7 +93,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.APP,
         name="PrivateOrchestrationInternalImport",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="orchestration-seam",
         autofixable=False,
         orthogonal_gate="tests",
@@ -124,7 +120,6 @@ RULES: tuple[RuleDefinition, ...] = (
             "Land as ``WARN``: a justified inline ``# conformance: ignore[P005]\n"
             "<reason>`` records any unavoidable exception and stays visible in SARIF.\n"
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/packages/conformance/conformance/docs/rules/prescriptions.md#p005",
         remediation_reference=RemediationReference(
             kind=RemediationKind.SKILL,
             target="migrate-orchestration",
@@ -135,7 +130,6 @@ RULES: tuple[RuleDefinition, ...] = (
         scope=RuleScope.SDK,
         name="TemporalImportOutsideAdapter",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="orchestration-seam",
         autofixable=False,
         orthogonal_gate="tests",
@@ -162,14 +156,12 @@ RULES: tuple[RuleDefinition, ...] = (
             "are structural and stay until refactored.  Suppress a deliberate\n"
             "exception with ``# conformance: ignore[P006] <reason>``.\n"
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/packages/conformance/conformance/docs/rules/prescriptions.md#p006",
     ),
     RuleDefinition(
         id="P007",
         scope=RuleScope.SDK,
         name="RawTemporalInPublicSurface",
         tier=EnforcementTier.WARN,
-        mechanism=RuleMechanism.STATIC,
         category="orchestration-seam",
         autofixable=False,
         orthogonal_gate="tests",
@@ -197,6 +189,5 @@ RULES: tuple[RuleDefinition, ...] = (
             "separately.  Suppress a reviewed exception with\n"
             "``# conformance: ignore[P007] <reason>``.\n"
         ),
-        help_uri="https://github.com/atlanhq/application-sdk/blob/main/packages/conformance/conformance/docs/rules/prescriptions.md#p007",
     ),
 )

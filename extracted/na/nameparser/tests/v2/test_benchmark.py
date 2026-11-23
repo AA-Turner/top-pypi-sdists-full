@@ -151,12 +151,17 @@ serial = pytest.mark.serial
 #: 3 on 3.12-3.15 (#1170), to the figures below: three post_rules
 #: helpers stopped making calls they did not need, saving 7 and 6 from
 #: a tree that had drifted up inside the band (decisions/parse-cost).
+#: Lowered 2026-11-18 by 88 on 3.11 and 89 on 3.12-3.15 (#1436), to
+#: the figures below: tokenize scans a region for its separators in C
+#: rather than asking each character, and `Token`'s validation, the
+#: generators and an enum-keyed dict stopped costing frames on the
+#: parse's own input (decisions/parse-cost).
 _CALL_BASELINE = {
-    (3, 11): {"parse": 285},
-    (3, 12): {"parse": 277},
-    (3, 13): {"parse": 277},
-    (3, 14): {"parse": 277},
-    (3, 15): {"parse": 277},
+    (3, 11): {"parse": 197},
+    (3, 12): {"parse": 188},
+    (3, 13): {"parse": 188},
+    (3, 14): {"parse": 188},
+    (3, 15): {"parse": 188},
 }
 _BAND = 0.02
 
@@ -364,6 +369,22 @@ _SHAPES = {
     "hyphen_chain": "MD-",          # vocab: the same cut, hyphens only
     "member_chain": "MA/PhD/",      # vocab: the cut's member arm (#1138)
     "bracket_joined_members": "(MA/PhD) ",  # post_rules: joined members
+    # group: N4's alias takes, one pass and one rebuild per part, each
+    # marker's alias ended by the next marker (#1164); asking the
+    # leading title run of a slice per marker measured 7.1x at base 800
+    # (2026-11-20), the first build's quadratic
+    "alias_markers": "a @ ",
+    # classify: rules/P12's pair walks, the bound word joining the plain
+    # word after it (#1464) and a second joining the word before it
+    # (#1072). Each arrived quadratic and was found by the 3.2 simplify
+    # pass: `long_names_only`'s count walked the whole name once per
+    # pair, 18.4x at base 200 and 14.3x at 800, and the walk from a
+    # second word tested a list by `in` once per token, 4.96x at 200 and
+    # 7.51x at 800 (af58ca09, py3.11, 2026-11-22, load average 50-125);
+    # counted to four and kept in a dict, bound_pairs reads 4.61x and
+    # bound_seconds 4.88x at 800
+    "bound_pairs": "abdul aziz ",
+    "bound_seconds": "عز الدين ",
 }
 
 _BASE = 800
@@ -1127,7 +1148,8 @@ def test_a_clause_link_run_does_not_cost_quadratically() -> None:
 # k=32 on this tree (3.7x), against 120 and 1,620 at 47fb2b21 (13.5x),
 # where every pair rescanned. The dual was 'MD' until #853 took md out
 # of the titles; re-taken with 'RA' on 2026-10-23, 35 and 131 on the
-# tree (3.7x) and 120 and 1,620 at 47fb2b21 again. A change to what the scan calls must
+# tree (3.7x) and 120 and 1,620 at 47fb2b21 again, and with 'VC' on
+# 2026-11-21, when #1483 gave ra a name reading, the same four counts. A change to what the scan calls must
 # move `only=` with it, and re-take that negative control.
 _PAIR_SCAN_SMALL = 8
 _PAIR_SCAN_LARGE = 32
@@ -1137,12 +1159,12 @@ _PAIR_SCAN_MAX_RATIO = 6.0
 def test_the_paired_initials_title_scan_does_not_cost_quadratically() -> None:
     if sys.getprofile() is not None:
         pytest.skip("a profile hook is already installed; this test owns it")
-    small_text = "John Smith, " + "RA " * _PAIR_SCAN_SMALL + "G.J. " * _PAIR_SCAN_SMALL
-    large_text = "John Smith, " + "RA " * _PAIR_SCAN_LARGE + "G.J. " * _PAIR_SCAN_LARGE
+    small_text = "John Smith, " + "VC " * _PAIR_SCAN_SMALL + "G.J. " * _PAIR_SCAN_SMALL
+    large_text = "John Smith, " + "VC " * _PAIR_SCAN_LARGE + "G.J. " * _PAIR_SCAN_LARGE
     # REACHABILITY: the flip REPORTS only where the scan ran and found
     # nothing but titles in front of the first pair, every shape word
     # being a pair (rules/C11's "nothing but other paired initials").
-    # A change that stopped the scan being asked -- 'RA' leaving the
+    # A change that stopped the scan being asked -- 'VC' leaving the
     # titles, the pair test moving -- loses the report and fails here
     # rather than leaving this guard measuring nothing.
     for text, k in ((small_text, _PAIR_SCAN_SMALL),
@@ -1159,6 +1181,71 @@ def test_the_paired_initials_title_scan_does_not_cost_quadratically() -> None:
         f"the input, where this tree measures 3.7x and the per-pair rescan "
         f"at 47fb2b21 measured 13.5x. _comma.py's paired-initials speaker "
         f"scan is running once per pair again (#563, #613)")
+
+
+# rules/N4's alias in the given part after a family comma stops before
+# a title opening the part's closing run of titles and post-nominals.
+# Asking that per title by scanning to the part's end made a run of
+# titles after an alias quadratic; the run's start is found once since.
+# Counted in `is_title_piece` calls, the one predicate both forms ask;
+# a change to what the scan calls must move `only=` with it, and
+# re-take this control. The text holds a closing run (the titles after
+# `Xavier`) as well as titles the alias keeps, so finding the run once
+# per title costs here too. Recorded negative control (2026-11-22,
+# py3.11): 59 calls at 8 titles a side and 599 at 32 (10.2x) on
+# af58ca09, and 97 and 1,129 (11.6x) with the run's start found once
+# per title, against 25 and 73 (2.9x) here. Both fail the probe's
+# `_closing_run_start` count first (0 on af58ca09, 9 for the per-title
+# form); the ratio is the backstop for a rewrite that renames the
+# function, which must move the probe with it.
+_ALIAS_TITLES_SMALL = 8
+_ALIAS_TITLES_LARGE = 32
+_ALIAS_TITLES_MAX_RATIO = 6.0
+
+
+def test_titles_after_an_alias_in_the_given_part_cost_linearly() -> None:
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    sizes = (_ALIAS_TITLES_SMALL, _ALIAS_TITLES_LARGE)
+    texts = ["Smith, Jane @ Bob " + "Dr " * k + "Xavier " + "Dr " * k
+             for k in sizes]
+    # REACHABILITY: the alias keeps the titles before `Xavier` and stops
+    # at the closing run after it, which the given part reads, so the
+    # walk ran and found the run, once
+    for text, k in zip(texts, sizes):
+        name = parse(text)
+        assert name.nickname.endswith(" Xavier"), text
+        assert name.middle == ("Dr " * k).strip(), text
+        assert _frames_for(text, only="_closing_run_start") == 1, text
+    small, large = (_frames_for(t, only="is_title_piece") for t in texts)
+    ratio = large / small
+    assert ratio < _ALIAS_TITLES_MAX_RATIO, (
+        f"{_ALIAS_TITLES_SMALL} titles after an alias cost {small} "
+        f"is_title_piece calls and {_ALIAS_TITLES_LARGE} cost {large} -- "
+        f"{ratio:.1f}x for 4x the input, where this tree measures 2.9x and "
+        f"af58ca09 measured 10.2x: _group._clause_take is scanning to the "
+        f"part's end once per title again")
+
+
+def test_a_refused_alias_take_asks_the_title_run_once() -> None:
+    """rules/N4's take refused at each marker (a suffix word straight
+    after it) asked `leading_titles` of a slice of the part per marker,
+    C-level work a frame ratio cannot see; a refused marker the run
+    stops at bounds it as a take does, so the run is asked once. Counted
+    in `leading_titles` calls `_clause_take` makes, a number rather than
+    a clock. Recorded negative control (2026-11-22, py3.11): 2, 8 and 32
+    calls at 2, 8 and 32 markers on af58ca09, against 1 each here; on
+    the CPU clock at base 800 the shape read 7.2x to 8.5x for 4x the
+    input there and 4.3x to 6.0x here, too close to `_MAX_RATIO` for a
+    `_SHAPES` row on a loaded host."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for k in (2, 8, 32):
+        text = "a @ Jr " * k
+        # REACHABILITY: every take is refused, so no marker is dropped
+        assert parse(text).nickname == "", text
+        assert _frames_for(text, only="leading_titles",
+                           caller="_clause_take") == 1, text
 
 
 def test_a_listing_comma_with_nothing_to_decide_skips_the_counts() -> None:
@@ -1184,6 +1271,39 @@ def test_a_listing_comma_with_nothing_to_decide_skips_the_counts() -> None:
     # not the class count; a member in it takes both
     assert _frames_for("John Smith, PhD", only="name_word_count") == 0
     assert _frames_for("John Smith, MA", only="name_word_count") == 1
+
+
+def test_a_run_of_initials_behind_a_full_name_takes_no_count() -> None:
+    """rules/C16's run of initials reads as the given name only behind
+    one word, so where it is the part's only entry in `maybe` (no word
+    of the ambiguous class and no caps-shape candidate beside it) and
+    the head is not one word, `_comma.decide` asks C4's count nothing
+    (#1435). Recorded negative control (2026-11-18, py3.11, this
+    module's `_frames_for` in a fresh process): with the gate's
+    `lone_head is not False` arm deleted no output moves, and 'John
+    Smith, M.D.' enters `name_word_count` once and costs 23 more frames
+    (222 against 199; master before the gate, which did not ask
+    `_lone_word` there, 221)."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    only = "name_word_count"
+    for text in ("John Smith, M.D.", "Dr. Mr., M.D.", "Bin Zhang, J.P."):
+        # REACHABILITY: C16 found the run and asked about the head, so a
+        # zero below means the count was skipped rather than unreached
+        assert _frames_for(text, only="_lone_word") == 1, text
+        assert _frames_for(text, only=only) == 0, text
+    # behind one word the count is still taken, once, and `_lone_word`
+    # is asked once, not again for the reading
+    assert _frames_for("Smith, J.P.", only=only) == 1
+    assert _frames_for("Smith, J.P.", only="_lone_word") == 1
+    # a head `_lone_word` reads as one word where the count finds two
+    # still takes it
+    assert _frames_for("Smith van, M.D.", only=only) == 1
+    # another entry of `maybe` beside the run still takes the count, and
+    # `_lone_word` is not asked there (REACHABILITY: the run joined
+    # `maybe` behind a member, not reset as company, which 'M.D. MA' is)
+    assert _frames_for("John Smith, M.D. M.A", only=only) == 1
+    assert _frames_for("John Smith, M.D. M.A", only="_lone_word") == 0
 
 
 def test_two_capitals_ask_the_later_parts_only_where_one_stands() -> None:
@@ -1292,6 +1412,25 @@ def test_post_rules_helpers_return_before_their_frames() -> None:
                        caller="_mark_suffix_entries") == 1
     assert _frames_for("Dr. John Smith Jr.",
                        only="_leading_name_piece") >= 1
+
+
+def test_tokenize_asks_no_ambiguity_origin_of_a_parse_without_one() -> None:
+    """tokenize resolves a report's character offset only where extract
+    left a report, and tests the tuple before the `any()` generator
+    that looks for an offset, whose every resume is a frame
+    (decisions/parse-cost, 2026-11-22 #1527). The band cannot see the
+    generator put back. Recorded negative control (2026-11-22, py3.11,
+    on af58ca09, the tree before): the generator ran once on each name
+    below with no report."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("John Smith", "Smith, John", "John (Jack) Smith"):
+        assert _frames_for(text, only="<genexpr>", caller="tokenize") == 0, (
+            text)
+    # REACHABILITY: a stray delimiter leaves a report with an offset,
+    # and the generator runs to find it
+    assert _frames_for('John "Jack ) Smith', only="<genexpr>",
+                       caller="tokenize") >= 1
 
 
 def test_a_script_with_no_order_entry_stops_the_script_walk() -> None:
@@ -1505,11 +1644,13 @@ def test_a_fixed_point_does_not_reread_what_it_has_read(
 # `_CALL_BASELINE` above.
 #
 # THE LONG RUN AND NOT THE SHORT ONE, and the arithmetic is the whole
-# reason: +1 per link is 16 frames at `_CLAUSE_RUN_SMALL`, and 2% of
-# 859 is 17.2, so the small end's band swallows the very regression
-# this pin exists for (875 sits inside 842-876). At
-# `_CLAUSE_RUN_LARGE` the same change is +64 against a 2% band of
-# 51.7, and 2,651 sits outside 2,535-2,639. A tighter band on the
+# reason, as measured 2026-09-22 on py3.11 on the clause run the pin
+# then read: +1 per link is 16 frames at `_CLAUSE_RUN_SMALL`, and 2%
+# of 859 was 17.2, so the small end's band swallowed the very
+# regression this pin exists for (875 sat inside 842-876). At
+# `_CLAUSE_RUN_LARGE` the same change was +64 against a 2% band of
+# 51.7, and 2,651 sat outside 2,535-2,639. The pin's current band is
+# given with `_LINK_BASELINE` below. A tighter band on the
 # short name would do it too and was not taken: the band is the one
 # `_CALL_BASELINE` uses, and a bespoke one here would need its own
 # argument every time the shape moved.
@@ -1552,13 +1693,18 @@ def test_a_fixed_point_does_not_reread_what_it_has_read(
 # `join_connectives` builds its connective runs in one pass rather
 # than through `merge_pieces`, so the 64-letter run here no longer
 # pays that function's frame per member (decisions/parse-cost,
-# 2026-11-03).
+# 2026-11-03). 1,716 (py3.11) and 1,706 (py3.12-3.15) from
+# 2026-11-18 (#1436), each measured there, against 2,404 and 2,395 on
+# the tree before the change: frames paid per token or per character
+# (`Token`'s checks 402 of the 688, tokenize's per-character call 143)
+# are paid per link here (decisions/parse-cost, 2026-11-18). A per-link regression still
+# shows: +64 against a 2% band of 34.3.
 _LINK_BASELINE = {
-    (3, 11): 2418,
-    (3, 12): 2398,
-    (3, 13): 2398,
-    (3, 14): 2398,
-    (3, 15): 2398,
+    (3, 11): 1716,
+    (3, 12): 1706,
+    (3, 13): 1706,
+    (3, 14): 1706,
+    (3, 15): 1706,
 }
 #: The same +-2% `_CALL_BASELINE` uses, and for the same reason: frame
 #: counts are deterministic for a given tree and interpreter, so the

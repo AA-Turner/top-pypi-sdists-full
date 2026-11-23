@@ -76,20 +76,22 @@ def _elide(text: str, limit: int = MAX_TITLE_CHARS) -> str:
 
 
 def get_state_words(session_state: "str | None", reader: Reader, *, is_manual: bool = False) -> str:
-    """The state as the status line says it: `on (daemon)`, `on (inline)`, `read (daemon)`, `read (inline)`, or `off`.
-    `is_manual` (the person sets this chat's switch, not the agent) puts the manual tag inside the parentheses
-    (`on (daemon, manual)`, `off (manual)`); an auto chat has no tag (Richard, 2026-11-08). A word this copy does
-    not know raises, so a newer CLI's state renders as `status unavailable`, never as a guess."""
+    """The state as the status line says it: `on`, `on (inline)`, `read (daemon)`, `read (inline)`, or `off`.
+    The daemon recording is the plain `on`, with no `(daemon)` (Richard, 2026-11-23). `is_manual` (the person sets
+    this chat's switch, not the agent) puts the manual tag in parentheses (`on (manual)`, `on (inline, manual)`,
+    `off (manual)`); an auto chat has no tag (Richard, 2026-11-08). A word this copy does not know raises, so a
+    newer CLI's state renders as `status unavailable`, never as a guess."""
     if session_state == STATE_OFF:
         return "off (manual)" if is_manual else "off"
     if session_state in (STATE_DAEMON, STATE_FULL):
-        who = "daemon" if session_state == STATE_DAEMON and reader is Reader.DAEMON else "inline"
+        who = "" if session_state == STATE_DAEMON and reader is Reader.DAEMON else "inline"
         level = "on"
     elif session_state == STATE_READ_ONLY:
         who, level = reader.value, "read"
     else:
         raise ValueError(f"unknown session_state {session_state!r}")
-    return f"{level} ({who}, manual)" if is_manual else f"{level} ({who})"
+    tags = ", ".join(tag for tag in (who, "manual" if is_manual else "") if tag)
+    return f"{level} ({tags})" if tags else level
 
 
 def _get_reader(session_state: str, is_daemon: bool, is_inline: bool) -> Reader:

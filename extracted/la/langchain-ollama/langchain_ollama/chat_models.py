@@ -47,7 +47,7 @@ import logging
 import warnings
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
-from typing import Any, Literal, cast
+from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -87,7 +87,7 @@ from ollama import AsyncClient, Client, Message
 from pydantic import BaseModel, PrivateAttr, field_validator, model_validator
 from pydantic.json_schema import JsonSchemaValue
 from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import Self, is_typeddict
+from typing_extensions import is_typeddict
 
 from langchain_ollama._compat import _convert_from_v1_to_ollama
 from langchain_ollama._utils import (
@@ -95,6 +95,7 @@ from langchain_ollama._utils import (
     parse_url_with_auth,
     validate_model,
 )
+from langchain_ollama._version import __version__
 
 log = logging.getLogger(__name__)
 
@@ -891,13 +892,13 @@ class ChatOllama(BaseChatModel):
         self,
         response_format: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Extract the raw JSON schema from an OpenAI ``json_schema`` envelope.
+        """Extract the raw JSON schema from an OpenAI `json_schema` envelope.
 
         Args:
-            response_format: A dict with ``type: "json_schema"``.
+            response_format: A dict with `type: "json_schema"`.
 
         Returns:
-            The raw JSON schema dict, or ``None`` if extraction fails.
+            The raw JSON schema dict, or `None` if extraction fails.
         """
         json_schema_block = response_format.get("json_schema")
         if not isinstance(json_schema_block, dict):
@@ -920,6 +921,12 @@ class ChatOllama(BaseChatModel):
                 stacklevel=2,
             )
         return schema
+
+    @model_validator(mode="after")
+    def _set_ollama_version(self) -> Self:
+        """Set package version in metadata."""
+        self._add_version("langchain-ollama", __version__)
+        return self
 
     @model_validator(mode="after")
     def _set_clients(self) -> Self:
@@ -1024,9 +1031,13 @@ class ChatOllama(BaseChatModel):
             else:  # List
                 for content_part in message.content:
                     if isinstance(content_part, str):
-                        content += f"\n{content_part}"
+                        if content:
+                            content += "\n"
+                        content += content_part
                     elif content_part.get("type") == "text":
-                        content += f"\n{content_part['text']}"
+                        if content:
+                            content += "\n"
+                        content += content_part["text"]
                     elif content_part.get("type") == "tool_use":
                         continue
                     elif content_part.get("type") == "image_url":
@@ -1182,7 +1193,7 @@ class ChatOllama(BaseChatModel):
         params = self._get_invocation_params(stop=stop, **kwargs)
         ls_params = LangSmithParams(
             ls_provider="ollama",
-            ls_model_name=self.model,
+            ls_model_name=params.get("model", self.model),
             ls_model_type="chat",
             ls_temperature=params.get("temperature", self.temperature),
         )

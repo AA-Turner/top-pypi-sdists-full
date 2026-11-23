@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::SyntaxNode;
 use crate::generated::keywords::{
     AS_LABEL_KEYWORDS, COL_NAME_KEYWORDS, RESERVED_KEYWORDS, TYPE_FUNC_NAME_KEYWORDS,
@@ -11,33 +13,33 @@ pub fn quote_ident_always(text: &str) -> String {
     format!(r#""{}""#, text.replace('"', r#""""#))
 }
 
-pub fn quote_column_alias(text: &str) -> String {
+pub fn quote_column_alias(text: &str) -> Cow<'_, str> {
     if needs_quoting(text) {
-        quote_ident_always(text)
+        Cow::Owned(quote_ident_always(text))
     } else {
-        text.to_string()
+        Cow::Borrowed(text)
     }
 }
 
-pub fn quote_bare_column_alias(text: &str) -> String {
+pub fn quote_bare_column_alias(text: &str) -> Cow<'_, str> {
     if needs_quoting(text) || is_as_label_word(text) {
-        quote_ident_always(text)
+        Cow::Owned(quote_ident_always(text))
     } else {
-        text.to_string()
+        Cow::Borrowed(text)
     }
 }
 
-pub fn quote_ident(text: &str) -> String {
+pub fn quote_ident(text: &str) -> Cow<'_, str> {
     if needs_quoting(text) || is_reserved_word(text) || is_type_func_name_word(text) {
-        quote_ident_always(text)
+        Cow::Owned(quote_ident_always(text))
     } else {
-        text.to_string()
+        Cow::Borrowed(text)
     }
 }
 
-pub fn quote_quoted_ident(text: &str) -> String {
+pub fn quote_quoted_ident(text: &str) -> Cow<'_, str> {
     if is_col_name_word(text) {
-        quote_ident_always(text)
+        Cow::Owned(quote_ident_always(text))
     } else {
         quote_ident(text)
     }
@@ -46,7 +48,7 @@ pub fn quote_quoted_ident(text: &str) -> String {
 pub fn unquote_ident(node: &SyntaxNode) -> Option<String> {
     let text = node.text().to_string();
 
-    if !text.starts_with('"') || !text.ends_with('"') {
+    if text.len() < 2 || !text.starts_with('"') || !text.ends_with('"') {
         return None;
     }
 
@@ -156,6 +158,36 @@ pub fn strip_unicode_esc_prefix(text: &str) -> Option<&str> {
     strip_quotes(text.strip_prefix(['u', 'U'])?.strip_prefix('&')?)
 }
 
+pub fn quote_dollar_string_literal(content: &str) -> Option<String> {
+    let tag = if !content.contains("$$") && !content.ends_with('$') {
+        String::new()
+    } else {
+        let mut tag = String::with_capacity(11);
+        tag.push('q');
+        let mut found = false;
+        for idx in 0..10 {
+            if !content.contains(&format!("${tag}$")) {
+                found = true;
+                break;
+            }
+            tag.push(char::from(b'0' + idx));
+        }
+        if !found {
+            return None;
+        }
+        tag
+    };
+    let mut quoted = String::with_capacity(content.len() + 2 * (tag.len() + 2));
+    quoted.push('$');
+    quoted.push_str(&tag);
+    quoted.push('$');
+    quoted.push_str(content);
+    quoted.push('$');
+    quoted.push_str(&tag);
+    quoted.push('$');
+    Some(quoted)
+}
+
 pub fn dollar_quote_tag(text: &str) -> Option<&str> {
     text.strip_prefix('$')?.split_once('$').map(|(tag, _)| tag)
 }
@@ -172,6 +204,40 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::*;
+    use crate::ast::AstNode;
+
+    #[test]
+    fn unquote_lone_double_quote() {
+        let parse = crate::SourceFile::parse(r#"select ""#);
+        let node = parse
+            .tree()
+            .syntax()
+            .descendants()
+            .find(|node| node.text() == r#"""#)
+            .unwrap();
+        assert_eq!(unquote_ident(&node), None);
+    }
+
+    #[test]
+    fn dollar_quoted_strings_round_trip() {
+        for content in [
+            "",
+            "hello",
+            "it's",
+            "$$",
+            "$q$",
+            "trailing $",
+            "$$ $q$ $q0$",
+        ] {
+            let quoted = quote_dollar_string_literal(content).unwrap();
+            assert_eq!(strip_dollar_quotes(&quoted), Some(content));
+        }
+        assert_eq!(
+            quote_dollar_string_literal("hello").as_deref(),
+            Some("$$hello$$")
+        );
+        assert_eq!(quote_dollar_string_literal("$").as_deref(), Some("$q$$$q$"));
+    }
 
     #[test]
     fn keyword_checks_are_ascii_case_insensitive() {

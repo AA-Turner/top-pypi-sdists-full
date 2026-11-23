@@ -2,9 +2,7 @@ use super::remote_id_lists::RemoteIdListResolver;
 use super::{Statsig, TAG};
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluator::SpecType;
-use crate::id_lists_adapter::{
-    SharedInitialBaseCache, StatsigSharedIdListsAdapter, id_list_load_timing,
-};
+use crate::id_lists_adapter::id_list_load_timing;
 use crate::networking::NetworkClient;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::OpsStatsForInstance;
@@ -27,8 +25,6 @@ pub(super) enum LocalIdLists {
     Custom(Arc<dyn IdListsAdapter>),
     /// This worker fetches lists over HTTP, eagerly or on demand.
     Worker(Arc<StatsigHttpIdListsAdapter>),
-    /// One publisher fetches lists for eager workers sharing a directory.
-    Catalog(Arc<StatsigSharedIdListsAdapter>),
 }
 
 impl LocalIdLists {
@@ -43,28 +39,11 @@ impl LocalIdLists {
         if options.enable_id_lists != Some(true) {
             return Self::Disabled;
         }
-        let can_share = !options.disable_disk_access.unwrap_or(false)
-            && !options.disable_network.unwrap_or(false)
-            && options.proxy_config.is_none()
-            && options
-                .shared_id_lists_dir
-                .as_deref()
-                .is_some_and(|path| !path.trim().is_empty());
-        let base_cache = if can_share {
-            SharedInitialBaseCache::from_options(sdk_key, options)
-        } else {
-            None
-        };
-        if can_share && base_cache.is_none() && options.lazy_load_id_lists != Some(true) {
-            return Self::Catalog(Arc::new(
-                StatsigSharedIdListsAdapter::new(sdk_key, options)
-                    .with_listener(spec_store.clone()),
-            ));
-        }
-        Self::Worker(Arc::new(
-            StatsigHttpIdListsAdapter::new_with_store(sdk_key, options, spec_store.clone())
-                .with_initial_base_cache(base_cache),
-        ))
+        Self::Worker(Arc::new(StatsigHttpIdListsAdapter::new_with_store(
+            sdk_key,
+            options,
+            spec_store.clone(),
+        )))
     }
 
     pub(super) fn adapter(&self) -> Option<Arc<dyn IdListsAdapter>> {
@@ -72,15 +51,12 @@ impl LocalIdLists {
             Self::Disabled => None,
             Self::Custom(adapter) => Some(adapter.clone()),
             Self::Worker(adapter) => Some(adapter.clone()),
-            Self::Catalog(adapter) => Some(adapter.clone()),
         }
     }
 
     pub(super) fn force_shutdown(&self) {
-        match self {
-            Self::Worker(adapter) => adapter.force_shutdown(),
-            Self::Catalog(adapter) => adapter.force_shutdown(),
-            _ => {}
+        if let Self::Worker(adapter) = self {
+            adapter.force_shutdown();
         }
     }
 
@@ -92,12 +68,9 @@ impl LocalIdLists {
     }
 
     pub(super) fn observe_revisions(&self, resolver: &Arc<RemoteIdListResolver>) {
-        let slot = match self {
-            Self::Worker(adapter) => &adapter.membership_resolver,
-            Self::Catalog(adapter) => &adapter.membership_resolver,
-            _ => return,
-        };
-        let _ = slot.set(Arc::downgrade(resolver));
+        if let Self::Worker(adapter) = self {
+            let _ = adapter.membership_resolver.set(Arc::downgrade(resolver));
+        }
     }
 
     fn load_missing(

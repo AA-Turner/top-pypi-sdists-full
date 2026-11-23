@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: unifi-mcp-shared
-Version: 0.6.47
+Version: 0.6.49
 Summary: Shared MCP server patterns: permissions, confirmation, lazy loading, config
 Requires-Python: >=3.13
 Requires-Dist: anyio>=4.14.2
@@ -16,7 +16,7 @@ Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: starlette>=1.7.0
-Requires-Dist: unifi-core<0.5,>=0.4.103
+Requires-Dist: unifi-core<0.5,>=0.4.107
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.45.1; extra == 'otel'
 Requires-Dist: opentelemetry-sdk<2,>=1.45.1; extra == 'otel'

@@ -100,9 +100,9 @@ def sync_detailed(
 ) -> Response[CloudAgentComputerSession | ErrorEnvelope]:
     """Open a short-lived Cloud Agent computer session
 
-     Enables the Agent runtime's VNC desktop if needed, waits for it to become ready, and returns a
-    short-lived Runta browser session. Long-lived API credentials remain outside the renderer; clients
-    pass the returned protocols only to the VNC WebSocket handshake.
+     Enables the Agent runtime's VNC desktop if necessary. Waits for readiness, then returns a temporary
+    Runta browser session. Long-lived API credentials stay outside the renderer. Clients pass the
+    returned protocols only to the VNC WebSocket handshake.
 
     Args:
         agent_id (str):
@@ -133,9 +133,9 @@ def sync(
 ) -> CloudAgentComputerSession | ErrorEnvelope | None:
     """Open a short-lived Cloud Agent computer session
 
-     Enables the Agent runtime's VNC desktop if needed, waits for it to become ready, and returns a
-    short-lived Runta browser session. Long-lived API credentials remain outside the renderer; clients
-    pass the returned protocols only to the VNC WebSocket handshake.
+     Enables the Agent runtime's VNC desktop if necessary. Waits for readiness, then returns a temporary
+    Runta browser session. Long-lived API credentials stay outside the renderer. Clients pass the
+    returned protocols only to the VNC WebSocket handshake.
 
     Args:
         agent_id (str):
@@ -161,9 +161,9 @@ async def asyncio_detailed(
 ) -> Response[CloudAgentComputerSession | ErrorEnvelope]:
     """Open a short-lived Cloud Agent computer session
 
-     Enables the Agent runtime's VNC desktop if needed, waits for it to become ready, and returns a
-    short-lived Runta browser session. Long-lived API credentials remain outside the renderer; clients
-    pass the returned protocols only to the VNC WebSocket handshake.
+     Enables the Agent runtime's VNC desktop if necessary. Waits for readiness, then returns a temporary
+    Runta browser session. Long-lived API credentials stay outside the renderer. Clients pass the
+    returned protocols only to the VNC WebSocket handshake.
 
     Args:
         agent_id (str):
@@ -192,9 +192,9 @@ async def asyncio(
 ) -> CloudAgentComputerSession | ErrorEnvelope | None:
     """Open a short-lived Cloud Agent computer session
 
-     Enables the Agent runtime's VNC desktop if needed, waits for it to become ready, and returns a
-    short-lived Runta browser session. Long-lived API credentials remain outside the renderer; clients
-    pass the returned protocols only to the VNC WebSocket handshake.
+     Enables the Agent runtime's VNC desktop if necessary. Waits for readiness, then returns a temporary
+    Runta browser session. Long-lived API credentials stay outside the renderer. Clients pass the
+    returned protocols only to the VNC WebSocket handshake.
 
     Args:
         agent_id (str):

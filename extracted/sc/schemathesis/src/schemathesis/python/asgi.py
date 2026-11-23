@@ -21,6 +21,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 from schemathesis.core import media_types
 from schemathesis.core.transport import (
+    APP_EXCEPTION_ATTRIBUTE,
     DEFAULT_MAX_STREAM_EVENTS,
     STREAM_CUT_SHORT_ATTRIBUTE,
     EventStreamBuffer,
@@ -44,8 +45,7 @@ HOST = "testserver"
 _LOCK = threading.Lock()
 _STACK = ExitStack()
 _PORTAL: BlockingPortal | None = None
-# Keyed by `id(app)` so applications that are unhashable or reject weak references still work. A started
-# lifespan keeps its application alive for the rest of the process, which is what makes the key stable.
+# Keyed by `id(app)` for unhashable or weakref-rejecting apps; a started lifespan keeps the app, and its id, alive.
 _LIFESPANS: dict[int, _Lifespan] = {}
 _STARTUP_LOCKS: dict[int, threading.Lock] = {}
 
@@ -88,8 +88,7 @@ def _shutdown() -> None:
     try:
         shutdown_lifespans()
     except Exception:
-        # Nothing can act on a shutdown failure at interpreter exit, and raising here would only
-        # replace the process exit status with an unattributable traceback.
+        # Nothing can act on a shutdown failure at exit; raising would replace the exit status with a stray traceback.
         pass
     finally:
         with _LOCK:
@@ -98,7 +97,17 @@ def _shutdown() -> None:
 
 
 class _Lifespan:
-    __slots__ = ("app", "portal", "receive_stream", "send_stream", "task", "error", "state", "asked_for_message")
+    __slots__ = (
+        "app",
+        "portal",
+        "receive_stream",
+        "send_stream",
+        "task",
+        "error",
+        "startup_finished",
+        "state",
+        "asked_for_message",
+    )
 
     def __init__(self, app: ASGIApp, portal: BlockingPortal) -> None:
         self.app = app
@@ -108,6 +117,8 @@ class _Lifespan:
         self.send_stream: StapledObjectStream = StapledObjectStream(*anyio.create_memory_object_stream(math.inf))
         self.task: Future[None] | None = None
         self.error: BaseException | None = None
+        # Set once startup succeeded or failed; callers arriving during startup wait for it.
+        self.startup_finished = threading.Event()
         # Filled in by the application during startup; each request gets a shallow copy.
         self.state: dict[str, Any] = {}
         # Set when the application asks for its first lifespan message.
@@ -140,8 +151,7 @@ class _Lifespan:
         try:
             await self.app(scope, self._app_receive, self.send_stream.send)
         except Exception:
-            # Rejecting the scope before asking for any message is how applications without lifespan support
-            # signal it, and servers keep serving them. A later failure is a real one.
+            # Apps without lifespan support reject the scope before asking for a message, and servers keep serving them.
             if self.asked_for_message:
                 raise
         finally:
@@ -191,6 +201,7 @@ def _start_lifespan(app: ASGIApp) -> None:
             # Startup runs outside `_LOCK` so a slow application does not block requests to other ones.
             startup_lock = _STARTUP_LOCKS.setdefault(key, threading.Lock())
     if started is not None:
+        started.startup_finished.wait()
         if started.error is not None:
             raise started.error
         return
@@ -202,14 +213,15 @@ def _start_lifespan(app: ASGIApp) -> None:
                 raise started.error
             return
         lifespan = _Lifespan(app, portal)
-        # Recorded before startup runs, so a failure is reported to every caller instead of being retried
-        # once per request, and a half-started application is not left running past exit.
+        # Registered first: callers share a startup failure instead of retrying it, and exit stops a half-started app.
         _LIFESPANS[key] = lifespan
         try:
             lifespan.start()
         except BaseException as exc:
             lifespan.error = exc
             raise
+        finally:
+            lifespan.startup_finished.set()
 
 
 def _reason_phrase(status_code: int) -> str:
@@ -247,10 +259,11 @@ class _OriginalResponse:
 
 
 class _ASGIAdapter(requests.adapters.HTTPAdapter):
-    def __init__(self, app: ASGIApp, max_stream_events: int) -> None:
+    def __init__(self, app: ASGIApp, max_stream_events: int, raise_app_exceptions: bool) -> None:
         super().__init__()
         self.app = app
         self.max_stream_events = max_stream_events
+        self.raise_app_exceptions = raise_app_exceptions
         self.entered = False
 
     def close(self) -> None:
@@ -379,6 +392,7 @@ class _ASGIAdapter(requests.adapters.HTTPAdapter):
         portal = _get_portal()
         response_complete = portal.call(anyio.Event)
         cut_at_deadline = False
+        app_exception: Exception | None = None
         try:
             portal.call(run)
         except TimeoutError:
@@ -392,6 +406,22 @@ class _ASGIAdapter(requests.adapters.HTTPAdapter):
                 raise requests.exceptions.ReadTimeout(error, request=request) from None
             raw_kwargs["body"] = io.BytesIO(event_stream.complete_events)
             cut_at_deadline = True
+        except Exception as exc:
+            if self.raise_app_exceptions:
+                raise
+            app_exception = exc
+            if not response_started:
+                # A server would answer with an error; the application left that to its caller
+                raw_kwargs.update(
+                    version=11,
+                    status=500,
+                    reason=_reason_phrase(500),
+                    headers=[],
+                    preload_content=False,
+                    original_response=_OriginalResponse([]),
+                )
+                response_started = True
+            raw_kwargs["body"].seek(0)
 
         assert response_started, "The application did not return a response."
 
@@ -399,15 +429,22 @@ class _ASGIAdapter(requests.adapters.HTTPAdapter):
         response = self.build_response(request, raw)
         if cut_at_deadline:
             setattr(response, STREAM_CUT_SHORT_ATTRIBUTE, True)
+        if app_exception is not None:
+            setattr(response, APP_EXCEPTION_ATTRIBUTE, app_exception)
         return response
 
 
 class ASGIClient(requests.Session):
     def __init__(
-        self, app: ASGIApp, base_url: str = f"http://{HOST}", *, max_stream_events: int = DEFAULT_MAX_STREAM_EVENTS
+        self,
+        app: ASGIApp,
+        base_url: str = f"http://{HOST}",
+        *,
+        max_stream_events: int = DEFAULT_MAX_STREAM_EVENTS,
+        raise_app_exceptions: bool = True,
     ) -> None:
         super().__init__()
-        self.adapter = _ASGIAdapter(app, max_stream_events)
+        self.adapter = _ASGIAdapter(app, max_stream_events, raise_app_exceptions)
         self.mount("http://", self.adapter)
         self.mount("https://", self.adapter)
         self.headers.update({"user-agent": "testclient"})
@@ -429,5 +466,7 @@ class ASGIClient(requests.Session):
         super().__exit__(*args)
 
 
-def get_client(app: ASGIApp, *, max_stream_events: int = DEFAULT_MAX_STREAM_EVENTS) -> ASGIClient:
-    return ASGIClient(app, max_stream_events=max_stream_events)
+def get_client(
+    app: ASGIApp, *, max_stream_events: int = DEFAULT_MAX_STREAM_EVENTS, raise_app_exceptions: bool = True
+) -> ASGIClient:
+    return ASGIClient(app, max_stream_events=max_stream_events, raise_app_exceptions=raise_app_exceptions)
